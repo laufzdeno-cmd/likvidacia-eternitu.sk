@@ -38,8 +38,9 @@ inquiryForm?.addEventListener('submit', (event) => {
       return;
     }
 
-    if (String(value).trim()) {
-      lines.push(`${key}: ${value}`);
+    const textValue = String(value).trim();
+    if (textValue) {
+      lines.push(`${key}: ${textValue}`);
     }
   });
 
@@ -60,7 +61,7 @@ inquiryForm?.addEventListener('submit', (event) => {
   try {
     window.localStorage.setItem(`likvidacia-eternitu-dopyt-${Date.now()}`, JSON.stringify(payload));
   } catch {
-    // Local storage is only a convenience for the static prototype.
+    // Local storage is only a convenience for the static GitHub Pages version.
   }
 
   if (formStatus) {
