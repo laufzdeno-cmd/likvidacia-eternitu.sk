@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://likvidacia-eternitu.sk/sitemap.xml
