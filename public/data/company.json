@@ -1,0 +1,69 @@
+{
+  "brand": "Likvidácia Eternitu",
+  "legal_name": "ASTANA, s.r.o.",
+  "domain": "https://likvidacia-eternitu.sk",
+  "phone": "+421905217946",
+  "email": "astana@astana.sk",
+  "address": {
+    "street": "Scherffelová 28",
+    "postal_code": "058 01",
+    "city": "Poprad",
+    "country": "Slovensko"
+  },
+  "company_ids": {
+    "ico": "46157701",
+    "dic": "2023253771",
+    "ic_dph": "SK2023253771"
+  },
+  "founded_year": 2011,
+  "services": [
+    "Likvidácia eternitu",
+    "Likvidácia materiálov obsahujúcich azbest",
+    "Odborná demontáž",
+    "Stabilizácia materiálu",
+    "Balenie do určených obalov",
+    "Odvoz a doklady podľa typu zákazky",
+    "Koordinácia so strechármi"
+  ],
+  "areas_served": [
+    "Slovensko",
+    "Bratislavský kraj",
+    "Trnavský kraj",
+    "Trenčiansky kraj",
+    "Nitriansky kraj",
+    "Žilinský kraj",
+    "Banskobystrický kraj",
+    "Prešovský kraj",
+    "Košický kraj"
+  ],
+  "key_claims": [
+    "Likvidácia eternitu zladená so strechármi",
+    "Šablóny po stabilizácii nezhadzujeme zo strechy",
+    "Materiál ukladáme priamo do určených obalov",
+    "Pôsobíme po celom Slovensku",
+    "Firma pôsobí od roku 2011"
+  ],
+  "same_as": [
+    "https://astana.sk"
+  ],
+  "public_pages": [
+    "https://likvidacia-eternitu.sk/",
+    "https://likvidacia-eternitu.sk/likvidacia-eternitu/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu/",
+    "https://likvidacia-eternitu.sk/cena/",
+    "https://likvidacia-eternitu.sk/pre-strecharov/",
+    "https://likvidacia-eternitu.sk/spolupracujuci-strechari/",
+    "https://likvidacia-eternitu.sk/realizacie/",
+    "https://likvidacia-eternitu.sk/poradna/",
+    "https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/",
+    "https://likvidacia-eternitu.sk/cookies/",
+    "https://likvidacia-eternitu.sk/podmienky-pouzivania/",
+    "https://likvidacia-eternitu.sk/sitemap.xml",
+    "https://likvidacia-eternitu.sk/llms.txt"
+  ],
+  "todos": {
+    "permissions": "TODO doplniť reálne čísla oprávnení a odkazy na verejné registre po overení.",
+    "opening_hours": "TODO doplniť aktuálnu pracovnú dobu.",
+    "social_profiles": "TODO doplniť iba reálne verejné profily."
+  }
+}
