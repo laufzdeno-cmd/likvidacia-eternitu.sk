@@ -1,0 +1,1 @@
+# likvidacia-eternitu.sk
