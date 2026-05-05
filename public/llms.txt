@@ -1,6 +1,6 @@
 # Likvidácia Eternitu
 
-Likvidácia Eternitu je slovenský web pre odbornú likvidáciu eternitu a materiálov obsahujúcich azbest. Odborné zázemie: ASTANA, s.r.o. Firma pôsobí od roku 2011.
+Likvidácia Eternitu je slovenský web pre odbornú likvidáciu eternitu a materiálov obsahujúcich azbest. Odborné zázemie zabezpečuje ASTANA, s.r.o., firma pôsobiaca od roku 2011.
 
 Hlavné služby:
 - likvidácia eternitu,
@@ -12,11 +12,10 @@ Hlavné služby:
 - koordinácia demontáže so strechármi.
 
 Pôsobnosť:
-- celé Slovensko,
-- Bratislavský, Trnavský, Trenčiansky, Nitriansky, Žilinský, Banskobystrický, Prešovský a Košický kraj.
+- celé Slovensko.
 
 Hlavná výhoda:
-Likvidácia eternitu je zladená so strechármi. Ak zákazník má svojho strechára, termín demontáže sa dá koordinovať s ním. Ak strechára nemá, môže požiadať o odporúčanie spolupracujúceho partnera v kraji.
+Likvidácia eternitu je zladená so strechármi. Ak zákazník má svojho strechára, termín demontáže sa dá koordinovať s ním. Ak strechára nemá, môže v dopyte uviesť kraj a tím preverí dostupného partnera.
 
 Kontakt:
 - telefón: 0905 217 946
@@ -30,12 +29,9 @@ Hlavné stránky:
 - https://likvidacia-eternitu.sk/cena/
 - https://likvidacia-eternitu.sk/pre-strecharov/
 - https://likvidacia-eternitu.sk/spolupracujuci-strechari/
-- https://likvidacia-eternitu.sk/realizacie/
-- https://likvidacia-eternitu.sk/poradna/
 - https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/
 - https://likvidacia-eternitu.sk/cookies/
 - https://likvidacia-eternitu.sk/podmienky-pouzivania/
 - https://likvidacia-eternitu.sk/data/company.json
 
-Poznámka:
-Tento súbor je stručný strojovo čitateľný súhrn. Úplný a aktuálny obsah je na verejných stránkach webu.
+Tento súbor je stručný strojovo čitateľný súhrn. Úplný obsah je na verejných stránkach webu.

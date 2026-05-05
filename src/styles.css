@@ -854,7 +854,7 @@ p {
 
 .inquiry-shell {
   display: grid;
-  grid-template-columns: 190px 0.55fr 1fr;
+  grid-template-columns: minmax(260px, 0.55fr) 1fr;
   gap: 24px;
   align-items: center;
   border: 1px solid var(--line);
@@ -891,7 +891,7 @@ p {
 
 .inquiry-form {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -941,6 +941,34 @@ p {
 
 .form-submit {
   justify-self: start;
+}
+
+.problem-section .pain-grid {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.timeline.four-steps {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.feature-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roofer-help {
+  background:
+    linear-gradient(135deg, rgba(11, 42, 85, 0.94), rgba(18, 61, 115, 0.92)),
+    var(--navy);
+}
+
+.roofer-help h2,
+.roofer-help p {
+  color: #fff;
+}
+
+.roofer-help .eyebrow {
+  color: #ffd77e;
 }
 
 .form-note {
@@ -1148,6 +1176,11 @@ p {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .timeline.four-steps,
+  .feature-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .region-cards,
   .blog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1216,6 +1249,8 @@ p {
   .pain-grid,
   .timeline,
   .feature-grid,
+  .timeline.four-steps,
+  .feature-grid.compact,
   .price-levels,
   .region-cards,
   .inquiry-form,

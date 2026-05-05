@@ -26,15 +26,7 @@
     "Koordinácia so strechármi"
   ],
   "areas_served": [
-    "Slovensko",
-    "Bratislavský kraj",
-    "Trnavský kraj",
-    "Trenčiansky kraj",
-    "Nitriansky kraj",
-    "Žilinský kraj",
-    "Banskobystrický kraj",
-    "Prešovský kraj",
-    "Košický kraj"
+    "Slovensko"
   ],
   "key_claims": [
     "Likvidácia eternitu zladená so strechármi",
@@ -53,17 +45,10 @@
     "https://likvidacia-eternitu.sk/cena/",
     "https://likvidacia-eternitu.sk/pre-strecharov/",
     "https://likvidacia-eternitu.sk/spolupracujuci-strechari/",
-    "https://likvidacia-eternitu.sk/realizacie/",
-    "https://likvidacia-eternitu.sk/poradna/",
     "https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/",
     "https://likvidacia-eternitu.sk/cookies/",
     "https://likvidacia-eternitu.sk/podmienky-pouzivania/",
     "https://likvidacia-eternitu.sk/sitemap.xml",
     "https://likvidacia-eternitu.sk/llms.txt"
-  ],
-  "todos": {
-    "permissions": "TODO doplniť reálne čísla oprávnení a odkazy na verejné registre po overení.",
-    "opening_hours": "TODO doplniť aktuálnu pracovnú dobu.",
-    "social_profiles": "TODO doplniť iba reálne verejné profily."
-  }
+  ]
 }
