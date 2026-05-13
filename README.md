@@ -1,6 +1,15 @@
 # likvidacia-eternitu.sk
 
-Statický lead-generating web pre doménu `likvidacia-eternitu.sk`, postavený na Vite + React tooling + TypeScript. Hlavný obsah homepage je priamo v `index.html`, aby ho vedeli čítať verejné crawlery aj bez spustenia JavaScriptu.
+Full-stack základ pre ASTANA, s.r.o.:
+
+- verejná slovenská landing page pre likvidáciu azbestu a eternitu,
+- formulár na dopyt s uploadom fotiek,
+- uloženie dopytu do databázy,
+- bezpečné uloženie fotiek do storage,
+- admin login na `/admin`,
+- zoznam a detail dopytov,
+- interné poznámky, statusy a audit log,
+- vytvorenie základnej cenovej ponuky z dopytu.
 
 ## Lokálne spustenie
 
@@ -9,6 +18,8 @@ npm install
 npm run dev
 ```
 
+Lokálne bez `DATABASE_URL` aplikácia používa vývojový súbor `.data/local-db.json` a fotky ukladá do `storage/lead-files`.
+
 ## Build
 
 ```bash
@@ -16,20 +27,84 @@ npm run build
 npm run preview
 ```
 
-Produkčný výstup je v priečinku `dist`.
+## Admin
 
-## GitHub Pages
+Admin je na:
 
-Deploy rieši workflow `.github/workflows/deploy.yml`. V nastaveniach repozitára má byť GitHub Pages source nastavený na `GitHub Actions`. Custom doména je `likvidacia-eternitu.sk` a Vite `base` je `/`.
+```text
+/admin/login
+```
 
-## SEO súbory
+Lokálne bez env premenných funguje vývojové prihlásenie:
 
-- `public/robots.txt`
-- `public/sitemap.xml`
-- `public/llms.txt`
-- `public/data/company.json`
-- právne stránky v `public/ochrana-osobnych-udajov/`, `public/cookies/`, `public/podmienky-pouzivania/`
+```text
+Email: admin@local.test
+Heslo: astana-admin
+```
 
-## Dopytový formulár
+V produkcii nastavte:
 
-Web je statický na GitHub Pages, preto formulár zatiaľ pripraví email cez `mailto:` na `astana@astana.sk`. Pre skutočné ukladanie dopytov a automatické emailové notifikácie treba doplniť backend, serverless funkciu alebo externú formulárovú službu.
+```bash
+AUTH_SECRET=
+ADMIN_EMAIL=astana@astana.sk
+ADMIN_PASSWORD_HASH=
+```
+
+Hash hesla vytvoríte:
+
+```bash
+npm run admin:hash -- "silne-heslo"
+```
+
+## Produkčné env premenné
+
+Použite `.env.example`.
+
+Dôležité:
+
+- `DATABASE_URL` musí smerovať na PostgreSQL databázu.
+- `S3_*` premenné nastavte na S3 kompatibilné úložisko pre fotky.
+- `SMTP_*` nastavte až pred ostrým odosielaním emailov.
+
+Email je iba notifikácia. Hlavný systém je databáza a admin.
+
+## Vercel
+
+Projekt je Next.js aplikácia. Na Verceli nastavte framework preset `Next.js`, deploy preview môžete spraviť bez prepnutia domény.
+
+Pred ostrým použitím nastavte:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://likvidacia-eternitu.sk
+DATABASE_URL=
+AUTH_SECRET=
+ADMIN_EMAIL=astana@astana.sk
+ADMIN_PASSWORD_HASH=
+ALLOWED_ORIGINS=https://likvidacia-eternitu.sk,http://localhost:3000
+LEAD_TO_EMAIL=astana@astana.sk
+MAIL_FROM=astana@astana.sk
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=
+SMTP_PASS=
+S3_ENDPOINT=
+S3_REGION=auto
+S3_BUCKET=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_FORCE_PATH_STYLE=true
+```
+
+## Firemné údaje
+
+Používajú sa aktuálne údaje:
+
+ASTANA, s.r.o.  
+Scherffelova 1364/28  
+058 01 Poprad  
+IČO: 46 157 701  
+DIČ: 2023253771  
+IČ DPH: SK2023253771  
+0905 217 946  
+astana@astana.sk

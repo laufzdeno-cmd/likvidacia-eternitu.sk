@@ -1,37 +1,45 @@
-# Likvidácia Eternitu
+# ASTANA - likvidacia azbestu a eternitu
 
-Likvidácia Eternitu je slovenský web pre odbornú likvidáciu eternitu a materiálov obsahujúcich azbest. Odborné zázemie zabezpečuje ASTANA, s.r.o., firma pôsobiaca od roku 2011.
+Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre likvidaciu azbestu a eternitu po celom Slovensku. Firma posobi od roku 2011.
 
-Hlavné služby:
-- likvidácia eternitu,
-- likvidácia materiálov obsahujúcich azbest,
-- stabilizácia materiálu,
-- odborná demontáž,
-- balenie azbestocementových šablón priamo do určených obalov,
-- odvoz a doklady podľa typu zákazky,
-- koordinácia demontáže so strechármi.
+Hlavne sluzby:
+- likvidacia azbestu,
+- likvidacia eternitu,
+- odstranenie azbestu,
+- demontaz eternitu,
+- stabilizacia azbestoveho materialu,
+- balenie do oznacenych obalov,
+- odvoz nebezpecneho odpadu,
+- dokumentacia a potvrdenie o legalnej likvidacii.
 
-Pôsobnosť:
-- celé Slovensko.
+Posobnost:
+- cele Slovensko.
 
-Hlavná výhoda:
-Likvidácia eternitu je zladená so strechármi. Ak zákazník má svojho strechára, termín demontáže sa dá koordinovať s ním. Ak strechára nemá, môže v dopyte uviesť kraj a tím preverí dostupného partnera.
+Hlavne vyhody:
+- cenova ponuka do 24 hodin pocas pracovnych dni,
+- doprava nad 100 m2 zdarma,
+- vybavenie dokumentacie, demontaze, balenia, odvozu a potvrdenia,
+- pomoc so zladenim so strecharom.
 
 Kontakt:
-- telefón: 0905 217 946
+- ASTANA, s.r.o.
+- Scherffelova 1364/28, 058 01 Poprad
+- ICO: 46 157 701
+- DIC: 2023253771
+- IC DPH: SK2023253771
+- telefon: 0905 217 946
 - email: astana@astana.sk
 - web: https://likvidacia-eternitu.sk/
 
-Hlavné stránky:
+Hlavne stranky:
 - https://likvidacia-eternitu.sk/
 - https://likvidacia-eternitu.sk/likvidacia-eternitu/
 - https://likvidacia-eternitu.sk/likvidacia-azbestu/
 - https://likvidacia-eternitu.sk/cena/
 - https://likvidacia-eternitu.sk/pre-strecharov/
-- https://likvidacia-eternitu.sk/spolupracujuci-strechari/
 - https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/
 - https://likvidacia-eternitu.sk/cookies/
 - https://likvidacia-eternitu.sk/podmienky-pouzivania/
 - https://likvidacia-eternitu.sk/data/company.json
 
-Tento súbor je stručný strojovo čitateľný súhrn. Úplný obsah je na verejných stránkach webu.
+Tento subor je strucny strojovo citatelny suhrn. Uplny obsah je na verejnych strankach webu.

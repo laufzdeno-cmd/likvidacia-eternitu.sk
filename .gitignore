@@ -82,6 +82,11 @@ out
 .nuxt
 dist
 .output
+.data/
+storage/
+tmp-*.png
+crop*.png
+hero-clean-*.png
 
 # Gatsby files
 .cache/

@@ -1,50 +1,47 @@
 {
-  "brand": "Likvidácia Eternitu",
+  "brand": "ASTANA - likvidacia azbestu a eternitu",
   "legal_name": "ASTANA, s.r.o.",
   "domain": "https://likvidacia-eternitu.sk",
   "phone": "+421905217946",
   "email": "astana@astana.sk",
+  "website": "https://likvidacia-eternitu.sk",
   "address": {
-    "street": "Scherffelová 28",
+    "street": "Scherffelova 1364/28",
     "postal_code": "058 01",
     "city": "Poprad",
     "country": "Slovensko"
   },
   "company_ids": {
-    "ico": "46157701",
+    "ico": "46 157 701",
     "dic": "2023253771",
     "ic_dph": "SK2023253771"
   },
   "founded_year": 2011,
   "services": [
-    "Likvidácia eternitu",
-    "Likvidácia materiálov obsahujúcich azbest",
-    "Odborná demontáž",
-    "Stabilizácia materiálu",
-    "Balenie do určených obalov",
-    "Odvoz a doklady podľa typu zákazky",
-    "Koordinácia so strechármi"
+    "Likvidacia azbestu",
+    "Likvidacia eternitu",
+    "Odstranenie azbestu",
+    "Demontaz eternitu",
+    "Stabilizacia azbestoveho materialu",
+    "Balenie do oznacenych obalov",
+    "Odvoz nebezpecneho odpadu",
+    "Dokumentacia a potvrdenie o legalnej likvidacii"
   ],
-  "areas_served": [
-    "Slovensko"
-  ],
+  "areas_served": ["Slovensko"],
   "key_claims": [
-    "Likvidácia eternitu zladená so strechármi",
-    "Šablóny po stabilizácii nezhadzujeme zo strechy",
-    "Materiál ukladáme priamo do určených obalov",
-    "Pôsobíme po celom Slovensku",
-    "Firma pôsobí od roku 2011"
+    "Cenova ponuka do 24 hodin pocas pracovnych dni",
+    "Doprava nad 100 m2 zdarma",
+    "Dokumentacia, demontaz, balenie, odvoz aj potvrdenie",
+    "Firma posobi od roku 2011",
+    "Pomoc so zladenim so strecharom"
   ],
-  "same_as": [
-    "https://astana.sk"
-  ],
+  "same_as": ["https://astana.sk"],
   "public_pages": [
     "https://likvidacia-eternitu.sk/",
     "https://likvidacia-eternitu.sk/likvidacia-eternitu/",
     "https://likvidacia-eternitu.sk/likvidacia-azbestu/",
     "https://likvidacia-eternitu.sk/cena/",
     "https://likvidacia-eternitu.sk/pre-strecharov/",
-    "https://likvidacia-eternitu.sk/spolupracujuci-strechari/",
     "https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/",
     "https://likvidacia-eternitu.sk/cookies/",
     "https://likvidacia-eternitu.sk/podmienky-pouzivania/",
