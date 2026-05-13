@@ -201,6 +201,11 @@
             <p class="eyebrow">Rýchly dopyt</p>
             <h2 id="inquiry-title">Pošlite fotky strechy a základné údaje</h2>
             <p>Čím viac fotiek pošlete, tým rýchlejšie vieme pripraviť orientačný postup a cenu.</p>
+            <ul class="inquiry-benefits" aria-label="Výhody dopytu">
+              <li>Bez zbytočných polí</li>
+              <li>Fotky pomôžu naceniť rýchlejšie</li>
+              <li>Zladíme sa so strechárom</li>
+            </ul>
           </div>
           <form class="inquiry-form" action="https://formsubmit.co/astana@astana.sk" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="_subject" value="Dopyt na likvidáciu eternitu" />
@@ -218,9 +223,9 @@
                 <option>Potrebujem odporučiť</option>
               </select>
             </div>
-            <div class="field"><label for="area">Výmera približne</label><input id="area" name="Výmera" inputmode="numeric" placeholder="napr. 120 m²" /></div>
+            <div class="field"><label for="area">Výmera približne</label><input id="area" name="Výmera" inputmode="numeric" /></div>
             <div class="field"><label for="photos">Fotky</label><input id="photos" name="Fotky" type="file" accept=".jpg,.jpeg,.png,.webp,.pdf" multiple /></div>
-            <div class="field field-wide"><label for="note">Poznámka</label><textarea id="note" name="Poznámka" rows="3" placeholder="Kraj, termín, prístup, kontakt na strechára..."></textarea></div>
+            <div class="field field-wide"><label for="note">Poznámka</label><textarea id="note" name="Poznámka" rows="3"></textarea></div>
             <label class="consent field-wide"><input type="checkbox" name="Súhlas so spracovaním údajov" required /> Súhlasím so spracovaním údajov na vybavenie dopytu.</label>
             <button class="button button-primary form-submit" type="submit">Odoslať dopyt</button>
           </form>
