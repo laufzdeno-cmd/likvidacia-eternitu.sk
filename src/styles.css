@@ -2156,7 +2156,7 @@ textarea:focus-visible {
   .quote-card,
   .hero-photo {
     width: 100%;
-    max-width: 360px;
+    max-width: 300px;
     margin-right: auto;
     margin-left: auto;
   }
