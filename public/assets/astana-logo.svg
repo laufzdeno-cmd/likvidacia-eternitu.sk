@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 130" role="img" aria-labelledby="title desc">
   <title id="title">ASTANA</title>
-  <desc id="desc">Logo ASTANA s tmavočerveným oblúkom a čiernym textom</desc>
+  <desc id="desc">Logo ASTANA v tlmenej pieskovej a modrej farebnosti</desc>
   <path
-    fill="#c83a2b"
+    fill="#c8a97e"
     d="M25 82C40 28 113 5 193 7c73 2 132 24 171 66C305 43 237 28 164 35 95 42 43 63 25 122c-7-13-8-26 0-40Z"
   />
   <text
     x="72"
     y="116"
-    fill="#231f20"
+    fill="#142033"
     font-family="Georgia, 'Times New Roman', serif"
     font-size="74"
     font-weight="900"
