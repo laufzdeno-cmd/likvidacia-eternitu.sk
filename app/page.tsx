@@ -239,8 +239,12 @@ export default function HomePage() {
               </div>
               <div className="field file-field field-full">
                 <label htmlFor="photos">Nahrajte fotky</label>
-                <input id="photos" name="photos" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" multiple />
-                <span>Fotky strechy, materiálu a okolia môžete presunúť sem alebo vybrať z mobilu.</span>
+                <label className="file-drop" htmlFor="photos">
+                  <span className="file-drop-icon" aria-hidden="true"></span>
+                  <strong>Vybrať fotky zo zariadenia</strong>
+                  <span>JPG, PNG, WEBP, HEIC alebo PDF. Fotky z mobilu úplne stačia.</span>
+                </label>
+                <input className="file-input" id="photos" name="photos" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" multiple />
                 <div className="file-preview" aria-live="polite"></div>
               </div>
               <div className="field field-full">

@@ -584,13 +584,61 @@ textarea:focus-visible {
   background: #fbfdff;
 }
 
-.file-field input {
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   min-height: 0;
+  overflow: hidden;
   border: 0;
-  padding: 4px 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
-.file-field span {
+.file-drop {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  align-items: center;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 8px;
+  padding: 10px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.file-drop:hover {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(245, 164, 0, 0.12);
+}
+
+.file-drop-icon {
+  grid-row: span 2;
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--soft-blue);
+}
+
+.file-drop-icon::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--primary);
+  border-radius: 4px;
+  box-shadow: 5px -5px 0 -2px #ffffff, 5px -5px 0 0 var(--amber);
+}
+
+.file-drop strong {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.file-drop span:last-child {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
