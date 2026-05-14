@@ -36,7 +36,7 @@ export type LeadFile = {
   id: string;
   leadId: string;
   originalName: string;
-  storageDriver: 'local' | 's3';
+  storageDriver: 'local' | 's3' | 'vercel_blob';
   storageKey: string;
   mimeType: string;
   sizeBytes: number;

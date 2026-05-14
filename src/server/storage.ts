@@ -2,9 +2,21 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { get, put } from '@vercel/blob';
 import type { LeadFile } from './types';
 
 const localStorageRoot = path.join(process.cwd(), 'storage', 'lead-files');
+
+async function webStreamToBuffer(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+  return Buffer.concat(chunks);
+}
 
 function safeExtension(fileName: string) {
   const ext = path.extname(fileName).toLowerCase();
@@ -37,6 +49,21 @@ export async function storeLeadFile(leadId: string, file: File): Promise<Omit<Le
   const key = `${leadId}/${randomUUID()}${safeExtension(originalName)}`;
   const s3 = s3Client();
 
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(key, bytes, {
+      access: 'private',
+      contentType: file.type || 'application/octet-stream',
+    });
+    return {
+      leadId,
+      originalName,
+      storageDriver: 'vercel_blob',
+      storageKey: blob.pathname,
+      mimeType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+    };
+  }
+
   if (s3) {
     await s3.client.send(
       new PutObjectCommand({
@@ -61,7 +88,7 @@ export async function storeLeadFile(leadId: string, file: File): Promise<Omit<Le
   }
 
   if (process.env.NODE_ENV === 'production') {
-    throw new Error('S3 storage is required in production.');
+    throw new Error('S3 or Vercel Blob storage is required in production.');
   }
 
   const localPath = path.join(localStorageRoot, key);
@@ -78,6 +105,14 @@ export async function storeLeadFile(leadId: string, file: File): Promise<Omit<Le
 }
 
 export async function readStoredLeadFile(file: LeadFile) {
+  if (file.storageDriver === 'vercel_blob') {
+    const response = await get(file.storageKey, { access: 'private', useCache: false });
+    if (!response || response.statusCode !== 200 || !response.stream) {
+      throw new Error('Blob file not found.');
+    }
+    return webStreamToBuffer(response.stream);
+  }
+
   if (file.storageDriver === 's3') {
     const s3 = s3Client();
     if (!s3) throw new Error('S3 storage is not configured.');
