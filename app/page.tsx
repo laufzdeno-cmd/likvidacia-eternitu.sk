@@ -165,7 +165,7 @@ export default function HomePage() {
               Cenová ponuka <span>do 24 hodín</span>
             </h2>
             <p>Pošlite nám základné údaje a fotky. Pripravíme vám nezáväznú cenovú ponuku.</p>
-            <form className="lead-form" action="/api/lead" method="post" encType="multipart/form-data" noValidate>
+            <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <div className="field">
                 <label htmlFor="fullName">Meno a priezvisko *</label>

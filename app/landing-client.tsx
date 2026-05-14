@@ -10,6 +10,7 @@ export default function LandingClient() {
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
+    const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -63,14 +64,26 @@ export default function LandingClient() {
       }
     };
 
+    const onScroll = () => {
+      if (!stickyCta || !form) return;
+      const formBottom = form.getBoundingClientRect().bottom;
+      const shouldShow = window.innerWidth <= 760 && formBottom < 120;
+      stickyCta.classList.toggle('is-visible', shouldShow);
+    };
+
     menuToggle?.addEventListener('click', onMenuClick);
     fileInput?.addEventListener('change', onFilesChange);
     form?.addEventListener('submit', onSubmit);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    onScroll();
 
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
       fileInput?.removeEventListener('change', onFilesChange);
       form?.removeEventListener('submit', onSubmit);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
     };
   }, []);
 

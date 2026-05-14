@@ -1345,6 +1345,16 @@ textarea:focus-visible {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(120%);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.mobile-sticky-cta.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
 }
 
 .mobile-sticky-cta a {
@@ -1596,7 +1606,8 @@ textarea:focus-visible {
 }
 
 .admin-detail-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(320px, 1fr));
+  align-items: start;
 }
 
 .admin-table-wrap {

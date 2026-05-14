@@ -13,7 +13,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
 
   return (
     <main className="admin-login">
-      <form className="admin-login-card" action="/admin/login/submit" method="post">
+      <form className="admin-login-card" action="/admin/login/submit/" method="post">
         <img src="/assets/astana-logo.svg" alt="ASTANA" width="190" height="64" />
         <h1>Prihlásenie do adminu</h1>
         <p>Dopyty, fotky a cenové ponuky sú chránené prihlásením.</p>
