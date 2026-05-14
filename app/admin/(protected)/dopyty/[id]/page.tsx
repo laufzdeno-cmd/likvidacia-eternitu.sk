@@ -1,22 +1,24 @@
 import { notFound } from 'next/navigation';
 import { getLeadWithFiles, nextQuoteNumber } from '@/src/server/db';
+import { getLeadInsight, statusLabels, tagLabels } from '@/src/server/lead-insights';
 import { saveInternalNote, saveLeadStatus } from './actions';
 
 const statuses = [
-  ['novy', 'nový'],
-  ['caka_na_doplnenie', 'čaká na doplnenie'],
-  ['naceneny', 'nacenený'],
-  ['cenova_ponuka_odoslana', 'cenová ponuka odoslaná'],
-  ['objednane', 'objednané'],
-  ['nevyslo', 'nevyšlo'],
-  ['archivovane', 'archivované'],
-];
+  'novy',
+  'caka_na_doplnenie',
+  'naceneny',
+  'cenova_ponuka_odoslana',
+  'objednane',
+  'nevyslo',
+  'archivovane',
+] as const;
 
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const lead = await getLeadWithFiles(id);
   if (!lead) notFound();
   const defaultQuoteNumber = await nextQuoteNumber();
+  const insight = getLeadInsight(lead, lead.files.length, lead.quotes.length);
 
   return (
     <main className="admin-page">
@@ -57,10 +59,16 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
 
         <section className="admin-card">
           <h2>Status</h2>
+          <div className="lead-insight-card">
+            <strong>Lead quality score: {insight.qualityScore}/100</strong>
+            <div className="tag-list">
+              {insight.tags.map((item) => <span key={item}>{tagLabels[item]}</span>)}
+            </div>
+          </div>
           <form action={saveLeadStatus} className="admin-form-inline">
             <input type="hidden" name="id" value={lead.id} />
             <select name="status" defaultValue={lead.status}>
-              {statuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {statuses.map((value) => <option key={value} value={value}>{statusLabels[value]}</option>)}
             </select>
             <button type="submit">Uložiť status</button>
           </form>

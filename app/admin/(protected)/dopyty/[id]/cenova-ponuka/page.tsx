@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getLeadWithFiles, nextQuoteNumber } from '@/src/server/db';
 import { createQuoteAction } from './actions';
+import QuoteLivePreview from './quote-live-preview';
 
 function defaultValidUntil() {
   const date = new Date();
@@ -63,6 +64,11 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
             DPH %
             <input name="vatRate" type="number" step="0.01" defaultValue="23" />
           </label>
+          <label>
+            Odhad nákladov bez DPH
+            <input name="estimatedCosts" type="number" step="0.01" defaultValue="0" />
+          </label>
+          <QuoteLivePreview />
           <label className="admin-form-wide">
             Poznámka do ponuky
             <textarea name="note" rows={5} defaultValue={`Objekt / lokalita: ${lead.city}. Typ materiálu: ${lead.materialType}. Cenová ponuka je predbežná a upraví sa podľa skutočných m².`} />

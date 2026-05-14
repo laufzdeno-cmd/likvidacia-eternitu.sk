@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { addAuditLog, addLeadFiles, createLead } from '@/src/server/db';
+import { validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
 import { storeLeadFile } from '@/src/server/storage';
-import { allowedFileTypes, leadSchema, maxLeadFileSize, maxLeadFiles } from '@/src/server/validation';
+import { leadSchema, maxLeadFiles } from '@/src/server/validation';
 
 export const runtime = 'nodejs';
 
@@ -26,7 +27,7 @@ function rateLimited(ip: string) {
 function originAllowed(request: NextRequest) {
   const origin = request.headers.get('origin');
   if (!origin) return true;
-  const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,http://localhost:3000,http://localhost:5173')
+  const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk,http://localhost:3000,http://localhost:5173')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
@@ -73,15 +74,15 @@ export async function POST(request: NextRequest) {
     phone: formData.get('phone'),
     email: formData.get('email'),
     city: formData.get('city'),
-    district: formData.get('district'),
+    district: formData.get('district') || '',
     objectType: formData.get('objectType'),
     materialType: formData.get('materialType'),
     areaEstimate: formData.get('areaEstimate') || formData.get('area'),
-    roofer: formData.get('roofer'),
-    term: formData.get('term'),
-    note: formData.get('note'),
+    roofer: formData.get('roofer') || '',
+    term: formData.get('term') || '',
+    note: formData.get('note') || '',
     gdpr: formData.get('gdpr'),
-    companyWebsite: formData.get('companyWebsite'),
+    companyWebsite: formData.get('companyWebsite') || '',
   });
 
   if (!parsed.success) {
@@ -101,12 +102,8 @@ export async function POST(request: NextRequest) {
   }
 
   for (const file of uploadedFiles) {
-    if (!allowedFileTypes.has(file.type)) {
-      return failure(request, 'Povolené sú iba JPG, PNG, WEBP, HEIC alebo PDF súbory.');
-    }
-    if (file.size > maxLeadFileSize) {
-      return failure(request, 'Jeden súbor môže mať maximálne 10 MB.');
-    }
+    const fileError = await validateUploadedLeadFile(file);
+    if (fileError) return failure(request, fileError);
   }
 
   try {
@@ -134,8 +131,16 @@ export async function POST(request: NextRequest) {
     const fileRows = await addLeadFiles(stored);
     await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: fileRows.length });
 
-    const mailResult = await sendLeadEmails(lead, fileRows.length);
-    await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_skipped', 'system', mailResult);
+    let mailResult: Record<string, unknown>;
+    try {
+      mailResult = await sendLeadEmails(lead, fileRows.length);
+    } catch (error) {
+      mailResult = {
+        sent: false,
+        reason: error instanceof Error ? error.message : 'Email sa nepodarilo odoslať.',
+      };
+    }
+    await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_error', 'system', mailResult);
 
     return success(request, 'Dopyt sme prijali. Uložili sme ho do systému a ozveme sa vám s ďalším postupom.');
   } catch (error) {

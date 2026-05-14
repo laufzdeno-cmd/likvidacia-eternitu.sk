@@ -32,6 +32,11 @@ export type Lead = LeadInput & {
   updatedAt: string;
 };
 
+export type LeadSummary = Lead & {
+  fileCount: number;
+  quoteCount: number;
+};
+
 export type LeadFile = {
   id: string;
   leadId: string;

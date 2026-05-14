@@ -37,5 +37,6 @@ export const allowedFileTypes = new Set([
   'application/pdf',
 ]);
 
+export const allowedFileExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.pdf']);
 export const maxLeadFiles = 10;
 export const maxLeadFileSize = 10 * 1024 * 1024;

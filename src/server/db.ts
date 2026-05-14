@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import type { AuditLog, Lead, LeadFile, LeadInput, LeadStatus, Quote, QuoteInput } from './types';
+import type { AuditLog, Lead, LeadFile, LeadInput, LeadStatus, LeadSummary, Quote, QuoteInput } from './types';
 
 type LocalDb = {
   leads: Lead[];
@@ -53,6 +53,14 @@ function toLead(row: Record<string, unknown>): Lead {
     source: row.source ? String(row.source) : 'web',
     internalNote: row.internal_note ? String(row.internal_note) : '',
     rawData: (row.raw_data as Record<string, unknown>) ?? {},
+  };
+}
+
+function toLeadSummary(row: Record<string, unknown>): LeadSummary {
+  return {
+    ...toLead(row),
+    fileCount: Number(row.file_count ?? 0),
+    quoteCount: Number(row.quote_count ?? 0),
   };
 }
 
@@ -180,6 +188,12 @@ async function ensureSchema() {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+
+    CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
+    CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
+    CREATE INDEX IF NOT EXISTS quotes_lead_id_idx ON quotes (lead_id);
   `);
   schemaReady = true;
 }
@@ -290,6 +304,41 @@ export async function listLeads(): Promise<Lead[]> {
   }
   const { rows } = await db.query('SELECT * FROM leads ORDER BY created_at DESC LIMIT 300');
   return rows.map(toLead);
+}
+
+export async function listLeadSummaries(): Promise<LeadSummary[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.leads]
+      .map((lead) => ({
+        ...lead,
+        fileCount: local.leadFiles.filter((file) => file.leadId === lead.id).length,
+        quoteCount: local.quotes.filter((quote) => quote.leadId === lead.id).length,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query(`
+    SELECT
+      l.*,
+      COALESCE(f.file_count, 0)::int AS file_count,
+      COALESCE(q.quote_count, 0)::int AS quote_count
+    FROM leads l
+    LEFT JOIN (
+      SELECT lead_id, count(*) AS file_count
+      FROM lead_files
+      GROUP BY lead_id
+    ) f ON f.lead_id = l.id
+    LEFT JOIN (
+      SELECT lead_id, count(*) AS quote_count
+      FROM quotes
+      GROUP BY lead_id
+    ) q ON q.lead_id = l.id
+    ORDER BY l.created_at DESC
+    LIMIT 300
+  `);
+  return rows.map(toLeadSummary);
 }
 
 export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null> {
@@ -494,12 +543,73 @@ export async function getQuote(id: string): Promise<Quote | null> {
 }
 
 export async function getDashboardStats() {
-  const leads = await listLeads();
+  const leads = await listLeadSummaries();
   const today = new Date().toISOString().slice(0, 10);
+  const staleLeads = leads.filter((lead) => lead.status === 'novy' && Date.now() - new Date(lead.createdAt).getTime() > 24 * 60 * 60 * 1000).length;
   return {
     totalLeads: leads.length,
     newLeads: leads.filter((lead) => lead.status === 'novy').length,
     todayLeads: leads.filter((lead) => lead.createdAt.startsWith(today)).length,
     pricedLeads: leads.filter((lead) => lead.status === 'naceneny' || lead.status === 'cenova_ponuka_odoslana').length,
+    staleLeads,
+    missingPhotos: leads.filter((lead) => lead.fileCount === 0).length,
   };
+}
+
+export async function getSystemHealth() {
+  const base = {
+    database: { ok: false, detail: 'Databáza sa nedá overiť.' },
+    storage: {
+      ok: Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.S3_BUCKET),
+      detail: process.env.BLOB_READ_WRITE_TOKEN
+        ? 'Vercel Blob je nastavený.'
+        : process.env.S3_BUCKET
+          ? 'S3 kompatibilné úložisko je nastavené.'
+          : process.env.NODE_ENV === 'production'
+            ? 'Produkčný storage nie je nastavený.'
+            : 'Lokálne ukladanie do storage/lead-files.',
+    },
+    smtp: {
+      ok: Boolean(process.env.SMTP_HOST && process.env.MAIL_FROM && process.env.LEAD_TO_EMAIL),
+      detail: process.env.SMTP_HOST ? 'SMTP host je nastavený.' : 'SMTP_HOST nie je nastavený, emaily sa preskočia.',
+    },
+    allowedOrigins: process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk,http://localhost:3000,http://localhost:5173',
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk',
+    buildCommit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'lokálne / nezistené',
+    lastLead: null as null | LeadSummary,
+    lastEmailSent: null as null | AuditLog,
+    lastEmailError: null as null | AuditLog,
+  };
+
+  try {
+    await ensureSchema();
+    const db = getPool();
+    if (db) {
+      await db.query('SELECT 1');
+      base.database = { ok: true, detail: 'PostgreSQL/Neon odpovedá.' };
+      const [latestLeads, latestSent, latestError] = await Promise.all([
+        listLeadSummaries(),
+        db.query("SELECT * FROM audit_logs WHERE action = 'lead_email_sent' ORDER BY created_at DESC LIMIT 1"),
+        db.query("SELECT * FROM audit_logs WHERE action IN ('lead_email_error', 'lead_email_skipped') ORDER BY created_at DESC LIMIT 1"),
+      ]);
+      base.lastLead = latestLeads[0] ?? null;
+      base.lastEmailSent = latestSent.rows[0] ? toAuditLog(latestSent.rows[0]) : null;
+      base.lastEmailError = latestError.rows[0] ? toAuditLog(latestError.rows[0]) : null;
+      return base;
+    }
+
+    base.database = { ok: true, detail: 'Lokálny vývojový JSON storage odpovedá.' };
+    const local = await readLocalDb();
+    const latestLeads = await listLeadSummaries();
+    base.lastLead = latestLeads[0] ?? null;
+    base.lastEmailSent = local.auditLogs.find((log) => log.action === 'lead_email_sent') ?? null;
+    base.lastEmailError = local.auditLogs.find((log) => log.action === 'lead_email_error' || log.action === 'lead_email_skipped') ?? null;
+    return base;
+  } catch (error) {
+    base.database = {
+      ok: false,
+      detail: error instanceof Error ? error.message : 'Neznáma chyba databázy.',
+    };
+    return base;
+  }
 }
