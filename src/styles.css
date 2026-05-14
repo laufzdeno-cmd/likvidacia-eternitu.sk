@@ -121,7 +121,7 @@ svg {
 .transport-banner,
 .final-cta,
 .site-footer {
-  width: min(100% - 48px, 1440px);
+  width: min(calc(100% - 48px), 1440px);
   margin-right: auto;
   margin-left: auto;
 }
@@ -1094,7 +1094,7 @@ textarea:focus-visible {
 }
 
 .risk-section > * {
-  width: min(100% - 48px, 1440px);
+  width: min(calc(100% - 48px), 1440px);
   margin-right: auto;
   margin-left: auto;
 }
@@ -1978,7 +1978,7 @@ textarea:focus-visible {
   .section,
   .transport-banner,
   .final-cta {
-    width: min(100% - 32px, 1440px);
+    width: min(calc(100% - 32px), 1440px);
   }
 
   .header-main {
@@ -2145,7 +2145,7 @@ textarea:focus-visible {
   .section,
   .transport-banner,
   .final-cta {
-    width: min(100% - 24px, 1440px);
+    width: min(calc(100% - 24px), 1440px);
   }
 
   .header-main {
