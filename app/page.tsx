@@ -274,8 +274,8 @@ export default function HomePage() {
         <section className="trust-bar" aria-label="Dôveryhodné prvky služby">
           <div className="trust-item"><span className="line-icon shield" aria-hidden="true"></span><strong>Od roku 2011</strong></div>
           <div className="trust-item"><span className="line-icon map" aria-hidden="true"></span><strong>Pôsobíme po celej SR</strong></div>
+          <div className="trust-item"><span className="line-icon document" aria-hidden="true"></span><strong>Vybavíme RÚVZ / OÚŽP</strong></div>
           <div className="trust-item"><span className="line-icon truck" aria-hidden="true"></span><strong>Doprava nad 100 m² zdarma</strong></div>
-          <div className="trust-item"><span className="line-icon document" aria-hidden="true"></span><strong>Vybavíme RÚVZ a OÚŽP</strong></div>
           <div className="trust-item"><span className="line-icon certificate" aria-hidden="true"></span><strong>Potvrdenie o legálnej likvidácii</strong></div>
         </section>
 
