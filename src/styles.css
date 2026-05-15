@@ -3799,7 +3799,7 @@ body::before {
 h1 {
   color: #0d2538;
   max-width: 650px;
-  font-size: clamp(40px, 3.38vw, 58px);
+  font-size: clamp(38px, 3.15vw, 54px);
   line-height: 1.02;
 }
 
@@ -4132,7 +4132,7 @@ h1 {
   }
 
   h1 {
-    font-size: clamp(39px, 3.28vw, 52px);
+    font-size: clamp(37px, 3.05vw, 48px);
   }
 
   .hero-text {
