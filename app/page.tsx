@@ -141,8 +141,8 @@ export default function HomePage() {
       <main>
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-copy">
-            <p className="eyebrow">Likvidácia azbestu a eternitu po celom Slovensku</p>
-            <h1 id="hero-title">Likvidácia azbestu a eternitu bez starostí</h1>
+            <p className="eyebrow">Dokumentácia, demontáž, balenie, odvoz aj potvrdenie</p>
+            <h1 id="hero-title">Bezpečná likvidácia azbestu a eternitu po celom Slovensku</h1>
             <p className="hero-claim">Bezpečne. Legálne. S dokladmi.</p>
             <p className="hero-text">
               Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, vybavíme dokumentáciu,
@@ -156,7 +156,7 @@ export default function HomePage() {
             </ul>
             <div className="hero-actions">
               <a className="button button-primary" href="#dopyt">
-                Chcem cenovú ponuku do 24 hodín
+                Chcem cenovú ponuku
               </a>
               <a className="button button-outline" href="tel:+421905217946">
                 <span className="button-phone" aria-hidden="true"></span>Zavolať 0905 217 946
@@ -170,7 +170,7 @@ export default function HomePage() {
             <h2 id="quote-title">
               Vyplňte výmeru v m² a získajte <span>cenovú ponuku</span>
             </h2>
-            <p>Najdôležitejší údaj je približná výmera v m². Fotky sú voliteľné, ale pomôžu spresniť nacenenie.</p>
+            <p>Uveďte približnú výmeru, lokalitu a typ materiálu. Fotky pomôžu spresniť prístup a náročnosť.</p>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <div className="field">
@@ -188,6 +188,11 @@ export default function HomePage() {
               <div className="field">
                 <label htmlFor="city">Obec / mesto *</label>
                 <input id="city" name="city" type="text" autoComplete="address-level2" placeholder="Obec / mesto *" required />
+              </div>
+              <div className="field area-field">
+                <label htmlFor="areaEstimate">Približná výmera v m² *</label>
+                <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
+                <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
               </div>
               <div className="field">
                 <label htmlFor="district">Okres</label>
@@ -219,11 +224,6 @@ export default function HomePage() {
                   <option>Neviem posúdiť</option>
                   <option>Iné</option>
                 </select>
-              </div>
-              <div className="field">
-                <label htmlFor="areaEstimate">Približná výmera v m² *</label>
-                <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
-                <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
               </div>
               <div className="field">
                 <label htmlFor="roofer">Máte už strechára?</label>

@@ -3,9 +3,9 @@ import '../src/styles.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://likvidacia-eternitu.sk'),
-  title: 'Likvidácia azbestu a eternitu bez starostí | ASTANA',
+  title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
   description:
-    'ASTANA, s.r.o. zabezpečuje likvidáciu azbestu a eternitu po celom Slovensku. Cenová ponuka do 24 hodín, dokumentácia, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii.',
+    'Zadajte približnú výmeru v m² a priložte fotky. ASTANA pripraví cenovú ponuku do 24 hodín, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
   alternates: {
     canonical: '/',
   },
@@ -14,14 +14,14 @@ export const metadata: Metadata = {
     locale: 'sk_SK',
     url: '/',
     siteName: 'Likvidácia azbestu a eternitu ASTANA',
-    title: 'Likvidácia azbestu a eternitu bez starostí | ASTANA',
+    title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
     description:
       'Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
     images: ['/assets/hero-workers.webp'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Likvidácia azbestu a eternitu bez starostí | ASTANA',
+    title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
     description: 'Cenová ponuka do 24 hodín podľa približnej výmery v m², dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
     images: ['/assets/hero-workers.webp'],
   },
