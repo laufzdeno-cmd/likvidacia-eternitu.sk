@@ -148,6 +148,14 @@ export default function HomePage() {
               Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, vybavíme dokumentáciu,
               demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.
             </p>
+            <div className="hero-proof-flow" aria-label="Od výmery po potvrdenie">
+              <span>m²</span>
+              <span>Ponuka</span>
+              <span>Dokumentácia</span>
+              <span>Demontáž</span>
+              <span>Odvoz</span>
+              <span>Potvrdenie</span>
+            </div>
             <ul className="hero-points" aria-label="Ako pripravujeme cenovú ponuku">
               <li>Cenu počítame hlavne podľa m²</li>
               <li>Fotky pomôžu spresniť prístup a typ materiálu</li>
@@ -164,13 +172,21 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="hero-photo" role="img" aria-label="Pracovníci pri odbornej demontáži eternitovej strechy"></div>
+          <div className="hero-photo" role="img" aria-label="Pracovníci v ochranných oblekoch pri odbornej demontáži eternitovej strechy">
+            <span className="photo-proof photo-proof-top">Ochranné obleky</span>
+            <span className="photo-proof photo-proof-bottom">Eternitová strecha</span>
+            <span className="photo-proof photo-proof-side">Odvoz a doklady</span>
+          </div>
 
           <aside className="quote-card" id="dopyt" aria-labelledby="quote-title">
             <h2 id="quote-title">
               Vyplňte výmeru v m² a získajte <span>cenovú ponuku</span>
             </h2>
             <p>Uveďte približnú výmeru, lokalitu a typ materiálu. Fotky pomôžu spresniť prístup a náročnosť.</p>
+            <div className="quote-priority">
+              <strong>m² je hlavný údaj</strong>
+              <span>Fotky nám pomôžu overiť materiál, prístup a náročnosť práce.</span>
+            </div>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <div className="field">
