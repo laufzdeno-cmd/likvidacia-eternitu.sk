@@ -2,13 +2,26 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
-import type { AuditLog, Lead, LeadFile, LeadInput, LeadStatus, LeadSummary, Quote, QuoteInput } from './types';
+import type {
+  AuditLog,
+  Lead,
+  LeadFile,
+  LeadInput,
+  LeadStatus,
+  LeadSummary,
+  Quote,
+  QuoteInput,
+  Testimonial,
+  TestimonialInput,
+  TestimonialStatus,
+} from './types';
 
 type LocalDb = {
   leads: Lead[];
   leadFiles: LeadFile[];
   auditLogs: AuditLog[];
   quotes: Quote[];
+  testimonials: Testimonial[];
 };
 
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
@@ -189,21 +202,45 @@ async function ensureSchema() {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS testimonials (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      status text NOT NULL DEFAULT 'draft',
+      customer_name text NOT NULL,
+      location text,
+      rating integer NOT NULL DEFAULT 5,
+      text text NOT NULL,
+      approved_at timestamptz,
+      approved_by text
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
     CREATE INDEX IF NOT EXISTS quotes_lead_id_idx ON quotes (lead_id);
+    CREATE INDEX IF NOT EXISTS testimonials_status_created_at_idx ON testimonials (status, created_at DESC);
   `);
   schemaReady = true;
+}
+
+function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
+  return {
+    leads: data.leads ?? [],
+    leadFiles: data.leadFiles ?? [],
+    auditLogs: data.auditLogs ?? [],
+    quotes: data.quotes ?? [],
+    testimonials: data.testimonials ?? [],
+  };
 }
 
 async function readLocalDb(): Promise<LocalDb> {
   await mkdir(path.dirname(localDbPath), { recursive: true });
   try {
-    return JSON.parse(await readFile(localDbPath, 'utf8')) as LocalDb;
+    return normalizeLocalDb(JSON.parse(await readFile(localDbPath, 'utf8')) as Partial<LocalDb>);
   } catch {
-    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [] };
+    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [] };
     await writeFile(localDbPath, JSON.stringify(empty, null, 2), 'utf8');
     return empty;
   }
@@ -542,6 +579,111 @@ export async function getQuote(id: string): Promise<Quote | null> {
   return rows[0] ? toQuote(rows[0]) : null;
 }
 
+export async function listTestimonials(): Promise<Testimonial[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.testimonials].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query('SELECT * FROM testimonials ORDER BY created_at DESC LIMIT 200');
+  return rows.map(toTestimonial);
+}
+
+export async function listApprovedTestimonials(limit = 6): Promise<Testimonial[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.testimonials]
+      .filter((testimonial) => testimonial.status === 'approved')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  }
+  const { rows } = await db.query('SELECT * FROM testimonials WHERE status = $1 ORDER BY created_at DESC LIMIT $2', ['approved', limit]);
+  return rows.map(toTestimonial);
+}
+
+export async function createTestimonial(input: TestimonialInput, actorEmail: string): Promise<Testimonial> {
+  await ensureSchema();
+  const timestamp = now();
+  const testimonial: Testimonial = {
+    id: randomUUID(),
+    customerName: input.customerName.trim(),
+    location: input.location?.trim() ?? '',
+    rating: Math.min(5, Math.max(1, Math.round(input.rating || 5))),
+    text: input.text.trim(),
+    status: input.status,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    approvedAt: input.status === 'approved' ? timestamp : undefined,
+    approvedBy: input.status === 'approved' ? actorEmail : undefined,
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.testimonials.unshift(testimonial);
+    await writeLocalDb(local);
+    await addAuditLog('testimonial', testimonial.id, 'testimonial_created', actorEmail, { status: testimonial.status });
+    return testimonial;
+  }
+
+  await db.query(
+    `INSERT INTO testimonials (
+      id, created_at, updated_at, status, customer_name, location, rating, text, approved_at, approved_by
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+    [
+      testimonial.id,
+      testimonial.createdAt,
+      testimonial.updatedAt,
+      testimonial.status,
+      testimonial.customerName,
+      testimonial.location,
+      testimonial.rating,
+      testimonial.text,
+      testimonial.approvedAt,
+      testimonial.approvedBy,
+    ],
+  );
+  await addAuditLog('testimonial', testimonial.id, 'testimonial_created', actorEmail, { status: testimonial.status });
+  return testimonial;
+}
+
+export async function updateTestimonialStatus(id: string, status: TestimonialStatus, actorEmail: string): Promise<Testimonial | null> {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const testimonial = local.testimonials.find((item) => item.id === id);
+    if (!testimonial) return null;
+    const previous = testimonial.status;
+    testimonial.status = status;
+    testimonial.updatedAt = timestamp;
+    testimonial.approvedAt = status === 'approved' ? timestamp : undefined;
+    testimonial.approvedBy = status === 'approved' ? actorEmail : undefined;
+    await writeLocalDb(local);
+    await addAuditLog('testimonial', id, 'testimonial_status_changed', actorEmail, { previous, next: status });
+    return testimonial;
+  }
+
+  const previous = await db.query('SELECT status FROM testimonials WHERE id = $1 LIMIT 1', [id]);
+  const { rows } = await db.query(
+    `UPDATE testimonials
+      SET status = $1,
+          updated_at = $2,
+          approved_at = CASE WHEN $1 = 'approved' THEN $2 ELSE NULL END,
+          approved_by = CASE WHEN $1 = 'approved' THEN $3 ELSE NULL END
+      WHERE id = $4
+      RETURNING *`,
+    [status, timestamp, actorEmail, id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('testimonial', id, 'testimonial_status_changed', actorEmail, { previous: previous.rows[0]?.status, next: status });
+  return toTestimonial(rows[0]);
+}
+
 export async function getDashboardStats() {
   const leads = await listLeadSummaries();
   const today = new Date().toISOString().slice(0, 10);
@@ -553,6 +695,21 @@ export async function getDashboardStats() {
     pricedLeads: leads.filter((lead) => lead.status === 'naceneny' || lead.status === 'cenova_ponuka_odoslana').length,
     staleLeads,
     missingPhotos: leads.filter((lead) => lead.fileCount === 0).length,
+  };
+}
+
+function toTestimonial(row: Record<string, unknown>): Testimonial {
+  return {
+    id: String(row.id),
+    customerName: String(row.customer_name),
+    location: row.location ? String(row.location) : '',
+    rating: Number(row.rating ?? 5),
+    text: String(row.text),
+    status: String(row.status) as TestimonialStatus,
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+    approvedAt: row.approved_at ? new Date(String(row.approved_at)).toISOString() : undefined,
+    approvedBy: row.approved_by ? String(row.approved_by) : undefined,
   };
 }
 

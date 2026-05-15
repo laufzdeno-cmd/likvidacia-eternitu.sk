@@ -1,4 +1,5 @@
 import LandingClient from './landing-client';
+import { listApprovedTestimonials } from '@/src/server/db';
 
 const includedItems = [
   'Vypracovanie a podanie dokumentácie na RÚVZ',
@@ -94,7 +95,19 @@ const jsonLd = {
   ],
 };
 
-export default function HomePage() {
+export const revalidate = 300;
+
+async function getHomepageTestimonials() {
+  try {
+    return await listApprovedTestimonials(6);
+  } catch {
+    return [];
+  }
+}
+
+export default async function HomePage() {
+  const testimonials = await getHomepageTestimonials();
+
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
@@ -133,6 +146,7 @@ export default function HomePage() {
           <a href="#ako-to-prebieha">Ako to prebieha</a>
           <a href="#cena">Čo je v cene</a>
           <a href="#preco">Prečo ASTANA</a>
+          <a href="#referencie">Referencie</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
         </nav>
@@ -148,6 +162,14 @@ export default function HomePage() {
               Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, vybavíme dokumentáciu,
               demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.
             </p>
+            <div className="hero-actions">
+              <a className="button button-primary" href="#dopyt">
+                Chcem cenovú ponuku
+              </a>
+              <a className="button button-outline" href="tel:+421905217946">
+                <span className="button-phone" aria-hidden="true"></span>Zavolať 0905 217 946
+              </a>
+            </div>
             <div className="hero-proof-flow" aria-label="Od výmery po potvrdenie">
               <span>m²</span>
               <span>Ponuka</span>
@@ -162,14 +184,6 @@ export default function HomePage() {
               <li>Cenová ponuka do 24 hodín</li>
               <li>Doprava nad 100 m² zdarma</li>
             </ul>
-            <div className="hero-actions">
-              <a className="button button-primary" href="#dopyt">
-                Chcem cenovú ponuku
-              </a>
-              <a className="button button-outline" href="tel:+421905217946">
-                <span className="button-phone" aria-hidden="true"></span>Zavolať 0905 217 946
-              </a>
-            </div>
           </div>
 
           <div className="hero-photo" role="img" aria-label="Pracovníci v ochranných oblekoch pri odbornej demontáži eternitovej strechy">
@@ -179,6 +193,7 @@ export default function HomePage() {
           </div>
 
           <aside className="quote-card" id="dopyt" aria-labelledby="quote-title">
+            <p className="quote-kicker">Cenová ponuka do 24 hodín</p>
             <h2 id="quote-title">
               Vyplňte výmeru v m² a získajte <span>cenovú ponuku</span>
             </h2>
@@ -358,6 +373,38 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="section testimonial-section" id="referencie" aria-labelledby="testimonial-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Referencie</p>
+              <h2 id="testimonial-title">Čo hovoria zákazníci</h2>
+            </div>
+            <p>Na webe zobrazujeme iba referencie, ktoré boli odsúhlasené zákazníkom.</p>
+          </div>
+          {testimonials.length ? (
+            <div className="testimonial-grid">
+              {testimonials.map((testimonial) => (
+                <article key={testimonial.id} className="testimonial-card">
+                  <div className="testimonial-stars" aria-label={`${testimonial.rating} z 5`}>
+                    {'★'.repeat(testimonial.rating)}
+                  </div>
+                  <p>{testimonial.text}</p>
+                  <strong>{testimonial.customerName}</strong>
+                  {testimonial.location ? <span>{testimonial.location}</span> : null}
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="testimonial-empty">
+              <strong>Referencie zverejňujeme až po súhlase zákazníkov.</strong>
+              <p>
+                Vďaka tomu na stránke nie sú falošné hodnotenia. Po schválení reálnych referencií sa zobrazia v tejto časti.
+              </p>
+              <a className="button button-outline" href="#dopyt">Získať cenovú ponuku</a>
+            </div>
+          )}
+        </section>
+
         <section className="section faq-section" id="faq" aria-labelledby="faq-title">
           <div className="section-heading split">
             <div>
@@ -415,6 +462,7 @@ export default function HomePage() {
         </div>
         <div>
           <h2>Užitočné</h2>
+          <a href="#referencie">Referencie</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>
           <a href="/podmienky-pouzivania/">Podmienky používania</a>

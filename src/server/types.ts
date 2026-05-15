@@ -50,7 +50,7 @@ export type LeadFile = {
 
 export type AuditLog = {
   id: string;
-  entityType: 'lead' | 'quote' | 'system';
+  entityType: 'lead' | 'quote' | 'system' | 'testimonial';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -82,4 +82,22 @@ export type Quote = QuoteInput & {
   totalWithVat: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type TestimonialStatus = 'draft' | 'approved' | 'hidden';
+
+export type TestimonialInput = {
+  customerName: string;
+  location?: string;
+  rating: number;
+  text: string;
+  status: TestimonialStatus;
+};
+
+export type Testimonial = TestimonialInput & {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  approvedAt?: string;
+  approvedBy?: string;
 };

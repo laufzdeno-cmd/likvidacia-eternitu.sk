@@ -20,6 +20,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
           <a href="/admin/cenove-ponuky">Cenové ponuky</a>
           <a href="/admin/zakazky">Zákazky</a>
           <a href="/admin/strechari">Strechári</a>
+          <a href="/admin/referencie">Referencie</a>
           <a href="/admin/nastavenia">Nastavenia</a>
         </nav>
         <form action="/admin/logout" method="post">
