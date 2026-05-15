@@ -16,13 +16,13 @@ export const metadata: Metadata = {
     siteName: 'Likvidácia azbestu a eternitu ASTANA',
     title: 'Likvidácia azbestu a eternitu bez starostí | ASTANA',
     description:
-      'Pošlite fotky. Pripravíme cenovú ponuku, dokumentáciu, odbornú demontáž, balenie, odvoz a potvrdenie o likvidácii azbestu.',
+      'Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
     images: ['/assets/hero-workers.webp'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Likvidácia azbestu a eternitu bez starostí | ASTANA',
-    description: 'Cenová ponuka do 24 hodín, dokumentácia, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii.',
+    description: 'Cenová ponuka do 24 hodín podľa približnej výmery v m², dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
     images: ['/assets/hero-workers.webp'],
   },
   robots: {

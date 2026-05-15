@@ -10,7 +10,7 @@ export default function RoofersPage() {
       lead="Ak zákazník potrebuje legálne odstrániť eternit, pošlite nám základné údaje. Demontáž vieme naplánovať tak, aby ste mohli plynulo pokračovať."
       sections={[
         { title: 'Zladenie termínu', text: 'Demontáž plánujeme tak, aby nadväzovala na fóliu, latovanie alebo ďalšie práce.' },
-        { title: 'Jasná komunikácia', text: 'Stačí lokalita, výmera, typ strechy, termín a fotky.' },
+        { title: 'Jasná komunikácia', text: 'Najdôležitejšia je približná výmera v m², lokalita, typ strechy a termín. Fotky pomôžu spresniť prístup a náročnosť.' },
         { title: 'Dopyt', text: 'Použite formulár na úvodnej stránke a do poznámky uveďte, že ide o strechársku spoluprácu.' },
       ]}
     />

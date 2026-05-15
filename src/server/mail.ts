@@ -57,7 +57,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number) {
     text: [
       `Dobrý deň, ${lead.fullName},`,
       '',
-      'ďakujeme za dopyt. Prijali sme vaše údaje a fotky k cenovej ponuke na likvidáciu azbestu / eternitu.',
+      'ďakujeme za dopyt. Prijali sme vaše údaje k cenovej ponuke na likvidáciu azbestu / eternitu. Výmera v m² je základom nacenenia, fotky nám pomôžu spresniť prístup a náročnosť.',
       'Ozveme sa vám s ďalším postupom.',
       '',
       'ASTANA, s.r.o.',

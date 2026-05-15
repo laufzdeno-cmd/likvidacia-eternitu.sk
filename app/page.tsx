@@ -15,8 +15,8 @@ const includedItems = [
 ];
 
 const faq = [
-  ['Ako rýchlo dostanem cenovú ponuku?', 'Po zaslaní fotiek a základných údajov pripravujeme nezáväznú cenovú ponuku spravidla do 24 hodín počas pracovných dní.'],
-  ['Čo potrebujete na nacenenie?', 'Kontakt, lokalitu, typ objektu, typ materiálu, približnú výmeru a ideálne fotky strechy, materiálu a prístupu.'],
+  ['Ako rýchlo dostanem cenovú ponuku?', 'Po zadaní približnej výmery v m² a základných údajov pripravujeme nezáväznú cenovú ponuku spravidla do 24 hodín počas pracovných dní. Fotky nám pomôžu spresniť prístup, typ materiálu a náročnosť.'],
+  ['Čo potrebujete na nacenenie?', 'Najmä kontakt, lokalitu, typ objektu, typ materiálu a približnú výmeru v m². Fotky sú voliteľné, ale pomáhajú spresniť nacenenie.'],
   ['Musím mať presnú výmeru?', 'Nie. Stačí približná výmera. Finálna cena sa môže upraviť podľa skutočného rozsahu po doplnení údajov alebo obhliadke.'],
   ['Je potrebné riešiť úrady?', 'Pri azbeste treba počítať s úradným postupom a zákonnými lehotami. Po potvrdení objednávky pripravíme potrebné podania a dokumentáciu.'],
   ['Dostanem potvrdenie o likvidácii?', 'Po dokončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu a typu zákazky.'],
@@ -145,9 +145,15 @@ export default function HomePage() {
             <h1 id="hero-title">Likvidácia azbestu a eternitu bez starostí</h1>
             <p className="hero-claim">Bezpečne. Legálne. S dokladmi.</p>
             <p className="hero-text">
-              Pošlite nám fotky. My vybavíme cenovú ponuku, potrebnú dokumentáciu, odbornú demontáž, stabilizáciu,
-              balenie, odvoz aj potvrdenie o legálnej likvidácii nebezpečného odpadu.
+              Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, vybavíme dokumentáciu,
+              demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.
             </p>
+            <ul className="hero-points" aria-label="Ako pripravujeme cenovú ponuku">
+              <li>Cenu počítame hlavne podľa m²</li>
+              <li>Fotky pomôžu spresniť prístup a typ materiálu</li>
+              <li>Cenová ponuka do 24 hodín</li>
+              <li>Doprava nad 100 m² zdarma</li>
+            </ul>
             <div className="hero-actions">
               <a className="button button-primary" href="#dopyt">
                 Chcem cenovú ponuku do 24 hodín
@@ -162,9 +168,9 @@ export default function HomePage() {
 
           <aside className="quote-card" id="dopyt" aria-labelledby="quote-title">
             <h2 id="quote-title">
-              Cenová ponuka <span>do 24 hodín</span>
+              Vyplňte výmeru v m² a získajte <span>cenovú ponuku</span>
             </h2>
-            <p>Pošlite nám základné údaje a fotky. Pripravíme vám nezáväznú cenovú ponuku.</p>
+            <p>Najdôležitejší údaj je približná výmera v m². Fotky sú voliteľné, ale pomôžu spresniť nacenenie.</p>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <div className="field">
@@ -217,6 +223,7 @@ export default function HomePage() {
               <div className="field">
                 <label htmlFor="areaEstimate">Približná výmera v m² *</label>
                 <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
+                <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
               </div>
               <div className="field">
                 <label htmlFor="roofer">Máte už strechára?</label>
@@ -242,9 +249,10 @@ export default function HomePage() {
                 <label className="file-drop" htmlFor="photos">
                   <span className="file-drop-icon" aria-hidden="true"></span>
                   <strong>Vybrať fotky zo zariadenia</strong>
-                  <span>JPG, PNG, WEBP, HEIC alebo PDF. Fotky z mobilu úplne stačia.</span>
+                  <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
                 </label>
                 <input className="file-input" id="photos" name="photos" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" multiple />
+                <p className="field-help">Podporované sú JPG, PNG, WEBP, HEIC alebo PDF. Fotky z mobilu úplne stačia.</p>
                 <div className="file-preview" aria-live="polite"></div>
               </div>
               <div className="field field-full">
@@ -297,7 +305,7 @@ export default function HomePage() {
             <h2 id="process-title">Päť jasných krokov bez zbytočného chaosu</h2>
           </div>
           <ol className="process-list">
-            <li><span>1</span><strong>Pošlete fotky a údaje</strong><p>Stačia fotky z mobilu a základné informácie z formulára.</p></li>
+            <li><span>1</span><strong>Zadáte výmeru a údaje</strong><p>Uveďte približné m², lokalitu a typ materiálu. Fotky pomôžu nacenenie spresniť.</p></li>
             <li><span>2</span><strong>Pripravíme cenu</strong><p>Do 24 hodín pripravíme nezáväznú cenovú ponuku na mieru.</p></li>
             <li><span>3</span><strong>Vybavíme dokumentáciu</strong><p>Po potvrdení objednávky pripravíme potrebné podania a doklady.</p></li>
             <li><span>4</span><strong>Demontáž a odvoz</strong><p>Materiál stabilizujeme, zabalíme do obalov a odvezieme.</p></li>
@@ -356,7 +364,7 @@ export default function HomePage() {
           <div>
             <p className="eyebrow">Rýchla odpoveď</p>
             <h2 id="final-title">
-              Pošlite fotky a získajte cenovú ponuku <span>do 24 hodín</span>
+              Zadajte m² a získajte cenovú ponuku <span>do 24 hodín</span>
             </h2>
             <p>Ozvite sa nám a postaráme sa o bezpečnú a legálnu likvidáciu azbestu bez zbytočných komplikácií.</p>
           </div>

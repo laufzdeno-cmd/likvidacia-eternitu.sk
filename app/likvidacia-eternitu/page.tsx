@@ -11,7 +11,7 @@ export default function EternitPage() {
       sections={[
         { title: 'Bez zhadzovania', text: 'Šablóny a dosky sa po stabilizácii ukladajú priamo do určených obalov, aby sa obmedzil neporiadok a zbytočná manipulácia.' },
         { title: 'Zladenie so strechárom', text: 'Ak máte strechára, termín vieme koordinovať tak, aby práce nadväzovali. Ak ho nemáte, uveďte to v dopyte.' },
-        { title: 'Cenová ponuka', text: 'Na nacenenie stačí lokalita, približná výmera, typ objektu a fotky strechy alebo materiálu.' },
+        { title: 'Cenová ponuka', text: 'Na nacenenie je najdôležitejšia približná výmera v m², lokalita a typ objektu. Fotky strechy alebo materiálu pomôžu spresniť prístup a náročnosť.' },
       ]}
     />
   );

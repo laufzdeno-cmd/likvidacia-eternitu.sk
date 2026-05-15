@@ -11,7 +11,7 @@ export default function RealizationsPage() {
       sections={[
         { title: 'Fotky pred publikovaním', text: 'Fotky z realizácií musia byť schválené pred verejným použitím.' },
         { title: 'Ochrana súkromia', text: 'Lokalitu uvádzame len všeobecne, bez presných adries.' },
-        { title: 'Dopyt', text: 'Ak chcete naceniť vlastnú strechu, pošlite fotky cez formulár.' },
+        { title: 'Dopyt', text: 'Ak chcete naceniť vlastnú strechu, zadajte približnú výmeru v m². Fotky cez formulár pomôžu spresniť typ materiálu, prístup a náročnosť.' },
       ]}
     />
   );
