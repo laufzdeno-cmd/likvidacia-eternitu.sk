@@ -198,15 +198,25 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
             </div>
           ) : (
             <div className="roofer-empty-state">
-              <div>
-                <p className="eyebrow">Bez falošných kontaktov</p>
-                <h3>Zoznam partnerov pripravujeme.</h3>
+              <div className="roofer-empty-copy">
+                <p className="eyebrow">Partneri podľa regiónu</p>
+                <h3>Zoznam partnerov pripravujeme</h3>
                 <p>
-                  Ak strechára ešte nemáte, uveďte to v cenovej ponuke a podľa regiónu preveríme vhodný kontakt.
-                  Nezobrazujeme vymyslené firmy ani neoverené kontakty.
+                  Vyberte región v cenovej ponuke a preveríme vhodný kontakt. Ak už svojho strechára máte,
+                  zladíme termín demontáže tak, aby práce nadväzovali čo najplynulejšie.
                 </p>
+                <div className="roofer-empty-steps" aria-label="Ako odporúčanie strechára prebieha">
+                  <span>Zadáte kraj a okres</span>
+                  <span>Preveríme vhodný kontakt</span>
+                  <span>Odporúčanie potvrdí admin</span>
+                </div>
               </div>
-              <a className="button button-primary" href="/#dopyt">Vyplniť cenovú ponuku</a>
+              <div className="roofer-empty-action">
+                <span className="line-icon map" aria-hidden="true"></span>
+                <strong>Nemáte strechára?</strong>
+                <p>V dopyte zaškrtnite odporúčanie podľa regiónu.</p>
+                <a className="button button-primary" href="/#dopyt">Vyplniť cenovú ponuku</a>
+              </div>
             </div>
           )}
         </section>

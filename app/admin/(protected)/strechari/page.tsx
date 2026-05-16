@@ -1,6 +1,6 @@
 import { listLeadSummaries, listRoofers } from '@/src/server/db';
 import { getLeadInsight } from '@/src/server/lead-insights';
-import { createRooferAction, updateRooferFlagsAction } from './actions';
+import { createRooferAction, importRoofersAction, updateRooferFlagsAction } from './actions';
 
 const regions = [
   'Bratislavský',
@@ -105,6 +105,24 @@ export default async function RoofersAdminPage() {
           <label className="admin-checkbox"><input name="inVerification" type="checkbox" defaultChecked /> Partner v overovaní</label>
           <label className="admin-checkbox"><input name="preferredPartner" type="checkbox" /> Preferovaný partner</label>
           <button className="admin-primary-button admin-form-wide" type="submit">Uložiť strechára</button>
+        </form>
+      </section>
+
+      <section className="admin-card">
+        <h2>Rýchly import strechárov</h2>
+        <p className="admin-muted">
+          Vložte jeden riadok na partnera. Formát: meno/firma; kraj; okresy; telefón; email; overený áno/nie; hodnotenie; interná poznámka.
+        </p>
+        <form action={importRoofersAction} className="admin-quote-form">
+          <label className="admin-form-wide">
+            Importné riadky
+            <textarea
+              name="rows"
+              rows={7}
+              placeholder={'Strecha Poprad s.r.o.; Prešovský; Poprad, Kežmarok; 0900 000 000; info@example.sk; áno; 4.8; preveriť kapacitu pred sezónou'}
+            />
+          </label>
+          <button className="admin-primary-button admin-form-wide" type="submit">Importovať strechárov</button>
         </form>
       </section>
 
