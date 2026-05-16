@@ -50,7 +50,7 @@ export type LeadFile = {
 
 export type AuditLog = {
   id: string;
-  entityType: 'lead' | 'quote' | 'system' | 'testimonial';
+  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -92,6 +92,9 @@ export type TestimonialInput = {
   rating: number;
   text: string;
   status: TestimonialStatus;
+  customerEmail?: string;
+  consentPublication?: boolean;
+  source?: 'admin' | 'public';
 };
 
 export type Testimonial = TestimonialInput & {
@@ -100,4 +103,32 @@ export type Testimonial = TestimonialInput & {
   updatedAt: string;
   approvedAt?: string;
   approvedBy?: string;
+};
+
+export type RealizationStatus = 'draft' | 'published' | 'hidden';
+
+export type RealizationInput = {
+  title: string;
+  location: string;
+  materialType: string;
+  areaEstimate?: number;
+  description: string;
+  imageUrls: string[];
+  status: RealizationStatus;
+  featured?: boolean;
+  createdBy: string;
+};
+
+export type Realization = RealizationInput & {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+};
+
+export type SiteContentItem = {
+  key: string;
+  value: string;
+  updatedAt: string;
+  updatedBy?: string;
 };

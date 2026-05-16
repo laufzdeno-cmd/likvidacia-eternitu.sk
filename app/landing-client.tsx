@@ -7,10 +7,12 @@ export default function LandingClient() {
     const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
     const nav = document.querySelector<HTMLElement>('#site-nav');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
+    const testimonialForm = document.querySelector<HTMLFormElement>('.testimonial-submit-form');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const fileDrop = document.querySelector<HTMLElement>('.file-drop');
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
+    const testimonialStatus = document.querySelector<HTMLElement>('.testimonial-form-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
     let selectedFiles: File[] = [];
 
@@ -111,6 +113,41 @@ export default function LandingClient() {
       }
     };
 
+    const onTestimonialSubmit = async (event: SubmitEvent) => {
+      if (!testimonialForm) return;
+      event.preventDefault();
+      if (testimonialStatus) {
+        testimonialStatus.textContent = '';
+        testimonialStatus.classList.remove('is-success', 'is-error');
+      }
+      const button = testimonialForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+      button?.setAttribute('disabled', 'true');
+
+      try {
+        const response = await fetch(testimonialForm.action, {
+          method: 'POST',
+          body: new FormData(testimonialForm),
+          headers: { Accept: 'application/json' },
+        });
+        const result = (await response.json()) as { ok?: boolean; message?: string };
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || 'Referenciu sa nepodarilo odoslať.');
+        }
+        testimonialForm.reset();
+        if (testimonialStatus) {
+          testimonialStatus.textContent = result.message || 'Ďakujeme. Referenciu zobrazíme po schválení.';
+          testimonialStatus.classList.add('is-success');
+        }
+      } catch (error) {
+        if (testimonialStatus) {
+          testimonialStatus.textContent = error instanceof Error ? error.message : 'Referenciu sa nepodarilo odoslať.';
+          testimonialStatus.classList.add('is-error');
+        }
+      } finally {
+        button?.removeAttribute('disabled');
+      }
+    };
+
     const onScroll = () => {
       if (!stickyCta || !form) return;
       const formBottom = form.getBoundingClientRect().bottom;
@@ -131,6 +168,7 @@ export default function LandingClient() {
       if (event.dataTransfer?.files?.length) addFiles(event.dataTransfer.files);
     });
     form?.addEventListener('submit', onSubmit);
+    testimonialForm?.addEventListener('submit', onTestimonialSubmit);
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     onScroll();
@@ -139,6 +177,7 @@ export default function LandingClient() {
       menuToggle?.removeEventListener('click', onMenuClick);
       fileInput?.removeEventListener('change', onFilesChange);
       form?.removeEventListener('submit', onSubmit);
+      testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
     };

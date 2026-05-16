@@ -12,6 +12,7 @@ export async function createTestimonialAction(formData: FormData) {
   const customerName = String(formData.get('customerName') || '').trim();
   const location = String(formData.get('location') || '').trim();
   const text = String(formData.get('text') || '').trim();
+  const customerEmail = String(formData.get('customerEmail') || '').trim();
   const rating = Number(formData.get('rating') || 5);
   const status = String(formData.get('status') || 'draft') as TestimonialStatus;
 
@@ -26,6 +27,9 @@ export async function createTestimonialAction(formData: FormData) {
       text,
       rating: Math.min(5, Math.max(1, Math.round(rating))),
       status,
+      customerEmail,
+      consentPublication: formData.get('consentPublication') === 'on',
+      source: 'admin',
     },
     actorEmail,
   );

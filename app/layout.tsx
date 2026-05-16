@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
 import '../src/styles.css';
+import '../src/premium-overrides.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://likvidacia-eternitu.sk'),
   title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
   description:
-    'Zadajte približnú výmeru v m² a priložte fotky. ASTANA pripraví cenovú ponuku do 24 hodín, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
+    'Zadajte približnú výmeru v m². ASTANA pripraví cenovú ponuku do 24 hodín, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
   alternates: {
     canonical: '/',
   },
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
     siteName: 'Likvidácia azbestu a eternitu ASTANA',
     title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
     description:
-      'Zadajte približnú výmeru v m² a priložte fotky. Pripravíme cenovú ponuku, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
+      'Zadajte približnú výmeru v m². Pripravíme cenovú ponuku, dokumentáciu, demontáž, balenie, odvoz a potvrdenie.',
     images: ['/assets/hero-workers.webp'],
   },
   twitter: {

@@ -16,10 +16,12 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         <nav>
           <a href="/admin/dashboard">Dashboard</a>
           <a href="/admin/health">Kontrola systému</a>
+          <a href="/admin/obsah">Obsah webu</a>
           <a href="/admin/dopyty">Dopyty</a>
           <a href="/admin/cenove-ponuky">Cenové ponuky</a>
           <a href="/admin/zakazky">Zákazky</a>
           <a href="/admin/strechari">Strechári</a>
+          <a href="/admin/realizacie">Realizácie</a>
           <a href="/admin/referencie">Referencie</a>
           <a href="/admin/nastavenia">Nastavenia</a>
         </nav>

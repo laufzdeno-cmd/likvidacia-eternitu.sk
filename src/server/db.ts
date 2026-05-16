@@ -11,6 +11,10 @@ import type {
   LeadSummary,
   Quote,
   QuoteInput,
+  Realization,
+  RealizationInput,
+  RealizationStatus,
+  SiteContentItem,
   Testimonial,
   TestimonialInput,
   TestimonialStatus,
@@ -22,12 +26,15 @@ type LocalDb = {
   auditLogs: AuditLog[];
   quotes: Quote[];
   testimonials: Testimonial[];
+  realizations: Realization[];
+  siteContent: SiteContentItem[];
 };
 
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
 
 const databaseUrl = process.env.DATABASE_URL;
 const localDbPath = path.join(process.cwd(), '.data', 'local-db.json');
+const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
 
 let pool: Pool | undefined;
 let schemaReady = false;
@@ -82,7 +89,7 @@ function toLeadFile(row: Record<string, unknown>): LeadFile {
     id: String(row.id),
     leadId: String(row.lead_id),
     originalName: String(row.original_name),
-    storageDriver: String(row.storage_driver) as 'local' | 's3',
+    storageDriver: String(row.storage_driver) as LeadFile['storageDriver'],
     storageKey: String(row.storage_key),
     mimeType: String(row.mime_type),
     sizeBytes: Number(row.size_bytes),
@@ -215,12 +222,40 @@ async function ensureSchema() {
       approved_by text
     );
 
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS customer_email text;
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS consent_publication boolean NOT NULL DEFAULT false;
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'admin';
+
+    CREATE TABLE IF NOT EXISTS realizations (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      published_at timestamptz,
+      status text NOT NULL DEFAULT 'draft',
+      title text NOT NULL,
+      location text NOT NULL DEFAULT '',
+      material_type text NOT NULL DEFAULT '',
+      area_estimate numeric(12,2),
+      description text NOT NULL DEFAULT '',
+      image_urls jsonb NOT NULL DEFAULT '[]'::jsonb,
+      featured boolean NOT NULL DEFAULT false,
+      created_by text NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS site_content (
+      key text PRIMARY KEY,
+      value text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      updated_by text
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
     CREATE INDEX IF NOT EXISTS quotes_lead_id_idx ON quotes (lead_id);
     CREATE INDEX IF NOT EXISTS testimonials_status_created_at_idx ON testimonials (status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
   `);
   schemaReady = true;
 }
@@ -232,6 +267,50 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     auditLogs: data.auditLogs ?? [],
     quotes: data.quotes ?? [],
     testimonials: data.testimonials ?? [],
+    realizations: data.realizations ?? [],
+    siteContent: data.siteContent ?? [],
+  };
+}
+
+function parseImageUrls(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item)).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed.map((item) => String(item)).filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function toRealization(row: Record<string, unknown>): Realization {
+  return {
+    id: String(row.id),
+    title: String(row.title),
+    location: row.location ? String(row.location) : '',
+    materialType: row.material_type ? String(row.material_type) : '',
+    areaEstimate: row.area_estimate === null || row.area_estimate === undefined ? undefined : Number(row.area_estimate),
+    description: row.description ? String(row.description) : '',
+    imageUrls: parseImageUrls(row.image_urls),
+    status: String(row.status) as RealizationStatus,
+    featured: Boolean(row.featured),
+    createdBy: row.created_by ? String(row.created_by) : '',
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+    publishedAt: row.published_at ? new Date(String(row.published_at)).toISOString() : undefined,
+  };
+}
+
+function toSiteContent(row: Record<string, unknown>): SiteContentItem {
+  return {
+    key: String(row.key),
+    value: String(row.value ?? ''),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+    updatedBy: row.updated_by ? String(row.updated_by) : undefined,
   };
 }
 
@@ -240,7 +319,7 @@ async function readLocalDb(): Promise<LocalDb> {
   try {
     return normalizeLocalDb(JSON.parse(await readFile(localDbPath, 'utf8')) as Partial<LocalDb>);
   } catch {
-    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [] };
+    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [], realizations: [], siteContent: [] };
     await writeFile(localDbPath, JSON.stringify(empty, null, 2), 'utf8');
     return empty;
   }
@@ -614,6 +693,9 @@ export async function createTestimonial(input: TestimonialInput, actorEmail: str
     rating: Math.min(5, Math.max(1, Math.round(input.rating || 5))),
     text: input.text.trim(),
     status: input.status,
+    customerEmail: input.customerEmail?.trim() ?? '',
+    consentPublication: Boolean(input.consentPublication),
+    source: input.source ?? 'admin',
     createdAt: timestamp,
     updatedAt: timestamp,
     approvedAt: input.status === 'approved' ? timestamp : undefined,
@@ -631,8 +713,9 @@ export async function createTestimonial(input: TestimonialInput, actorEmail: str
 
   await db.query(
     `INSERT INTO testimonials (
-      id, created_at, updated_at, status, customer_name, location, rating, text, approved_at, approved_by
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      id, created_at, updated_at, status, customer_name, location, rating, text, approved_at, approved_by,
+      customer_email, consent_publication, source
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
     [
       testimonial.id,
       testimonial.createdAt,
@@ -644,6 +727,9 @@ export async function createTestimonial(input: TestimonialInput, actorEmail: str
       testimonial.text,
       testimonial.approvedAt,
       testimonial.approvedBy,
+      testimonial.customerEmail,
+      testimonial.consentPublication,
+      testimonial.source,
     ],
   );
   await addAuditLog('testimonial', testimonial.id, 'testimonial_created', actorEmail, { status: testimonial.status });
@@ -684,6 +770,193 @@ export async function updateTestimonialStatus(id: string, status: TestimonialSta
   return toTestimonial(rows[0]);
 }
 
+export async function listRealizations(): Promise<Realization[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.realizations].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query('SELECT * FROM realizations ORDER BY featured DESC, created_at DESC LIMIT 200');
+  return rows.map(toRealization);
+}
+
+export async function listPublishedRealizations(limit = 6): Promise<Realization[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.realizations]
+      .filter((realization) => realization.status === 'published')
+      .sort((a, b) => Number(b.featured) - Number(a.featured) || b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit);
+  }
+  const { rows } = await db.query(
+    'SELECT * FROM realizations WHERE status = $1 ORDER BY featured DESC, created_at DESC LIMIT $2',
+    ['published', limit],
+  );
+  return rows.map(toRealization);
+}
+
+export async function createRealization(input: RealizationInput): Promise<Realization> {
+  await ensureSchema();
+  const timestamp = now();
+  const realization: Realization = {
+    id: randomUUID(),
+    title: input.title.trim(),
+    location: input.location.trim(),
+    materialType: input.materialType.trim(),
+    areaEstimate: input.areaEstimate ? Number(input.areaEstimate) : undefined,
+    description: input.description.trim(),
+    imageUrls: input.imageUrls.map((url) => url.trim()).filter(Boolean).slice(0, 6),
+    status: input.status,
+    featured: Boolean(input.featured),
+    createdBy: input.createdBy,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    publishedAt: input.status === 'published' ? timestamp : undefined,
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.realizations.unshift(realization);
+    await writeLocalDb(local);
+    await addAuditLog('realization', realization.id, 'realization_created', input.createdBy, { status: realization.status });
+    return realization;
+  }
+
+  await db.query(
+    `INSERT INTO realizations (
+      id, created_at, updated_at, published_at, status, title, location, material_type,
+      area_estimate, description, image_urls, featured, created_by
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13)`,
+    [
+      realization.id,
+      realization.createdAt,
+      realization.updatedAt,
+      realization.publishedAt,
+      realization.status,
+      realization.title,
+      realization.location,
+      realization.materialType,
+      realization.areaEstimate ?? null,
+      realization.description,
+      JSON.stringify(realization.imageUrls),
+      realization.featured,
+      realization.createdBy,
+    ],
+  );
+  await addAuditLog('realization', realization.id, 'realization_created', input.createdBy, { status: realization.status });
+  return realization;
+}
+
+export async function updateRealizationStatus(id: string, status: RealizationStatus, actorEmail: string): Promise<Realization | null> {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const realization = local.realizations.find((item) => item.id === id);
+    if (!realization) return null;
+    const previous = realization.status;
+    realization.status = status;
+    realization.updatedAt = timestamp;
+    realization.publishedAt = status === 'published' ? timestamp : undefined;
+    await writeLocalDb(local);
+    await addAuditLog('realization', id, 'realization_status_changed', actorEmail, { previous, next: status });
+    return realization;
+  }
+
+  const previous = await db.query('SELECT status FROM realizations WHERE id = $1 LIMIT 1', [id]);
+  const { rows } = await db.query(
+    `UPDATE realizations
+      SET status = $1,
+          updated_at = $2,
+          published_at = CASE WHEN $1 = 'published' THEN $2 ELSE NULL END
+      WHERE id = $3
+      RETURNING *`,
+    [status, timestamp, id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('realization', id, 'realization_status_changed', actorEmail, { previous: previous.rows[0]?.status, next: status });
+  return toRealization(rows[0]);
+}
+
+export async function listSiteContent(): Promise<SiteContentItem[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.siteContent].sort((a, b) => a.key.localeCompare(b.key));
+  }
+  const { rows } = await db.query('SELECT * FROM site_content ORDER BY key ASC');
+  return rows.map(toSiteContent);
+}
+
+export async function getSiteContentMap(
+  defaults: Record<string, string> = {},
+  options?: { versionKey?: string; version?: string },
+) {
+  const items = await listSiteContent();
+  const stored = items.reduce<Record<string, string>>((acc, item) => {
+    acc[item.key] = item.value;
+    return acc;
+  }, {});
+
+  if (options?.versionKey && options.version && stored[options.versionKey] !== options.version) {
+    await upsertSiteContentValues({ ...defaults, [options.versionKey]: options.version }, 'system-content-migration');
+    return { ...defaults };
+  }
+
+  return items.reduce<Record<string, string>>(
+    (acc, item) => {
+      acc[item.key] = item.value;
+      return acc;
+    },
+    { ...defaults },
+  );
+}
+
+export async function upsertSiteContentValues(values: Record<string, string>, actorEmail: string) {
+  await ensureSchema();
+  const entries = Object.entries(values)
+    .map(([key, value]) => [key.trim(), value.trim()] as const)
+    .filter(([key]) => key.length > 0);
+  if (!entries.length) return [];
+
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    for (const [key, value] of entries) {
+      const existing = local.siteContent.find((item) => item.key === key);
+      if (existing) {
+        existing.value = value;
+        existing.updatedAt = timestamp;
+        existing.updatedBy = actorEmail;
+      } else {
+        local.siteContent.push({ key, value, updatedAt: timestamp, updatedBy: actorEmail });
+      }
+    }
+    await writeLocalDb(local);
+    await addAuditLog('site_content', siteContentAuditId, 'site_content_updated', actorEmail, { keys: entries.map(([key]) => key) });
+    return entries.map(([key]) => key);
+  }
+
+  for (const [key, value] of entries) {
+    await db.query(
+      `INSERT INTO site_content (key, value, updated_at, updated_by)
+       VALUES ($1,$2,$3,$4)
+       ON CONFLICT (key)
+       DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by`,
+      [key, value, timestamp, actorEmail],
+    );
+  }
+  await addAuditLog('site_content', siteContentAuditId, 'site_content_updated', actorEmail, { keys: entries.map(([key]) => key) });
+  return entries.map(([key]) => key);
+}
+
 export async function getDashboardStats() {
   const leads = await listLeadSummaries();
   const today = new Date().toISOString().slice(0, 10);
@@ -706,6 +979,9 @@ function toTestimonial(row: Record<string, unknown>): Testimonial {
     rating: Number(row.rating ?? 5),
     text: String(row.text),
     status: String(row.status) as TestimonialStatus,
+    customerEmail: row.customer_email ? String(row.customer_email) : '',
+    consentPublication: Boolean(row.consent_publication),
+    source: row.source === 'public' ? 'public' : 'admin',
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
     approvedAt: row.approved_at ? new Date(String(row.approved_at)).toISOString() : undefined,

@@ -36,6 +36,10 @@ export default async function TestimonialsPage() {
             <input name="location" placeholder="napr. Poprad / Prešovský kraj" />
           </label>
           <label>
+            Email zákazníka (neverejný)
+            <input name="customerEmail" type="email" placeholder="voliteľné" />
+          </label>
+          <label>
             Hodnotenie
             <select name="rating" defaultValue="5">
               <option value="5">5 hviezdičiek</option>
@@ -56,6 +60,9 @@ export default async function TestimonialsPage() {
           <label className="admin-form-wide">
             Text referencie
             <textarea name="text" rows={4} placeholder="Krátky, vecný text referencie..." required />
+          </label>
+          <label className="admin-checkbox admin-form-wide">
+            <input name="consentPublication" type="checkbox" /> Zákazník súhlasil so zverejnením referencie.
           </label>
           <button className="admin-primary-button" type="submit">
             Uložiť referenciu
@@ -83,7 +90,15 @@ export default async function TestimonialsPage() {
                   <td>
                     <strong>{testimonial.customerName}</strong>
                     <br />
-                    <small>{testimonial.location || 'bez lokality'} · {testimonial.rating}/5</small>
+                    <small>
+                      {testimonial.location || 'bez lokality'} · {testimonial.rating}/5 · {testimonial.source === 'public' ? 'poslané zákazníkom' : 'vložené adminom'}
+                    </small>
+                    {testimonial.customerEmail ? (
+                      <>
+                        <br />
+                        <small>{testimonial.customerEmail}</small>
+                      </>
+                    ) : null}
                   </td>
                   <td>{testimonial.text}</td>
                   <td><span className="status-pill">{statusLabels[testimonial.status]}</span></td>

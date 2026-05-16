@@ -7,7 +7,7 @@ export default function PricePage() {
     <SimplePublicPage
       eyebrow="Cena"
       title="Cena likvidácie azbestu a eternitu"
-      lead="Cena závisí od výmery, typu materiálu, výšky objektu, prístupu, lokality, dokumentácie a dopravy. Najrýchlejšie ju pripravíme podľa fotiek."
+      lead="Cena závisí najmä od približnej výmery v m², typu materiálu, výšky objektu, prístupu, lokality, dokumentácie a dopravy. Fotky sú pomocný podklad na spresnenie prístupu a náročnosti."
       sections={[
         { title: 'Výmera a materiál', text: 'Najväčší vplyv má počet m² a typ azbestového materiálu.' },
         { title: 'Dokumentácia', text: 'Do kalkulácie vstupujú aj potrebné podania, evidencia a doklady podľa rozsahu zákazky.' },
