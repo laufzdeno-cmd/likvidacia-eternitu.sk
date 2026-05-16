@@ -40,6 +40,49 @@ const districts = [
   'Bratislava',
 ];
 
+const regionMap = [
+  {
+    region: 'Bratislavský',
+    label: 'Bratislavský kraj',
+    points: '18,182 76,154 120,178 88,226 28,226',
+  },
+  {
+    region: 'Trnavský',
+    label: 'Trnavský kraj',
+    points: '76,154 152,128 206,156 188,220 88,226 120,178',
+  },
+  {
+    region: 'Trenčiansky',
+    label: 'Trenčiansky kraj',
+    points: '152,128 252,92 318,126 292,188 206,156',
+  },
+  {
+    region: 'Nitriansky',
+    label: 'Nitriansky kraj',
+    points: '188,220 206,156 292,188 356,226 312,270 220,260',
+  },
+  {
+    region: 'Žilinský',
+    label: 'Žilinský kraj',
+    points: '252,92 356,46 458,72 452,132 318,126',
+  },
+  {
+    region: 'Banskobystrický',
+    label: 'Banskobystrický kraj',
+    points: '292,188 318,126 452,132 554,176 526,236 356,226',
+  },
+  {
+    region: 'Prešovský',
+    label: 'Prešovský kraj',
+    points: '458,72 610,92 742,136 710,184 554,176 452,132',
+  },
+  {
+    region: 'Košický',
+    label: 'Košický kraj',
+    points: '526,236 554,176 710,184 736,232 650,270 556,262',
+  },
+];
+
 export default async function RoofersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const region = (params.kraj || '').trim();
@@ -48,6 +91,10 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
   const minRating = Number(params.hodnotenie || 0);
   const allRoofers = await listPublicRoofers({ region, district });
   const roofers = allRoofers.filter((roofer) => (!verifiedOnly || roofer.verifiedPartner)).filter((roofer) => !minRating || roofer.rating >= minRating);
+  const selectedRegion = regionMap.find((item) => item.region === region);
+  const emptyStateText = region
+    ? 'Partnerov v tomto kraji práve dopĺňame. Uveďte kraj v cenovej ponuke a preveríme vhodný kontakt.'
+    : 'Ak strechára ešte nemáte, uveďte to v cenovej ponuke a podľa regiónu preveríme vhodný kontakt. Verejne zobrazujeme len overených partnerov.';
 
   return (
     <>
@@ -93,14 +140,48 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
               <a className="button button-outline" href="tel:+421905217946">Zavolať 0905 217 946</a>
             </div>
           </div>
-          <div className="roofer-proof-card">
-            <div className="roofer-map-visual" aria-hidden="true">
-              <span>BA</span><span>TT</span><span>TN</span><span>NR</span>
-              <span>ZA</span><span>BB</span><span>PO</span><span>KE</span>
+          <div className="region-map-card">
+            <div className="region-map-copy">
+              <p className="eyebrow">Mapa partnerov</p>
+              <strong>Nájdeme strechára podľa regiónu</strong>
+              <p>
+                Vyberte kraj alebo okres. Ak nemáte vlastného strechára, odporučíme vám partnera a zladíme termín
+                demontáže s výmenou strechy.
+              </p>
             </div>
-            <span className="line-icon calendar" aria-hidden="true"></span>
-            <strong>Nájdeme strechára podľa regiónu</strong>
-            <p>Vyberte kraj alebo okres. Ak nemáte vlastného strechára, pri cenovej ponuke vám vieme odporučiť partnera a zladiť termín demontáže s výmenou strechy.</p>
+            <svg className="slovakia-region-map" viewBox="0 0 760 300" role="img" aria-labelledby="slovakia-map-title">
+              <title id="slovakia-map-title">Klikateľná mapa Slovenska podľa krajov</title>
+              {regionMap.map((item) => (
+                <a
+                  key={item.region}
+                  className={item.region === region ? 'is-selected' : undefined}
+                  href={`/strechari/?kraj=${encodeURIComponent(item.region)}#filter-region`}
+                  aria-label={`Vybrať ${item.label}`}
+                >
+                  <polygon points={item.points}>
+                    <title>{item.label}</title>
+                  </polygon>
+                </a>
+              ))}
+            </svg>
+            <div className="region-map-legend" aria-label="Kraje Slovenska">
+              {regionMap.map((item) => (
+                <a
+                  key={item.region}
+                  className={item.region === region ? 'is-selected' : undefined}
+                  href={`/strechari/?kraj=${encodeURIComponent(item.region)}#filter-region`}
+                >
+                  {item.label}
+                </a>
+              ))}
+            </div>
+            <p className="region-map-selected">
+              {selectedRegion ? (
+                <>Vybraný región: <strong>{selectedRegion.label}</strong></>
+              ) : (
+                'Kliknite na kraj v mape alebo použite filter nižšie.'
+              )}
+            </p>
             <a className="button button-primary" href="#filter-region">Vybrať región</a>
           </div>
         </section>
@@ -201,10 +282,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
               <div className="roofer-empty-copy">
                 <p className="eyebrow">Partneri podľa regiónu</p>
                 <h3>Zoznam partnerov pripravujeme</h3>
-                <p>
-                  Vyberte región v cenovej ponuke a preveríme vhodný kontakt. Ak už svojho strechára máte,
-                  zladíme termín demontáže tak, aby práce nadväzovali čo najplynulejšie.
-                </p>
+                <p>{emptyStateText}</p>
                 <div className="roofer-empty-steps" aria-label="Ako odporúčanie strechára prebieha">
                   <span>Zadáte kraj a okres</span>
                   <span>Preveríme vhodný kontakt</span>

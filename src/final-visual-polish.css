@@ -706,3 +706,336 @@ body {
     font-size: clamp(20px, 5.25vw, 24px) !important;
   }
 }
+
+/* Premium clickable Slovakia map on /strechari. */
+.region-map-card {
+  position: relative;
+  display: grid;
+  gap: 22px;
+  align-content: start;
+  padding: clamp(28px, 3.1vw, 44px) !important;
+  overflow: hidden;
+  border: 1px solid rgba(217, 230, 238, 0.95) !important;
+  border-radius: 34px !important;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(217, 151, 50, 0.12), transparent 18rem),
+    radial-gradient(circle at 94% 20%, rgba(8, 120, 184, 0.12), transparent 20rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(255, 249, 241, 0.78) 52%, rgba(247, 252, 254, 0.96)) !important;
+  box-shadow: 0 28px 84px rgba(6, 50, 74, 0.14) !important;
+}
+
+.region-map-card::before {
+  content: '';
+  position: absolute;
+  inset: auto -10% -42% auto;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: rgba(8, 120, 184, 0.08);
+  pointer-events: none;
+}
+
+.region-map-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+}
+
+.region-map-copy strong {
+  max-width: 13ch;
+  color: var(--secondary) !important;
+  font-size: clamp(30px, 3.3vw, 46px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+}
+
+.region-map-copy p:last-child {
+  max-width: 58ch;
+  color: var(--muted) !important;
+  font-size: 15.5px;
+  line-height: 1.62;
+}
+
+.slovakia-region-map {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 600px);
+  height: auto;
+  margin: 4px auto 0;
+  overflow: visible;
+  filter: drop-shadow(0 18px 30px rgba(6, 50, 74, 0.13));
+}
+
+.slovakia-region-map a {
+  cursor: pointer;
+  outline: none;
+}
+
+.slovakia-region-map polygon {
+  fill: #f1f7fa;
+  stroke: #b9d6e4;
+  stroke-width: 4.5;
+  stroke-linejoin: round;
+  transition: fill 160ms ease, stroke 160ms ease, transform 160ms ease, filter 160ms ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.slovakia-region-map a:hover polygon,
+.slovakia-region-map a:focus-visible polygon {
+  fill: #0878b8;
+  stroke: #06324a;
+  filter: drop-shadow(0 10px 16px rgba(8, 120, 184, 0.24));
+  transform: translateY(-2px);
+}
+
+.slovakia-region-map a.is-selected polygon {
+  fill: #8f163c;
+  stroke: #6d102e;
+  filter: drop-shadow(0 12px 20px rgba(143, 22, 60, 0.22));
+}
+
+.region-map-legend {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -2px;
+}
+
+.region-map-legend a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(8, 120, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 850;
+  text-decoration: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.region-map-legend a:hover,
+.region-map-legend a:focus-visible {
+  border-color: rgba(8, 120, 184, 0.58);
+  background: #eaf7fc;
+  color: #0878b8;
+  transform: translateY(-1px);
+}
+
+.region-map-legend a.is-selected {
+  border-color: rgba(143, 22, 60, 0.52);
+  background: #fff3f6;
+  color: #8f163c;
+}
+
+.region-map-selected {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(217, 151, 50, 0.28);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.region-map-selected strong {
+  color: var(--burgundy);
+}
+
+.region-map-card .button {
+  position: relative;
+  z-index: 1;
+  justify-self: start;
+}
+
+.roofer-directory .section-heading {
+  gap: 22px !important;
+}
+
+.roofer-directory .section-heading h2 {
+  max-width: 14ch;
+}
+
+.roofer-directory .section-heading p {
+  max-width: 62ch !important;
+}
+
+.roofer-empty-state {
+  border-color: rgba(217, 230, 238, 0.95) !important;
+  background:
+    radial-gradient(circle at 0 0, rgba(217, 151, 50, 0.1), transparent 17rem),
+    linear-gradient(135deg, #ffffff 0%, #fff9f1 58%, #f7fbfd 100%) !important;
+  box-shadow: 0 24px 72px rgba(6, 50, 74, 0.12) !important;
+}
+
+.roofer-empty-action {
+  border-color: rgba(8, 120, 184, 0.16) !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+}
+
+@media (min-width: 761px) {
+  .roofer-hero,
+  .roofer-directory,
+  .roofer-final {
+    padding: clamp(34px, 4vw, 56px) !important;
+  }
+
+  .roofer-hero {
+    grid-template-columns: minmax(0, 1.05fr) minmax(420px, 500px) !important;
+    gap: clamp(32px, 4vw, 58px) !important;
+    align-items: stretch !important;
+  }
+
+  .region-map-card {
+    gap: 18px;
+    padding: clamp(28px, 2.8vw, 38px) !important;
+  }
+
+  .region-map-copy {
+    gap: 8px;
+  }
+
+  .region-map-copy strong {
+    max-width: 15ch;
+    font-size: clamp(30px, 2.8vw, 38px);
+    line-height: 1.02;
+  }
+
+  .region-map-copy p:last-child {
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+
+  .slovakia-region-map {
+    width: min(100%, 450px);
+    margin-top: 0;
+  }
+
+  .region-map-legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .region-map-legend a {
+    justify-content: center;
+    min-height: 34px;
+    padding: 7px 10px;
+    text-align: center;
+  }
+
+  .region-map-selected {
+    padding: 10px 12px;
+    font-size: 13.5px;
+  }
+
+  .roofer-directory {
+    scroll-margin-top: 120px;
+  }
+
+  .roofer-filters,
+  .roofer-empty-state {
+    padding: clamp(24px, 2.8vw, 34px) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .roofer-page {
+    padding: 28px 16px calc(86px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .roofer-hero,
+  .roofer-directory,
+  .roofer-final {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 22px !important;
+  }
+
+  .roofer-hero .hero-actions {
+    display: grid !important;
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .roofer-hero .hero-actions .button,
+  .region-map-card .button,
+  .roofer-final .button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .region-map-card {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    gap: 18px;
+    padding: 22px !important;
+    border-radius: 26px !important;
+  }
+
+  .roofer-hero > *,
+  .region-map-card > *,
+  .roofer-directory > *,
+  .roofer-final > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .region-map-copy strong {
+    max-width: 100%;
+    font-size: clamp(26px, 7vw, 32px);
+    line-height: 1.05;
+  }
+
+  .region-map-copy p:last-child {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .slovakia-region-map {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .slovakia-region-map polygon {
+    stroke-width: 6;
+  }
+
+  .region-map-legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .region-map-legend a {
+    justify-content: center;
+    text-align: center;
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 11.5px;
+  }
+
+  .roofer-directory .section-heading h2 {
+    max-width: 100%;
+  }
+
+  .roofer-filters {
+    padding: 18px !important;
+  }
+
+  .roofer-empty-state {
+    padding: 22px !important;
+  }
+}
