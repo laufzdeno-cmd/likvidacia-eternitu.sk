@@ -14,6 +14,8 @@ import type {
   Realization,
   RealizationInput,
   RealizationStatus,
+  Roofer,
+  RooferInput,
   SiteContentItem,
   Testimonial,
   TestimonialInput,
@@ -27,6 +29,7 @@ type LocalDb = {
   quotes: Quote[];
   testimonials: Testimonial[];
   realizations: Realization[];
+  roofers: Roofer[];
   siteContent: SiteContentItem[];
 };
 
@@ -71,6 +74,8 @@ function toLead(row: Record<string, unknown>): Lead {
     note: row.note ? String(row.note) : '',
     gdpr: Boolean(row.gdpr),
     source: row.source ? String(row.source) : 'web',
+    wantsRooferRecommendation: Boolean(row.wants_roofer_recommendation ?? row.wantsRooferRecommendation),
+    selectedRooferId: row.selected_roofer_id ? String(row.selected_roofer_id) : row.selectedRooferId ? String(row.selectedRooferId) : '',
     internalNote: row.internal_note ? String(row.internal_note) : '',
     rawData: (row.raw_data as Record<string, unknown>) ?? {},
   };
@@ -163,9 +168,14 @@ async function ensureSchema() {
       note text,
       gdpr boolean NOT NULL DEFAULT true,
       source text NOT NULL DEFAULT 'web',
+      wants_roofer_recommendation boolean NOT NULL DEFAULT false,
+      selected_roofer_id text NOT NULL DEFAULT '',
       internal_note text NOT NULL DEFAULT '',
       raw_data jsonb NOT NULL DEFAULT '{}'::jsonb
     );
+
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS wants_roofer_recommendation boolean NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS selected_roofer_id text NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS lead_files (
       id uuid PRIMARY KEY,
@@ -242,6 +252,58 @@ async function ensureSchema() {
       created_by text NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS roofers (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      name text NOT NULL,
+      ico text NOT NULL DEFAULT '',
+      contact_person text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      web text NOT NULL DEFAULT '',
+      region text NOT NULL DEFAULT '',
+      districts jsonb NOT NULL DEFAULT '[]'::jsonb,
+      specialization text NOT NULL DEFAULT '',
+      public_note text NOT NULL DEFAULT '',
+      internal_note text NOT NULL DEFAULT '',
+      active boolean NOT NULL DEFAULT true,
+      verified_partner boolean NOT NULL DEFAULT false,
+      in_verification boolean NOT NULL DEFAULT true,
+      preferred_partner boolean NOT NULL DEFAULT false,
+      rating numeric(3,2) NOT NULL DEFAULT 0,
+      review_count integer NOT NULL DEFAULT 0,
+      complaints_count integer NOT NULL DEFAULT 0,
+      card_view_count integer NOT NULL DEFAULT 0,
+      contact_reveal_count integer NOT NULL DEFAULT 0,
+      quote_use_click_count integer NOT NULL DEFAULT 0,
+      referral_count integer NOT NULL DEFAULT 0,
+      recommended_jobs_count integer NOT NULL DEFAULT 0,
+      confirmed_jobs_count integer NOT NULL DEFAULT 0,
+      failed_jobs_count integer NOT NULL DEFAULT 0,
+      internal_score numeric(5,2) NOT NULL DEFAULT 0,
+      total_m2 numeric(12,2) NOT NULL DEFAULT 0,
+      revenue_without_vat numeric(12,2) NOT NULL DEFAULT 0,
+      profit numeric(12,2) NOT NULL DEFAULT 0
+    );
+
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS in_verification boolean NOT NULL DEFAULT true;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS card_view_count integer NOT NULL DEFAULT 0;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS contact_reveal_count integer NOT NULL DEFAULT 0;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS quote_use_click_count integer NOT NULL DEFAULT 0;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS failed_jobs_count integer NOT NULL DEFAULT 0;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS internal_score numeric(5,2) NOT NULL DEFAULT 0;
+
+    CREATE TABLE IF NOT EXISTS roofer_events (
+      id uuid PRIMARY KEY,
+      roofer_id uuid NOT NULL REFERENCES roofers(id) ON DELETE CASCADE,
+      event_type text NOT NULL,
+      region text NOT NULL DEFAULT '',
+      page text NOT NULL DEFAULT '',
+      referrer text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+
     CREATE TABLE IF NOT EXISTS site_content (
       key text PRIMARY KEY,
       value text NOT NULL,
@@ -256,6 +318,8 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS quotes_lead_id_idx ON quotes (lead_id);
     CREATE INDEX IF NOT EXISTS testimonials_status_created_at_idx ON testimonials (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS roofers_active_region_idx ON roofers (active, region, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS roofer_events_roofer_created_idx ON roofer_events (roofer_id, created_at DESC);
   `);
   schemaReady = true;
 }
@@ -268,6 +332,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     quotes: data.quotes ?? [],
     testimonials: data.testimonials ?? [],
     realizations: data.realizations ?? [],
+    roofers: data.roofers ?? [],
     siteContent: data.siteContent ?? [],
   };
 }
@@ -305,6 +370,56 @@ function toRealization(row: Record<string, unknown>): Realization {
   };
 }
 
+function parseStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value) as unknown;
+      return Array.isArray(parsed) ? parsed.map((item) => String(item).trim()).filter(Boolean) : value.split(',').map((item) => item.trim()).filter(Boolean);
+    } catch {
+      return value.split(',').map((item) => item.trim()).filter(Boolean);
+    }
+  }
+  return [];
+}
+
+function toRoofer(row: Record<string, unknown>): Roofer {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    ico: row.ico ? String(row.ico) : '',
+    contactPerson: row.contact_person ? String(row.contact_person) : row.contactPerson ? String(row.contactPerson) : '',
+    phone: row.phone ? String(row.phone) : '',
+    email: row.email ? String(row.email) : '',
+    web: row.web ? String(row.web) : '',
+    region: row.region ? String(row.region) : '',
+    districts: parseStringArray(row.districts),
+    specialization: row.specialization ? String(row.specialization) : '',
+    publicNote: row.public_note ? String(row.public_note) : row.publicNote ? String(row.publicNote) : '',
+    internalNote: row.internal_note ? String(row.internal_note) : row.internalNote ? String(row.internalNote) : '',
+    active: Boolean(row.active),
+    verifiedPartner: Boolean(row.verified_partner ?? row.verifiedPartner),
+    inVerification: Boolean(row.in_verification ?? row.inVerification ?? !row.verified_partner),
+    preferredPartner: Boolean(row.preferred_partner ?? row.preferredPartner),
+    rating: Number(row.rating ?? 0),
+    reviewCount: Number(row.review_count ?? row.reviewCount ?? 0),
+    complaintsCount: Number(row.complaints_count ?? row.complaintsCount ?? 0),
+    cardViewCount: Number(row.card_view_count ?? row.cardViewCount ?? 0),
+    contactRevealCount: Number(row.contact_reveal_count ?? row.contactRevealCount ?? 0),
+    quoteUseClickCount: Number(row.quote_use_click_count ?? row.quoteUseClickCount ?? 0),
+    referralCount: Number(row.referral_count ?? row.referralCount ?? 0),
+    recommendedJobsCount: Number(row.recommended_jobs_count ?? row.recommendedJobsCount ?? 0),
+    confirmedJobsCount: Number(row.confirmed_jobs_count ?? row.confirmedJobsCount ?? 0),
+    failedJobsCount: Number(row.failed_jobs_count ?? row.failedJobsCount ?? 0),
+    internalScore: Number(row.internal_score ?? row.internalScore ?? 0),
+    totalM2: Number(row.total_m2 ?? row.totalM2 ?? 0),
+    revenueWithoutVat: Number(row.revenue_without_vat ?? row.revenueWithoutVat ?? 0),
+    profit: Number(row.profit ?? 0),
+    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
+  };
+}
+
 function toSiteContent(row: Record<string, unknown>): SiteContentItem {
   return {
     key: String(row.key),
@@ -319,7 +434,7 @@ async function readLocalDb(): Promise<LocalDb> {
   try {
     return normalizeLocalDb(JSON.parse(await readFile(localDbPath, 'utf8')) as Partial<LocalDb>);
   } catch {
-    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [], realizations: [], siteContent: [] };
+    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [], realizations: [], roofers: [], siteContent: [] };
     await writeFile(localDbPath, JSON.stringify(empty, null, 2), 'utf8');
     return empty;
   }
@@ -344,6 +459,8 @@ export async function createLead(input: LeadInput): Promise<Lead> {
     term: input.term ?? '',
     note: input.note ?? '',
     source: input.source ?? 'web',
+    wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
+    selectedRooferId: input.selectedRooferId ?? '',
     rawData: input.rawData ?? {},
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -362,8 +479,8 @@ export async function createLead(input: LeadInput): Promise<Lead> {
     `INSERT INTO leads (
       id, created_at, updated_at, status, full_name, phone, email, city, district,
       object_type, material_type, area_estimate, roofer, term, note, gdpr, source,
-      internal_note, raw_data
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+      internal_note, raw_data, wants_roofer_recommendation, selected_roofer_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
     [
       lead.id,
       lead.createdAt,
@@ -384,6 +501,8 @@ export async function createLead(input: LeadInput): Promise<Lead> {
       lead.source,
       lead.internalNote,
       lead.rawData,
+      lead.wantsRooferRecommendation,
+      lead.selectedRooferId,
     ],
   );
   await addAuditLog('lead', id, 'lead_created', 'system', { status: 'novy' });
@@ -881,6 +1000,254 @@ export async function updateRealizationStatus(id: string, status: RealizationSta
   if (!rows[0]) return null;
   await addAuditLog('realization', id, 'realization_status_changed', actorEmail, { previous: previous.rows[0]?.status, next: status });
   return toRealization(rows[0]);
+}
+
+export async function listRoofers(options: { publicOnly?: boolean; region?: string; district?: string } = {}): Promise<Roofer[]> {
+  await ensureSchema();
+  const db = getPool();
+  const region = options.region?.trim() ?? '';
+  const district = options.district?.trim() ?? '';
+
+  if (!db) {
+    const local = await readLocalDb();
+    return local.roofers
+      .map((roofer) => toRoofer(roofer as unknown as Record<string, unknown>))
+      .filter((roofer) => (!options.publicOnly || roofer.active))
+      .filter((roofer) => (!region || roofer.region === region))
+      .filter((roofer) => (!district || roofer.districts.includes(district)))
+      .sort((a, b) =>
+        Number(b.verifiedPartner) - Number(a.verifiedPartner)
+        || b.rating - a.rating
+        || b.confirmedJobsCount - a.confirmedJobsCount
+        || Number(b.preferredPartner) - Number(a.preferredPartner)
+        || a.name.localeCompare(b.name, 'sk'),
+      );
+  }
+
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  if (options.publicOnly) clauses.push('active = true');
+  if (region) {
+    values.push(region);
+    clauses.push(`region = $${values.length}`);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+  const { rows } = await db.query(
+    `SELECT * FROM roofers ${where}
+     ORDER BY verified_partner DESC, rating DESC, confirmed_jobs_count DESC, preferred_partner DESC, name ASC
+     LIMIT 300`,
+    values,
+  );
+  return rows
+    .map(toRoofer)
+    .filter((roofer) => (!district || roofer.districts.includes(district)));
+}
+
+export async function listPublicRoofers(filters: { region?: string; district?: string } = {}) {
+  return listRoofers({ ...filters, publicOnly: true });
+}
+
+export async function listMatchingRoofers(lead: Pick<Lead, 'city' | 'district'>, limit = 5) {
+  const district = lead.district?.trim() || '';
+  const city = lead.city?.trim() || '';
+  const all = await listPublicRoofers();
+  return all
+    .filter((roofer) => !district || roofer.districts.includes(district) || roofer.districts.includes(city))
+    .slice(0, limit);
+}
+
+export async function getRoofer(id: string): Promise<Roofer | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const roofer = local.roofers.find((item) => item.id === id);
+    return roofer ? toRoofer(roofer as unknown as Record<string, unknown>) : null;
+  }
+  const { rows } = await db.query('SELECT * FROM roofers WHERE id = $1 LIMIT 1', [id]);
+  return rows[0] ? toRoofer(rows[0]) : null;
+}
+
+export async function createRoofer(input: RooferInput, actorEmail: string): Promise<Roofer> {
+  await ensureSchema();
+  const timestamp = now();
+  const roofer: Roofer = {
+    id: randomUUID(),
+    name: input.name.trim(),
+    ico: input.ico?.trim() ?? '',
+    contactPerson: input.contactPerson?.trim() ?? '',
+    phone: input.phone?.trim() ?? '',
+    email: input.email?.trim() ?? '',
+    web: input.web?.trim() ?? '',
+    region: input.region.trim(),
+    districts: input.districts.map((item) => item.trim()).filter(Boolean),
+    specialization: input.specialization?.trim() ?? '',
+    publicNote: input.publicNote?.trim() ?? '',
+    internalNote: input.internalNote?.trim() ?? '',
+    active: input.active ?? true,
+    verifiedPartner: Boolean(input.verifiedPartner),
+    inVerification: Boolean(input.inVerification ?? !input.verifiedPartner),
+    preferredPartner: Boolean(input.preferredPartner),
+    rating: Math.min(5, Math.max(0, Number(input.rating ?? 0))),
+    reviewCount: Math.max(0, Math.round(Number(input.reviewCount ?? 0))),
+    complaintsCount: Math.max(0, Math.round(Number(input.complaintsCount ?? 0))),
+    cardViewCount: 0,
+    contactRevealCount: 0,
+    quoteUseClickCount: 0,
+    referralCount: 0,
+    recommendedJobsCount: 0,
+    confirmedJobsCount: 0,
+    failedJobsCount: 0,
+    internalScore: Math.min(100, Math.max(0, Number(input.internalScore ?? 0))),
+    totalM2: 0,
+    revenueWithoutVat: 0,
+    profit: 0,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.roofers.unshift(roofer);
+    await writeLocalDb(local);
+    await addAuditLog('roofer', roofer.id, 'roofer_created', actorEmail, { active: roofer.active, verifiedPartner: roofer.verifiedPartner });
+    return roofer;
+  }
+
+  await db.query(
+    `INSERT INTO roofers (
+      id, created_at, updated_at, name, ico, contact_person, phone, email, web, region, districts,
+      specialization, public_note, internal_note, active, verified_partner, in_verification, preferred_partner, rating,
+      review_count, complaints_count, card_view_count, contact_reveal_count, quote_use_click_count,
+      referral_count, recommended_jobs_count, confirmed_jobs_count, failed_jobs_count, internal_score,
+      total_m2, revenue_without_vat, profit
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)`,
+    [
+      roofer.id,
+      roofer.createdAt,
+      roofer.updatedAt,
+      roofer.name,
+      roofer.ico,
+      roofer.contactPerson,
+      roofer.phone,
+      roofer.email,
+      roofer.web,
+      roofer.region,
+      JSON.stringify(roofer.districts),
+      roofer.specialization,
+      roofer.publicNote,
+      roofer.internalNote,
+      roofer.active,
+      roofer.verifiedPartner,
+      roofer.inVerification,
+      roofer.preferredPartner,
+      roofer.rating,
+      roofer.reviewCount,
+      roofer.complaintsCount,
+      roofer.cardViewCount,
+      roofer.contactRevealCount,
+      roofer.quoteUseClickCount,
+      roofer.referralCount,
+      roofer.recommendedJobsCount,
+      roofer.confirmedJobsCount,
+      roofer.failedJobsCount,
+      roofer.internalScore,
+      roofer.totalM2,
+      roofer.revenueWithoutVat,
+      roofer.profit,
+    ],
+  );
+  await addAuditLog('roofer', roofer.id, 'roofer_created', actorEmail, { active: roofer.active, verifiedPartner: roofer.verifiedPartner });
+  return roofer;
+}
+
+export async function updateRooferFlags(
+  id: string,
+  input: Pick<RooferInput, 'active' | 'verifiedPartner' | 'inVerification' | 'preferredPartner'>,
+  actorEmail: string,
+): Promise<Roofer | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const roofer = local.roofers.find((item) => item.id === id);
+    if (!roofer) return null;
+    const previous = { active: roofer.active, verifiedPartner: roofer.verifiedPartner, inVerification: roofer.inVerification, preferredPartner: roofer.preferredPartner };
+    roofer.active = Boolean(input.active);
+    roofer.verifiedPartner = Boolean(input.verifiedPartner);
+    roofer.inVerification = Boolean(input.inVerification);
+    roofer.preferredPartner = Boolean(input.preferredPartner);
+    roofer.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('roofer', id, 'roofer_flags_changed', actorEmail, { previous, next: input });
+    return roofer;
+  }
+  const previous = await getRoofer(id);
+  const { rows } = await db.query(
+    `UPDATE roofers
+     SET active = $1, verified_partner = $2, in_verification = $3, preferred_partner = $4, updated_at = now()
+     WHERE id = $5
+     RETURNING *`,
+    [Boolean(input.active), Boolean(input.verifiedPartner), Boolean(input.inVerification), Boolean(input.preferredPartner), id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('roofer', id, 'roofer_flags_changed', actorEmail, { previous, next: input });
+  return toRoofer(rows[0]);
+}
+
+export type RooferEventType = 'card_viewed' | 'contact_revealed' | 'quote_selected';
+
+export async function recordRooferEvent(
+  rooferId: string,
+  eventType: RooferEventType,
+  context: { region?: string; page?: string; referrer?: string } = {},
+) {
+  await ensureSchema();
+  const db = getPool();
+  const changes = {
+    eventType,
+    region: context.region?.slice(0, 120) ?? '',
+    page: context.page?.slice(0, 300) ?? '',
+    referrer: context.referrer?.slice(0, 300) ?? '',
+  };
+
+  if (!db) {
+    const local = await readLocalDb();
+    const roofer = local.roofers.find((item) => item.id === rooferId);
+    if (!roofer) return null;
+    if (eventType === 'card_viewed') roofer.cardViewCount = (roofer.cardViewCount ?? 0) + 1;
+    if (eventType === 'contact_revealed') roofer.contactRevealCount = (roofer.contactRevealCount ?? 0) + 1;
+    if (eventType === 'quote_selected') roofer.quoteUseClickCount = (roofer.quoteUseClickCount ?? 0) + 1;
+    roofer.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('roofer', rooferId, `roofer_${eventType}`, 'public', changes);
+    return toRoofer(roofer as unknown as Record<string, unknown>);
+  }
+
+  const column =
+    eventType === 'card_viewed'
+      ? 'card_view_count'
+      : eventType === 'contact_revealed'
+        ? 'contact_reveal_count'
+        : 'quote_use_click_count';
+
+  const { rows } = await db.query(
+    `UPDATE roofers
+      SET ${column} = ${column} + 1, updated_at = now()
+      WHERE id = $1
+      RETURNING *`,
+    [rooferId],
+  );
+  if (!rows[0]) return null;
+
+  await db.query(
+    `INSERT INTO roofer_events (id, roofer_id, event_type, region, page, referrer, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+    [randomUUID(), rooferId, eventType, changes.region, changes.page, changes.referrer, now()],
+  );
+  await addAuditLog('roofer', rooferId, `roofer_${eventType}`, 'public', changes);
+  return toRoofer(rows[0]);
 }
 
 export async function listSiteContent(): Promise<SiteContentItem[]> {

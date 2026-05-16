@@ -47,7 +47,7 @@ export function getLeadInsight(lead: Lead, fileCount = 0, quoteCount = 0): LeadI
   const term = normalized(lead.term);
 
   if (fileCount === 0) tags.push('chyba_fotka');
-  if (roofer.includes('potrebujem') || roofer.includes('nemam')) tags.push('potrebuje_strechara');
+  if (lead.wantsRooferRecommendation || lead.selectedRooferId || roofer.includes('potrebujem') || roofer.includes('chcem odporucit')) tags.push('potrebuje_strechara');
   if (term.includes('najskor') || term.includes('urgent') || term.includes('co naj')) tags.push('urgentne');
   if (lead.areaEstimate >= 100) tags.push('nad_100_m2');
 

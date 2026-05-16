@@ -9,6 +9,8 @@ export default function LandingClient() {
     const form = document.querySelector<HTMLFormElement>('.lead-form');
     const testimonialForm = document.querySelector<HTMLFormElement>('.testimonial-submit-form');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
+    const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
+    const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
     const fileDrop = document.querySelector<HTMLElement>('.file-drop');
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
@@ -28,6 +30,40 @@ export default function LandingClient() {
       const transfer = new DataTransfer();
       selectedFiles.slice(0, 10).forEach((file) => transfer.items.add(file));
       fileInput.files = transfer.files;
+    };
+
+    const trackRooferEvent = (rooferId: string, eventType: 'card_viewed' | 'contact_revealed' | 'quote_selected', region?: string) => {
+      if (!rooferId) return;
+      const payload = JSON.stringify({
+        rooferId,
+        eventType,
+        region: region || '',
+        page: window.location.pathname,
+        referrer: document.referrer || '',
+      });
+      if (navigator.sendBeacon) {
+        const sent = navigator.sendBeacon('/api/roofer-event/', new Blob([payload], { type: 'application/json' }));
+        if (sent) return;
+      }
+      void fetch('/api/roofer-event/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    };
+
+    const applyRooferSelectionFromUrl = () => {
+      if (!form || !rooferSelect) return;
+      const params = new URLSearchParams(window.location.search);
+      const selectedRooferId = params.get('selectedRooferId') || '';
+      const wantsRoofer = params.get('wantsRooferRecommendation') === 'true';
+      if (selectedRooferId && selectedRooferInput) {
+        selectedRooferInput.value = selectedRooferId;
+      }
+      if (selectedRooferId || wantsRoofer) {
+        rooferSelect.value = 'Chcem odporučiť strechára podľa regiónu';
+      }
     };
 
     const renderFiles = () => {
@@ -113,6 +149,25 @@ export default function LandingClient() {
       }
     };
 
+    const onRooferContactClick = (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const rooferId = button.dataset.rooferContact || '';
+      const region = button.dataset.rooferRegion || '';
+      const targetId = button.getAttribute('aria-controls');
+      const target = targetId ? document.getElementById(targetId) : null;
+      if (!target) return;
+      const hidden = target.hasAttribute('hidden');
+      target.toggleAttribute('hidden', !hidden);
+      button.setAttribute('aria-expanded', String(hidden));
+      button.textContent = hidden ? 'Kontakt zobrazený' : 'Zobraziť kontakt';
+      if (hidden) trackRooferEvent(rooferId, 'contact_revealed', region);
+    };
+
+    const onRooferQuoteClick = (event: Event) => {
+      const link = event.currentTarget as HTMLAnchorElement;
+      trackRooferEvent(link.dataset.rooferQuote || '', 'quote_selected', link.dataset.rooferRegion || '');
+    };
+
     const onTestimonialSubmit = async (event: SubmitEvent) => {
       if (!testimonialForm) return;
       event.preventDefault();
@@ -156,6 +211,7 @@ export default function LandingClient() {
     };
 
     menuToggle?.addEventListener('click', onMenuClick);
+    applyRooferSelectionFromUrl();
     fileInput?.addEventListener('change', onFilesChange);
     fileDrop?.addEventListener('dragover', (event) => {
       event.preventDefault();
@@ -169,6 +225,27 @@ export default function LandingClient() {
     });
     form?.addEventListener('submit', onSubmit);
     testimonialForm?.addEventListener('submit', onTestimonialSubmit);
+    const contactButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-roofer-contact]'));
+    const quoteLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-roofer-quote]'));
+    const rooferCards = Array.from(document.querySelectorAll<HTMLElement>('[data-roofer-card]'));
+    contactButtons.forEach((button) => button.addEventListener('click', onRooferContactClick));
+    quoteLinks.forEach((link) => link.addEventListener('click', onRooferQuoteClick));
+    let observer: IntersectionObserver | undefined;
+    const viewedRoofers = new Set<string>();
+    if ('IntersectionObserver' in window && rooferCards.length) {
+      observer = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const card = entry.target as HTMLElement;
+          const rooferId = card.dataset.rooferCard || '';
+          if (!rooferId || viewedRoofers.has(rooferId)) return;
+          viewedRoofers.add(rooferId);
+          trackRooferEvent(rooferId, 'card_viewed', card.dataset.rooferRegion || '');
+          observer?.unobserve(card);
+        });
+      }, { threshold: 0.45 });
+      rooferCards.forEach((card) => observer?.observe(card));
+    }
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     onScroll();
@@ -178,6 +255,9 @@ export default function LandingClient() {
       fileInput?.removeEventListener('change', onFilesChange);
       form?.removeEventListener('submit', onSubmit);
       testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
+      contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));
+      quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
+      observer?.disconnect();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
     };

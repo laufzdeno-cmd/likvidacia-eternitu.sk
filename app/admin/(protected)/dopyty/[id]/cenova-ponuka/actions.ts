@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { requireAdmin } from '@/src/server/auth';
-import { createQuote, nextQuoteNumber } from '@/src/server/db';
+import { createQuote, getRoofer, nextQuoteNumber } from '@/src/server/db';
 import { quoteSchema } from '@/src/server/validation';
 
 export async function createQuoteAction(formData: FormData) {
@@ -24,6 +24,16 @@ export async function createQuoteAction(formData: FormData) {
   if (!leadId || !parsed.success) {
     redirect(`/admin/dopyty/${leadId}`);
   }
+  const recommendedRooferId = String(formData.get('recommendedRooferId') || '');
+  const recommendedRoofer = recommendedRooferId ? await getRoofer(recommendedRooferId) : null;
+  const note = [
+    parsed.data.note || '',
+    recommendedRoofer
+      ? `Odporúčaný strechár na preverenie adminom: ${recommendedRoofer.name}${recommendedRoofer.phone ? `, ${recommendedRoofer.phone}` : ''}.`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   const quote = await createQuote({
     leadId,
@@ -36,7 +46,7 @@ export async function createQuoteAction(formData: FormData) {
     surcharge: parsed.data.surcharge,
     discount: parsed.data.discount,
     vatRate: parsed.data.vatRate,
-    note: parsed.data.note || '',
+    note,
     createdBy: actor,
   });
 

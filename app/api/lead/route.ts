@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
     materialType: formData.get('materialType'),
     areaEstimate: formData.get('areaEstimate') || formData.get('area'),
     roofer: formData.get('roofer') || '',
+    selectedRooferId: formData.get('selectedRooferId') || '',
     term: formData.get('term') || '',
     note: formData.get('note') || '',
     gdpr: formData.get('gdpr'),
@@ -107,6 +108,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const rooferValue = parsed.data.roofer || '';
+    const wantsRooferRecommendation = rooferValue === 'Chcem odporučiť strechára podľa regiónu';
+    const selectedRooferId = parsed.data.selectedRooferId || '';
     const lead = await createLead({
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
@@ -116,12 +120,14 @@ export async function POST(request: NextRequest) {
       objectType: parsed.data.objectType,
       materialType: parsed.data.materialType,
       areaEstimate: parsed.data.areaEstimate,
-      roofer: parsed.data.roofer || '',
+      roofer: rooferValue,
       term: parsed.data.term || '',
       note: parsed.data.note || '',
       gdpr: true,
       source: 'web',
-      rawData: { userAgent: request.headers.get('user-agent') || undefined },
+      wantsRooferRecommendation,
+      selectedRooferId,
+      rawData: { userAgent: request.headers.get('user-agent') || undefined, wantsRooferRecommendation, selectedRooferId },
     });
 
     const stored = [];

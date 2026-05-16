@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getLeadWithFiles, nextQuoteNumber } from '@/src/server/db';
+import { getLeadWithFiles, getRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { createQuoteAction } from './actions';
 import QuoteLivePreview from './quote-live-preview';
 
@@ -13,7 +13,14 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
   const { id } = await params;
   const lead = await getLeadWithFiles(id);
   if (!lead) notFound();
-  const quoteNumber = await nextQuoteNumber();
+  const [quoteNumber, matchingRoofers, selectedRoofer] = await Promise.all([
+    nextQuoteNumber(),
+    listMatchingRoofers(lead),
+    lead.selectedRooferId ? getRoofer(lead.selectedRooferId) : Promise.resolve(null),
+  ]);
+  const roofersForSelect = selectedRoofer && !matchingRoofers.some((roofer) => roofer.id === selectedRoofer.id)
+    ? [selectedRoofer, ...matchingRoofers]
+    : matchingRoofers;
   const transport = lead.areaEstimate >= 100 ? 0 : 80;
 
   return (
@@ -63,6 +70,15 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
           <label>
             DPH %
             <input name="vatRate" type="number" step="0.01" defaultValue="23" />
+          </label>
+          <label>
+            Odporúčaný strechár
+            <select name="recommendedRooferId" defaultValue={selectedRoofer?.id || ''}>
+              <option value="">Bez odporúčania v ponuke</option>
+              {roofersForSelect.map((roofer) => (
+                <option key={roofer.id} value={roofer.id}>{roofer.name} · {roofer.region}</option>
+              ))}
+            </select>
           </label>
           <label>
             Odhad nákladov bez DPH

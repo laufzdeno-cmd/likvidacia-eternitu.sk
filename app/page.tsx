@@ -65,7 +65,7 @@ const defaultCautionItems = [
   ],
   [
     'Pozor na meškanie termínu',
-    'Ak demontáž mešká, strechári čakajú a strecha môže zostať otvorená. Preto termíny plánujeme vopred.',
+    'Ak demontáž mešká, strechári čakajú a strecha môže zostať otvorená. Preto termíny plánujeme vopred a sledujeme počasie.',
   ],
   [
     'Pozor na zálohu bez istoty',
@@ -74,12 +74,12 @@ const defaultCautionItems = [
 ] satisfies [string, string][];
 
 const defaultRooferItems = [
-  ['Zladenie termínu', 'Demontáž plánujeme tak, aby po nás mohli strechári plynulo pokračovať.'],
-  ['Sledujeme počasie', 'Pri otvorenej streche riešime termín prakticky a podľa možností počasia.'],
-  ['Chodíme skoro ráno podľa dohody', 'Pri výmenách striech vieme nastúpiť skoro, aby sa stíhal ďalší postup.'],
-  ['Bez zhadzovania eternitu', 'Materiál demontujeme kontrolovane, nie zhadzovaním zo strechy.'],
-  ['Stabilizácia materiálu', 'Materiál pred manipuláciou stabilizujeme podľa rozsahu zákazky.'],
-  ['Pomoc so strechárom podľa regiónu', 'Ak strechára nemáte, v dopyte uveďte kraj a preveríme vhodný kontakt.'],
+  ['Zladenie termínu', 'Na stavbu chodíme skoro ráno podľa dohody, aby mohli strechári nadviazať prácou v ten istý deň.'],
+  ['Sledujeme počasie', 'Termín plánujeme s ohľadom na počasie, rozsah prác a nadväznosť strechárskych prác.'],
+  ['Bez zhadzovania eternitu', 'Materiál demontujeme kontrolovane. Nezhadzujeme eternit zo strechy a nevytvárame zbytočný chaos na stavbe.'],
+  ['Stabilizácia materiálu', 'Pred manipuláciou sa materiál stabilizuje, aby sa znížilo riziko uvoľňovania prachu.'],
+  ['Pomoc so strechárom', 'Ak nemáte svojho strechára, môžete si vybrať partnera podľa regiónu alebo o odporúčanie požiadať v cenovej ponuke.'],
+  ['Platba po dokončení', 'Pri bežných zákazkách nevyžadujeme platbu vopred za samotnú realizáciu. Platba prebieha po dokončení podľa dohodnutého rozsahu.'],
 ] satisfies [string, string][];
 
 const defaultPracticeItems = [
@@ -362,6 +362,7 @@ export default async function HomePage() {
             </div>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
               <div className="form-stage form-stage-priority">
                 <p className="form-stage-title">1. Výmera a lokalita</p>
                 <div className="field area-field">
@@ -411,9 +412,9 @@ export default async function HomePage() {
                 <div className="field">
                   <label htmlFor="roofer">Máte už strechára?</label>
                   <select id="roofer" name="roofer" defaultValue="Nemám strechára">
+                    <option>Mám vlastného strechára</option>
                     <option>Nemám strechára</option>
-                    <option>Mám strechára</option>
-                    <option>Potrebujem odporučiť strechára</option>
+                    <option>Chcem odporučiť strechára podľa regiónu</option>
                     <option>Riešim iba likvidáciu bez novej strechy</option>
                   </select>
                 </div>

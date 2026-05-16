@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getLeadWithFiles, nextQuoteNumber } from '@/src/server/db';
+import { getLeadWithFiles, getRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { getLeadInsight, statusLabels, tagLabels } from '@/src/server/lead-insights';
 import { saveInternalNote, saveLeadStatus } from './actions';
 
@@ -17,7 +17,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const lead = await getLeadWithFiles(id);
   if (!lead) notFound();
-  const defaultQuoteNumber = await nextQuoteNumber();
+  const [defaultQuoteNumber, matchingRoofers, selectedRoofer] = await Promise.all([
+    nextQuoteNumber(),
+    listMatchingRoofers(lead),
+    lead.selectedRooferId ? getRoofer(lead.selectedRooferId) : Promise.resolve(null),
+  ]);
   const insight = getLeadInsight(lead, lead.files.length, lead.quotes.length);
 
   return (
@@ -52,9 +56,28 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <dt>Materiál</dt><dd>{lead.materialType}</dd>
             <dt>Výmera</dt><dd>{lead.areaEstimate} m²</dd>
             <dt>Strechár</dt><dd>{lead.roofer || 'neuvedené'}</dd>
+            <dt>Odporúčanie</dt><dd>{lead.wantsRooferRecommendation ? 'zákazník chce odporučiť strechára' : 'bez požiadavky na odporúčanie'}</dd>
+            <dt>Vybraný strechár</dt><dd>{selectedRoofer ? `${selectedRoofer.name} (${selectedRoofer.region})` : 'nevybraný'}</dd>
             <dt>Termín</dt><dd>{lead.term || 'neuvedené'}</dd>
             <dt>Poznámka</dt><dd>{lead.note || 'bez poznámky'}</dd>
           </dl>
+        </section>
+
+        <section className="admin-card">
+          <h2>Odporúčaní strechári podľa lokality</h2>
+          {lead.wantsRooferRecommendation ? (
+            <div className="admin-file-list">
+              {matchingRoofers.map((roofer) => (
+                <a key={roofer.id} href="/admin/strechari">
+                  <span>{roofer.name} · {roofer.region}</span>
+                  <small>{roofer.districts.join(', ') || 'okresy neuvedené'} · {roofer.rating ? `${roofer.rating.toFixed(1)} / 5` : 'bez hodnotenia'}</small>
+                </a>
+              ))}
+              {!matchingRoofers.length ? <p>V tejto lokalite zatiaľ nie je aktívny partner. Odporúčanie treba preveriť ručne.</p> : null}
+            </div>
+          ) : (
+            <p>Zákazník si nevyžiadal odporúčanie strechára.</p>
+          )}
         </section>
 
         <section className="admin-card">

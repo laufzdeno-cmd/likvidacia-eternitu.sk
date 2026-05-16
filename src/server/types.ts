@@ -21,6 +21,8 @@ export type LeadInput = {
   note?: string;
   gdpr: boolean;
   source?: string;
+  wantsRooferRecommendation?: boolean;
+  selectedRooferId?: string;
   rawData?: Record<string, unknown>;
 };
 
@@ -50,7 +52,7 @@ export type LeadFile = {
 
 export type AuditLog = {
   id: string;
-  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content';
+  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content' | 'roofer';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -131,4 +133,61 @@ export type SiteContentItem = {
   value: string;
   updatedAt: string;
   updatedBy?: string;
+};
+
+export type Roofer = {
+  id: string;
+  name: string;
+  ico?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  web?: string;
+  region: string;
+  districts: string[];
+  specialization?: string;
+  publicNote?: string;
+  internalNote?: string;
+  active: boolean;
+  verifiedPartner: boolean;
+  inVerification: boolean;
+  preferredPartner: boolean;
+  rating: number;
+  reviewCount: number;
+  complaintsCount: number;
+  cardViewCount: number;
+  contactRevealCount: number;
+  quoteUseClickCount: number;
+  referralCount: number;
+  recommendedJobsCount: number;
+  confirmedJobsCount: number;
+  failedJobsCount: number;
+  internalScore: number;
+  totalM2: number;
+  revenueWithoutVat: number;
+  profit: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RooferInput = {
+  name: string;
+  ico?: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  web?: string;
+  region: string;
+  districts: string[];
+  specialization?: string;
+  publicNote?: string;
+  internalNote?: string;
+  active?: boolean;
+  verifiedPartner?: boolean;
+  inVerification?: boolean;
+  preferredPartner?: boolean;
+  rating?: number;
+  reviewCount?: number;
+  complaintsCount?: number;
+  internalScore?: number;
 };

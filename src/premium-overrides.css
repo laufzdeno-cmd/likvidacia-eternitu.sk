@@ -518,6 +518,212 @@ body::before {
   }
 }
 
+/* Controlled roofers directory: partner selection, not a phone-book table. */
+.roofer-map-visual {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 22px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(217, 151, 50, 0.22), transparent 12rem),
+    rgba(255, 255, 255, 0.08);
+}
+
+.roofer-map-visual span {
+  display: grid;
+  min-height: 50px;
+  place-items: center;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 950;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.roofer-proof-card .button {
+  width: fit-content;
+  margin-top: 18px;
+}
+
+.roofer-filters {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto !important;
+  align-items: end;
+}
+
+.roofer-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 26px;
+}
+
+.public-roofer-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(22px, 3vw, 30px);
+  border: 1px solid rgba(217, 230, 238, 0.98);
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(217, 151, 50, 0.12), transparent 16rem),
+    linear-gradient(180deg, #ffffff 0%, #fffaf3 100%);
+  box-shadow: 0 24px 70px rgba(6, 50, 74, 0.1);
+}
+
+.public-roofer-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: linear-gradient(90deg, var(--primary), var(--amber), var(--burgundy));
+}
+
+.roofer-card-top {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.roofer-card-top h3 {
+  margin: 0 0 8px;
+  color: var(--secondary);
+  font-size: clamp(22px, 2vw, 30px);
+  line-height: 1.08;
+}
+
+.roofer-card-top p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.roofer-card-top span {
+  flex: 0 0 auto;
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: #fff2f5;
+  color: var(--burgundy);
+  font-size: 12px;
+  font-weight: 950;
+  text-align: center;
+}
+
+.public-roofer-card dl {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 22px 0;
+  padding: 18px;
+  border-radius: 22px;
+  background: rgba(234, 247, 252, 0.62);
+}
+
+.public-roofer-card dt {
+  color: var(--secondary);
+  font-weight: 900;
+}
+
+.public-roofer-card dd {
+  margin: 0;
+  color: var(--muted);
+}
+
+.public-roofer-card > p {
+  color: var(--muted);
+  line-height: 1.68;
+}
+
+.roofer-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.roofer-card-actions .button {
+  min-height: 48px !important;
+}
+
+.roofer-card-actions button.button {
+  cursor: pointer;
+  font: inherit;
+}
+
+.roofer-contact-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 15px;
+  border: 1px solid rgba(8, 120, 184, 0.2);
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.roofer-contact-panel[hidden] {
+  display: none !important;
+}
+
+.roofer-contact-panel a,
+.roofer-contact-panel span {
+  color: var(--secondary);
+  font-weight: 900;
+}
+
+.admin-mini-form {
+  display: grid;
+  min-width: 180px;
+  gap: 8px;
+}
+
+.admin-mini-form label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-mini-form button {
+  min-height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: #0f3552;
+  color: #ffffff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+@media (max-width: 980px) {
+  .roofer-card-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .roofer-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .roofer-card-top {
+    display: grid;
+  }
+
+  .public-roofer-card dl,
+  .roofer-filters {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .roofer-card-actions .button,
+  .roofer-card-actions button.button {
+    width: 100%;
+  }
+}
+
 /* Final visual QA override: balanced desktop hero and readable form labels. */
 @media (min-width: 1180px) {
   .hero {
