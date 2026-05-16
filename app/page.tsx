@@ -3,14 +3,15 @@ import { getSiteContentMap, listApprovedTestimonials, listPublishedRealizations 
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 
 const defaultIncludedItems = [
-  'Dokumentácia na RÚVZ',
-  'Dokumentácia na OÚŽP',
+  'Návrh / podklady pre RÚVZ ku konkrétnej stavbe',
+  'Podklady pre OÚŽP / životné prostredie podľa zákazky',
+  'Dokumentácia k nakladaniu s nebezpečným odpadom',
   'Stabilizácia materiálu',
   'Odborná demontáž',
   'Balenie do označených vriec',
   'Dekontaminácia pracovného priestoru',
   'Odvoz na skládku nebezpečného odpadu',
-  'Potvrdenie / dokumentácia po likvidácii',
+  'Potvrdenie / dokumentácia po legálnej likvidácii',
 ];
 
 const defaultHeroFlowItems = ['m²', 'Ponuka', 'Dokumentácia', 'Demontáž', 'Odvoz', 'Potvrdenie'];
@@ -25,7 +26,7 @@ const defaultHeroBulletItems = [
 const defaultTrustItems = [
   ['Od roku 2011', 'Skúsenosti s azbestom a eternitom'],
   ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
-  ['RÚVZ / OÚŽP', 'Dokumentáciu pripravíme v rámci procesu'],
+  ['RÚVZ / OÚŽP ku konkrétnej stavbe', 'Postup riešime legálne, nie iba všeobecným sľubom'],
   ['Doprava nad 100 m² zdarma', 'Pri väčších zákazkách dopravu neúčtujeme'],
   ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
 ] satisfies [string, string][];
@@ -43,6 +44,21 @@ const defaultRiskItems = [
   ['Úradný postup', 'Pri azbeste treba počítať s dokumentáciou a zákonným postupom.'],
   ['Nebezpečný odpad', 'Azbest nepatrí do bežného odpadu. Musí byť správne zabalený a odovzdaný.'],
   ['Doklady', 'Po legálnej likvidácii získate potrebné potvrdenie alebo dokumentáciu.'],
+] satisfies [string, string][];
+
+const defaultCautionItems = [
+  [
+    'Doklady ku konkrétnej stavbe',
+    'Pri azbeste má byť riešený zákonný postup pre konkrétnu stavbu. Pred začiatkom prác si vypýtajte doklady k RÚVZ a OÚŽP / životnému prostrediu.',
+  ],
+  [
+    'Nie iba všeobecné oprávnenie',
+    'Všeobecné oprávnenie je základ, ale zákazník potrebuje vidieť, čo bolo pripravené pre jeho stavbu.',
+  ],
+  [
+    'Podania a dokumentácia',
+    'Po potvrdení objednávky pripravíme potrebné podklady a podania podľa konkrétnej zákazky.',
+  ],
 ] satisfies [string, string][];
 
 const defaultPracticeItems = [
@@ -70,6 +86,14 @@ const defaultFaq = [
   [
     'Môžem eternit odstrániť svojpomocne?',
     'Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť zákonný postup, bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.',
+  ],
+  [
+    'Aké doklady si mám vypýtať pred začiatkom prác?',
+    'Pýtajte si doklady k vašej konkrétnej stavbe - najmä rozhodnutie / posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie podľa konkrétneho prípadu. Firma by nemala začať práce bez pripraveného zákonného postupu.',
+  ],
+  [
+    'Stačí, že firma má všeobecné oprávnenie na azbest?',
+    'Nie úplne. Všeobecné oprávnenie je základ, ale pri konkrétnej stavbe musí byť riešený aj konkrétny postup a príslušná dokumentácia. Preto zákazníkom odporúčame pýtať si doklady viazané na ich stavbu.',
   ],
   [
     'Čo ak neviem presnú výmeru?',
@@ -217,6 +241,7 @@ export default async function HomePage() {
   const trustItems = parsePairs(content.trustItems, defaultTrustItems);
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
+  const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
   const practiceItems = parsePairs(content.practiceItems, defaultPracticeItems);
   const whyItems = parseLines(content.whyItems, defaultWhyItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
@@ -435,9 +460,35 @@ export default async function HomePage() {
             <h2 id="risk-title">{content.riskTitle}</h2>
             <p className="section-intro">{content.riskText}</p>
           </div>
+          <div className="risk-notice">
+            <span className="line-icon certificate" aria-hidden="true"></span>
+            <div>
+              <h3>{content.riskNoticeTitle}</h3>
+              <p>{content.riskNoticeText}</p>
+            </div>
+          </div>
           <div className="risk-grid">
             {riskItems.map(([title, text]) => (
               <article key={title}>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="section caution-section" id="doklady-ku-stavbe" aria-labelledby="caution-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">{content.cautionEyebrow}</p>
+              <h2 id="caution-title">{content.cautionTitle}</h2>
+            </div>
+            <p>{content.cautionText}</p>
+          </div>
+          <div className="caution-grid">
+            {cautionItems.map(([title, text], index) => (
+              <article key={title}>
+                <span className={`line-icon ${['certificate', 'shield', 'document'][index] || 'document'}`} aria-hidden="true"></span>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </article>
