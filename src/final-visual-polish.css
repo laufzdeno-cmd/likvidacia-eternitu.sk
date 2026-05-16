@@ -569,3 +569,140 @@ body::before {
     font-size: clamp(23px, 6vw, 27px) !important;
   }
 }
+
+/* Final premium color and mobile calm pass. */
+:root {
+  --burgundy: #8f163c !important;
+  --burgundy-hover: #6d102e !important;
+  --burgundy-soft: #fff4f7 !important;
+  --soft: #f8fbfd !important;
+  --blue-soft: #f1f9fc !important;
+}
+
+body {
+  background:
+    radial-gradient(circle at 9% 0%, rgba(217, 151, 50, 0.1), transparent 22rem),
+    radial-gradient(circle at 92% 4%, rgba(8, 120, 184, 0.08), transparent 26rem),
+    linear-gradient(180deg, #ffffff 0%, #fffaf3 44%, #f8fbfd 100%) !important;
+}
+
+.button-primary,
+.form-submit,
+.admin-primary-button,
+.mobile-sticky-cta a:last-child {
+  background: linear-gradient(135deg, #8f163c 0%, #86143a 58%, #6d102e 100%) !important;
+  box-shadow: 0 14px 30px rgba(111, 16, 46, 0.2) !important;
+}
+
+.button-primary:hover,
+.form-submit:hover,
+.admin-primary-button:hover,
+.mobile-sticky-cta a:last-child:hover {
+  background: linear-gradient(135deg, #7f1437 0%, #6d102e 100%) !important;
+  box-shadow: 0 12px 26px rgba(111, 16, 46, 0.18) !important;
+}
+
+.hero,
+.roofer-hero {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(217, 151, 50, 0.11), transparent 23rem),
+    radial-gradient(circle at 88% 12%, rgba(8, 120, 184, 0.08), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, #fff9f1 54%, #f5fbfd 100%) !important;
+}
+
+.section,
+.roofer-directory {
+  background:
+    radial-gradient(circle at 94% 0%, rgba(217, 151, 50, 0.055), transparent 20rem),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 253, 0.94)) !important;
+}
+
+.included-section,
+.practice-section {
+  background:
+    radial-gradient(circle at 4% 0%, rgba(217, 151, 50, 0.1), transparent 22rem),
+    linear-gradient(145deg, #ffffff 0%, #fffaf3 52%, #f8fbfd 100%) !important;
+}
+
+.hero-claim,
+.quote-handled,
+.quote-priority {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-color: rgba(217, 151, 50, 0.34) !important;
+}
+
+.practice-photo-board {
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 249, 241, 0.9)) !important;
+}
+
+.practice-photo-main {
+  background: #ffffff !important;
+}
+
+@media (max-width: 760px) {
+  body {
+    padding-bottom: calc(118px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  main,
+  .roofer-page {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .site-footer {
+    padding-bottom: calc(150px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .hero,
+  .roofer-hero {
+    background:
+      radial-gradient(circle at 12% 0%, rgba(217, 151, 50, 0.11), transparent 18rem),
+      radial-gradient(circle at 94% 10%, rgba(8, 120, 184, 0.07), transparent 17rem),
+      linear-gradient(160deg, #ffffff 0%, #fff9f1 58%, #f7fbfd 100%) !important;
+  }
+
+  .section-heading h2,
+  .why-card h2,
+  .included-section .section-heading h2,
+  .practice-section .section-heading h2,
+  .faq-section .section-heading h2,
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(21px, 5.45vw, 25.5px) !important;
+    line-height: 1.18 !important;
+    letter-spacing: 0 !important;
+  }
+
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(22px, 5.7vw, 26.5px) !important;
+  }
+
+  .mobile-sticky-cta {
+    min-height: 54px !important;
+    padding: 6px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 -10px 28px rgba(3, 50, 79, 0.12) !important;
+  }
+
+  .mobile-sticky-cta a {
+    min-height: 44px !important;
+    padding: 10px 12px !important;
+    border-radius: 14px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.02em !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .section-heading h2,
+  .why-card h2,
+  .included-section .section-heading h2,
+  .practice-section .section-heading h2,
+  .faq-section .section-heading h2,
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(20px, 5.25vw, 24px) !important;
+  }
+}

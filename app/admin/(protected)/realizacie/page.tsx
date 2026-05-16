@@ -56,8 +56,12 @@ export default async function RealizationsPage() {
             <textarea name="description" rows={4} placeholder="Krátko popíšte rozsah, materiál, priebeh a výsledok..." required />
           </label>
           <label className="admin-form-wide">
-            Fotky, každá URL na samostatný riadok
-            <textarea name="imageUrls" rows={4} placeholder="https://..." />
+            Fotky ASTANA, ideálne 2–3 URL na samostatný riadok
+            <textarea
+              name="imageUrls"
+              rows={4}
+              placeholder={'https://.../stabilizacia.webp\nhttps://.../balenie.webp\nhttps://.../odvoz.webp'}
+            />
           </label>
           <button className="admin-primary-button" type="submit">
             Uložiť realizáciu
