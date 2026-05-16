@@ -1,4 +1,4 @@
-export const homeContentVersion = '2026-05-16-warm-trust-v1';
+export const homeContentVersion = '2026-05-16-conversion-trust-v2';
 
 export const homeContentDefaults = {
   heroEyebrow: 'Kompletné riešenie azbestu a eternitu',
@@ -12,6 +12,7 @@ export const homeContentDefaults = {
   quoteHandled: 'Vy riešite výmeru. My riešime zvyšok.',
   quotePriorityTitle: 'm² je hlavný údaj',
   quotePriorityText: 'Fotky nám pomôžu overiť materiál, prístup a náročnosť práce.',
+  formSubmitText: 'Získať cenovú ponuku',
   ctaPrimary: 'Chcem cenovú ponuku',
   ctaPhone: 'Zavolať 0905 217 946',
   includedEyebrow: 'Čo všetko vybavíme za vás',
@@ -22,7 +23,7 @@ export const homeContentDefaults = {
   riskEyebrow: 'Prečo odborný postup',
   riskTitle: 'Azbest nie je obyčajná strešná krytina',
   riskText:
-    'Pri azbeste nejde len o demontáž. Treba správny postup, dokumentáciu, stabilizáciu, balenie, prepravu, skládku a doklady. Preto sa oplatí riešiť ho s firmou, ktorá preberie celý proces.',
+    'Pri azbeste nejde len o to, kto ho zloží zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete. Treba správny postup, dokumentáciu, stabilizáciu, balenie, prepravu, skládku a doklady.',
   whyEyebrow: 'Prečo ASTANA',
   whyTitle: 'Prečo sa zákazníci obracajú na ASTANA',
   realizationsEyebrow: 'Realizácie',
@@ -36,19 +37,22 @@ export const homeContentDefaults = {
   practiceEyebrow: 'Legálna likvidácia v praxi',
   practiceTitle: 'Ako vyzerá legálna likvidácia v praxi',
   practiceText:
-    'Každá zákazka má jasný postup: materiál sa stabilizuje, bezpečne demontuje, zabalí, odvezie a po ukončení sa odovzdajú doklady podľa rozsahu zákazky.',
+    'Pri azbeste nejde len o to, kto ho zloží zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete.',
   faqEyebrow: 'FAQ',
   faqTitle: 'Najčastejšie otázky',
   faqText: 'Krátke odpovede na veci, ktoré ľudia riešia pred cenovou ponukou.',
   finalEyebrow: 'Rýchla odpoveď',
-  finalTitle: 'Zadajte výmeru v m² a získajte cenovú ponuku do 24 hodín',
-  finalText: 'Uveďte približnú výmeru, lokalitu a typ materiálu. O dokumentáciu, demontáž, odvoz aj potvrdenie sa postaráme my.',
+  finalTitle: 'Vy riešite výmeru. My riešime zvyšok.',
+  finalText:
+    'Zadajte približnú výmeru v m², lokalitu a typ materiálu. O dokumentáciu, demontáž, balenie, odvoz aj potvrdenie sa postaráme my.',
+  finalCtaPrimary: 'Získať cenovú ponuku',
   footerText:
     'Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
   heroFlowItems: 'm²\nPonuka\nDokumentácia\nDemontáž\nOdvoz\nPotvrdenie',
   heroBulletItems:
     'Cenu počítame hlavne podľa m²\nFotky pomôžu spresniť prístup a typ materiálu\nDokumentácia RÚVZ / OÚŽP v procese\nOdvoz a doklady po likvidácii',
-  trustItems: 'Od roku 2011\nCelá SR\nRÚVZ / OÚŽP\nDoprava nad 100 m² zdarma\nPotvrdenie o legálnej likvidácii',
+  trustItems:
+    'Od roku 2011|Skúsenosti s azbestom a eternitom\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\nRÚVZ / OÚŽP|Dokumentáciu pripravíme v rámci procesu\nDoprava nad 100 m² zdarma|Pri väčších zákazkách dopravu neúčtujeme\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade',
   includedItems:
     'Dokumentácia na RÚVZ\nDokumentácia na OÚŽP\nStabilizácia materiálu\nOdborná demontáž\nBalenie do označených vriec\nDekontaminácia pracovného priestoru\nOdvoz na skládku nebezpečného odpadu\nPotvrdenie / dokumentácia po likvidácii',
   processSteps:

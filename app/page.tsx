@@ -23,12 +23,12 @@ const defaultHeroBulletItems = [
 ];
 
 const defaultTrustItems = [
-  'Od roku 2011',
-  'Celá SR',
-  'RÚVZ / OÚŽP',
-  'Doprava nad 100 m² zdarma',
-  'Potvrdenie o legálnej likvidácii',
-];
+  ['Od roku 2011', 'Skúsenosti s azbestom a eternitom'],
+  ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
+  ['RÚVZ / OÚŽP', 'Dokumentáciu pripravíme v rámci procesu'],
+  ['Doprava nad 100 m² zdarma', 'Pri väčších zákazkách dopravu neúčtujeme'],
+  ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
+] satisfies [string, string][];
 
 const defaultProcessSteps = [
   ['Zadáte m² a údaje', 'Uveďte približnú výmeru, lokalitu a typ materiálu.'],
@@ -214,7 +214,7 @@ export default async function HomePage() {
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
   const heroFlowItems = parseLines(content.heroFlowItems, defaultHeroFlowItems);
   const heroBulletItems = parseLines(content.heroBulletItems, defaultHeroBulletItems);
-  const trustItems = parseLines(content.trustItems, defaultTrustItems);
+  const trustItems = parsePairs(content.trustItems, defaultTrustItems);
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
   const practiceItems = parsePairs(content.practiceItems, defaultPracticeItems);
@@ -314,6 +314,11 @@ export default async function HomePage() {
             </div>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <div className="field area-field">
+                <label htmlFor="areaEstimate">Približná výmera v m² *</label>
+                <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
+                <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
+              </div>
               <div className="field">
                 <label htmlFor="fullName">Meno a priezvisko *</label>
                 <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="Meno a priezvisko *" required />
@@ -329,11 +334,6 @@ export default async function HomePage() {
               <div className="field">
                 <label htmlFor="city">Obec / mesto *</label>
                 <input id="city" name="city" type="text" autoComplete="address-level2" placeholder="Obec / mesto *" required />
-              </div>
-              <div className="field area-field">
-                <label htmlFor="areaEstimate">Približná výmera v m² *</label>
-                <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
-                <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
               </div>
               <div className="field">
                 <label htmlFor="district">Okres</label>
@@ -411,7 +411,7 @@ export default async function HomePage() {
                 <input type="checkbox" name="gdpr" required /> Súhlasím so spracovaním údajov na vybavenie cenovej ponuky.
               </label>
               <button className="button button-primary form-submit" type="submit">
-                Odoslať dopyt
+                {content.formSubmitText}
               </button>
               <p className="form-security">Vaše údaje sú u nás v bezpečí. Použijeme ich iba na spracovanie cenovej ponuky.</p>
               <p className="form-status" role="status" aria-live="polite"></p>
@@ -420,10 +420,11 @@ export default async function HomePage() {
         </section>
 
         <section className="trust-bar" aria-label="Dôveryhodné prvky služby">
-          {trustItems.map((item, index) => (
-            <div className="trust-item" key={item}>
+          {trustItems.map(([title, text], index) => (
+            <div className="trust-item" key={title}>
               <span className={`line-icon ${['shield', 'map', 'document', 'truck', 'certificate'][index] || 'shield'}`} aria-hidden="true"></span>
-              <strong>{item}</strong>
+              <strong>{title}</strong>
+              <p>{text}</p>
             </div>
           ))}
         </section>
@@ -550,43 +551,6 @@ export default async function HomePage() {
                   </article>
                 ))}
               </div>
-              <form className="testimonial-submit-form" action="/api/testimonial/" method="post">
-                <input className="hp-field" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-                <p className="quote-kicker">Po realizácii</p>
-                <h3>{content.testimonialFormTitle}</h3>
-                <p>{content.testimonialFormText}</p>
-                <label>
-                  Meno alebo iniciály
-                  <input name="customerName" placeholder="napr. Ján P." required />
-                </label>
-                <label>
-                  Email (neverejný)
-                  <input name="customerEmail" type="email" placeholder="voliteľné" />
-                </label>
-                <label>
-                  Mesto / kraj
-                  <input name="location" placeholder="napr. Poprad" />
-                </label>
-                <label>
-                  Hodnotenie
-                  <select name="rating" defaultValue="5">
-                    <option value="5">5 hviezdičiek</option>
-                    <option value="4">4 hviezdičky</option>
-                    <option value="3">3 hviezdičky</option>
-                    <option value="2">2 hviezdičky</option>
-                    <option value="1">1 hviezdička</option>
-                  </select>
-                </label>
-                <label className="testimonial-wide">
-                  Text referencie
-                  <textarea name="text" rows={4} placeholder="Napíšte krátko svoju skúsenosť..." required />
-                </label>
-                <label className="consent testimonial-wide">
-                  <input type="checkbox" name="consentPublication" required /> Súhlasím so spracovaním a zverejnením referencie po schválení.
-                </label>
-                <button className="button button-primary testimonial-wide" type="submit">Odoslať referenciu</button>
-                <p className="testimonial-form-status testimonial-wide" role="status" aria-live="polite"></p>
-              </form>
             </div>
           </section>
         ) : (
@@ -635,7 +599,7 @@ export default async function HomePage() {
             <p>{content.finalText}</p>
           </div>
           <div className="final-actions">
-            <a className="button button-primary" href="#dopyt">{content.ctaPrimary}</a>
+            <a className="button button-primary" href="#dopyt">{content.finalCtaPrimary}</a>
             <a className="button button-outline" href="tel:+421905217946">{content.ctaPhone}</a>
           </div>
         </section>
