@@ -384,7 +384,7 @@ export default async function HomePage() {
                 <div className="field">
                   <label htmlFor="materialType">Typ azbestového materiálu *</label>
                   <select id="materialType" name="materialType" required defaultValue="">
-                    <option value="">Aký materiál chcete odstrániť? *</option>
+                    <option value="">Vyberte materiál *</option>
                     <option>Vlnitý eternit</option>
                     <option>Hladký / štvorcový eternit</option>
                     <option>Azbestocementové rúry</option>

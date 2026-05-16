@@ -282,6 +282,119 @@ body::before {
   box-shadow: 0 -18px 44px rgba(3, 50, 79, 0.14) !important;
 }
 
+.included-section .section-heading {
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.included-section .section-intro {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  text-align: left !important;
+}
+
+@media (min-width: 1180px) {
+  .quote-card {
+    padding: 20px 22px !important;
+  }
+
+  .quote-card h2 {
+    font-size: clamp(28px, 2.35vw, 36px) !important;
+    line-height: 1.04 !important;
+  }
+
+  .quote-card > p:not(.quote-kicker) {
+    font-size: 14px !important;
+    line-height: 1.48 !important;
+  }
+
+  .quote-handled {
+    margin: 8px 0 10px !important;
+    padding: 9px 12px !important;
+  }
+
+  .quote-priority {
+    margin: 8px 0 12px !important;
+    padding: 10px 12px !important;
+  }
+
+  .lead-form {
+    gap: 10px !important;
+  }
+
+  .form-stage {
+    gap: 9px !important;
+    padding: 11px !important;
+    border-radius: 18px !important;
+  }
+
+  .form-stage-title {
+    font-size: 12px !important;
+    line-height: 1.18 !important;
+  }
+
+  .quote-card .field:not(.file-field) {
+    gap: 6px !important;
+  }
+
+  .quote-card input,
+  .quote-card select {
+    min-height: 46px !important;
+    height: 46px !important;
+    padding: 0 12px !important;
+  }
+
+  .quote-card textarea {
+    min-height: 66px !important;
+    padding: 12px !important;
+  }
+
+  .area-field {
+    gap: 10px !important;
+    padding: 10px !important;
+  }
+
+  .area-field input {
+    min-height: 52px !important;
+    height: 52px !important;
+  }
+
+  .file-drop {
+    min-height: auto !important;
+    padding: 10px 12px !important;
+  }
+
+  .consent {
+    align-items: flex-start !important;
+    font-size: 12px !important;
+    line-height: 1.32 !important;
+  }
+
+  .form-submit {
+    min-height: 48px !important;
+  }
+
+  .form-security {
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .included-section .section-heading,
+  .included-section .section-intro {
+    text-align: left !important;
+  }
+
+  .site-footer {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+
 .quote-card .form-stage .field {
   min-width: 0 !important;
 }
