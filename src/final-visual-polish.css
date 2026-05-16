@@ -1,5 +1,84 @@
 /* Final public visual polish loaded after the legacy CSS layers. */
 
+:root {
+  --primary: #0087cf;
+  --primary-strong: #006fae;
+  --bright: #00b7e8;
+  --secondary: #03324f;
+  --secondary-soft: #084765;
+  --soft-blue: #dff5ff;
+  --clean-bg: #fff7ec;
+  --paper: #ffffff;
+  --ink: #0e1726;
+  --muted: #374151;
+  --line: #cce6f2;
+  --burgundy: #bf164c;
+  --burgundy-hover: #95113a;
+  --burgundy-soft: #fff0f5;
+  --gold: #e2a437;
+  --shadow-soft: 0 24px 78px rgba(3, 50, 79, 0.13);
+  --shadow-strong: 0 38px 120px rgba(3, 50, 79, 0.21);
+}
+
+body {
+  color: var(--ink) !important;
+  background:
+    radial-gradient(circle at 5% 0%, rgba(226, 164, 55, 0.26), transparent 27rem),
+    radial-gradient(circle at 94% 5%, rgba(0, 183, 232, 0.24), transparent 32rem),
+    linear-gradient(180deg, #ffffff 0%, #f0fbff 34%, #ffffff 64%, #fff7ec 100%) !important;
+}
+
+body::before {
+  opacity: 0.06 !important;
+  background-image:
+    linear-gradient(rgba(0, 135, 207, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 135, 207, 0.05) 1px, transparent 1px) !important;
+}
+
+.site-header {
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 16px 42px rgba(3, 50, 79, 0.09) !important;
+}
+
+.site-header::before {
+  background: linear-gradient(90deg, var(--secondary), var(--primary), var(--bright), var(--gold), var(--burgundy)) !important;
+}
+
+.button-primary,
+.form-submit,
+.admin-primary-link,
+.admin-primary-button {
+  background: linear-gradient(135deg, #d21c55 0%, var(--burgundy) 52%, #901139 100%) !important;
+  box-shadow:
+    0 20px 44px rgba(191, 22, 76, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+
+.button-primary:hover,
+.form-submit:hover {
+  background: linear-gradient(135deg, #c0184d 0%, var(--burgundy-hover) 100%) !important;
+  box-shadow:
+    0 26px 62px rgba(191, 22, 76, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24) !important;
+}
+
+.button-outline {
+  border-color: rgba(0, 135, 207, 0.42) !important;
+  color: var(--secondary) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+.button-outline:hover {
+  background: #e9f9ff !important;
+  border-color: rgba(0, 135, 207, 0.68) !important;
+  color: var(--primary-strong) !important;
+}
+
+.eyebrow,
+.quote-kicker {
+  color: #c27d12 !important;
+}
+
 @media (min-width: 1180px) {
   .hero {
     grid-template-columns: minmax(340px, 0.88fr) minmax(300px, 0.76fr) minmax(390px, 1.04fr) !important;
@@ -27,6 +106,180 @@
   .quote-card .form-stage-priority {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+}
+
+.hero {
+  border-color: rgba(204, 230, 242, 0.98) !important;
+  background:
+    radial-gradient(circle at 17% 12%, rgba(226, 164, 55, 0.24), transparent 25rem),
+    radial-gradient(circle at 70% 8%, rgba(0, 183, 232, 0.34), transparent 31rem),
+    linear-gradient(104deg, #ffffff 0%, #fff8ec 31%, #effbff 66%, #ffffff 100%) !important;
+  box-shadow: 0 34px 110px rgba(3, 50, 79, 0.16) !important;
+}
+
+.hero::before {
+  opacity: 0.16 !important;
+  background:
+    linear-gradient(90deg, rgba(191, 22, 76, 0.16), rgba(226, 164, 55, 0.15), rgba(0, 183, 232, 0.18)) !important;
+}
+
+.hero h1 {
+  color: var(--secondary) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+}
+
+.hero-claim {
+  color: var(--burgundy) !important;
+  background: linear-gradient(135deg, #fff6e8, #ffffff) !important;
+  border-color: rgba(226, 164, 55, 0.4) !important;
+  box-shadow: 0 16px 34px rgba(226, 164, 55, 0.15) !important;
+}
+
+.hero-text,
+.section-intro,
+.quote-card p {
+  color: var(--muted) !important;
+}
+
+.hero-proof-flow span,
+.hero-points li,
+.trust-item,
+.included-item,
+.risk-card,
+.caution-card,
+.roofer-card,
+.practice-item,
+.faq-grid details {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(204, 230, 242, 0.96) !important;
+}
+
+.hero-proof-flow span:first-child,
+.hero-points li::before {
+  background: rgba(191, 22, 76, 0.1) !important;
+  color: var(--burgundy) !important;
+  border-color: rgba(191, 22, 76, 0.28) !important;
+}
+
+.hero-photo,
+.practice-photo-main {
+  background:
+    radial-gradient(circle at 85% 0%, rgba(226, 164, 55, 0.18), transparent 18rem),
+    linear-gradient(145deg, #effbff, #ffffff 48%, #fff7ec) !important;
+  box-shadow: 0 34px 88px rgba(3, 50, 79, 0.19) !important;
+}
+
+.hero-photo img,
+.practice-photo-main img {
+  filter: saturate(1.32) contrast(1.12) brightness(1.03) !important;
+}
+
+.photo-proof {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-color: rgba(0, 135, 207, 0.18) !important;
+  color: var(--secondary) !important;
+}
+
+.quote-card {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 183, 232, 0.2), transparent 17rem),
+    radial-gradient(circle at 0% 18%, rgba(226, 164, 55, 0.13), transparent 16rem),
+    linear-gradient(180deg, #ffffff 0%, #f5fcff 100%) !important;
+  border-color: rgba(204, 230, 242, 1) !important;
+  box-shadow: 0 34px 98px rgba(3, 50, 79, 0.2) !important;
+}
+
+.quote-card::before {
+  background: linear-gradient(90deg, var(--burgundy), var(--gold), var(--bright)) !important;
+}
+
+.quote-priority,
+.form-stage-priority,
+.area-field {
+  background:
+    radial-gradient(circle at 0 0, rgba(191, 22, 76, 0.13), transparent 15rem),
+    linear-gradient(135deg, #fff4f8, #ffffff 66%, #effbff) !important;
+  border-color: rgba(191, 22, 76, 0.3) !important;
+}
+
+.form-stage {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-color: rgba(204, 230, 242, 0.98) !important;
+}
+
+.quote-card input,
+.quote-card select,
+.quote-card textarea {
+  border-color: rgba(0, 135, 207, 0.28) !important;
+  box-shadow: 0 9px 24px rgba(3, 50, 79, 0.055) !important;
+}
+
+.quote-card input:focus,
+.quote-card select:focus,
+.quote-card textarea:focus {
+  border-color: rgba(191, 22, 76, 0.62) !important;
+  box-shadow: 0 0 0 4px rgba(191, 22, 76, 0.12), 0 14px 30px rgba(3, 50, 79, 0.09) !important;
+}
+
+.trust-bar {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(239, 251, 255, 0.94)) !important;
+  border-color: rgba(204, 230, 242, 1) !important;
+  box-shadow: 0 28px 74px rgba(3, 50, 79, 0.13) !important;
+}
+
+.section {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(0, 183, 232, 0.11), transparent 22rem),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 236, 0.86)) !important;
+  border-color: rgba(204, 230, 242, 0.92) !important;
+  box-shadow: 0 26px 80px rgba(3, 50, 79, 0.09) !important;
+}
+
+.risk-section,
+.roofers-section,
+.faq-section {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(226, 164, 55, 0.18), transparent 23rem),
+    linear-gradient(135deg, #ffffff 0%, #effbff 100%) !important;
+}
+
+.included-section,
+.practice-section {
+  background:
+    radial-gradient(circle at 0 0, rgba(0, 183, 232, 0.14), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, #fff7ec 100%) !important;
+}
+
+.transport-banner,
+.final-cta {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(0, 183, 232, 0.18), transparent 22rem),
+    linear-gradient(135deg, #042c45 0%, #073f5f 58%, #062f49 100%) !important;
+  box-shadow: 0 28px 82px rgba(3, 50, 79, 0.24) !important;
+}
+
+.transport-banner strong,
+.final-cta h2 {
+  color: #ffffff !important;
+}
+
+.line-icon {
+  color: var(--primary) !important;
+  border-color: rgba(0, 135, 207, 0.22) !important;
+  background: linear-gradient(135deg, #ffffff, #ecfaff) !important;
+}
+
+.site-footer {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(0, 183, 232, 0.16), transparent 24rem),
+    linear-gradient(180deg, #052a42 0%, #031d2e 100%) !important;
+}
+
+.mobile-sticky-cta {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(204, 230, 242, 1) !important;
+  box-shadow: 0 -18px 44px rgba(3, 50, 79, 0.14) !important;
 }
 
 .quote-card .form-stage .field {
