@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import '../src/styles.css';
 import '../src/premium-overrides.css';
+import '../src/final-visual-polish.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://likvidacia-eternitu.sk'),

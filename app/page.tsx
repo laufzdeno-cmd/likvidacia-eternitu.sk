@@ -48,17 +48,38 @@ const defaultRiskItems = [
 
 const defaultCautionItems = [
   [
-    'Doklady ku konkrétnej stavbe',
-    'Pri azbeste má byť riešený zákonný postup pre konkrétnu stavbu. Pred začiatkom prác si vypýtajte doklady k RÚVZ a OÚŽP / životnému prostrediu.',
+    'Pýtajte si doklady ku konkrétnej stavbe',
+    'Nestačí počuť „máme povolenie“. Pri azbeste má byť riešený zákonný postup pre konkrétnu stavbu. Pred začiatkom prác si vypýtajte doklady k RÚVZ a OÚŽP / životnému prostrediu.',
   ],
   [
-    'Nie iba všeobecné oprávnenie',
-    'Všeobecné oprávnenie je základ, ale zákazník potrebuje vidieť, čo bolo pripravené pre jeho stavbu.',
+    'Pozor na odpad ponechaný na dvore',
+    'Likvidácia nekončí demontážou. Azbestový odpad musí byť zabalený a odvezený na určené miesto.',
   ],
   [
-    'Podania a dokumentácia',
-    'Po potvrdení objednávky pripravíme potrebné podklady a podania podľa konkrétnej zákazky.',
+    'Pozor na zhadzovanie eternitu',
+    'Materiál sa má demontovať kontrolovane. Zhadzovanie môže zhoršiť riziko prachu, poškodenia a chaosu na stavbe.',
   ],
+  [
+    'Pozor na cenu bez dokladov',
+    'Nízka cena môže znamenať, že v nej nie je zahrnutá dokumentácia, skládka, balenie alebo odvoz.',
+  ],
+  [
+    'Pozor na meškanie termínu',
+    'Ak demontáž mešká, strechári čakajú a strecha môže zostať otvorená. Preto termíny plánujeme vopred.',
+  ],
+  [
+    'Pozor na zálohu bez istoty',
+    'Pri bežných zákazkách neplatíte vopred za samotnú realizáciu. Platba prebieha po dokončení podľa dohodnutého rozsahu.',
+  ],
+] satisfies [string, string][];
+
+const defaultRooferItems = [
+  ['Zladenie termínu', 'Demontáž plánujeme tak, aby po nás mohli strechári plynulo pokračovať.'],
+  ['Sledujeme počasie', 'Pri otvorenej streche riešime termín prakticky a podľa možností počasia.'],
+  ['Chodíme skoro ráno podľa dohody', 'Pri výmenách striech vieme nastúpiť skoro, aby sa stíhal ďalší postup.'],
+  ['Bez zhadzovania eternitu', 'Materiál demontujeme kontrolovane, nie zhadzovaním zo strechy.'],
+  ['Stabilizácia materiálu', 'Materiál pred manipuláciou stabilizujeme podľa rozsahu zákazky.'],
+  ['Pomoc so strechárom podľa regiónu', 'Ak strechára nemáte, v dopyte uveďte kraj a preveríme vhodný kontakt.'],
 ] satisfies [string, string][];
 
 const defaultPracticeItems = [
@@ -112,8 +133,8 @@ const defaultFaq = [
     'Termín závisí od rozsahu, lokality, počasia a potrebného úradného postupu. Po potvrdení objednávky dohodneme ďalší postup a časový plán.',
   ],
   [
-    'Pomôžete aj so strechárom?',
-    'Ak strechára ešte nemáte, uveďte to v dopyte. Podľa kraja a termínu preveríme vhodného spolupracujúceho partnera.',
+    'Pomôžete zladiť likvidáciu so strechárom?',
+    'Áno. Termín plánujeme tak, aby mohli strechári čo najplynulejšie pokračovať. Sledujeme počasie a pri výmenách striech sa snažíme prísť skoro ráno podľa dohody.',
   ],
 ] satisfies [string, string][];
 
@@ -242,6 +263,7 @@ export default async function HomePage() {
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
   const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
+  const rooferItems = parsePairs(content.rooferItems, defaultRooferItems);
   const practiceItems = parsePairs(content.practiceItems, defaultPracticeItems);
   const whyItems = parseLines(content.whyItems, defaultWhyItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
@@ -286,6 +308,7 @@ export default async function HomePage() {
           <a href="#azbest">Prečo odborný postup</a>
           <a href="#cena">Čo vybavíme</a>
           <a href="#ako-to-prebieha">Ako to prebieha</a>
+          <a href="/strechari/">Strechári</a>
           <a href="#preco">Prečo ASTANA</a>
           {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
           <a href="#referencie">{testimonials.length ? 'Referencie' : 'Prax'}</a>
@@ -339,98 +362,113 @@ export default async function HomePage() {
             </div>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-              <div className="field area-field">
-                <label htmlFor="areaEstimate">Približná výmera v m² *</label>
-                <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
-                <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
+              <div className="form-stage form-stage-priority">
+                <p className="form-stage-title">1. Výmera a lokalita</p>
+                <div className="field area-field">
+                  <label htmlFor="areaEstimate">Približná výmera v m² *</label>
+                  <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
+                  <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
+                </div>
+                <div className="field">
+                  <label htmlFor="city">Obec / mesto *</label>
+                  <input id="city" name="city" type="text" autoComplete="address-level2" placeholder="Obec / mesto *" required />
+                </div>
+                <div className="field">
+                  <label htmlFor="district">Okres</label>
+                  <input id="district" name="district" type="text" autoComplete="address-level1" placeholder="Okres" />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="fullName">Meno a priezvisko *</label>
-                <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="Meno a priezvisko *" required />
+
+              <div className="form-stage">
+                <p className="form-stage-title">2. Typ materiálu a termín</p>
+                <div className="field">
+                  <label htmlFor="materialType">Typ azbestového materiálu *</label>
+                  <select id="materialType" name="materialType" required defaultValue="">
+                    <option value="">Aký materiál chcete odstrániť? *</option>
+                    <option>Vlnitý eternit</option>
+                    <option>Hladký / štvorcový eternit</option>
+                    <option>Azbestocementové rúry</option>
+                    <option>Boletické panely</option>
+                    <option>Azbestové obloženie / fasáda</option>
+                    <option>Azbest v interiéri</option>
+                    <option>Neviem posúdiť</option>
+                    <option>Iné</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="objectType">Typ objektu *</label>
+                  <select id="objectType" name="objectType" required defaultValue="">
+                    <option value="">Typ objektu *</option>
+                    <option>Rodinný dom</option>
+                    <option>Hospodárska budova</option>
+                    <option>Garáž / prístrešok</option>
+                    <option>Bytový dom / panelák</option>
+                    <option>Administratívna budova</option>
+                    <option>Priemyselný objekt</option>
+                    <option>Iné</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="roofer">Máte už strechára?</label>
+                  <select id="roofer" name="roofer" defaultValue="Nemám strechára">
+                    <option>Nemám strechára</option>
+                    <option>Mám strechára</option>
+                    <option>Potrebujem odporučiť strechára</option>
+                    <option>Riešim iba likvidáciu bez novej strechy</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="term">Kedy to chcete riešiť?</label>
+                  <select id="term" name="term" defaultValue="Čo najskôr">
+                    <option>Čo najskôr</option>
+                    <option>Do 1 mesiaca</option>
+                    <option>Do 3 mesiacov</option>
+                    <option>Mám konkrétny termín</option>
+                    <option>Len zisťujem cenu</option>
+                  </select>
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="phone">Telefón *</label>
-                <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="Telefón *" required />
+
+              <div className="form-stage">
+                <p className="form-stage-title">3. Kontakt</p>
+                <div className="field">
+                  <label htmlFor="phone">Telefón *</label>
+                  <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="Telefón *" required />
+                </div>
+                <div className="field">
+                  <label htmlFor="fullName">Meno a priezvisko *</label>
+                  <input id="fullName" name="fullName" type="text" autoComplete="name" placeholder="Meno a priezvisko *" required />
+                </div>
+                <div className="field field-full">
+                  <label htmlFor="email">Email *</label>
+                  <input id="email" name="email" type="email" autoComplete="email" placeholder="Email *" required />
+                </div>
               </div>
-              <div className="field">
-                <label htmlFor="email">Email *</label>
-                <input id="email" name="email" type="email" autoComplete="email" placeholder="Email *" required />
-              </div>
-              <div className="field">
-                <label htmlFor="city">Obec / mesto *</label>
-                <input id="city" name="city" type="text" autoComplete="address-level2" placeholder="Obec / mesto *" required />
-              </div>
-              <div className="field">
-                <label htmlFor="district">Okres</label>
-                <input id="district" name="district" type="text" autoComplete="address-level1" placeholder="Okres" />
-              </div>
-              <div className="field">
-                <label htmlFor="objectType">Typ objektu *</label>
-                <select id="objectType" name="objectType" required defaultValue="">
-                  <option value="">Typ objektu *</option>
-                  <option>Rodinný dom</option>
-                  <option>Hospodárska budova</option>
-                  <option>Garáž / prístrešok</option>
-                  <option>Bytový dom / panelák</option>
-                  <option>Administratívna budova</option>
-                  <option>Priemyselný objekt</option>
-                  <option>Iné</option>
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="materialType">Typ azbestového materiálu *</label>
-                <select id="materialType" name="materialType" required defaultValue="">
-                  <option value="">Aký materiál chcete odstrániť? *</option>
-                  <option>Vlnitý eternit</option>
-                  <option>Hladký / štvorcový eternit</option>
-                  <option>Azbestocementové rúry</option>
-                  <option>Boletické panely</option>
-                  <option>Azbestové obloženie / fasáda</option>
-                  <option>Azbest v interiéri</option>
-                  <option>Neviem posúdiť</option>
-                  <option>Iné</option>
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="roofer">Máte už strechára?</label>
-                <select id="roofer" name="roofer" defaultValue="Nemám strechára">
-                  <option>Nemám strechára</option>
-                  <option>Mám strechára</option>
-                  <option>Potrebujem odporučiť strechára</option>
-                  <option>Riešim iba likvidáciu bez novej strechy</option>
-                </select>
-              </div>
-              <div className="field">
-                <label htmlFor="term">Kedy to chcete riešiť?</label>
-                <select id="term" name="term" defaultValue="Čo najskôr">
-                  <option>Čo najskôr</option>
-                  <option>Do 1 mesiaca</option>
-                  <option>Do 3 mesiacov</option>
-                  <option>Mám konkrétny termín</option>
-                  <option>Len zisťujem cenu</option>
-                </select>
-              </div>
-              <div className="field file-field field-full">
-                <label htmlFor="photos">Nahrajte fotky</label>
-                <label className="file-drop" htmlFor="photos">
-                  <span className="file-drop-icon" aria-hidden="true"></span>
-                  <strong>Vybrať fotky zo zariadenia</strong>
-                  <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
-                </label>
-                <input
-                  className="file-input"
-                  id="photos"
-                  name="photos"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
-                  multiple
-                />
-                <p className="field-help">Podporované sú JPG, PNG, WEBP, HEIC alebo PDF. Fotky z mobilu úplne stačia.</p>
-                <div className="file-preview" aria-live="polite"></div>
-              </div>
-              <div className="field field-full">
-                <label htmlFor="note">Poznámka</label>
-                <textarea id="note" name="note" rows={2} placeholder="Prístup, konkrétny termín, kontakt na strechára..."></textarea>
+
+              <div className="form-stage form-stage-files">
+                <p className="form-stage-title">4. Fotky voliteľne</p>
+                <div className="field file-field field-full">
+                  <label htmlFor="photos">Nahrajte fotky</label>
+                  <label className="file-drop" htmlFor="photos">
+                    <span className="file-drop-icon" aria-hidden="true"></span>
+                    <strong>Vybrať fotky zo zariadenia</strong>
+                    <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
+                  </label>
+                  <input
+                    className="file-input"
+                    id="photos"
+                    name="photos"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                    multiple
+                  />
+                  <p className="field-help">Podporované sú JPG, PNG, WEBP, HEIC alebo PDF. Fotky z mobilu úplne stačia.</p>
+                  <div className="file-preview" aria-live="polite"></div>
+                </div>
+                <div className="field field-full">
+                  <label htmlFor="note">Poznámka</label>
+                  <textarea id="note" name="note" rows={2} placeholder="Prístup, konkrétny termín, kontakt na strechára..."></textarea>
+                </div>
               </div>
               <label className="consent">
                 <input type="checkbox" name="gdpr" required /> Súhlasím so spracovaním údajov na vybavenie cenovej ponuky.
@@ -533,6 +571,29 @@ export default async function HomePage() {
           </ol>
         </section>
 
+        <section className="section roofers-section" id="strechari" aria-labelledby="roofers-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">{content.roofersEyebrow}</p>
+              <h2 id="roofers-title">{content.roofersTitle}</h2>
+            </div>
+            <p>{content.roofersText}</p>
+          </div>
+          <div className="roofers-grid">
+            {rooferItems.map(([title, text], index) => (
+              <article key={title}>
+                <span className={`line-icon ${['calendar', 'shield', 'truck', 'document', 'certificate', 'map'][index] || 'shield'}`} aria-hidden="true"></span>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+          <div className="roofers-actions">
+            <a className="button button-outline" href="/strechari/">{content.roofersCtaPrimary}</a>
+            <a className="button button-primary" href="#dopyt">{content.roofersCtaSecondary}</a>
+          </div>
+        </section>
+
         <section className="section why-section" id="preco" aria-labelledby="why-title">
           <div className="why-card">
             <div>
@@ -613,6 +674,29 @@ export default async function HomePage() {
               </div>
               <p>{content.practiceText}</p>
             </div>
+            <div className="practice-photo-board" aria-label="Priestor pre fotodokumentáciu z realizácií">
+              <figure className="practice-photo-main">
+                <img src="/assets/hero-workers.webp" alt="Pracovníci v ochranných oblekoch pri kontrolovanej demontáži strechy" loading="lazy" />
+                <figcaption>Kontrolovaná demontáž bez zhadzovania materiálu</figcaption>
+              </figure>
+              <div className="practice-photo-proof">
+                <article>
+                  <span className="proof-step">01</span>
+                  <strong>Stabilizácia a manipulácia</strong>
+                  <p>Materiál sa pripravuje tak, aby sa s ním pracovalo kontrolovane a s menším rizikom prachu.</p>
+                </article>
+                <article>
+                  <span className="proof-step">02</span>
+                  <strong>Balenie a odvoz</strong>
+                  <p>Odpad sa balí do určených obalov a odváža na schválené miesto podľa typu zákazky.</p>
+                </article>
+                <article>
+                  <span className="proof-step">03</span>
+                  <strong>Doklady po likvidácii</strong>
+                  <p>Po ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu.</p>
+                </article>
+              </div>
+            </div>
             <div className="practice-grid">
               {practiceItems.map(([title, text], index) => (
                 <article key={title}>
@@ -682,6 +766,7 @@ export default async function HomePage() {
           <h2>Užitočné</h2>
           {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
           <a href="#referencie">{testimonials.length ? 'Referencie' : 'Prax'}</a>
+          <a href="/strechari/">Strechári</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>
           <a href="/podmienky-pouzivania/">Podmienky používania</a>
