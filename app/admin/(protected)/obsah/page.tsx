@@ -33,6 +33,9 @@ const labels: Record<string, string> = {
   testimonialsText: 'Referencie: vysvetlenie',
   testimonialFormTitle: 'Formulár referencie: nadpis',
   testimonialFormText: 'Formulár referencie: text',
+  practiceEyebrow: 'Prax namiesto referencií: horný text',
+  practiceTitle: 'Prax namiesto referencií: nadpis',
+  practiceText: 'Prax namiesto referencií: vysvetlenie',
   faqEyebrow: 'FAQ: horný text',
   faqTitle: 'FAQ: nadpis',
   faqText: 'FAQ: vysvetlenie',
@@ -46,6 +49,7 @@ const labels: Record<string, string> = {
   includedItems: 'Čo je v cene: položky, každá na nový riadok',
   processSteps: 'Proces: kroky vo formáte Nadpis|Text, každý na nový riadok',
   riskItems: 'Riziká: karty vo formáte Nadpis|Text, každá na nový riadok',
+  practiceItems: 'Prax namiesto referencií: položky vo formáte Nadpis|Text, každá na nový riadok',
   whyItems: 'Prečo ASTANA: položky, každá na nový riadok',
   faqItems: 'FAQ: otázky vo formáte Otázka|Odpoveď, každá na nový riadok',
 };

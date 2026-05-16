@@ -18,8 +18,8 @@ const defaultHeroFlowItems = ['m²', 'Ponuka', 'Dokumentácia', 'Demontáž', 'O
 const defaultHeroBulletItems = [
   'Cenu počítame hlavne podľa m²',
   'Fotky pomôžu spresniť prístup a typ materiálu',
-  'Cenová ponuka do 24 hodín',
-  'Doprava nad 100 m² zdarma',
+  'Dokumentácia RÚVZ / OÚŽP v procese',
+  'Odvoz a doklady po likvidácii',
 ];
 
 const defaultTrustItems = [
@@ -39,10 +39,18 @@ const defaultProcessSteps = [
 ] satisfies [string, string][];
 
 const defaultRiskItems = [
-  ['Zdravotné riziko', 'Pri manipulácii môže vznikať prach a mikroskopické vlákna.'],
-  ['Úradný postup', 'Pri azbeste treba riešiť zákonný postup, RÚVZ / OÚŽP a dokumentáciu.'],
-  ['Nebezpečný odpad', 'Azbest nepatrí do bežného odpadu. Musí byť správne zabalený, prepravený a odovzdaný.'],
-  ['Doklady po likvidácii', 'Po riadnej likvidácii dostanete potvrdenie alebo súvisiacu dokumentáciu.'],
+  ['Zdravotné riziko', 'Pri neodbornej manipulácii môžu vznikať nebezpečné vlákna a prach.'],
+  ['Úradný postup', 'Pri azbeste treba počítať s dokumentáciou a zákonným postupom.'],
+  ['Nebezpečný odpad', 'Azbest nepatrí do bežného odpadu. Musí byť správne zabalený a odovzdaný.'],
+  ['Doklady', 'Po legálnej likvidácii získate potrebné potvrdenie alebo dokumentáciu.'],
+] satisfies [string, string][];
+
+const defaultPracticeItems = [
+  ['Stabilizácia materiálu', 'Materiál sa pred manipuláciou pripraví tak, aby sa znížilo riziko uvoľňovania prachu.'],
+  ['Odborná demontáž', 'Práca prebieha kontrolovane, bez zbytočného lámania a chaosu na stavbe.'],
+  ['Balenie do označených vriec', 'Azbestový odpad sa balí do určených obalov a pripraví na bezpečný odvoz.'],
+  ['Odvoz na skládku nebezpečného odpadu', 'Materiál sa odvezie na určené miesto podľa typu zákazky a dohodnutého postupu.'],
+  ['Odovzdanie dokladov', 'Po ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu.'],
 ] satisfies [string, string][];
 
 const defaultWhyItems = [
@@ -209,6 +217,7 @@ export default async function HomePage() {
   const trustItems = parseLines(content.trustItems, defaultTrustItems);
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
+  const practiceItems = parsePairs(content.practiceItems, defaultPracticeItems);
   const whyItems = parseLines(content.whyItems, defaultWhyItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
   const jsonLd = buildJsonLd(faq);
@@ -254,7 +263,7 @@ export default async function HomePage() {
           <a href="#ako-to-prebieha">Ako to prebieha</a>
           <a href="#preco">Prečo ASTANA</a>
           {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
-          <a href="#referencie">Referencie</a>
+          <a href="#referencie">{testimonials.length ? 'Referencie' : 'Prax'}</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
         </nav>
@@ -519,8 +528,8 @@ export default async function HomePage() {
           </section>
         ) : null}
 
-        <section className={`section testimonial-section ${testimonials.length ? '' : 'testimonial-section-form-only'}`} id="referencie" aria-labelledby="testimonial-title">
-          {testimonials.length ? (
+        {testimonials.length ? (
+          <section className="section testimonial-section" id="referencie" aria-labelledby="testimonial-title">
             <div className="section-heading split">
               <div>
                 <p className="eyebrow">{content.testimonialsEyebrow}</p>
@@ -528,14 +537,7 @@ export default async function HomePage() {
               </div>
               <p>{content.testimonialsText}</p>
             </div>
-          ) : (
-            <div className="section-heading">
-              <p className="eyebrow">{content.testimonialsEyebrow}</p>
-              <h2 id="testimonial-title">{content.testimonialFormTitle}</h2>
-            </div>
-          )}
-          <div className={`testimonial-layout ${testimonials.length ? '' : 'testimonial-layout-form-only'}`}>
-            {testimonials.length ? (
+            <div className="testimonial-layout">
               <div className="testimonial-grid">
                 {testimonials.map((testimonial) => (
                   <article key={testimonial.id} className="testimonial-card">
@@ -548,46 +550,65 @@ export default async function HomePage() {
                   </article>
                 ))}
               </div>
-            ) : null}
-            <form className="testimonial-submit-form" action="/api/testimonial/" method="post">
-              <input className="hp-field" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
-              <p className="quote-kicker">Po realizácii</p>
-              <h3>{content.testimonialFormTitle}</h3>
-              <p>{content.testimonialFormText}</p>
-              <label>
-                Meno alebo iniciály
-                <input name="customerName" placeholder="napr. Ján P." required />
-              </label>
-              <label>
-                Email (neverejný)
-                <input name="customerEmail" type="email" placeholder="voliteľné" />
-              </label>
-              <label>
-                Mesto / kraj
-                <input name="location" placeholder="napr. Poprad" />
-              </label>
-              <label>
-                Hodnotenie
-                <select name="rating" defaultValue="5">
-                  <option value="5">5 hviezdičiek</option>
-                  <option value="4">4 hviezdičky</option>
-                  <option value="3">3 hviezdičky</option>
-                  <option value="2">2 hviezdičky</option>
-                  <option value="1">1 hviezdička</option>
-                </select>
-              </label>
-              <label className="testimonial-wide">
-                Text referencie
-                <textarea name="text" rows={4} placeholder="Napíšte krátko svoju skúsenosť..." required />
-              </label>
-              <label className="consent testimonial-wide">
-                <input type="checkbox" name="consentPublication" required /> Súhlasím so spracovaním a zverejnením referencie po schválení.
-              </label>
-              <button className="button button-primary testimonial-wide" type="submit">Odoslať referenciu</button>
-              <p className="testimonial-form-status testimonial-wide" role="status" aria-live="polite"></p>
-            </form>
-          </div>
-        </section>
+              <form className="testimonial-submit-form" action="/api/testimonial/" method="post">
+                <input className="hp-field" type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+                <p className="quote-kicker">Po realizácii</p>
+                <h3>{content.testimonialFormTitle}</h3>
+                <p>{content.testimonialFormText}</p>
+                <label>
+                  Meno alebo iniciály
+                  <input name="customerName" placeholder="napr. Ján P." required />
+                </label>
+                <label>
+                  Email (neverejný)
+                  <input name="customerEmail" type="email" placeholder="voliteľné" />
+                </label>
+                <label>
+                  Mesto / kraj
+                  <input name="location" placeholder="napr. Poprad" />
+                </label>
+                <label>
+                  Hodnotenie
+                  <select name="rating" defaultValue="5">
+                    <option value="5">5 hviezdičiek</option>
+                    <option value="4">4 hviezdičky</option>
+                    <option value="3">3 hviezdičky</option>
+                    <option value="2">2 hviezdičky</option>
+                    <option value="1">1 hviezdička</option>
+                  </select>
+                </label>
+                <label className="testimonial-wide">
+                  Text referencie
+                  <textarea name="text" rows={4} placeholder="Napíšte krátko svoju skúsenosť..." required />
+                </label>
+                <label className="consent testimonial-wide">
+                  <input type="checkbox" name="consentPublication" required /> Súhlasím so spracovaním a zverejnením referencie po schválení.
+                </label>
+                <button className="button button-primary testimonial-wide" type="submit">Odoslať referenciu</button>
+                <p className="testimonial-form-status testimonial-wide" role="status" aria-live="polite"></p>
+              </form>
+            </div>
+          </section>
+        ) : (
+          <section className="section practice-section" id="referencie" aria-labelledby="practice-title">
+            <div className="section-heading split">
+              <div>
+                <p className="eyebrow">{content.practiceEyebrow}</p>
+                <h2 id="practice-title">{content.practiceTitle}</h2>
+              </div>
+              <p>{content.practiceText}</p>
+            </div>
+            <div className="practice-grid">
+              {practiceItems.map(([title, text], index) => (
+                <article key={title}>
+                  <span className={`line-icon ${['shield', 'document', 'certificate', 'truck', 'map'][index] || 'shield'}`} aria-hidden="true"></span>
+                  <h3>{title}</h3>
+                  <p>{text}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="section faq-section" id="faq" aria-labelledby="faq-title">
           <div className="section-heading split">
@@ -645,7 +666,7 @@ export default async function HomePage() {
         <div>
           <h2>Užitočné</h2>
           {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
-          <a href="#referencie">Referencie</a>
+          <a href="#referencie">{testimonials.length ? 'Referencie' : 'Prax'}</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>
           <a href="/podmienky-pouzivania/">Podmienky používania</a>
