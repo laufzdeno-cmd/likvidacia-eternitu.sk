@@ -518,6 +518,151 @@ body::before {
   }
 }
 
+/* Mobile premium finish: calmer headings, safer sticky CTA spacing, softer hero. */
+@media (max-width: 760px) {
+  body {
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  main,
+  .roofer-page {
+    padding-bottom: calc(42px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .site-footer {
+    padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .section-heading h2,
+  .why-card h2,
+  .included-section .section-heading h2,
+  .practice-section .section-heading h2,
+  .faq-section .section-heading h2,
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(27px, 7.2vw, 34px) !important;
+    line-height: 1.09 !important;
+    letter-spacing: -0.008em !important;
+  }
+
+  .section-heading {
+    gap: 12px !important;
+  }
+
+  .section-heading p,
+  .section-intro {
+    font-size: 16px !important;
+    line-height: 1.64 !important;
+  }
+
+  .hero {
+    padding: 24px 18px 28px !important;
+    border-radius: 30px !important;
+    background:
+      radial-gradient(circle at 18% 0%, rgba(217, 151, 50, 0.1), transparent 18rem),
+      radial-gradient(circle at 94% 10%, rgba(0, 163, 215, 0.12), transparent 18rem),
+      linear-gradient(180deg, #ffffff 0%, #fffaf4 46%, #effafe 100%) !important;
+    box-shadow:
+      0 22px 58px rgba(6, 50, 74, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.86) !important;
+  }
+
+  .hero-copy {
+    gap: 16px !important;
+  }
+
+  .hero h1 {
+    line-height: 1.03 !important;
+    letter-spacing: -0.012em !important;
+  }
+
+  .hero-claim {
+    padding: 12px 14px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 12px 28px rgba(143, 22, 60, 0.08) !important;
+  }
+
+  .hero-text {
+    font-size: 18px !important;
+    line-height: 1.62 !important;
+  }
+
+  .hero-actions {
+    gap: 10px !important;
+  }
+
+  .hero-photo {
+    margin-top: 6px !important;
+    border-radius: 26px !important;
+    box-shadow:
+      0 22px 54px rgba(6, 50, 74, 0.16),
+      0 0 0 7px rgba(255, 255, 255, 0.72) !important;
+  }
+
+  .quote-card {
+    padding: 20px !important;
+    border-radius: 28px !important;
+    box-shadow: 0 24px 62px rgba(6, 50, 74, 0.14) !important;
+  }
+
+  .quote-card h2 {
+    font-size: clamp(29px, 7.4vw, 36px) !important;
+    line-height: 1.08 !important;
+  }
+
+  .form-stage {
+    gap: 11px !important;
+  }
+
+  .area-field {
+    padding: 13px !important;
+  }
+
+  .area-field input {
+    min-height: 56px !important;
+  }
+
+  .file-drop {
+    padding: 16px !important;
+  }
+
+  .practice-photo-board {
+    gap: 16px !important;
+  }
+
+  .practice-photo-main,
+  .practice-photo-main img {
+    min-height: 250px !important;
+  }
+
+  .practice-photo-proof article {
+    padding: 18px !important;
+  }
+
+  .mobile-sticky-cta {
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    min-height: 62px !important;
+    border-radius: 22px !important;
+    box-shadow: 0 18px 54px rgba(6, 50, 74, 0.22) !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .section-heading h2,
+  .why-card h2,
+  .included-section .section-heading h2,
+  .practice-section .section-heading h2,
+  .faq-section .section-heading h2,
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(26px, 7vw, 31px) !important;
+  }
+
+  .final-cta {
+    padding: 26px 18px !important;
+  }
+}
+
 /* Controlled roofers directory: partner selection, not a phone-book table. */
 .roofer-map-visual {
   display: grid;
