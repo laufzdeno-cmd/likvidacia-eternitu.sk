@@ -1269,3 +1269,66 @@ body {
     max-width: calc(100vw - 20px) !important;
   }
 }
+
+/* Mobile neutral correction: remove the yellow cast while keeping a warm professional detail. */
+@media (max-width: 760px) {
+  body {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(8, 120, 184, 0.05), transparent 18rem),
+      linear-gradient(180deg, #ffffff 0%, #f8fbfd 48%, #ffffff 100%) !important;
+  }
+
+  .hero,
+  .roofer-hero {
+    background:
+      radial-gradient(circle at 92% 4%, rgba(8, 120, 184, 0.055), transparent 17rem),
+      linear-gradient(160deg, #ffffff 0%, #ffffff 58%, #f8fbfd 100%) !important;
+  }
+
+  .hero::before,
+  .roofer-hero::before {
+    opacity: 0.035 !important;
+    background: linear-gradient(90deg, rgba(8, 120, 184, 0.16), transparent 70%) !important;
+  }
+
+  .section,
+  .roofer-directory,
+  .included-section,
+  .practice-section,
+  .faq-section {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(8, 120, 184, 0.035), transparent 17rem),
+      linear-gradient(150deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 253, 0.94)) !important;
+  }
+
+  .hero-claim,
+  .quote-handled,
+  .quote-priority {
+    background: rgba(255, 255, 255, 0.94) !important;
+    border-color: rgba(213, 231, 240, 0.95) !important;
+    box-shadow: 0 12px 28px rgba(3, 50, 79, 0.075) !important;
+  }
+
+  .quote-card {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(8, 120, 184, 0.09), transparent 15rem),
+      linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%) !important;
+  }
+
+  .region-map-card {
+    background:
+      radial-gradient(circle at 96% 8%, rgba(8, 120, 184, 0.045), transparent 13rem),
+      linear-gradient(150deg, #ffffff 0%, #ffffff 62%, #f8fbfd 100%) !important;
+  }
+
+  .region-choice-card {
+    background:
+      radial-gradient(circle at 100% 0%, rgba(8, 120, 184, 0.04), transparent 7rem),
+      rgba(255, 255, 255, 0.96) !important;
+  }
+
+  .eyebrow,
+  .quote-kicker {
+    color: #a66f16 !important;
+  }
+}
