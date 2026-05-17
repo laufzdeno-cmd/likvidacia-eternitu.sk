@@ -93,14 +93,6 @@ const defaultRooferItems = [
   ['Platba po dokončení', 'Pri bežných zákazkách nevyžadujeme platbu vopred za samotnú realizáciu. Platba prebieha po dokončení podľa dohodnutého rozsahu.'],
 ] satisfies [string, string][];
 
-const defaultPracticeItems = [
-  ['Stabilizácia materiálu', 'Materiál sa pred manipuláciou pripraví tak, aby sa znížilo riziko uvoľňovania prachu.'],
-  ['Odborná demontáž', 'Práca prebieha kontrolovane, bez zbytočného lámania a chaosu na stavbe.'],
-  ['Balenie do označených vriec', 'Azbestový odpad sa balí do určených obalov a pripraví na bezpečný odvoz.'],
-  ['Odvoz na skládku nebezpečného odpadu', 'Materiál sa odvezie na určené miesto podľa typu zákazky a dohodnutého postupu.'],
-  ['Odovzdanie dokladov', 'Po ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu.'],
-] satisfies [string, string][];
-
 const defaultWhyItems = [
   'Skúsenosti od roku 2011.',
   'Špecializácia na azbest a eternit.',
@@ -275,7 +267,6 @@ export default async function HomePage() {
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
   const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
   const rooferItems = parsePairs(content.rooferItems, defaultRooferItems);
-  const practiceItems = parsePairs(content.practiceItems, defaultPracticeItems);
   const whyItems = parseLines(content.whyItems, defaultWhyItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
   const jsonLd = buildJsonLd(faq);
@@ -558,10 +549,12 @@ export default async function HomePage() {
                       <li key={bullet}>{bullet}</li>
                     ))}
                   </ul>
-                  <a href="#dopyt">Chcem podobnú realizáciu naceniť</a>
                 </div>
               </article>
             ))}
+          </div>
+          <div className="real-work-actions">
+            <a className="button button-primary" href="#dopyt">Chcem naceniť podobnú realizáciu</a>
           </div>
         </section>
 
@@ -759,60 +752,14 @@ export default async function HomePage() {
               </div>
             </div>
           </section>
-        ) : (
-          <section className="section practice-section" id="referencie" aria-labelledby="practice-title">
-            <div className="section-heading split">
-              <div>
-                <p className="eyebrow">{content.practiceEyebrow}</p>
-                <h2 id="practice-title">{content.practiceTitle}</h2>
-              </div>
-              <p>{content.practiceText}</p>
-            </div>
-            <div className="practice-photo-board" aria-label="Priestor pre fotodokumentáciu z realizácií">
-              <figure className="practice-photo-main">
-                <img src="/assets/hero-workers.webp" alt="Pracovníci v ochranných oblekoch pri kontrolovanej demontáži strechy" loading="lazy" />
-                <figcaption>Kontrolovaná demontáž bez zhadzovania materiálu</figcaption>
-              </figure>
-              <div className="practice-photo-proof">
-                <article>
-                  <span className="proof-step">01</span>
-                  <strong>Stabilizácia a manipulácia</strong>
-                  <p>Materiál sa pripravuje tak, aby sa s ním pracovalo kontrolovane a s menším rizikom prachu.</p>
-                </article>
-                <article>
-                  <span className="proof-step">02</span>
-                  <strong>Balenie a odvoz</strong>
-                  <p>Odpad sa balí do určených obalov a odváža na schválené miesto podľa typu zákazky.</p>
-                </article>
-                <article>
-                  <span className="proof-step">03</span>
-                  <strong>Doklady po likvidácii</strong>
-                  <p>Po ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu.</p>
-                </article>
-              </div>
-            </div>
-            <div className="practice-grid">
-              {practiceItems.map(([title, text], index) => (
-                <article key={title}>
-                  <span className={`line-icon ${['shield', 'document', 'certificate', 'truck', 'map'][index] || 'shield'}`} aria-hidden="true"></span>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </article>
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section className="section practice-story-section" aria-labelledby="practice-story-title">
+        ) : null}
+        <section className="section practice-story-section" id="prax" aria-labelledby="practice-story-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Legálna likvidácia v praxi</p>
-              <h2 id="practice-story-title">Ako vyzerá odborný postup na reálnych zákazkách</h2>
+              <p className="eyebrow">{content.practiceEyebrow}</p>
+              <h2 id="practice-story-title">{content.practiceTitle}</h2>
             </div>
-            <p>
-              Pri azbeste rozhoduje postup: stabilizácia materiálu, kontrolovaná demontáž, balenie do označených obalov
-              a odvoz podľa zákazky.
-            </p>
+            <p>{content.practiceText}</p>
           </div>
           <div className="practice-story-list">
             {practiceBlocks.map((block) => (

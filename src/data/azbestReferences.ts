@@ -94,7 +94,7 @@ export const heroPhoto = getAzbestReference('azbest-087');
 export const heroProofPhotos = [
   { ...getAzbestReference('azbest-051'), title: 'Stabilizácia materiálu' },
   { ...getAzbestReference('azbest-164'), title: 'Kontrolovaná demontáž' },
-  { ...getAzbestReference('azbest-091'), title: 'Balenie a odvoz' },
+  { ...getAzbestReference('azbest-065'), title: 'Balenie a odvoz' },
 ];
 
 export const realizationHighlights = [
@@ -137,17 +137,17 @@ export const realizationHighlights = [
 ];
 
 export const processPhotoReferences = [
-  getAzbestReference('azbest-164'),
+  getAzbestReference('azbest-132'),
   getAzbestReference('azbest-130'),
   null,
-  getAzbestReference('azbest-110'),
-  getAzbestReference('azbest-091'),
+  getAzbestReference('azbest-018'),
+  getAzbestReference('azbest-019'),
 ] as const;
 
 export const whyProofPhotos = [
-  getAzbestReference('azbest-087'),
-  getAzbestReference('azbest-110'),
-  getAzbestReference('azbest-091'),
+  getAzbestReference('azbest-018'),
+  getAzbestReference('azbest-160'),
+  getAzbestReference('azbest-020'),
 ];
 
 export const practiceBlocks = [
@@ -157,7 +157,7 @@ export const practiceBlocks = [
     bullets: ['materiál sa pripraví pred manipuláciou', 'pracovníci používajú ochranné vybavenie', 'postup sa prispôsobuje typu strechy'],
   },
   {
-    image: getAzbestReference('azbest-068'),
+    image: getAzbestReference('azbest-134'),
     title: 'Kontrolovaná demontáž',
     bullets: ['eternit sa nezhadzuje zo strechy', 'pracovisko je organizované', 'termín sa dá zladiť so strechárom'],
   },
@@ -172,7 +172,7 @@ export const rooferProofPhotos = [
   getAzbestReference('azbest-068'),
   getAzbestReference('azbest-135'),
   getAzbestReference('azbest-164'),
-  getAzbestReference('azbest-091'),
+  getAzbestReference('azbest-024'),
 ];
 
 export const galleryCategories = [
@@ -184,4 +184,31 @@ export const galleryCategories = [
   { key: 'balenie-odvoz', label: 'Balenie a odvoz' },
 ] as const;
 
-export const galleryReferences = azbestReferences.filter((item) => item.id !== 'azbest-069').slice(0, 34);
+const galleryReferenceIds = [
+  'azbest-134',
+  'azbest-130',
+  'azbest-132',
+  'azbest-006',
+  'azbest-007',
+  'azbest-011',
+  'azbest-012',
+  'azbest-014',
+  'azbest-017',
+  'azbest-021',
+  'azbest-022',
+  'azbest-026',
+  'azbest-001',
+  'azbest-002',
+  'azbest-003',
+  'azbest-004',
+  'azbest-005',
+  'azbest-008',
+  'azbest-015',
+  'azbest-016',
+  'azbest-023',
+  'azbest-025',
+  'azbest-171',
+  'azbest-160',
+] as const;
+
+export const galleryReferences = galleryReferenceIds.map(getAzbestReference);
