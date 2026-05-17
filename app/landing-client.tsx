@@ -16,7 +16,18 @@ export default function LandingClient() {
     const status = document.querySelector<HTMLElement>('.form-status');
     const testimonialStatus = document.querySelector<HTMLElement>('.testimonial-form-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
+    const galleryCards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
+    const galleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
+    const galleryLoadMore = document.querySelector<HTMLButtonElement>('[data-gallery-load-more]');
+    const galleryLightbox = document.querySelector<HTMLElement>('[data-gallery-lightbox]');
+    const lightboxImage = document.querySelector<HTMLImageElement>('[data-lightbox-image]');
+    const lightboxCaption = document.querySelector<HTMLElement>('[data-lightbox-caption]');
+    const lightboxClose = document.querySelector<HTMLButtonElement>('[data-lightbox-close]');
+    const lightboxPrev = document.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
+    const lightboxNext = document.querySelector<HTMLButtonElement>('[data-lightbox-next]');
     let selectedFiles: File[] = [];
+    let activeGallery = galleryCards.slice(0, 12);
+    let activeGalleryIndex = 0;
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -203,6 +214,94 @@ export default function LandingClient() {
       }
     };
 
+    const refreshGalleryActiveItems = () => {
+      activeGallery = galleryCards.filter((card) => !card.hidden);
+      if (!activeGallery.length) activeGallery = galleryCards.slice(0, 12);
+    };
+
+    const openGalleryLightbox = (card: HTMLButtonElement) => {
+      if (!galleryLightbox || !lightboxImage || !lightboxCaption) return;
+      refreshGalleryActiveItems();
+      activeGalleryIndex = Math.max(0, activeGallery.indexOf(card));
+      const image = activeGallery[activeGalleryIndex];
+      lightboxImage.src = image.dataset.galleryWebp || image.dataset.galleryJpg || '';
+      lightboxImage.alt = image.dataset.galleryAlt || '';
+      lightboxCaption.textContent = image.dataset.galleryTitle || '';
+      galleryLightbox.hidden = false;
+      document.body.classList.add('is-lightbox-open');
+    };
+
+    const closeGalleryLightbox = () => {
+      if (!galleryLightbox) return;
+      galleryLightbox.hidden = true;
+      document.body.classList.remove('is-lightbox-open');
+    };
+
+    const moveGalleryLightbox = (direction: 1 | -1) => {
+      if (!galleryLightbox || galleryLightbox.hidden || !lightboxImage || !lightboxCaption) return;
+      refreshGalleryActiveItems();
+      if (!activeGallery.length) return;
+      activeGalleryIndex = (activeGalleryIndex + direction + activeGallery.length) % activeGallery.length;
+      const image = activeGallery[activeGalleryIndex];
+      lightboxImage.src = image.dataset.galleryWebp || image.dataset.galleryJpg || '';
+      lightboxImage.alt = image.dataset.galleryAlt || '';
+      lightboxCaption.textContent = image.dataset.galleryTitle || '';
+    };
+
+    const onGalleryFilter = (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const category = button.dataset.galleryFilter || 'vsetko';
+      let visibleMatches = 0;
+      galleryFilters.forEach((filter) => filter.classList.toggle('is-active', filter === button));
+      galleryCards.forEach((card) => {
+        const matches = category === 'vsetko' || card.dataset.galleryCategory === category;
+        if (matches && visibleMatches < 12) {
+          card.hidden = false;
+          visibleMatches += 1;
+        } else {
+          card.hidden = true;
+        }
+      });
+      if (galleryLoadMore) {
+        let matchingIndex = 0;
+        const hasHiddenMatches = galleryCards.some((card) => {
+          const matches = category === 'vsetko' || card.dataset.galleryCategory === category;
+          if (!matches) return false;
+          matchingIndex += 1;
+          return matchingIndex > 12;
+        });
+        galleryLoadMore.hidden = !hasHiddenMatches;
+        galleryLoadMore.dataset.galleryCurrentFilter = category;
+      }
+    };
+
+    const onGalleryLoadMore = () => {
+      const category = galleryLoadMore?.dataset.galleryCurrentFilter || 'vsetko';
+      let shown = 0;
+      galleryCards.forEach((card) => {
+        const matches = category === 'vsetko' || card.dataset.galleryCategory === category;
+        if (!matches || shown >= 12) return;
+        if (card.hidden) {
+          card.hidden = false;
+          shown += 1;
+        }
+      });
+      if (galleryLoadMore) {
+        const hasMore = galleryCards.some((card) => {
+          const matches = category === 'vsetko' || card.dataset.galleryCategory === category;
+          return matches && card.hidden;
+        });
+        galleryLoadMore.hidden = !hasMore;
+      }
+    };
+
+    const onGalleryKeyDown = (event: KeyboardEvent) => {
+      if (!galleryLightbox || galleryLightbox.hidden) return;
+      if (event.key === 'Escape') closeGalleryLightbox();
+      if (event.key === 'ArrowRight') moveGalleryLightbox(1);
+      if (event.key === 'ArrowLeft') moveGalleryLightbox(-1);
+    };
+
     const onScroll = () => {
       if (!stickyCta || !form) return;
       const formBottom = form.getBoundingClientRect().bottom;
@@ -230,6 +329,17 @@ export default function LandingClient() {
     const rooferCards = Array.from(document.querySelectorAll<HTMLElement>('[data-roofer-card]'));
     contactButtons.forEach((button) => button.addEventListener('click', onRooferContactClick));
     quoteLinks.forEach((link) => link.addEventListener('click', onRooferQuoteClick));
+    galleryFilters.forEach((button) => button.addEventListener('click', onGalleryFilter));
+    galleryFilters[0]?.classList.add('is-active');
+    galleryLoadMore?.addEventListener('click', onGalleryLoadMore);
+    galleryCards.forEach((card) => card.addEventListener('click', () => openGalleryLightbox(card)));
+    lightboxClose?.addEventListener('click', closeGalleryLightbox);
+    lightboxPrev?.addEventListener('click', () => moveGalleryLightbox(-1));
+    lightboxNext?.addEventListener('click', () => moveGalleryLightbox(1));
+    galleryLightbox?.addEventListener('click', (event) => {
+      if (event.target === galleryLightbox) closeGalleryLightbox();
+    });
+    window.addEventListener('keydown', onGalleryKeyDown);
     let observer: IntersectionObserver | undefined;
     const viewedRoofers = new Set<string>();
     if ('IntersectionObserver' in window && rooferCards.length) {
@@ -257,6 +367,10 @@ export default function LandingClient() {
       testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
       contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));
       quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
+      galleryFilters.forEach((button) => button.removeEventListener('click', onGalleryFilter));
+      galleryLoadMore?.removeEventListener('click', onGalleryLoadMore);
+      lightboxClose?.removeEventListener('click', closeGalleryLightbox);
+      window.removeEventListener('keydown', onGalleryKeyDown);
       observer?.disconnect();
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);

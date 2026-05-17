@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import LandingClient from '../landing-client';
+import { ResponsiveImage } from '@/src/components/responsive-image';
+import { rooferProofPhotos } from '@/src/data/azbestReferences';
 import { listPublicRoofers } from '@/src/server/db';
 
 export const metadata: Metadata = {
@@ -165,6 +167,33 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
                 'Vyberte kraj kliknutím na kartu alebo použite filter nižšie.'
               )}
             </p>
+          </div>
+        </section>
+
+        <section className="section roofer-proof-section" aria-labelledby="roofer-proof-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Zladenie prác v praxi</p>
+              <h2 id="roofer-proof-title">Najprv bezpečne odstránime eternit. Potom môžu strechári nadviazať.</h2>
+            </div>
+            <p>
+              Pri výmene strechy je dôležité, aby demontáž, balenie a odvoz nebrzdili ďalšie práce. Partnerov verejne
+              zobrazujeme až po overení.
+            </p>
+          </div>
+          <div className="roofer-proof-grid">
+            {rooferProofPhotos.map((photo) => (
+              <figure key={photo.id}>
+                <ResponsiveImage
+                  image={photo}
+                  loading="eager"
+                  width={560}
+                  height={400}
+                  sizes="(max-width: 760px) 100vw, 24vw"
+                />
+                <figcaption>{photo.title}</figcaption>
+              </figure>
+            ))}
           </div>
         </section>
 

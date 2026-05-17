@@ -19,13 +19,13 @@ export const metadata: Metadata = {
     title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
     description:
       'Vy riešite výmeru. My riešime zvyšok: dokumentáciu, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii.',
-    images: ['/assets/hero-workers.webp'],
+    images: ['/assets/azbest/webp/azbest-087.webp'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
     description: 'Cenová ponuka podľa približnej výmery v m², dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
-    images: ['/assets/hero-workers.webp'],
+    images: ['/assets/azbest/webp/azbest-087.webp'],
   },
   robots: {
     index: true,

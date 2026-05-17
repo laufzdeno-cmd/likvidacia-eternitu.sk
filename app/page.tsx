@@ -1,4 +1,15 @@
 import LandingClient from './landing-client';
+import { ResponsiveImage } from '@/src/components/responsive-image';
+import {
+  galleryCategories,
+  galleryReferences,
+  heroPhoto,
+  heroProofPhotos,
+  practiceBlocks,
+  processPhotoReferences,
+  realizationHighlights,
+  whyProofPhotos,
+} from '@/src/data/azbestReferences';
 import { getSiteContentMap, listApprovedTestimonials, listPublishedRealizations } from '@/src/server/db';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 
@@ -324,6 +335,7 @@ export default async function HomePage() {
             <h1 id="hero-title">{content.heroTitle}</h1>
             <p className="hero-claim">{content.heroClaim}</p>
             <p className="hero-text">{content.heroText}</p>
+            <p className="hero-real-note">Pozrite si ukážky reálnych striech, ktoré sme riešili.</p>
             <div className="hero-actions">
               <a className="button button-primary" href="#dopyt">
                 {content.ctaPrimary}
@@ -349,6 +361,29 @@ export default async function HomePage() {
             <span className="photo-proof photo-proof-top">Ochranné obleky</span>
             <span className="photo-proof photo-proof-bottom">Eternitová strecha</span>
             <span className="photo-proof photo-proof-side">Odvoz a doklady</span>
+          </div>
+
+          <div className="hero-photo real-hero-photo" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
+            <ResponsiveImage
+              image={heroPhoto}
+              loading="eager"
+              fetchPriority="high"
+              width={1600}
+              height={1120}
+              sizes="(max-width: 760px) 100vw, 34vw"
+            />
+            <div className="hero-real-caption">
+              <strong>Reálne realizácie ASTANA</strong>
+              <span>Stabilizácia, demontáž, balenie a odvoz eternitu zo striech.</span>
+            </div>
+            <div className="hero-mini-proof" aria-label="Ukážky reálnych prác ASTANA">
+              {heroProofPhotos.map((photo) => (
+                <figure key={photo.id}>
+                  <ResponsiveImage image={photo} width={420} height={300} sizes="120px" />
+                  <figcaption>{photo.title}</figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
 
           <aside className="quote-card" id="dopyt" aria-labelledby="quote-title">
@@ -493,6 +528,43 @@ export default async function HomePage() {
           ))}
         </section>
 
+        <section className="section real-work-section" aria-labelledby="real-work-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Reálne práce ASTANA</p>
+              <h2 id="real-work-title">Naše realizácie: eternitové strechy, priemysel aj interiéry</h2>
+            </div>
+            <p>
+              Toto nie sú ilustračné fotky. Toto sú reálne práce ASTANA — stabilizácia, demontáž, balenie a príprava
+              na odvoz.
+            </p>
+          </div>
+          <div className="real-work-grid">
+            {realizationHighlights.map((item) => (
+              <article className="real-work-card" key={item.title}>
+                <ResponsiveImage
+                  image={item.image}
+                  className="real-work-picture"
+                  loading="eager"
+                  width={720}
+                  height={520}
+                  sizes="(max-width: 760px) 100vw, 33vw"
+                />
+                <div className="real-work-content">
+                  <span>Reálna realizácia · {item.type}</span>
+                  <h3>{item.title}</h3>
+                  <ul>
+                    {item.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                  <a href="#dopyt">Chcem podobnú realizáciu naceniť</a>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="section risk-section asbestos-section" id="azbest" aria-labelledby="risk-title">
           <div className="section-heading">
             <p className="eyebrow">{content.riskEyebrow}</p>
@@ -565,6 +637,19 @@ export default async function HomePage() {
             {processSteps.map(([title, text], index) => (
               <li key={title}>
                 <span>{index + 1}</span>
+                {processPhotoReferences[index] ? (
+                  <ResponsiveImage
+                    image={processPhotoReferences[index]!}
+                    className="process-photo"
+                    width={420}
+                    height={300}
+                    sizes="(max-width: 760px) 100vw, 18vw"
+                  />
+                ) : (
+                  <div className="process-document-proof" aria-hidden="true">
+                    <span className="line-icon document"></span>
+                  </div>
+                )}
                 <strong>{title}</strong>
                 <p>{text}</p>
               </li>
@@ -606,6 +691,14 @@ export default async function HomePage() {
                 <li key={item}>{item}</li>
               ))}
             </ul>
+            <div className="why-proof-strip" aria-label="Reálne dôkazy práce ASTANA">
+              {whyProofPhotos.map((photo) => (
+                <figure key={photo.id}>
+                  <ResponsiveImage image={photo} width={420} height={300} sizes="(max-width: 760px) 100vw, 18vw" />
+                  <figcaption>{photo.title}</figcaption>
+                </figure>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -709,6 +802,93 @@ export default async function HomePage() {
             </div>
           </section>
         )}
+
+        <section className="section practice-story-section" aria-labelledby="practice-story-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Legálna likvidácia v praxi</p>
+              <h2 id="practice-story-title">Ako vyzerá odborný postup na reálnych zákazkách</h2>
+            </div>
+            <p>
+              Pri azbeste rozhoduje postup: stabilizácia materiálu, kontrolovaná demontáž, balenie do označených obalov
+              a odvoz podľa zákazky.
+            </p>
+          </div>
+          <div className="practice-story-list">
+            {practiceBlocks.map((block) => (
+              <article className="practice-story-card" key={block.title}>
+                <ResponsiveImage image={block.image} className="practice-story-picture" width={760} height={520} sizes="(max-width: 760px) 100vw, 42vw" />
+                <div>
+                  <span className="practice-story-label">Reálna realizácia ASTANA</span>
+                  <h3>{block.title}</h3>
+                  <ul>
+                    {block.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                  <a className="button button-outline" href="#dopyt">Poslať výmeru a fotky</a>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="section gallery-section" id="galeria-striech" aria-labelledby="gallery-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Fotodokumentácia z praxe</p>
+              <h2 id="gallery-title">Referencie našich striech</h2>
+            </div>
+            <p>
+              Ukážky realizácií, kde sme riešili eternit, azbestocementové krytiny, balenie odpadu a prípravu na legálnu
+              likvidáciu.
+            </p>
+          </div>
+          <div className="gallery-filters" aria-label="Filtrovanie galérie">
+            {galleryCategories.map((category) => (
+              <button key={category.key} type="button" data-gallery-filter={category.key}>
+                {category.label}
+              </button>
+            ))}
+          </div>
+          <div className="real-gallery-grid">
+            {galleryReferences.map((photo, index) => (
+              <button
+                className="real-gallery-card"
+                type="button"
+                key={photo.id}
+                data-gallery-card
+                data-gallery-index={index}
+                data-gallery-category={photo.category}
+                data-gallery-webp={photo.webp}
+                data-gallery-jpg={photo.jpg}
+                data-gallery-title={photo.title}
+                data-gallery-alt={photo.alt}
+                hidden={index >= 12}
+              >
+                <ResponsiveImage image={photo} width={520} height={420} sizes="(max-width: 760px) 100vw, 25vw" />
+                <span>
+                  <strong>{photo.title}</strong>
+                  <small>{photo.recommendedUse}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+          <div className="gallery-actions">
+            <button className="button button-outline" type="button" data-gallery-load-more>
+              Zobraziť ďalšie realizácie
+            </button>
+          </div>
+          <div className="gallery-lightbox" data-gallery-lightbox hidden aria-modal="true" role="dialog" aria-label="Fotografia realizácie">
+            <button type="button" className="gallery-lightbox-close" data-lightbox-close aria-label="Zatvoriť galériu">×</button>
+            <button type="button" className="gallery-lightbox-prev" data-lightbox-prev aria-label="Predchádzajúca fotka">‹</button>
+            <figure>
+              <img data-lightbox-image src="" alt="" />
+              <figcaption data-lightbox-caption></figcaption>
+            </figure>
+            <button type="button" className="gallery-lightbox-next" data-lightbox-next aria-label="Ďalšia fotka">›</button>
+          </div>
+        </section>
 
         <section className="section faq-section" id="faq" aria-labelledby="faq-title">
           <div className="section-heading split">
