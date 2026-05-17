@@ -1332,3 +1332,172 @@ body {
     color: #a66f16 !important;
   }
 }
+
+/* Final typography QA: keep m² lowercase and make text rhythm calmer. */
+.quote-kicker,
+.hero-proof-flow span:first-child,
+.area-field label,
+.field-help,
+.form-stage-title {
+  text-transform: none !important;
+}
+
+.quote-kicker {
+  letter-spacing: 0.035em !important;
+}
+
+.included-item,
+.practice-item,
+.risk-card,
+.caution-card,
+.roofer-card,
+.region-choice-card,
+.trust-item {
+  align-items: flex-start;
+}
+
+.included-item .line-icon,
+.practice-item .line-icon,
+.risk-card .line-icon,
+.caution-card .line-icon,
+.region-choice-card .line-icon,
+.trust-item .line-icon,
+.trust-item .trust-icon {
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.section-heading,
+.final-cta,
+.roofer-final {
+  text-wrap: balance;
+}
+
+@media (max-width: 760px) {
+  .hero h1 {
+    font-size: clamp(30px, 7.8vw, 37px) !important;
+    line-height: 1.08 !important;
+  }
+
+  .quote-card h2 {
+    font-size: clamp(24px, 6.45vw, 30px) !important;
+    line-height: 1.09 !important;
+  }
+
+  .section-heading h2,
+  .why-card h2,
+  .included-section .section-heading h2,
+  .practice-section .section-heading h2,
+  .faq-section .section-heading h2,
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(18.5px, 4.85vw, 22.5px) !important;
+    line-height: 1.15 !important;
+  }
+
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(19.5px, 5vw, 23.5px) !important;
+    line-height: 1.14 !important;
+  }
+
+  .hero-text,
+  .section-heading p,
+  .quote-card > p:not(.quote-kicker),
+  .field-help,
+  .trust-item p,
+  .included-item p,
+  .practice-item p,
+  .risk-card p,
+  .caution-card p,
+  .region-choice-card small {
+    font-size: 15px !important;
+    line-height: 1.58 !important;
+  }
+
+  .quote-kicker {
+    font-size: 12.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  .trust-item,
+  .included-item,
+  .risk-card,
+  .caution-card,
+  .roofer-card,
+  .practice-item,
+  .faq-grid details,
+  .region-choice-card {
+    gap: 12px !important;
+  }
+
+  .faq-grid summary {
+    align-items: center;
+    gap: 12px;
+  }
+
+  .hero,
+  .section,
+  .quote-card,
+  .final-cta,
+  .roofer-hero,
+  .roofer-directory,
+  .roofer-final {
+    overflow-wrap: break-word;
+  }
+}
+
+@media (min-width: 761px) {
+  .section-heading p,
+  .hero-text,
+  .quote-card > p:not(.quote-kicker) {
+    font-size: clamp(15.5px, 1vw, 17px);
+    line-height: 1.62;
+  }
+
+  .included-item,
+  .practice-item,
+  .risk-card,
+  .caution-card,
+  .roofer-card,
+  .trust-item {
+    gap: 14px;
+  }
+}
+
+@media (min-width: 1081px) {
+  .hero h1 {
+    font-size: clamp(42px, 3.35vw, 50px) !important;
+    line-height: 1.06 !important;
+    letter-spacing: -0.006em !important;
+    text-wrap: normal !important;
+  }
+
+  .roofer-hero h1 {
+    font-size: clamp(42px, 4.1vw, 56px) !important;
+    line-height: 1.04 !important;
+    letter-spacing: -0.008em !important;
+  }
+
+  .hero-claim {
+    font-size: clamp(21px, 1.55vw, 25px) !important;
+    line-height: 1.12 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .mobile-sticky-cta {
+    min-height: 42px !important;
+    padding: 3px !important;
+    bottom: max(6px, env(safe-area-inset-bottom, 0px)) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 -5px 16px rgba(3, 50, 79, 0.09) !important;
+  }
+
+  .mobile-sticky-cta a {
+    min-height: 34px !important;
+    padding: 6px 8px !important;
+    border-radius: 11px !important;
+    font-size: 10.8px !important;
+  }
+}
