@@ -1655,3 +1655,438 @@ body {
     color: #0878b8 !important;
   }
 }
+
+/* Softer blue balance: keep the clean blue direction, but reduce large-area saturation. */
+body {
+  background:
+    radial-gradient(circle at 86% 8%, rgba(0, 163, 215, 0.075), transparent 30rem),
+    radial-gradient(circle at 14% 0%, rgba(8, 120, 184, 0.045), transparent 28rem),
+    linear-gradient(180deg, #ffffff 0%, #f9fdff 45%, #f1faff 100%) !important;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 84% 12%, rgba(0, 163, 215, 0.125), transparent 28rem),
+    radial-gradient(circle at 56% 42%, rgba(8, 120, 184, 0.065), transparent 26rem),
+    linear-gradient(100deg, #ffffff 0%, #fcfeff 34%, #f2fbff 62%, #eaf7fc 100%) !important;
+  box-shadow: 0 34px 104px rgba(6, 50, 74, 0.125) !important;
+}
+
+.hero::before {
+  opacity: 0.08 !important;
+}
+
+.quote-card {
+  background:
+    radial-gradient(circle at 94% 0%, rgba(0, 163, 215, 0.105), transparent 16rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(243, 251, 255, 0.95)) !important;
+}
+
+.section,
+.included-section,
+.practice-section,
+.faq-section,
+.roofer-directory,
+.roofer-hero,
+.roofer-final {
+  background:
+    radial-gradient(circle at 98% 0%, rgba(0, 163, 215, 0.07), transparent 20rem),
+    linear-gradient(150deg, #ffffff 0%, #fbfeff 50%, #f1faff 100%) !important;
+}
+
+.region-map-card,
+.region-grid-card {
+  background:
+    radial-gradient(circle at 96% 8%, rgba(0, 163, 215, 0.08), transparent 16rem),
+    linear-gradient(150deg, #ffffff 0%, #fbfeff 58%, #f1faff 100%) !important;
+}
+
+@media (max-width: 760px) {
+  body {
+    background:
+      radial-gradient(circle at 100% 0%, rgba(0, 163, 215, 0.07), transparent 18rem),
+      linear-gradient(180deg, #ffffff 0%, #fbfeff 48%, #f2fbff 100%) !important;
+  }
+
+  .hero,
+  .roofer-hero {
+    background:
+      radial-gradient(circle at 92% 5%, rgba(0, 163, 215, 0.085), transparent 17rem),
+      linear-gradient(160deg, #ffffff 0%, #fbfeff 56%, #f1faff 100%) !important;
+  }
+
+  .hero::before,
+  .roofer-hero::before {
+    opacity: 0.045 !important;
+  }
+
+  .section,
+  .roofer-directory,
+  .included-section,
+  .practice-section,
+  .faq-section {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.045), transparent 17rem),
+      linear-gradient(150deg, #ffffff 0%, #fbfeff 56%, #f3fbff 100%) !important;
+  }
+
+  .quote-card {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.095), transparent 15rem),
+      linear-gradient(180deg, #ffffff 0%, #f4fbff 100%) !important;
+  }
+
+  .region-map-card,
+  .region-grid-card {
+    background:
+      radial-gradient(circle at 96% 8%, rgba(0, 163, 215, 0.065), transparent 13rem),
+      linear-gradient(150deg, #ffffff 0%, #fbfeff 62%, #f3fbff 100%) !important;
+  }
+}
+
+/* Blue + sand harmony: warmer and more human, without the grey veil or yellow cast. */
+:root {
+  --sand: #c9a66f;
+  --sand-soft: #fbf5ea;
+  --blue-soft: #edf9fe;
+  --blue-wash: #f5fcff;
+}
+
+body {
+  background:
+    radial-gradient(circle at 12% 6%, rgba(201, 166, 111, 0.12), transparent 31rem),
+    radial-gradient(circle at 88% 10%, rgba(8, 120, 184, 0.09), transparent 31rem),
+    linear-gradient(180deg, #ffffff 0%, #fbf8f1 36%, #f5fcff 68%, #edf9fe 100%) !important;
+}
+
+.site-header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(250, 247, 241, 0.9) 52%, rgba(247, 252, 255, 0.94)) !important;
+}
+
+.site-nav {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(251, 245, 234, 0.58), rgba(237, 249, 254, 0.76), rgba(255, 255, 255, 0.98)) !important;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 16% 14%, rgba(201, 166, 111, 0.16), transparent 27rem),
+    radial-gradient(circle at 84% 10%, rgba(0, 163, 215, 0.12), transparent 29rem),
+    linear-gradient(105deg, #ffffff 0%, #fbf6ec 34%, #f8fbf8 52%, #edf9fe 100%) !important;
+  border-color: rgba(207, 227, 236, 0.98) !important;
+}
+
+.hero::before {
+  opacity: 0.075 !important;
+  background:
+    linear-gradient(90deg, rgba(201, 166, 111, 0.22), rgba(255, 255, 255, 0.36) 42%, rgba(0, 163, 215, 0.18) 100%) !important;
+}
+
+.hero-claim,
+.quote-handled,
+.quote-priority,
+.area-field {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(251, 245, 234, 0.74)) !important;
+  border-color: rgba(201, 166, 111, 0.26) !important;
+}
+
+.quote-card {
+  background:
+    radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.1), transparent 16rem),
+    radial-gradient(circle at 0% 100%, rgba(201, 166, 111, 0.09), transparent 15rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 252, 255, 0.95)) !important;
+  border-color: rgba(199, 227, 239, 0.98) !important;
+}
+
+.quote-kicker {
+  color: #9a6d2b !important;
+  background:
+    linear-gradient(90deg, rgba(251, 245, 234, 0.9), rgba(237, 249, 254, 0.72)) !important;
+}
+
+.section,
+.included-section,
+.practice-section,
+.faq-section,
+.roofer-directory,
+.roofer-hero,
+.roofer-final {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(201, 166, 111, 0.08), transparent 22rem),
+    radial-gradient(circle at 100% 0%, rgba(0, 163, 215, 0.07), transparent 22rem),
+    linear-gradient(150deg, #ffffff 0%, #fbf8f1 45%, #f5fcff 100%) !important;
+  border-color: rgba(207, 227, 236, 0.98) !important;
+}
+
+.trust-bar,
+.trust-item,
+.included-item,
+.risk-card,
+.caution-card,
+.practice-item,
+.faq-grid details,
+.region-choice-card,
+.public-roofer-card,
+.roofer-filters,
+.empty-roofer-state {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(201, 166, 111, 0.06), transparent 9rem),
+    radial-gradient(circle at 100% 0%, rgba(0, 163, 215, 0.06), transparent 9rem),
+    rgba(255, 255, 255, 0.97) !important;
+  border-color: rgba(207, 227, 236, 0.98) !important;
+}
+
+.region-map-card,
+.region-grid-card {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(201, 166, 111, 0.11), transparent 16rem),
+    radial-gradient(circle at 96% 8%, rgba(0, 163, 215, 0.08), transparent 16rem),
+    linear-gradient(150deg, #ffffff 0%, #fbf7ef 48%, #edf9fe 100%) !important;
+}
+
+.eyebrow {
+  color: #b07821 !important;
+}
+
+@media (max-width: 760px) {
+  body {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(201, 166, 111, 0.08), transparent 18rem),
+      radial-gradient(circle at 100% 0%, rgba(0, 163, 215, 0.075), transparent 18rem),
+      linear-gradient(180deg, #ffffff 0%, #fbf8f1 42%, #f3fbff 100%) !important;
+  }
+
+  .hero,
+  .roofer-hero {
+    background:
+      radial-gradient(circle at 0% 6%, rgba(201, 166, 111, 0.1), transparent 16rem),
+      radial-gradient(circle at 94% 6%, rgba(0, 163, 215, 0.085), transparent 16rem),
+      linear-gradient(160deg, #ffffff 0%, #fbf8f1 50%, #f0faff 100%) !important;
+  }
+
+  .section,
+  .roofer-directory,
+  .included-section,
+  .practice-section,
+  .faq-section {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(201, 166, 111, 0.06), transparent 16rem),
+      radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.05), transparent 17rem),
+      linear-gradient(150deg, #ffffff 0%, #fbf8f1 52%, #f4fbff 100%) !important;
+  }
+
+  .quote-card {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.09), transparent 15rem),
+      radial-gradient(circle at 0% 100%, rgba(201, 166, 111, 0.07), transparent 13rem),
+      linear-gradient(180deg, #ffffff 0%, #f5fcff 100%) !important;
+  }
+
+  .region-map-card,
+  .region-grid-card {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(201, 166, 111, 0.08), transparent 13rem),
+      radial-gradient(circle at 96% 8%, rgba(0, 163, 215, 0.065), transparent 13rem),
+      linear-gradient(150deg, #ffffff 0%, #fbf8f1 58%, #f3fbff 100%) !important;
+  }
+}
+
+/* Final blue + sand balance: warm, clean and safely fluid on small screens. */
+:root {
+  --sand: #c7a26b;
+  --sand-soft: #fbf6ec;
+  --blue-soft: #eef9fd;
+  --blue-wash: #f6fcff;
+}
+
+body {
+  background:
+    radial-gradient(circle at 13% 7%, rgba(199, 162, 107, 0.105), transparent 30rem),
+    radial-gradient(circle at 88% 10%, rgba(8, 120, 184, 0.075), transparent 31rem),
+    linear-gradient(180deg, #ffffff 0%, #fbf8f2 34%, #f8fcfb 58%, #eff9fd 100%) !important;
+}
+
+.site-header {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(251, 248, 242, 0.86) 52%, rgba(247, 252, 255, 0.92)) !important;
+}
+
+.site-nav {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(251, 246, 236, 0.42), rgba(238, 249, 253, 0.68), rgba(255, 255, 255, 0.98)) !important;
+}
+
+.hero {
+  background:
+    radial-gradient(circle at 17% 13%, rgba(199, 162, 107, 0.13), transparent 27rem),
+    radial-gradient(circle at 85% 9%, rgba(0, 163, 215, 0.105), transparent 30rem),
+    linear-gradient(105deg, #ffffff 0%, #fbf6ec 31%, #fbfaf4 47%, #f1fafd 100%) !important;
+}
+
+.hero::before {
+  opacity: 0.06 !important;
+  background:
+    linear-gradient(90deg, rgba(199, 162, 107, 0.2), rgba(255, 255, 255, 0.42) 44%, rgba(0, 163, 215, 0.15) 100%) !important;
+}
+
+.hero-claim,
+.quote-handled,
+.quote-priority,
+.area-field {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(251, 246, 236, 0.62)) !important;
+  border-color: rgba(199, 162, 107, 0.24) !important;
+}
+
+.quote-card {
+  background:
+    radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.095), transparent 16rem),
+    radial-gradient(circle at 0% 100%, rgba(199, 162, 107, 0.07), transparent 15rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.985), rgba(246, 252, 255, 0.96)) !important;
+}
+
+.section,
+.included-section,
+.practice-section,
+.faq-section,
+.roofer-directory,
+.roofer-hero,
+.roofer-final {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(199, 162, 107, 0.065), transparent 22rem),
+    radial-gradient(circle at 100% 0%, rgba(0, 163, 215, 0.06), transparent 22rem),
+    linear-gradient(150deg, #ffffff 0%, #fbf8f2 45%, #f6fcff 100%) !important;
+}
+
+.region-map-card,
+.region-grid-card {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(199, 162, 107, 0.085), transparent 16rem),
+    radial-gradient(circle at 96% 8%, rgba(0, 163, 215, 0.075), transparent 16rem),
+    linear-gradient(150deg, #ffffff 0%, #fbf7ef 48%, #f1fafd 100%) !important;
+}
+
+.eyebrow,
+.quote-kicker {
+  color: #a46f1c !important;
+}
+
+@media (max-width: 760px) {
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden !important;
+  }
+
+  body {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(199, 162, 107, 0.065), transparent 18rem),
+      radial-gradient(circle at 100% 0%, rgba(0, 163, 215, 0.07), transparent 18rem),
+      linear-gradient(180deg, #ffffff 0%, #fbf8f2 40%, #f5fbff 100%) !important;
+  }
+
+  .hero,
+  .section,
+  .final-cta,
+  .roofer-hero,
+  .roofer-directory,
+  .roofer-final {
+    width: min(100%, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .hero,
+  .roofer-hero {
+    background:
+      radial-gradient(circle at 0% 6%, rgba(199, 162, 107, 0.075), transparent 16rem),
+      radial-gradient(circle at 94% 6%, rgba(0, 163, 215, 0.078), transparent 16rem),
+      linear-gradient(160deg, #ffffff 0%, #fbf8f2 48%, #f2fbff 100%) !important;
+  }
+
+  .hero-copy,
+  .hero-copy > *,
+  .hero-photo,
+  .hero-photo > *,
+  .hero-text,
+  .hero-actions,
+  .hero-proof-flow,
+  .hero-points,
+  .quote-card,
+  .quote-card > *,
+  .form-grid,
+  .form-row,
+  .form-stage,
+  .area-field,
+  .upload-dropzone {
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .hero-text,
+  .hero-claim,
+  .quote-card p,
+  .field-help,
+  .hero-points li,
+  .hero-proof-flow span {
+    overflow-wrap: anywhere !important;
+  }
+
+  .hero-actions,
+  .quote-card .button-primary,
+  .form-submit {
+    width: 100% !important;
+  }
+
+  .hero-actions .button,
+  .quote-card .button-primary,
+  .form-submit {
+    max-width: 100% !important;
+    white-space: normal !important;
+    justify-content: center !important;
+  }
+
+  .section,
+  .roofer-directory,
+  .included-section,
+  .practice-section,
+  .faq-section {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(199, 162, 107, 0.045), transparent 16rem),
+      radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.05), transparent 17rem),
+      linear-gradient(150deg, #ffffff 0%, #fbf8f2 50%, #f6fcff 100%) !important;
+  }
+
+  .quote-card {
+    background:
+      radial-gradient(circle at 96% 0%, rgba(0, 163, 215, 0.085), transparent 15rem),
+      radial-gradient(circle at 0% 100%, rgba(199, 162, 107, 0.05), transparent 13rem),
+      linear-gradient(180deg, #ffffff 0%, #f6fcff 100%) !important;
+  }
+
+  .region-map-card,
+  .region-grid-card {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(199, 162, 107, 0.06), transparent 13rem),
+      radial-gradient(circle at 96% 8%, rgba(0, 163, 215, 0.06), transparent 13rem),
+      linear-gradient(150deg, #ffffff 0%, #fbf8f2 56%, #f4fbff 100%) !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .hero,
+  .section,
+  .final-cta,
+  .roofer-hero,
+  .roofer-directory,
+  .roofer-final {
+    width: min(100%, calc(100vw - 20px)) !important;
+    max-width: calc(100vw - 20px) !important;
+  }
+}
