@@ -640,7 +640,9 @@ export default async function HomePage() {
                   />
                 ) : (
                   <div className="process-document-proof" aria-hidden="true">
-                    <span className="line-icon document"></span>
+                    <span className="quote-proof-mark">m²</span>
+                    <span className="quote-proof-arrow">→</span>
+                    <span className="quote-proof-mark">€</span>
                   </div>
                 )}
                 <strong>{title}</strong>

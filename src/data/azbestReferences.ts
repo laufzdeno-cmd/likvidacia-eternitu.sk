@@ -53,13 +53,18 @@ export const azbestReferences = [
   asset(130, 'Detail eternitovej krytiny', 'rodinne-domy', 'proces, detail, galéria', 'Detail eternitovej krytiny pred odbornou demontážou', false),
   asset(132, 'Detail strechy pred demontážou', 'rodinne-domy', 'proces, detail', 'Detail azbestocementovej strešnej krytiny pred stabilizáciou', false),
   asset(65, 'Pracovisko pripravené na odvoz', 'balenie-odvoz', 'proces, odvoz', 'Pracovisko pripravené na odvoz azbestového odpadu podľa zákazky', false),
+  asset(57, 'Dlhý hospodársky objekt', 'hospodarske-budovy', 'kravín, hospodárska budova, galéria', 'Dlhý hospodársky objekt s materiálmi obsahujúcimi azbest pred odborným postupom', false),
+  asset(62, 'Priemyselné veže a technologické silá', 'priemysel', 'priemysel, veže, galéria', 'Priemyselné technologické veže a silá pri objekte s materiálmi obsahujúcimi azbest', false),
+  asset(63, 'Hospodársky areál s dlhým objektom', 'hospodarske-budovy', 'kravín, hospodársky areál, galéria', 'Dlhý hospodársky objekt v areáli pripravenom na odborný postup pri azbeste', false),
+  asset(106, 'Dopravníky v priemyselnom podniku', 'priemysel', 'dopravníky, priemysel, realizácia', 'Priemyselný podnik s dopravníkmi, technikou ASTANA a pripraveným materiálom', true),
+  asset(111, 'Priemyselný areál s vozidlami ASTANA', 'priemysel', 'vozidlá, priemysel, galéria', 'Priemyselný areál s vozidlami ASTANA a pripraveným kontrolovaným pracoviskom', true),
   asset(1, 'Rodinný dom s eternitovou krytinou', 'rodinne-domy', 'galéria', 'Rodinný dom s eternitovou strechou pred odborným postupom', false),
   asset(2, 'Detail strešnej krytiny', 'rodinne-domy', 'galéria', 'Detail azbestocementovej krytiny na streche rodinného domu', false),
   asset(3, 'Príprava pracoviska', 'rodinne-domy', 'galéria', 'Príprava pracoviska pred kontrolovanou demontážou eternitu', false),
   asset(4, 'Eternit na hospodárskej budove', 'hospodarske-budovy', 'galéria', 'Hospodárska budova s eternitovou krytinou pred likvidáciou', false),
   asset(5, 'Kontrolovaná manipulácia', 'rodinne-domy', 'galéria', 'Kontrolovaná manipulácia s azbestocementovým materiálom na streche', false),
   asset(6, 'Strešná krytina pred stabilizáciou', 'rodinne-domy', 'galéria', 'Azbestocementová strešná krytina pred stabilizáciou materiálu', false),
-  asset(7, 'Pracovník na streche', 'rodinne-domy', 'galéria', 'Pracovník v ochrannom obleku na streche s eternitovou krytinou', false),
+  asset(7, 'Strešná konštrukcia po demontáži', 'rodinne-domy', 'galéria', 'Strešná konštrukcia po odstránení azbestocementovej krytiny', false),
   asset(8, 'Pracovisko pri rodinnom dome', 'rodinne-domy', 'galéria', 'Pracovisko pri rodinnom dome počas likvidácie eternitu', false),
   asset(9, 'Balenie azbestového odpadu', 'balenie-odvoz', 'galéria', 'Balenie azbestového odpadu do určených obalov', false),
   asset(10, 'Materiál pripravený na odvoz', 'balenie-odvoz', 'galéria', 'Zabalený azbestový materiál pripravený na odvoz', false),
@@ -79,6 +84,12 @@ export const azbestReferences = [
   asset(24, 'Pracovisko s eternitom', 'hospodarske-budovy', 'galéria', 'Pracovisko s eternitovým materiálom pred odborným odvozom', false),
   asset(25, 'Detail materiálu', 'rodinne-domy', 'galéria', 'Detail materiálu obsahujúceho azbest pred likvidáciou', false),
   asset(26, 'Stabilizácia strešnej konštrukcie', 'rodinne-domy', 'galéria', 'Stabilizácia strešnej konštrukcie pred pokračovaním prác', false),
+  asset(118, 'Drevenica s eternitovou strechou', 'rodinne-domy', 'galéria', 'Drevenica s eternitovou strechou pripravená na odborný postup', false),
+  asset(119, 'Kontrolované pracovisko pri drevenici', 'rodinne-domy', 'galéria', 'Kontrolované pracovisko pri drevenici s materiálom obsahujúcim azbest', false),
+  asset(120, 'Zabalený materiál v kontrolovanom priestore', 'balenie-odvoz', 'balenie, odvoz, galéria', 'Zabalený azbestový materiál vo vyznačenom kontrolovanom priestore', false),
+  asset(121, 'Balenie odpadu v kontrolovanom priestore', 'balenie-odvoz', 'balenie, odvoz, prax', 'Azbestový odpad pripravený v kontrolovanom priestore bez verejných údajov', true),
+  asset(123, 'Kontrolované pracovisko pri priemyselnom objekte', 'priemysel', 'priemysel, dokumentácia, galéria', 'Kontrolované pracovisko pri priemyselnom objekte s vyznačeným priestorom', false),
+  asset(124, 'Pracovník na streche pri stabilizácii', 'rodinne-domy', 'galéria, proces', 'Pracovník v ochrannom obleku stabilizuje eternitovú strechu', false),
 ] satisfies AzbestReference[];
 
 export const getAzbestReference = (id: string) => {
@@ -94,7 +105,7 @@ export const heroPhoto = getAzbestReference('azbest-087');
 export const heroProofPhotos = [
   { ...getAzbestReference('azbest-051'), title: 'Stabilizácia materiálu' },
   { ...getAzbestReference('azbest-164'), title: 'Kontrolovaná demontáž' },
-  { ...getAzbestReference('azbest-065'), title: 'Balenie a odvoz' },
+  { ...getAzbestReference('azbest-121'), title: 'Balenie a odvoz' },
 ];
 
 export const realizationHighlights = [
@@ -117,16 +128,22 @@ export const realizationHighlights = [
     bullets: ['kontrolovaný prístup', 'ochranné vybavenie', 'nadväznosť prác'],
   },
   {
-    image: getAzbestReference('azbest-110'),
-    title: 'Priemyselný objekt',
+    image: getAzbestReference('azbest-106'),
+    title: 'Priemyselný podnik - dopravníky a technika',
     type: 'Priemyselný objekt',
-    bullets: ['väčší rozsah prác', 'technické prostredie', 'koordinácia odvozu'],
+    bullets: ['dopravníky v podniku', 'vozidlá ASTANA v zábere', 'pripravený materiál na odvoz'],
   },
   {
-    image: getAzbestReference('azbest-091'),
+    image: getAzbestReference('azbest-120'),
     title: 'Balenie a odvoz odpadu',
     type: 'Balenie a odvoz',
     bullets: ['označené obaly', 'príprava na prepravu', 'odovzdanie podľa zákazky'],
+  },
+  {
+    image: getAzbestReference('azbest-062'),
+    title: 'Priemyselné veže a technologické silá',
+    type: 'Priemyselný areál',
+    bullets: ['technické prostredie', 'väčší rozsah prác', 'kontrolovaný postup'],
   },
   {
     image: getAzbestReference('azbest-171'),
@@ -134,20 +151,26 @@ export const realizationHighlights = [
     type: 'Interiérový priestor',
     bullets: ['ochranné vybavenie', 'kontrolovaný postup', 'dokumentácia podľa rozsahu'],
   },
+  {
+    image: getAzbestReference('azbest-063'),
+    title: 'Dlhý hospodársky objekt / kravín',
+    type: 'Hospodárska budova',
+    bullets: ['dlhý objekt', 'vyznačené pracovisko', 'postup podľa rozsahu'],
+  },
 ];
 
 export const processPhotoReferences = [
   getAzbestReference('azbest-132'),
   getAzbestReference('azbest-130'),
   null,
-  getAzbestReference('azbest-018'),
-  getAzbestReference('azbest-019'),
+  getAzbestReference('azbest-118'),
+  getAzbestReference('azbest-110'),
 ] as const;
 
 export const whyProofPhotos = [
-  getAzbestReference('azbest-018'),
+  getAzbestReference('azbest-111'),
+  getAzbestReference('azbest-057'),
   getAzbestReference('azbest-160'),
-  getAzbestReference('azbest-020'),
 ];
 
 export const practiceBlocks = [
@@ -162,7 +185,7 @@ export const practiceBlocks = [
     bullets: ['eternit sa nezhadzuje zo strechy', 'pracovisko je organizované', 'termín sa dá zladiť so strechárom'],
   },
   {
-    image: getAzbestReference('azbest-091'),
+    image: getAzbestReference('azbest-121'),
     title: 'Balenie a odvoz',
     bullets: ['odpad ide do označených obalov', 'materiál je pripravený na prepravu', 'doklady sa riešia podľa zákazky'],
   },
@@ -187,26 +210,32 @@ export const galleryCategories = [
 const galleryReferenceIds = [
   'azbest-134',
   'azbest-130',
-  'azbest-132',
   'azbest-006',
-  'azbest-007',
+  'azbest-132',
   'azbest-011',
-  'azbest-012',
-  'azbest-014',
   'azbest-017',
+  'azbest-014',
   'azbest-021',
   'azbest-022',
   'azbest-026',
+  'azbest-118',
+  'azbest-124',
+  'azbest-106',
+  'azbest-063',
+  'azbest-119',
+  'azbest-007',
+  'azbest-012',
+  'azbest-111',
   'azbest-001',
   'azbest-002',
+  'azbest-057',
   'azbest-003',
   'azbest-004',
   'azbest-005',
-  'azbest-008',
-  'azbest-015',
-  'azbest-016',
   'azbest-023',
   'azbest-025',
+  'azbest-120',
+  'azbest-123',
   'azbest-171',
   'azbest-160',
 ] as const;
