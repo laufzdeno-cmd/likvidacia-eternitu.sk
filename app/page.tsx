@@ -313,7 +313,7 @@ export default async function HomePage() {
           <a href="/strechari/">Strechári</a>
           <a href="#preco">Prečo ASTANA</a>
           {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
-          <a href="#referencie">{testimonials.length ? 'Referencie' : 'Prax'}</a>
+          <a href={testimonials.length ? '#referencie' : '#prax'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
         </nav>
@@ -519,15 +519,15 @@ export default async function HomePage() {
           ))}
         </section>
 
-        <section className="section real-work-section" aria-labelledby="real-work-title">
+        <section className="section real-work-section" id="realizacie-astana" aria-labelledby="real-work-title">
           <div className="section-heading split">
             <div>
               <p className="eyebrow">Reálne práce ASTANA</p>
-              <h2 id="real-work-title">Naše realizácie: eternitové strechy, priemysel aj interiéry</h2>
+              <h2 id="real-work-title">Naše realizácie: od strechy po odvoz</h2>
             </div>
             <p>
-              Toto nie sú ilustračné fotky. Toto sú reálne práce ASTANA — stabilizácia, demontáž, balenie a príprava
-              na odvoz.
+              Fotky nie sú dekorácia. Každý záber ukazuje časť procesu: pracovisko, stabilizáciu, demontáž, balenie,
+              odvoz alebo väčší rozsah prác.
             </p>
           </div>
           <div className="real-work-grid">
@@ -785,12 +785,12 @@ export default async function HomePage() {
         <section className="section gallery-section" id="galeria-striech" aria-labelledby="gallery-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Fotodokumentácia z praxe</p>
-              <h2 id="gallery-title">Referencie našich striech</h2>
+              <p className="eyebrow">Fotodokumentácia z realizácií</p>
+              <h2 id="gallery-title">Ako vyzerá naša práca v praxi</h2>
             </div>
             <p>
-              Ukážky realizácií, kde sme riešili eternit, azbestocementové krytiny, balenie odpadu a prípravu na legálnu
-              likvidáciu.
+              Výber reálnych záberov zo striech, hospodárskych objektov, priemyslu a balenia odpadu. Prvé fotky ukazujú
+              najmä strechy a kontrolovaný postup, technické priestory nájdete vo filtroch.
             </p>
           </div>
           <div className="gallery-filters" aria-label="Filtrovanie galérie">
@@ -895,7 +895,7 @@ export default async function HomePage() {
         <div>
           <h2>Užitočné</h2>
           {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
-          <a href="#referencie">{testimonials.length ? 'Referencie' : 'Prax'}</a>
+          <a href={testimonials.length ? '#referencie' : '#prax'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
           <a href="/strechari/">Strechári</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>

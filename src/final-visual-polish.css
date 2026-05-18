@@ -3802,6 +3802,49 @@ footer {
 }
 
 /* Premium admin polish: the CRM should feel like a calm control room, not a default backend. */
+.process-list .process-document-proof .quote-proof-mark,
+.process-list .process-document-proof .quote-proof-arrow {
+  position: static !important;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+}
+
+.process-list .process-document-proof .quote-proof-mark {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 18px !important;
+  color: #06324a !important;
+  background: #ffffff !important;
+}
+
+.process-list .process-document-proof .quote-proof-arrow {
+  width: auto !important;
+  height: auto !important;
+  color: #d99732 !important;
+  background: transparent !important;
+}
+
+.real-hero-photo .hero-mini-proof picture,
+.real-hero-photo .hero-mini-proof img {
+  background: transparent !important;
+  opacity: 1 !important;
+  filter: contrast(1.04) saturate(1.05) !important;
+}
+
+.roofer-empty-action {
+  min-width: min(100%, 260px) !important;
+}
+
+.roofer-empty-action .button {
+  width: 100% !important;
+  min-width: min(100%, 220px) !important;
+  white-space: nowrap !important;
+  line-height: 1.1 !important;
+}
+
 .admin-login {
   min-height: 100vh !important;
   display: grid !important;
@@ -4041,5 +4084,393 @@ footer {
   .admin-heading {
     display: grid !important;
     gap: 16px !important;
+  }
+}
+
+/* Final premium cleanup: clearer navigation, calmer spacing, proof-first photos. */
+:root {
+  --primary: #0878b8 !important;
+  --secondary: #06324a !important;
+  --bright: #12a8d8 !important;
+  --soft-blue: #edf9fe !important;
+  --soft: #f8fcfe !important;
+  --warm-paper: #fff8ed !important;
+  --warm-paper-soft: #fffdf8 !important;
+  --border: #d9e6ee !important;
+  --amber: #8f163c !important;
+  --amber-hover: #6d102e !important;
+  --burgundy: #8f163c !important;
+  --burgundy-hover: #6d102e !important;
+  --shadow: 0 26px 70px rgba(6, 50, 74, 0.14) !important;
+  --shadow-soft: 0 14px 36px rgba(6, 50, 74, 0.09) !important;
+}
+
+section[id],
+footer[id] {
+  scroll-margin-top: 148px !important;
+}
+
+.site-header {
+  transition: padding 180ms ease, box-shadow 180ms ease, background 180ms ease, transform 180ms ease !important;
+}
+
+.site-header.is-compact {
+  box-shadow: 0 14px 42px rgba(6, 50, 74, 0.11) !important;
+}
+
+.site-header.is-compact .header-main {
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+.site-nav a {
+  position: relative !important;
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease !important;
+}
+
+.site-nav a.is-active,
+.site-nav a[aria-current="page"] {
+  color: #0878b8 !important;
+}
+
+.site-nav a.is-active::after,
+.site-nav a[aria-current="page"]::after {
+  width: 100% !important;
+  opacity: 1 !important;
+}
+
+.hero,
+.roofer-hero {
+  background:
+    radial-gradient(circle at 76% 14%, rgba(18, 168, 216, 0.18), transparent 25rem),
+    radial-gradient(circle at 8% 16%, rgba(217, 151, 50, 0.13), transparent 24rem),
+    linear-gradient(135deg, #ffffff 0%, #f6fcff 48%, #fffaf1 100%) !important;
+  border-color: rgba(217, 230, 238, 0.98) !important;
+}
+
+.section,
+.roofer-proof-section,
+.roofer-directory {
+  padding: clamp(64px, 7vw, 92px) clamp(34px, 4.2vw, 70px) !important;
+}
+
+.section-heading,
+.section-heading.split {
+  gap: clamp(20px, 3vw, 46px) !important;
+  margin-bottom: clamp(24px, 3.4vw, 42px) !important;
+}
+
+.section-heading h2 {
+  letter-spacing: -0.018em !important;
+}
+
+.section-heading p,
+.section-intro {
+  color: #526071 !important;
+  line-height: 1.72 !important;
+}
+
+.real-work-section,
+.included-section,
+.process-section,
+.gallery-section,
+.roofer-directory {
+  background:
+    radial-gradient(circle at 88% 10%, rgba(18, 168, 216, 0.09), transparent 24rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fcfe 100%) !important;
+}
+
+.asbestos-section,
+.caution-section,
+.roofers-section,
+.practice-story-section {
+  background:
+    radial-gradient(circle at 12% 12%, rgba(217, 151, 50, 0.09), transparent 20rem),
+    linear-gradient(180deg, #fffdf8 0%, #ffffff 72%) !important;
+}
+
+.button-primary,
+.form-submit,
+.mobile-sticky-cta a:last-child,
+.admin-primary-button,
+.admin-primary-link {
+  background: linear-gradient(135deg, #8f163c 0%, #761231 100%) !important;
+  box-shadow: 0 16px 36px rgba(143, 22, 60, 0.22) !important;
+}
+
+.button-primary:hover,
+.form-submit:hover,
+.mobile-sticky-cta a:last-child:hover {
+  background: linear-gradient(135deg, #7c1234 0%, #6d102e 100%) !important;
+  transform: translateY(-1px);
+}
+
+.button-outline {
+  border-color: rgba(8, 120, 184, 0.36) !important;
+  color: #06324a !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+}
+
+.real-work-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: clamp(18px, 2vw, 26px) !important;
+}
+
+.real-work-card,
+.practice-story-card,
+.real-gallery-card,
+.roofers-grid article,
+.caution-grid article,
+.risk-grid article,
+.included-grid article,
+.faq-grid details,
+.region-choice-card,
+.roofer-empty-state,
+.public-roofer-card {
+  border-color: rgba(217, 230, 238, 0.95) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+  box-shadow: 0 18px 48px rgba(6, 50, 74, 0.08) !important;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease !important;
+}
+
+.real-work-card:hover,
+.practice-story-card:hover,
+.real-gallery-card:hover,
+.roofers-grid article:hover,
+.caution-grid article:hover,
+.risk-grid article:hover,
+.included-grid article:hover,
+.region-choice-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(8, 120, 184, 0.34) !important;
+  box-shadow: 0 24px 64px rgba(6, 50, 74, 0.12) !important;
+}
+
+.real-work-picture,
+.real-work-picture img {
+  aspect-ratio: 4 / 3 !important;
+}
+
+.real-work-content {
+  padding: 22px 24px 26px !important;
+}
+
+.real-work-content span,
+.practice-story-label {
+  background: rgba(8, 120, 184, 0.09) !important;
+  color: #06324a !important;
+}
+
+.real-work-content li {
+  color: #435266 !important;
+  line-height: 1.55 !important;
+}
+
+.real-work-actions,
+.gallery-actions,
+.roofers-actions {
+  margin-top: clamp(26px, 3vw, 42px) !important;
+}
+
+.process-list {
+  align-items: stretch !important;
+}
+
+.process-list li {
+  background: #ffffff !important;
+  border-color: rgba(217, 230, 238, 0.96) !important;
+  box-shadow: 0 16px 42px rgba(6, 50, 74, 0.075) !important;
+}
+
+.process-list li:hover {
+  transform: translateY(-3px);
+}
+
+.gallery-section .section-heading h2 {
+  max-width: 14ch !important;
+}
+
+.real-gallery-card > span {
+  background: linear-gradient(180deg, rgba(6, 50, 74, 0.88), rgba(6, 50, 74, 0.76)) !important;
+}
+
+.gallery-filters {
+  justify-content: center !important;
+}
+
+.gallery-filters button {
+  border-color: rgba(8, 120, 184, 0.24) !important;
+  background: #ffffff !important;
+}
+
+.gallery-filters button.is-active,
+.gallery-filters button:hover {
+  background: #0878b8 !important;
+  color: #ffffff !important;
+}
+
+.final-cta,
+.roofer-final {
+  background:
+    radial-gradient(circle at 82% 50%, rgba(18, 168, 216, 0.18), transparent 24rem),
+    linear-gradient(135deg, #06324a 0%, #09283d 100%) !important;
+  box-shadow: 0 28px 78px rgba(6, 50, 74, 0.18) !important;
+}
+
+.site-footer {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(18, 168, 216, 0.12), transparent 22rem),
+    linear-gradient(180deg, #06324a 0%, #071f32 100%) !important;
+}
+
+.region-grid-card,
+.roofer-directory,
+.roofer-proof-section {
+  padding: clamp(28px, 4vw, 56px) !important;
+}
+
+.region-choice-grid {
+  gap: 16px !important;
+}
+
+.region-choice-card {
+  padding: 18px !important;
+  min-height: 112px !important;
+}
+
+.region-choice-card.is-selected {
+  border-color: rgba(143, 22, 60, 0.5) !important;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(143, 22, 60, 0.1), transparent 9rem),
+    #ffffff !important;
+}
+
+.roofer-empty-state {
+  padding: clamp(26px, 4vw, 48px) !important;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(18, 168, 216, 0.13), transparent 18rem),
+    linear-gradient(135deg, #ffffff, #f8fcfe) !important;
+}
+
+.has-enhanced-motion .reveal-on-scroll:not(.hero):not(.roofer-hero):not(.trust-bar) {
+  opacity: 1;
+  transform: none;
+}
+
+.has-enhanced-motion .reveal-on-scroll.is-visible,
+.has-enhanced-motion .hero.reveal-on-scroll,
+.has-enhanced-motion .roofer-hero.reveal-on-scroll,
+.has-enhanced-motion .trust-bar.reveal-on-scroll {
+  opacity: 1;
+  transform: translateY(0);
+  transition: box-shadow 240ms ease, transform 240ms ease, filter 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .has-enhanced-motion .reveal-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  .real-work-card,
+  .practice-story-card,
+  .real-gallery-card,
+  .roofers-grid article,
+  .caution-grid article,
+  .risk-grid article,
+  .included-grid article,
+  .region-choice-card,
+  .button-primary {
+    transition: none !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  .real-work-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --mobile-card-width: min(344px, calc(100vw - 40px));
+  }
+
+  section[id],
+  footer[id] {
+    scroll-margin-top: 104px !important;
+  }
+
+  .hero,
+  .section,
+  .final-cta,
+  .roofer-hero,
+  .roofer-directory,
+  .roofer-proof-section,
+  .roofer-final {
+    padding-left: clamp(18px, 5vw, 24px) !important;
+    padding-right: clamp(18px, 5vw, 24px) !important;
+  }
+
+  .section {
+    padding-top: 54px !important;
+    padding-bottom: 58px !important;
+  }
+
+  .section-heading,
+  .section-heading.split {
+    width: min(100%, var(--mobile-card-width)) !important;
+    max-width: min(100%, var(--mobile-card-width)) !important;
+    gap: 12px !important;
+    margin-bottom: 22px !important;
+  }
+
+  .section h2,
+  .section-heading h2,
+  .final-cta h2,
+  .roofer-final h2 {
+    font-size: clamp(1.45rem, 5.8vw, 1.82rem) !important;
+    line-height: 1.14 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .real-work-grid,
+  .real-gallery-grid,
+  .practice-story-list,
+  .roofer-proof-grid,
+  .region-choice-grid {
+    gap: 14px !important;
+  }
+
+  .real-work-card,
+  .practice-story-card,
+  .real-gallery-card,
+  .roofer-empty,
+  .roofer-empty-state,
+  .region-choice-card,
+  .faq-grid details {
+    width: min(100%, var(--mobile-card-width)) !important;
+    max-width: min(100%, var(--mobile-card-width)) !important;
+  }
+
+  .real-work-content,
+  .practice-story-card > div {
+    padding: 18px !important;
+  }
+
+  .mobile-sticky-cta {
+    min-height: 56px !important;
+    padding: 6px max(10px, env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)) !important;
+    box-shadow: 0 -12px 30px rgba(6, 50, 74, 0.13) !important;
+  }
+
+  .mobile-sticky-cta a {
+    min-height: 42px !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+  }
+
+  body {
+    padding-bottom: 86px !important;
   }
 }

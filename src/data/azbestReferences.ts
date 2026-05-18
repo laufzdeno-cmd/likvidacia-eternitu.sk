@@ -110,61 +110,93 @@ export const heroProofPhotos = [
 
 export const realizationHighlights = [
   {
-    image: getAzbestReference('azbest-087'),
-    title: 'Rodinný dom - stabilizácia eternitu',
+    image: getAzbestReference('azbest-164'),
+    title: 'Pred realizáciou',
     type: 'Rodinný dom',
-    bullets: ['stabilizácia materiálu', 'ochranné vybavenie', 'odvoz a doklady podľa zákazky'],
+    bullets: [
+      'pracovisko sa pred zásahom jasne vyznačí',
+      'overí sa prístup, výška a rozsah prác',
+      'strecha sa pripraví na kontrolovaný postup',
+    ],
+  },
+  {
+    image: getAzbestReference('azbest-119'),
+    title: 'Kontrolované pracovisko',
+    type: 'Rodinný dom',
+    bullets: [
+      'priestor je organizovaný a oddelený od bežného pohybu',
+      'materiál sa rieši bez zbytočného chaosu na stavbe',
+      'postup sa prispôsobí konkrétnej stavbe',
+    ],
+  },
+  {
+    image: getAzbestReference('azbest-087'),
+    title: 'Stabilizácia materiálu',
+    type: 'Rodinný dom',
+    bullets: [
+      'materiál sa pred manipuláciou stabilizuje',
+      'zníži sa riziko uvoľňovania prachu',
+      'pracovníci používajú ochranné vybavenie',
+    ],
   },
   {
     image: getAzbestReference('azbest-068'),
-    title: 'Rodinný dom - kontrolovaná demontáž',
+    title: 'Demontáž bez zhadzovania',
     type: 'Rodinný dom',
-    bullets: ['kontrolovaná manipulácia', 'bez zhadzovania zo strechy', 'príprava pre ďalšie práce'],
-  },
-  {
-    image: getAzbestReference('azbest-135'),
-    title: 'Drevenica - kontrolovaná práca vo výške',
-    type: 'Rodinný dom / drevenica',
-    bullets: ['kontrolovaný prístup', 'ochranné vybavenie', 'nadväznosť prác'],
-  },
-  {
-    image: getAzbestReference('azbest-106'),
-    title: 'Priemyselný podnik - dopravníky a technika',
-    type: 'Priemyselný objekt',
-    bullets: ['dopravníky v podniku', 'vozidlá ASTANA v zábere', 'pripravený materiál na odvoz'],
+    bullets: [
+      'eternit sa nezhadzuje zo strechy',
+      'dosky sa odoberajú kontrolovane',
+      'po demontáži môže nadviazať ďalšia práca',
+    ],
   },
   {
     image: getAzbestReference('azbest-120'),
     title: 'Balenie a odvoz odpadu',
     type: 'Balenie a odvoz',
-    bullets: ['označené obaly', 'príprava na prepravu', 'odovzdanie podľa zákazky'],
+    bullets: [
+      'odpad ide do určených označených obalov',
+      'materiál sa pripraví na prepravu',
+      'doklady sa riešia podľa rozsahu zákazky',
+    ],
   },
   {
-    image: getAzbestReference('azbest-062'),
-    title: 'Priemyselné veže a technologické silá',
-    type: 'Priemyselný areál',
-    bullets: ['technické prostredie', 'väčší rozsah prác', 'kontrolovaný postup'],
+    image: getAzbestReference('azbest-110'),
+    title: 'Odvoz a technika ASTANA',
+    type: 'Odvoz',
+    bullets: [
+      'vozidlá a technika sú súčasťou organizácie prác',
+      'materiál smeruje na určené miesto',
+      'zákazník nerieši odvoz samostatne',
+    ],
   },
   {
-    image: getAzbestReference('azbest-171'),
-    title: 'Interiér / technický priestor',
-    type: 'Interiérový priestor',
-    bullets: ['ochranné vybavenie', 'kontrolovaný postup', 'dokumentácia podľa rozsahu'],
-  },
-  {
-    image: getAzbestReference('azbest-063'),
-    title: 'Dlhý hospodársky objekt / kravín',
+    image: getAzbestReference('azbest-057'),
+    title: 'Dlhý hospodársky objekt',
     type: 'Hospodárska budova',
-    bullets: ['dlhý objekt', 'vyznačené pracovisko', 'postup podľa rozsahu'],
+    bullets: [
+      'riešime aj dlhé hospodárske objekty a kravíny',
+      'postup sa nastavuje podľa veľkosti objektu',
+      'pri väčšom rozsahu je dôležitá logistika',
+    ],
+  },
+  {
+    image: getAzbestReference('azbest-106'),
+    title: 'Priemyselný objekt / väčší rozsah',
+    type: 'Priemyselný objekt',
+    bullets: [
+      'robíme aj priemyselné areály, dopravníky a technické prevádzky',
+      'koordinujeme väčší rozsah prác',
+      'dokumentácia sa rieši podľa konkrétnej zákazky',
+    ],
   },
 ];
 
 export const processPhotoReferences = [
-  getAzbestReference('azbest-132'),
+  getAzbestReference('azbest-164'),
   getAzbestReference('azbest-130'),
   null,
-  getAzbestReference('azbest-118'),
-  getAzbestReference('azbest-110'),
+  getAzbestReference('azbest-119'),
+  getAzbestReference('azbest-120'),
 ] as const;
 
 export const whyProofPhotos = [
@@ -177,17 +209,29 @@ export const practiceBlocks = [
   {
     image: getAzbestReference('azbest-051'),
     title: 'Stabilizácia materiálu',
-    bullets: ['materiál sa pripraví pred manipuláciou', 'pracovníci používajú ochranné vybavenie', 'postup sa prispôsobuje typu strechy'],
+    bullets: [
+      'materiál sa pred manipuláciou stabilizuje',
+      'cieľom je znížiť riziko uvoľňovania prachu',
+      'pracovníci používajú ochranné vybavenie',
+    ],
   },
   {
     image: getAzbestReference('azbest-134'),
     title: 'Kontrolovaná demontáž',
-    bullets: ['eternit sa nezhadzuje zo strechy', 'pracovisko je organizované', 'termín sa dá zladiť so strechárom'],
+    bullets: [
+      'eternit sa nezhadzuje zo strechy',
+      'pracovisko je organizované a priechodné',
+      'termín sa dá zladiť so strechárom',
+    ],
   },
   {
     image: getAzbestReference('azbest-121'),
     title: 'Balenie a odvoz',
-    bullets: ['odpad ide do označených obalov', 'materiál je pripravený na prepravu', 'doklady sa riešia podľa zákazky'],
+    bullets: [
+      'odpad ide do označených obalov',
+      'materiál je pripravený na prepravu',
+      'po ukončení riešime odvoz a doklady podľa rozsahu zákazky',
+    ],
   },
 ];
 

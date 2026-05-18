@@ -6,6 +6,7 @@ export default function LandingClient() {
   useEffect(() => {
     const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
     const nav = document.querySelector<HTMLElement>('#site-nav');
+    const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
     const testimonialForm = document.querySelector<HTMLFormElement>('.testimonial-submit-form');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
@@ -25,6 +26,7 @@ export default function LandingClient() {
     const lightboxClose = document.querySelector<HTMLButtonElement>('[data-lightbox-close]');
     const lightboxPrev = document.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
     const lightboxNext = document.querySelector<HTMLButtonElement>('[data-lightbox-next]');
+    const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     let selectedFiles: File[] = [];
     let activeGallery = galleryCards.slice(0, 12);
     let activeGalleryIndex = 0;
@@ -34,6 +36,12 @@ export default function LandingClient() {
       const open = menuToggle.getAttribute('aria-expanded') === 'true';
       menuToggle.setAttribute('aria-expanded', String(!open));
       nav.classList.toggle('is-open', !open);
+    };
+
+    const closeMenu = () => {
+      if (!menuToggle || !nav) return;
+      menuToggle.setAttribute('aria-expanded', 'false');
+      nav.classList.remove('is-open');
     };
 
     const updateFileInput = () => {
@@ -303,6 +311,7 @@ export default function LandingClient() {
     };
 
     const onScroll = () => {
+      header?.classList.toggle('is-compact', window.scrollY > 28);
       if (!stickyCta || !form) return;
       const formBottom = form.getBoundingClientRect().bottom;
       const shouldShow = window.innerWidth <= 760 && formBottom < 120;
@@ -310,6 +319,7 @@ export default function LandingClient() {
     };
 
     menuToggle?.addEventListener('click', onMenuClick);
+    navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     applyRooferSelectionFromUrl();
     fileInput?.addEventListener('change', onFilesChange);
     fileDrop?.addEventListener('dragover', (event) => {
@@ -341,6 +351,8 @@ export default function LandingClient() {
     });
     window.addEventListener('keydown', onGalleryKeyDown);
     let observer: IntersectionObserver | undefined;
+    let sectionObserver: IntersectionObserver | undefined;
+    let revealObserver: IntersectionObserver | undefined;
     const viewedRoofers = new Set<string>();
     if ('IntersectionObserver' in window && rooferCards.length) {
       observer = new IntersectionObserver((entries) => {
@@ -356,12 +368,77 @@ export default function LandingClient() {
       }, { threshold: 0.45 });
       rooferCards.forEach((card) => observer?.observe(card));
     }
+    const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+    const anchorLinks = navLinks.filter((link) => {
+      const linkPath = link.pathname.replace(/\/$/, '') || '/';
+      return link.hash && linkPath === currentPath;
+    });
+    const sectionLinks = new Map(anchorLinks.map((link) => [link.hash, link]));
+    const observedSections = Array.from(document.querySelectorAll<HTMLElement>('main section[id], footer[id]')).filter((section) =>
+      sectionLinks.has(`#${section.id}`),
+    );
+    const setActiveNav = (hash: string) => {
+      navLinks.forEach((link) => {
+        const linkPath = link.pathname.replace(/\/$/, '') || '/';
+        const active = linkPath === currentPath && link.hash === hash;
+        link.classList.toggle('is-active', active);
+        if (active) link.setAttribute('aria-current', 'page');
+        else if (!link.matches('[aria-current="page"][href="/strechari/"]')) link.removeAttribute('aria-current');
+      });
+    };
+    if ('IntersectionObserver' in window && observedSections.length) {
+      sectionObserver = new IntersectionObserver((entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible?.target instanceof HTMLElement) setActiveNav(`#${visible.target.id}`);
+      }, { rootMargin: '-18% 0px -62% 0px', threshold: [0.16, 0.35, 0.55] });
+      observedSections.forEach((section) => sectionObserver?.observe(section));
+    }
+
+    const scrollToCurrentHash = () => {
+      const rawHash = window.location.hash;
+      if (!rawHash || rawHash.length < 2) return;
+      const targetId = decodeURIComponent(rawHash.slice(1));
+      const target = document.getElementById(targetId);
+      if (!target) return;
+      const headerHeight = header?.getBoundingClientRect().height || 118;
+      const targetTop = target.getBoundingClientRect().top + window.scrollY - headerHeight - 18;
+      window.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
+      setActiveNav(rawHash);
+    };
+    const hashScrollTimers = [
+      window.setTimeout(scrollToCurrentHash, 80),
+      window.setTimeout(scrollToCurrentHash, 420),
+      window.setTimeout(scrollToCurrentHash, 1200),
+    ];
+    const onHashChange = () => window.setTimeout(scrollToCurrentHash, 20);
+
+    document.documentElement.classList.add('has-enhanced-motion');
+    const revealTargets = Array.from(document.querySelectorAll<HTMLElement>(
+      '.hero, .trust-bar, .section, .transport-banner, .final-cta, .site-footer, .roofer-hero, .roofer-final',
+    ));
+    revealTargets.forEach((item) => item.classList.add('reveal-on-scroll'));
+    if ('IntersectionObserver' in window && revealTargets.length) {
+      revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('is-visible');
+          revealObserver?.unobserve(entry.target);
+        });
+      }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+      revealTargets.forEach((item) => revealObserver?.observe(item));
+    } else {
+      revealTargets.forEach((item) => item.classList.add('is-visible'));
+    }
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
+    window.addEventListener('hashchange', onHashChange);
     onScroll();
 
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
+      navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
       fileInput?.removeEventListener('change', onFilesChange);
       form?.removeEventListener('submit', onSubmit);
       testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
@@ -372,8 +449,12 @@ export default function LandingClient() {
       lightboxClose?.removeEventListener('click', closeGalleryLightbox);
       window.removeEventListener('keydown', onGalleryKeyDown);
       observer?.disconnect();
+      sectionObserver?.disconnect();
+      revealObserver?.disconnect();
+      hashScrollTimers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
+      window.removeEventListener('hashchange', onHashChange);
     };
   }, []);
 
