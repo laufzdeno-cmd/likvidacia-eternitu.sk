@@ -4352,18 +4352,15 @@ footer[id] {
     linear-gradient(135deg, #ffffff, #f8fcfe) !important;
 }
 
-.has-enhanced-motion .reveal-on-scroll:not(.hero):not(.roofer-hero):not(.trust-bar) {
+.has-enhanced-motion .reveal-on-scroll {
   opacity: 1;
   transform: none;
 }
 
-.has-enhanced-motion .reveal-on-scroll.is-visible,
-.has-enhanced-motion .hero.reveal-on-scroll,
-.has-enhanced-motion .roofer-hero.reveal-on-scroll,
-.has-enhanced-motion .trust-bar.reveal-on-scroll {
+.has-enhanced-motion .reveal-on-scroll.is-visible {
   opacity: 1;
-  transform: translateY(0);
-  transition: box-shadow 240ms ease, transform 240ms ease, filter 240ms ease;
+  transform: none;
+  animation: premiumFadeUp 520ms ease both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4472,5 +4469,96 @@ footer[id] {
 
   body {
     padding-bottom: 86px !important;
+  }
+}
+
+/* Final premium polish: spacing, proof text and discreet motion. */
+.why-lead {
+  max-width: 760px;
+  margin: 16px 0 0;
+  color: #324357;
+  font-size: clamp(1rem, 1.2vw, 1.14rem);
+  line-height: 1.72;
+}
+
+.why-card {
+  padding: clamp(34px, 5vw, 70px) !important;
+}
+
+.practice-story-card li,
+.real-work-content li {
+  font-size: 0.98rem;
+  line-height: 1.62 !important;
+}
+
+.practice-story-card .button-outline {
+  width: fit-content;
+}
+
+.section-heading.split > p,
+.section-heading .section-intro,
+.gallery-section .section-heading > p {
+  line-height: 1.72 !important;
+}
+
+.real-work-card,
+.practice-story-card,
+.real-gallery-card {
+  overflow: hidden;
+}
+
+.real-work-picture img,
+.practice-story-picture img,
+.real-gallery-card img {
+  transition: transform 420ms ease, filter 420ms ease;
+}
+
+.real-work-card:hover .real-work-picture img,
+.practice-story-card:hover .practice-story-picture img,
+.real-gallery-card:hover img {
+  transform: scale(1.035);
+  filter: saturate(1.04) contrast(1.03);
+}
+
+@keyframes premiumFadeUp {
+  from {
+    opacity: 0.88;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .has-enhanced-motion .reveal-on-scroll,
+  .has-enhanced-motion .reveal-on-scroll:not(.is-visible),
+  .has-enhanced-motion .reveal-on-scroll.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .real-work-picture img,
+  .practice-story-picture img,
+  .real-gallery-card img {
+    transition: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .why-card {
+    padding: 24px !important;
+  }
+
+  .why-lead {
+    font-size: 0.98rem;
+    line-height: 1.62;
+  }
+
+  .practice-story-card .button-outline {
+    width: 100%;
   }
 }

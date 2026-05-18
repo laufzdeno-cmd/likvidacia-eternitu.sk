@@ -680,6 +680,7 @@ export default async function HomePage() {
             <div>
               <p className="eyebrow">{content.whyEyebrow}</p>
               <h2 id="why-title">{content.whyTitle}</h2>
+              <p className="why-lead">{content.whyText}</p>
             </div>
             <ul className="why-list">
               {whyItems.map((item) => (
@@ -775,7 +776,7 @@ export default async function HomePage() {
                       <li key={bullet}>{bullet}</li>
                     ))}
                   </ul>
-                  <a className="button button-outline" href="#dopyt">Poslať výmeru a fotky</a>
+                  <a className="button button-outline" href="#dopyt">Naceniť podobnú realizáciu</a>
                 </div>
               </article>
             ))}
