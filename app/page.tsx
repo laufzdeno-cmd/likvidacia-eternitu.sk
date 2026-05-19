@@ -543,7 +543,7 @@ export default async function HomePage() {
           <div className="section-heading split">
             <div>
               <p className="eyebrow">Reálne práce ASTANA</p>
-              <h2 id="real-work-title">Takto vyzerá legálna likvidácia v praxi</h2>
+              <h2 id="real-work-title">Postup v praxi: stabilizácia, demontáž, balenie</h2>
             </div>
             <p>
               Každý záber ukazuje časť procesu — pracovisko, stabilizáciu, demontáž, balenie, odvoz alebo doklady.

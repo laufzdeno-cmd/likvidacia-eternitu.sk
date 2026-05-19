@@ -1,4 +1,4 @@
-export const homeContentVersion = '2026-05-19-practice-hierarchy-final-v6';
+export const homeContentVersion = '2026-05-19-typography-visual-cleanup-v7';
 
 export const homeContentDefaults = {
   heroEyebrow: 'Kompletné riešenie azbestu a eternitu',
@@ -23,7 +23,7 @@ export const homeContentDefaults = {
   riskEyebrow: 'Prečo odborný postup',
   riskTitle: 'Azbest nie je obyčajná strešná krytina',
   riskText:
-    'Azbest nestačí iba zložiť zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete. Preto riešime postup ku konkrétnej stavbe — od potrebných podkladov až po odvoz a dokumentáciu.',
+    'Azbest nestačí iba zložiť zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete. Preto riešime postup ku konkrétnej stavbe — od podkladov a rozhodnutí až po odvoz a dokumentáciu.',
   riskNoticeTitle: 'Bez dokladov neriskujte',
   riskNoticeText:
     'Pred začiatkom prác si overte, že firma rieši doklady k vašej stavbe. Potrebný postup, podania a dokumentáciu pripravujeme v rámci zákazky.',
@@ -50,9 +50,9 @@ export const homeContentDefaults = {
   testimonialFormTitle: 'Napíšte referenciu po realizácii',
   testimonialFormText: 'Referenciu pred zverejnením skontrolujeme a zobrazíme až po schválení.',
   practiceEyebrow: 'Detail procesu',
-  practiceTitle: 'Detailný pohľad na odborný postup',
+  practiceTitle: 'Detail procesu na reálnych záberoch',
   practiceText:
-    'Vybrané zábery ukazujú stabilizáciu materiálu, kontrolovanú demontáž a balenie odpadu bez zbytočného chaosu na stavbe.',
+    'Doplnkové zábery ukazujú, ako sa materiál stabilizuje, demontuje a pripravuje na odvoz bez zbytočného chaosu na stavbe.',
   faqEyebrow: 'FAQ',
   faqTitle: 'Najčastejšie otázky',
   faqText: 'Krátke odpovede na veci, ktoré ľudia riešia pred cenovou ponukou.',
