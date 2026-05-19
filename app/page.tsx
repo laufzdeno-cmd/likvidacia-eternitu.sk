@@ -14,7 +14,7 @@ import { getSiteContentMap, listApprovedTestimonials, listPublishedRealizations 
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 
 const defaultIncludedItems = [
-  'Návrh / podklady pre RÚVZ ku konkrétnej stavbe',
+  'Podklady pre RÚVZ ku konkrétnej stavbe',
   'Podklady pre OÚŽP / životné prostredie podľa zákazky',
   'Dokumentácia k nakladaniu s nebezpečným odpadom',
   'Stabilizácia materiálu',
@@ -52,7 +52,7 @@ const defaultProcessSteps = [
 
 const defaultRiskItems = [
   ['Zdravotné riziko', 'Pri neodbornej manipulácii môžu vznikať nebezpečné vlákna a prach.'],
-  ['Úradný postup', 'Pri azbeste treba počítať s dokumentáciou a zákonným postupom.'],
+  ['Úradný postup', 'Pri azbeste sa rieši postup a dokumentácia podľa konkrétnej zákazky.'],
   ['Nebezpečný odpad', 'Azbest nepatrí do bežného odpadu. Musí byť správne zabalený a odovzdaný.'],
   ['Doklady', 'Po legálnej likvidácii získate potrebné potvrdenie alebo dokumentáciu.'],
 ] satisfies [string, string][];
@@ -60,7 +60,7 @@ const defaultRiskItems = [
 const defaultCautionItems = [
   [
     'Pýtajte si doklady ku konkrétnej stavbe',
-    'Nestačí počuť „máme povolenie“. Pri azbeste má byť riešený zákonný postup pre konkrétnu stavbu. Pred začiatkom prác si vypýtajte doklady k RÚVZ a OÚŽP / životnému prostrediu.',
+    'Nestačí počuť „máme povolenie“. Seriózny postup má byť pripravený aj pre vašu konkrétnu stavbu vrátane príslušných podkladov k RÚVZ a OÚŽP / životnému prostrediu.',
   ],
   [
     'Pozor na odpad ponechaný na dvore',
@@ -109,15 +109,15 @@ const defaultFaq = [
   ],
   [
     'Môžem eternit odstrániť svojpomocne?',
-    'Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť zákonný postup, bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.',
+    'Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.',
   ],
   [
     'Aké doklady si mám vypýtať pred začiatkom prác?',
-    'Pýtajte si doklady k vašej konkrétnej stavbe - najmä rozhodnutie / posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie podľa konkrétneho prípadu. Firma by nemala začať práce bez pripraveného zákonného postupu.',
+    'Pýtajte si doklady k vašej konkrétnej stavbe. Podľa typu zákazky môže ísť najmä o podklady alebo posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie.',
   ],
   [
     'Stačí, že firma má všeobecné oprávnenie na azbest?',
-    'Nie úplne. Všeobecné oprávnenie je základ, ale pri konkrétnej stavbe musí byť riešený aj konkrétny postup a príslušná dokumentácia. Preto zákazníkom odporúčame pýtať si doklady viazané na ich stavbu.',
+    'Všeobecné oprávnenie je základ. Pri konkrétnej stavbe je však dôležité aj to, či má firma pripravený vhodný postup a dokumentáciu k vašej zákazke.',
   ],
   [
     'Čo ak neviem presnú výmeru?',
@@ -260,6 +260,26 @@ export default async function HomePage() {
     getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion }),
   ]);
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
+  const includedGroups = [
+    {
+      title: 'Úrady a dokumentácia',
+      text: 'Pripravíme podklady a dokumentáciu podľa typu zákazky, aby bol postup riešený pre konkrétnu stavbu.',
+      icon: 'document',
+      items: includedItems.slice(0, 3),
+    },
+    {
+      title: 'Bezpečná práca na stavbe',
+      text: 'Materiál pred manipuláciou stabilizujeme, demontujeme kontrolovane a pripravíme na bezpečné balenie.',
+      icon: 'shield',
+      items: includedItems.slice(3, 7),
+    },
+    {
+      title: 'Odvoz a doklady',
+      text: 'Odpad neostáva na dvore. Po zabalení riešime odvoz a súvisiace potvrdenia podľa rozsahu zákazky.',
+      icon: 'truck',
+      items: includedItems.slice(7),
+    },
+  ].filter((group) => group.items.length > 0);
   const heroFlowItems = parseLines(content.heroFlowItems, defaultHeroFlowItems);
   const heroBulletItems = parseLines(content.heroBulletItems, defaultHeroBulletItems);
   const trustItems = parsePairs(content.trustItems, defaultTrustItems);
@@ -605,11 +625,21 @@ export default async function HomePage() {
             <h2 id="included-title">{content.includedTitle}</h2>
             <p className="section-intro">{content.includedText}</p>
           </div>
-          <div className="included-grid">
-            {includedItems.map((item) => (
-              <article key={item}>
-                <span className="line-icon document" aria-hidden="true"></span>
-                <strong>{item}</strong>
+          <div className="included-group-grid">
+            {includedGroups.map((group) => (
+              <article className="included-group-card" key={group.title}>
+                <div className="included-group-head">
+                  <span className={`line-icon ${group.icon}`} aria-hidden="true"></span>
+                  <div>
+                    <h3>{group.title}</h3>
+                    <p>{group.text}</p>
+                  </div>
+                </div>
+                <ul>
+                  {group.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
               </article>
             ))}
           </div>
@@ -785,12 +815,12 @@ export default async function HomePage() {
         <section className="section gallery-section" id="galeria-striech" aria-labelledby="gallery-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Ďalšie reálne zábery</p>
-              <h2 id="gallery-title">Naša práca v praxi</h2>
+              <p className="eyebrow">Galéria realizácií</p>
+              <h2 id="gallery-title">Galéria realizácií ASTANA</h2>
             </div>
             <p>
-              Doplnkové ukážky zo striech, hospodárskych objektov, priemyslu a balenia odpadu. Hlavný proces vidíte vyššie;
-              tu si môžete pozrieť ďalšie schválené zábery z realizácií ASTANA.
+              Toto je doplnková galéria k procesnej sekcii vyššie. Nájdete tu ďalšie schválené zábery zo striech,
+              hospodárskych objektov, priemyslu a balenia odpadu.
             </p>
           </div>
           <div className="gallery-filters" aria-label="Filtrovanie galérie">

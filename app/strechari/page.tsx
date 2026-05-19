@@ -87,8 +87,8 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
   const roofers = allRoofers.filter((roofer) => (!verifiedOnly || roofer.verifiedPartner)).filter((roofer) => !minRating || roofer.rating >= minRating);
   const selectedRegion = regionChoices.find((item) => item.region === region);
   const emptyStateText = region
-    ? 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera.'
-    : 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera.';
+    ? `V kraji ${selectedRegion?.label || region} ešte verejne nezobrazujeme partnera. V cenovej ponuke uveďte kraj a okres; odporúčanie preveríme ručne podľa regiónu, dostupnosti a vhodnosti partnera.`
+    : 'Verejný zoznam budujeme postupne. Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke; odporúčanie preveríme ručne podľa regiónu, dostupnosti a vhodnosti partnera.';
 
   return (
     <>
@@ -292,7 +292,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
             <div className="roofer-empty-state">
               <div className="roofer-empty-copy">
                 <p className="eyebrow">Partneri podľa regiónu</p>
-                <h3>Partnerov nezobrazujeme automaticky. Najprv ich overujeme.</h3>
+                <h3>Partnerov nezobrazujeme automaticky. Najprv overujeme región, kapacitu a spoľahlivosť.</h3>
                 <p>{emptyStateText}</p>
                 <div className="roofer-empty-steps" aria-label="Ako odporúčanie strechára prebieha">
                   <span>Zadáte kraj a okres</span>
@@ -303,7 +303,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
               <div className="roofer-empty-action">
                 <span className="line-icon map" aria-hidden="true"></span>
                 <strong>Nemáte strechára?</strong>
-                <p>V dopyte zaškrtnite odporúčanie podľa regiónu.</p>
+                <p>V dopyte zaškrtnite odporúčanie podľa regiónu. Nič neposielame automaticky bez kontroly.</p>
                 <a className="button button-primary" href="/#dopyt">Vyplniť cenovú ponuku</a>
               </div>
             </div>
