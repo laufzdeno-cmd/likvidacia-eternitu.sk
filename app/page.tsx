@@ -785,12 +785,12 @@ export default async function HomePage() {
         <section className="section gallery-section" id="galeria-striech" aria-labelledby="gallery-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Fotodokumentácia z realizácií</p>
-              <h2 id="gallery-title">Ako vyzerá naša práca v praxi</h2>
+              <p className="eyebrow">Ďalšie reálne zábery</p>
+              <h2 id="gallery-title">Naša práca v praxi</h2>
             </div>
             <p>
-              Výber reálnych záberov zo striech, hospodárskych objektov, priemyslu a balenia odpadu. Prvé fotky ukazujú
-              najmä strechy a kontrolovaný postup, technické priestory nájdete vo filtroch.
+              Doplnkové ukážky zo striech, hospodárskych objektov, priemyslu a balenia odpadu. Hlavný proces vidíte vyššie;
+              tu si môžete pozrieť ďalšie schválené zábery z realizácií ASTANA.
             </p>
           </div>
           <div className="gallery-filters" aria-label="Filtrovanie galérie">

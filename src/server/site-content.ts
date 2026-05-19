@@ -1,4 +1,4 @@
-export const homeContentVersion = '2026-05-19-final-premium-polish-v2';
+export const homeContentVersion = '2026-05-19-remove-legacy-gallery-copy-v3';
 
 export const homeContentDefaults = {
   heroEyebrow: 'Kompletné riešenie azbestu a eternitu',
@@ -42,15 +42,15 @@ export const homeContentDefaults = {
   whyText:
     'Nie sme firma, ktorá len zloží eternit zo strechy. Riešime celý postup — dokumentáciu ku konkrétnej stavbe, stabilizáciu, kontrolovanú demontáž, balenie, odvoz aj doklady po likvidácii.',
   realizationsEyebrow: 'Realizácie',
-  realizationsTitle: 'Pozrite si, ako vyzerá odborná likvidácia v praxi',
-  realizationsText: 'Schválené ukážky prác: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.',
+  realizationsTitle: 'Schválené realizácie z adminu',
+  realizationsText: 'Schválené ukážky prác z adminu: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.',
   testimonialsEyebrow: 'Referencie',
   testimonialsTitle: 'Čo hovoria zákazníci',
   testimonialsText: 'Krátke skúsenosti zákazníkov po realizácii a odovzdaní zákazky.',
   testimonialFormTitle: 'Napíšte referenciu po realizácii',
   testimonialFormText: 'Referenciu pred zverejnením skontrolujeme a zobrazíme až po schválení.',
-  practiceEyebrow: 'Legálna likvidácia v praxi',
-  practiceTitle: 'Ako vyzerá legálna likvidácia v praxi',
+  practiceEyebrow: 'Odborný postup',
+  practiceTitle: 'Kľúčové momenty bezpečnej likvidácie',
   practiceText:
     'Pri azbeste nejde len o to, kto ho zloží zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete.',
   faqEyebrow: 'FAQ',
