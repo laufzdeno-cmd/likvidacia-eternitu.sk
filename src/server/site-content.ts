@@ -1,4 +1,4 @@
-export const homeContentVersion = '2026-05-19-practice-hierarchy-included-groups-v4';
+export const homeContentVersion = '2026-05-19-typography-color-practice-v5';
 
 export const homeContentDefaults = {
   heroEyebrow: 'Kompletné riešenie azbestu a eternitu',
@@ -16,14 +16,14 @@ export const homeContentDefaults = {
   ctaPrimary: 'Chcem cenovú ponuku',
   ctaPhone: 'Zavolať 0905 217 946',
   includedEyebrow: 'Čo všetko vybavíme za vás',
-  includedTitle: 'Jedna služba. Všetko potrebné okolo azbestu.',
-  includedText: 'Od prvých údajov až po odvoz a doklady. Nemusíte samostatne riešiť úrady, balenie, skládku ani potvrdenia.',
+  includedTitle: 'Všetko potrebné okolo azbestu',
+  includedText: 'Dokumentácia, demontáž, balenie, odvoz aj doklady v jednom postupe.',
   processEyebrow: 'Ako to prebieha',
   processTitle: 'Ako prebieha bezpečná likvidácia azbestu',
   riskEyebrow: 'Prečo odborný postup',
   riskTitle: 'Azbest nie je obyčajná strešná krytina',
   riskText:
-    'Pri azbeste nejde len o to, kto ho zloží zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete. Pri konkrétnej stavbe treba mať pripravený vhodný postup, podklady a dokumentáciu podľa typu zákazky.',
+    'Azbest nestačí iba zložiť zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete. Preto riešime postup ku konkrétnej stavbe — od podkladov a rozhodnutí až po odvoz a dokumentáciu.',
   riskNoticeTitle: 'Bez dokladov neriskujte',
   riskNoticeText:
     'Pred začiatkom prác si overte, že firma rieši doklady k vašej stavbe. Potrebný postup, podania a dokumentáciu pripravujeme v rámci zákazky.',
@@ -50,7 +50,7 @@ export const homeContentDefaults = {
   testimonialFormTitle: 'Napíšte referenciu po realizácii',
   testimonialFormText: 'Referenciu pred zverejnením skontrolujeme a zobrazíme až po schválení.',
   practiceEyebrow: 'Odborný postup',
-  practiceTitle: 'Kľúčové momenty bezpečnej likvidácie',
+  practiceTitle: 'Postup v praxi: stabilizácia, demontáž, balenie',
   practiceText:
     'Pri azbeste nejde len o to, kto ho zloží zo strechy. Dôležité je, ako sa s ním manipuluje, kam sa odvezie a aké doklady po likvidácii dostanete.',
   faqEyebrow: 'FAQ',
@@ -69,7 +69,7 @@ export const homeContentDefaults = {
   trustItems:
     'Od roku 2011|Skúsenosti s azbestom a eternitom\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\nRÚVZ / OÚŽP ku konkrétnej stavbe|Postup riešime legálne, nie iba všeobecným sľubom\nDoprava nad 100 m² zdarma|Pri väčších zákazkách dopravu neúčtujeme\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade',
   includedItems:
-    'Podklady pre RÚVZ ku konkrétnej stavbe\nPodklady pre OÚŽP / životné prostredie podľa zákazky\nDokumentácia k nakladaniu s nebezpečným odpadom\nStabilizácia materiálu\nOdborná demontáž\nBalenie do označených vriec\nDekontaminácia pracovného priestoru\nOdvoz na skládku nebezpečného odpadu\nPotvrdenie / dokumentácia po legálnej likvidácii',
+    'Podklady pre RÚVZ ku konkrétnej stavbe\nPodklady pre OÚŽP / životné prostredie\nDokumentácia k nakladaniu s nebezpečným odpadom\nStabilizácia materiálu\nOdborná demontáž\nDekontaminácia pracovného priestoru\nBalenie do označených vriec\nOdvoz na skládku nebezpečného odpadu\nPotvrdenie / dokumentácia po legálnej likvidácii',
   processSteps:
     'Zadáte m² a údaje|Uveďte približnú výmeru, lokalitu a typ materiálu.\nPriložíte fotky, ak ich máte|Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.\nPripravíme cenovú ponuku|Na základe m² a údajov pripravíme nezáväznú cenovú ponuku.\nPo objednávke vybavíme dokumentáciu a termín|Pripravíme potrebný postup, doklady a dohodneme realizáciu.\nZrealizujeme demontáž, odvoz a odovzdáme doklady|Materiál stabilizujeme, zabalíme, odvezieme a po ukončení odovzdáme dokumentáciu.',
   riskItems:

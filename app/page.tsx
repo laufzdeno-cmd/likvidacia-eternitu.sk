@@ -15,12 +15,12 @@ import { homeContentDefaults, homeContentVersion } from '@/src/server/site-conte
 
 const defaultIncludedItems = [
   'Podklady pre RÚVZ ku konkrétnej stavbe',
-  'Podklady pre OÚŽP / životné prostredie podľa zákazky',
+  'Podklady pre OÚŽP / životné prostredie',
   'Dokumentácia k nakladaniu s nebezpečným odpadom',
   'Stabilizácia materiálu',
   'Odborná demontáž',
-  'Balenie do označených vriec',
   'Dekontaminácia pracovného priestoru',
+  'Balenie do označených vriec',
   'Odvoz na skládku nebezpečného odpadu',
   'Potvrdenie / dokumentácia po legálnej likvidácii',
 ];
@@ -263,21 +263,21 @@ export default async function HomePage() {
   const includedGroups = [
     {
       title: 'Úrady a dokumentácia',
-      text: 'Pripravíme podklady a dokumentáciu podľa typu zákazky, aby bol postup riešený pre konkrétnu stavbu.',
+      text: 'Pripravíme podklady a dokumentáciu podľa typu zákazky, aby bol postup viazaný na konkrétnu stavbu.',
       icon: 'document',
       items: includedItems.slice(0, 3),
     },
     {
       title: 'Bezpečná práca na stavbe',
-      text: 'Materiál pred manipuláciou stabilizujeme, demontujeme kontrolovane a pripravíme na bezpečné balenie.',
+      text: 'Materiál stabilizujeme, demontujeme kontrolovane a po práci riešime čistý pracovný priestor.',
       icon: 'shield',
-      items: includedItems.slice(3, 7),
+      items: includedItems.slice(3, 6),
     },
     {
       title: 'Odvoz a doklady',
       text: 'Odpad neostáva na dvore. Po zabalení riešime odvoz a súvisiace potvrdenia podľa rozsahu zákazky.',
       icon: 'truck',
-      items: includedItems.slice(7),
+      items: includedItems.slice(6),
     },
   ].filter((group) => group.items.length > 0);
   const heroFlowItems = parseLines(content.heroFlowItems, defaultHeroFlowItems);
@@ -543,7 +543,7 @@ export default async function HomePage() {
           <div className="section-heading split">
             <div>
               <p className="eyebrow">Reálne práce ASTANA</p>
-              <h2 id="real-work-title">Takto vyzerá legálna likvidácia v praxi</h2>
+              <h2 id="real-work-title">Postup v praxi: stabilizácia, demontáž, balenie</h2>
             </div>
             <p>
               Každý záber ukazuje časť procesu — pracovisko, stabilizáciu, demontáž, balenie, odvoz alebo doklady.
@@ -815,8 +815,8 @@ export default async function HomePage() {
         <section className="section gallery-section" id="galeria-striech" aria-labelledby="gallery-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Galéria realizácií</p>
-              <h2 id="gallery-title">Galéria realizácií ASTANA</h2>
+              <p className="eyebrow">Fotogaléria realizácií</p>
+              <h2 id="gallery-title">Fotogaléria realizácií ASTANA</h2>
             </div>
             <p>
               Toto je doplnková galéria k procesnej sekcii vyššie. Nájdete tu ďalšie schválené zábery zo striech,

@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
 import LandingClient from '../landing-client';
-import { ResponsiveImage } from '@/src/components/responsive-image';
-import { rooferProofPhotos } from '@/src/data/azbestReferences';
 import { listPublicRoofers } from '@/src/server/db';
 
 export const metadata: Metadata = {
@@ -174,26 +172,40 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
           <div className="section-heading split">
             <div>
               <p className="eyebrow">Zladenie prác v praxi</p>
-              <h2 id="roofer-proof-title">Najprv bezpečne odstránime eternit. Potom môžu strechári nadviazať.</h2>
+              <h2 id="roofer-proof-title">Zladenie demontáže so strechárskou prácou</h2>
             </div>
             <p>
-              Pri výmene strechy je dôležité, aby demontáž, balenie a odvoz nebrzdili ďalšie práce. Partnerov verejne
-              zobrazujeme až po overení.
+              Pri výmene strechy je dôležité načasovanie. Demontáž plánujeme tak, aby strechári mohli nadviazať
+              fóliou, latovaním alebo novou krytinou bez zbytočného čakania.
             </p>
           </div>
-          <div className="roofer-proof-grid">
-            {rooferProofPhotos.map((photo) => (
-              <figure key={photo.id}>
-                <ResponsiveImage
-                  image={photo}
-                  loading="eager"
-                  width={560}
-                  height={400}
-                  sizes="(max-width: 760px) 100vw, 24vw"
-                />
-                <figcaption>{photo.title}</figcaption>
-              </figure>
-            ))}
+          <div className="roofer-roof-panel">
+            <div className="roofer-roof-illustration" aria-hidden="true">
+              <div className="roof-sky"></div>
+              <div className="roof-plane roof-plane-old"></div>
+              <div className="roof-plane roof-plane-new"></div>
+              <span className="roof-label roof-label-old">Demontáž</span>
+              <span className="roof-label roof-label-new">Nová strecha</span>
+              <span className="roof-pin roof-pin-one"></span>
+              <span className="roof-pin roof-pin-two"></span>
+            </div>
+            <div className="roofer-proof-steps">
+              <article>
+                <span className="line-icon calendar" aria-hidden="true"></span>
+                <h3>Termín ladíme vopred</h3>
+                <p>Najprv sa dohodne deň demontáže, rozsah prác a nadväznosť strechárov.</p>
+              </article>
+              <article>
+                <span className="line-icon shield" aria-hidden="true"></span>
+                <h3>Strecha nezostáva zbytočne otvorená</h3>
+                <p>Práce plánujeme tak, aby po odstránení eternitu mohli pokračovať ďalšie kroky.</p>
+              </article>
+              <article>
+                <span className="line-icon map" aria-hidden="true"></span>
+                <h3>Partner podľa regiónu</h3>
+                <p>Ak strechára nemáte, odporúčanie preveríme ručne podľa kraja, okresu a dostupnosti.</p>
+              </article>
+            </div>
           </div>
         </section>
 
