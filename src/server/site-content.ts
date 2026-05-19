@@ -1,4 +1,4 @@
-export const homeContentVersion = '2026-05-18-final-premium-polish-v1';
+export const homeContentVersion = '2026-05-19-final-premium-polish-v2';
 
 export const homeContentDefaults = {
   heroEyebrow: 'Kompletné riešenie azbestu a eternitu',
@@ -40,7 +40,7 @@ export const homeContentDefaults = {
   whyEyebrow: 'Prečo ASTANA',
   whyTitle: 'Prečo sa zákazníci obracajú na ASTANA',
   whyText:
-    'Nie sme firma, ktorá len zloží eternit zo strechy. Riešime celý postup: dokumentáciu ku konkrétnej stavbe, bezpečnú manipuláciu, balenie, odvoz aj doklady po likvidácii.',
+    'Nie sme firma, ktorá len zloží eternit zo strechy. Riešime celý postup — dokumentáciu ku konkrétnej stavbe, stabilizáciu, kontrolovanú demontáž, balenie, odvoz aj doklady po likvidácii.',
   realizationsEyebrow: 'Realizácie',
   realizationsTitle: 'Pozrite si, ako vyzerá odborná likvidácia v praxi',
   realizationsText: 'Schválené ukážky prác: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.',

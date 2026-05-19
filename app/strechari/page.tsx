@@ -87,8 +87,8 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
   const roofers = allRoofers.filter((roofer) => (!verifiedOnly || roofer.verifiedPartner)).filter((roofer) => !minRating || roofer.rating >= minRating);
   const selectedRegion = regionChoices.find((item) => item.region === region);
   const emptyStateText = region
-    ? 'Partnerov v tomto kraji práve dopĺňame. Uveďte kraj v cenovej ponuke a preveríme vhodný kontakt.'
-    : 'Ak strechára ešte nemáte, uveďte to v cenovej ponuke a podľa regiónu preveríme vhodný kontakt. Verejne zobrazujeme len overených partnerov.';
+    ? 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera.'
+    : 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera.';
 
   return (
     <>
@@ -292,7 +292,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
             <div className="roofer-empty-state">
               <div className="roofer-empty-copy">
                 <p className="eyebrow">Partneri podľa regiónu</p>
-                <h3>Zoznam partnerov pripravujeme</h3>
+                <h3>Partnerov nezobrazujeme automaticky. Najprv ich overujeme.</h3>
                 <p>{emptyStateText}</p>
                 <div className="roofer-empty-steps" aria-label="Ako odporúčanie strechára prebieha">
                   <span>Zadáte kraj a okres</span>

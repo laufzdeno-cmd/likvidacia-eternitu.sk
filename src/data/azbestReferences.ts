@@ -164,8 +164,8 @@ export const realizationHighlights = [
     title: 'Odvoz a technika ASTANA',
     type: 'Odvoz',
     bullets: [
-      'Vlastná technika a vozidlá pomáhajú udržať termín aj logistiku pod kontrolou.',
-      'Materiál smeruje na určené miesto podľa dohodnutého postupu zákazky.',
+      'Pri väčších zákazkách koordinujeme ľudí, techniku, odvoz aj dokumentáciu podľa rozsahu prác.',
+      'Odpad neostáva na dvore. Po zabalení ho odvážame na určené miesto podľa dohodnutého postupu.',
       'Zákazník nerieši odvoz samostatne ani improvizované skladovanie odpadu.',
     ],
   },

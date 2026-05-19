@@ -523,11 +523,10 @@ export default async function HomePage() {
           <div className="section-heading split">
             <div>
               <p className="eyebrow">Reálne práce ASTANA</p>
-              <h2 id="real-work-title">Naše realizácie: od strechy po odvoz</h2>
+              <h2 id="real-work-title">Takto vyzerá legálna likvidácia v praxi</h2>
             </div>
             <p>
-              Fotky nie sú dekorácia. Každý záber ukazuje časť procesu: pracovisko, stabilizáciu, demontáž, balenie,
-              odvoz alebo väčší rozsah prác.
+              Každý záber ukazuje časť procesu — pracovisko, stabilizáciu, demontáž, balenie, odvoz alebo doklady.
             </p>
           </div>
           <div className="real-work-grid">
@@ -816,7 +815,14 @@ export default async function HomePage() {
                 data-gallery-alt={photo.alt}
                 hidden={index >= 12}
               >
-                <ResponsiveImage image={photo} width={520} height={420} sizes="(max-width: 760px) 100vw, 25vw" />
+                <ResponsiveImage
+                  image={photo}
+                  width={520}
+                  height={420}
+                  sizes="(max-width: 760px) 100vw, 25vw"
+                  loading={index < 12 ? 'eager' : 'lazy'}
+                  fetchPriority={index < 12 ? 'low' : 'auto'}
+                />
                 <span>
                   <strong>{photo.title}</strong>
                   <small>{photo.recommendedUse}</small>
