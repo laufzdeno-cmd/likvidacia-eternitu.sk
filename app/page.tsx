@@ -60,7 +60,7 @@ const defaultRiskItems = [
 const defaultCautionItems = [
   [
     'Pýtajte si doklady ku konkrétnej stavbe',
-    'Nestačí počuť „máme povolenie“. Seriózny postup má byť pripravený aj pre vašu konkrétnu stavbu vrátane príslušných podkladov k RÚVZ a OÚŽP / životnému prostrediu.',
+    'Nestačí počuť „máme povolenie“. Seriózna firma vie ukázať, že pre vašu stavbu rieši potrebný postup a doklady k RÚVZ a OÚŽP / životnému prostrediu podľa konkrétneho prípadu.',
   ],
   [
     'Pozor na odpad ponechaný na dvore',
@@ -263,7 +263,7 @@ export default async function HomePage() {
   const includedGroups = [
     {
       title: 'Úrady a dokumentácia',
-      text: 'Pripravíme podklady a dokumentáciu podľa typu zákazky, aby bol postup viazaný na konkrétnu stavbu.',
+      text: 'Pripravíme potrebné podklady podľa typu zákazky, aby bol postup riešený ku konkrétnej stavbe.',
       icon: 'document',
       items: includedItems.slice(0, 3),
     },
@@ -543,7 +543,7 @@ export default async function HomePage() {
           <div className="section-heading split">
             <div>
               <p className="eyebrow">Reálne práce ASTANA</p>
-              <h2 id="real-work-title">Postup v praxi: stabilizácia, demontáž, balenie</h2>
+              <h2 id="real-work-title">Takto vyzerá legálna likvidácia v praxi</h2>
             </div>
             <p>
               Každý záber ukazuje časť procesu — pracovisko, stabilizáciu, demontáž, balenie, odvoz alebo doklady.

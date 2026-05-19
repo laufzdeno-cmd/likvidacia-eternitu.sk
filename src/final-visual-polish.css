@@ -5234,6 +5234,13 @@ main {
   }
 
   .site-footer {
-    padding-bottom: max(170px, calc(150px + env(safe-area-inset-bottom))) !important;
+    padding-bottom: max(210px, calc(190px + env(safe-area-inset-bottom))) !important;
+  }
+
+  .site-footer::after {
+    content: "";
+    display: block;
+    grid-column: 1 / -1;
+    height: max(88px, calc(72px + env(safe-area-inset-bottom)));
   }
 }
