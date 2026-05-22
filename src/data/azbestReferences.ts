@@ -103,9 +103,9 @@ export const getAzbestReference = (id: string) => {
 export const heroPhoto = getAzbestReference('azbest-087');
 
 export const heroProofPhotos = [
-  { ...getAzbestReference('azbest-130'), title: 'Stabilizácia materiálu' },
-  { ...getAzbestReference('azbest-164'), title: 'Kontrolovaná demontáž' },
-  { ...getAzbestReference('azbest-120'), title: 'Balenie a odvoz' },
+  { ...getAzbestReference('azbest-051'), title: 'Stabilizácia' },
+  { ...getAzbestReference('azbest-063'), title: 'Väčší rozsah' },
+  { ...getAzbestReference('azbest-121'), title: 'Balenie a odvoz' },
 ];
 
 export const realizationHighlights = [
@@ -193,16 +193,16 @@ export const realizationHighlights = [
 
 export const processPhotoReferences = [
   getAzbestReference('azbest-164'),
-  getAzbestReference('azbest-130'),
+  getAzbestReference('azbest-124'),
   null,
-  getAzbestReference('azbest-119'),
+  getAzbestReference('azbest-110'),
   getAzbestReference('azbest-120'),
 ] as const;
 
 export const whyProofPhotos = [
-  getAzbestReference('azbest-111'),
+  getAzbestReference('azbest-062'),
   getAzbestReference('azbest-057'),
-  getAzbestReference('azbest-160'),
+  getAzbestReference('azbest-106'),
 ];
 
 export const practiceBlocks = [
@@ -249,6 +249,7 @@ export const galleryCategories = [
   { key: 'priemysel', label: 'Priemyselné objekty' },
   { key: 'interier', label: 'Interiér' },
   { key: 'balenie-odvoz', label: 'Balenie a odvoz' },
+  { key: 'strechari', label: 'Strecha pripravená pre strechára' },
 ] as const;
 
 const galleryReferenceIds = [
@@ -285,3 +286,27 @@ const galleryReferenceIds = [
 ] as const;
 
 export const galleryReferences = galleryReferenceIds.map(getAzbestReference);
+
+const homepageGalleryReferenceIds = [
+  'azbest-134',
+  'azbest-130',
+  'azbest-006',
+  'azbest-132',
+  'azbest-011',
+  'azbest-017',
+  'azbest-014',
+  'azbest-021',
+  'azbest-118',
+  'azbest-124',
+  'azbest-018',
+  'azbest-120',
+] as const;
+
+export const homepageGalleryReferences = homepageGalleryReferenceIds.map(getAzbestReference);
+
+export const realizationHeroStripReferences = [
+  getAzbestReference('azbest-087'),
+  getAzbestReference('azbest-057'),
+  getAzbestReference('azbest-106'),
+  getAzbestReference('azbest-121'),
+];

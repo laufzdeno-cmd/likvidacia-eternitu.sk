@@ -17,7 +17,7 @@ Posobnost:
 
 Hlavne vyhody:
 - cenova ponuka do 24 hodin pocas pracovnych dni,
-- doprava nad 100 m2 zdarma,
+- doprava nad 100 m² zdarma,
 - vybavenie dokumentacie, demontaze, balenia, odvozu a potvrdenia,
 - pomoc so zladenim so strecharom.
 - pri vymene strechy moznost uviest kraj a preverit vhodny kontakt na strechara.
@@ -39,6 +39,7 @@ Hlavne stranky:
 - https://likvidacia-eternitu.sk/cena/
 - https://likvidacia-eternitu.sk/pre-strecharov/
 - https://likvidacia-eternitu.sk/strechari/
+- https://likvidacia-eternitu.sk/realizacie/
 - https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/
 - https://likvidacia-eternitu.sk/cookies/
 - https://likvidacia-eternitu.sk/podmienky-pouzivania/

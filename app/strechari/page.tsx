@@ -85,8 +85,8 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
   const roofers = allRoofers.filter((roofer) => (!verifiedOnly || roofer.verifiedPartner)).filter((roofer) => !minRating || roofer.rating >= minRating);
   const selectedRegion = regionChoices.find((item) => item.region === region);
   const emptyStateText = region
-    ? `V kraji ${selectedRegion?.label || region} ešte verejne nezobrazujeme partnera. Uveďte kraj a okres v cenovej ponuke a odporúčanie preveríme ručne podľa regiónu, dostupnosti a vhodnosti partnera.`
-    : 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera.';
+    ? `V kraji ${selectedRegion?.label || region} ešte verejne nezobrazujeme partnera. Uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera, aby ste nedostali náhodný kontakt, ale použiteľné odporúčanie.`
+    : 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera, aby ste nedostali náhodný kontakt, ale použiteľné odporúčanie.';
 
   return (
     <>
@@ -112,7 +112,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
           <a href="/#cena">Čo vybavíme</a>
           <a href="/#ako-to-prebieha">Ako to prebieha</a>
           <a href="/strechari/" aria-current="page">Strechári</a>
-          <a href="/#referencie">Prax</a>
+          <a href="/#realizacie-astana">Prax</a>
           <a href="/#faq">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
         </nav>
@@ -122,7 +122,12 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
         <section className="roofer-hero" aria-labelledby="roofer-title">
           <div>
             <p className="eyebrow">Strechári podľa regiónu</p>
-            <h1 id="roofer-title">Máte strechára? Zladíme sa. Nemáte? Pomôžeme nájsť.</h1>
+            <h1 id="roofer-title">
+              <span>Máte strechára?</span>
+              <span>Zladíme sa.</span>
+              <span>Nemáte?</span>
+              <span>Pomôžeme nájsť.</span>
+            </h1>
             <p>
               Pri výmene strechy rozhoduje načasovanie. Demontáž plánujeme tak, aby mohli strechári nadviazať čo
               najplynulejšie a strecha nezostala zbytočne otvorená.
@@ -130,6 +135,11 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
             <div className="hero-actions">
               <a className="button button-primary" href="#filter-region">Vybrať región</a>
               <a className="button button-outline" href="tel:+421905217946">Zavolať 0905 217 946</a>
+            </div>
+            <div className="roofer-hero-points" aria-label="Ako pomáhame pri výmene strechy">
+              <span>Termín ladíme vopred</span>
+              <span>Strecha nezostáva zbytočne otvorená</span>
+              <span>Odporúčanie partnera kontroluje ASTANA</span>
             </div>
           </div>
           <div className="region-map-card region-grid-card">
@@ -360,7 +370,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
         <div>
           <h2>Užitočné</h2>
           <a href="/">Úvod</a>
-          <a href="/#referencie">Prax</a>
+          <a href="/#realizacie-astana">Prax</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>
           <a href="/sitemap.xml">Sitemap</a>

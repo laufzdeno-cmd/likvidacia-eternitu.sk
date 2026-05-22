@@ -2196,20 +2196,25 @@ body {
 }
 
 .hero-mini-proof figure {
+  position: relative;
   overflow: hidden;
   min-width: 0;
+  min-height: 96px;
   margin: 0;
   border: 1px solid rgba(255, 255, 255, 0.72);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 18px 34px rgba(6, 45, 70, 0.16);
+  background: rgba(6, 50, 74, 0.9);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 18px 34px rgba(6, 45, 70, 0.22);
 }
 
 .hero-mini-proof picture,
 .hero-mini-proof img {
   display: block !important;
   width: 100% !important;
-  height: 78px !important;
+  height: 100% !important;
+  min-height: 96px !important;
   object-fit: cover !important;
   object-position: center 68% !important;
   position: static !important;
@@ -2217,12 +2222,18 @@ body {
 }
 
 .hero-mini-proof figcaption {
-  padding: 8px 9px 9px;
-  color: #06324a;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 28px 8px 8px;
+  background: linear-gradient(180deg, rgba(6, 50, 74, 0), rgba(6, 50, 74, 0.86));
+  color: #ffffff;
   font-size: 12px;
   font-weight: 900;
   line-height: 1.2;
   text-align: center;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.35);
 }
 
 .real-work-section,
@@ -2392,6 +2403,11 @@ body {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
+}
+
+.why-proof-strip {
+  grid-column: 1 / -1;
+  margin-top: clamp(8px, 1.8vw, 18px);
 }
 
 .why-proof-strip figure,
@@ -3306,10 +3322,11 @@ footer {
   inset: auto !important;
   display: block !important;
   width: 100% !important;
-  height: 76px !important;
-  min-height: 76px !important;
+  height: 100% !important;
+  min-height: 96px !important;
   object-fit: cover !important;
   object-position: center 60% !important;
+  filter: saturate(1.08) contrast(1.05) !important;
 }
 
 .real-hero-photo .hero-mini-proof figure:nth-child(1) img {
@@ -5538,7 +5555,7 @@ textarea {
   }
 
   .site-footer {
-    padding-bottom: max(210px, calc(190px + env(safe-area-inset-bottom))) !important;
+    padding-bottom: max(112px, calc(96px + env(safe-area-inset-bottom))) !important;
   }
 }
 
@@ -5571,5 +5588,680 @@ textarea {
 
   .real-work-content {
     padding: 22px !important;
+  }
+}
+
+/* Standalone /realizacie page: full gallery lives here, homepage stays leaner. */
+.realizations-page {
+  background:
+    linear-gradient(180deg, rgba(234, 247, 252, 0.72) 0%, #ffffff 34%, rgba(255, 249, 241, 0.42) 72%, #ffffff 100%);
+}
+
+.realizations-hero {
+  width: min(1320px, calc(100% - 40px));
+  margin: clamp(22px, 4vw, 52px) auto clamp(24px, 4vw, 48px);
+  padding: clamp(32px, 5vw, 72px);
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(520px, 1.08fr);
+  gap: clamp(28px, 4vw, 58px);
+  align-items: center;
+  border: 1px solid rgba(8, 120, 184, 0.18);
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 14% 20%, rgba(217, 151, 50, 0.14), transparent 16rem),
+    radial-gradient(circle at 94% 6%, rgba(8, 120, 184, 0.2), transparent 20rem),
+    linear-gradient(135deg, #ffffff 0%, #f6fcff 58%, #fffaf3 100%);
+  box-shadow: 0 32px 90px rgba(6, 50, 74, 0.12);
+}
+
+.realizations-hero h1 {
+  max-width: 11ch;
+  margin: 0;
+  color: #06324a;
+  font-size: clamp(48px, 6vw, 86px);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.realizations-hero p:not(.eyebrow) {
+  max-width: 64ch;
+  color: #4b5563;
+  font-size: clamp(17px, 1.2vw, 20px);
+  line-height: 1.62;
+}
+
+.realizations-hero-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(14px, 2vw, 22px);
+}
+
+.realizations-hero-strip figure {
+  position: relative;
+  min-height: 220px;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(217, 230, 238, 0.95);
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: 0 22px 50px rgba(6, 50, 74, 0.12);
+}
+
+.realizations-hero-strip picture,
+.realizations-hero-strip img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 220px;
+  object-fit: cover;
+}
+
+.realizations-hero-strip figcaption {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 18px;
+  background: rgba(6, 50, 74, 0.78);
+  color: #ffffff;
+  font-weight: 850;
+  line-height: 1.25;
+  backdrop-filter: blur(10px);
+}
+
+.realizations-gallery-section {
+  background:
+    radial-gradient(circle at 12% 4%, rgba(8, 120, 184, 0.1), transparent 18rem),
+    linear-gradient(180deg, #ffffff 0%, #f7fcff 100%) !important;
+}
+
+.realizations-final {
+  margin-block: clamp(28px, 5vw, 64px);
+}
+
+@media (max-width: 980px) {
+  .realizations-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .realizations-hero h1 {
+    max-width: 12ch;
+  }
+}
+
+@media (max-width: 760px) {
+  .realizations-hero {
+    width: min(100% - 28px, 640px);
+    padding: clamp(24px, 7vw, 32px);
+    border-radius: 26px;
+  }
+
+  .realizations-hero h1 {
+    font-size: clamp(36px, 11vw, 48px);
+  }
+
+  .realizations-hero-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .realizations-hero-strip figure,
+  .realizations-hero-strip picture,
+  .realizations-hero-strip img {
+    min-height: 240px;
+  }
+
+  .gallery-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+}
+
+/* Final QA: mobile hero text must breathe, never clip. */
+@media (max-width: 760px) {
+  .hero-copy,
+  .hero-real-note,
+  .hero-actions,
+  .hero-proof-flow,
+  .hero-points {
+    overflow: visible !important;
+  }
+
+  .hero h1,
+  .roofer-hero h1 {
+    line-height: 1.15 !important;
+    padding-bottom: 4px !important;
+  }
+
+  .hero-real-note {
+    line-height: 1.45 !important;
+    white-space: normal !important;
+  }
+
+  .hero-real-caption {
+    overflow: visible !important;
+    line-height: 1.35 !important;
+  }
+
+  .hero-real-caption span {
+    display: block !important;
+    white-space: normal !important;
+  }
+
+  .hero-mini-proof figcaption {
+    min-height: 0 !important;
+    line-height: 1.16 !important;
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .roofer-empty-state .button,
+  .roofer-empty-action .button {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-inline: 12px !important;
+    font-size: 12.8px !important;
+    white-space: normal !important;
+  }
+}
+
+/* Final overflow guard after real-device mobile QA. */
+.field input.file-input,
+.file-input {
+  position: absolute !important;
+  width: 1px !important;
+  max-width: 1px !important;
+  height: 1px !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  border: 0 !important;
+  padding: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+@media (max-width: 380px) {
+  .roofer-hero {
+    width: auto !important;
+    max-width: calc(100vw - 32px) !important;
+    margin-inline: 16px !important;
+  }
+}
+
+.roofer-hero h1 span {
+  display: block;
+}
+
+/* Final hero proof polish: make small realization photos readable, not washed out. */
+.hero-mini-proof figure {
+  position: relative !important;
+  min-height: 96px !important;
+  background-color: #06324a !important;
+  background-size: cover !important;
+  background-position: center !important;
+}
+
+.real-hero-photo .hero-mini-proof picture,
+.real-hero-photo .hero-mini-proof img {
+  position: static !important;
+  inset: auto !important;
+  z-index: auto !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 96px !important;
+  object-fit: cover !important;
+  filter: saturate(1.08) contrast(1.05) !important;
+}
+
+.hero-mini-proof figcaption {
+  position: absolute !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  padding: 28px 8px 8px !important;
+  background: linear-gradient(180deg, rgba(6, 50, 74, 0), rgba(6, 50, 74, 0.9)) !important;
+  color: #ffffff !important;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.35) !important;
+}
+
+@media (max-width: 760px) {
+  .hero-mini-proof figure {
+    min-height: 78px !important;
+  }
+
+  .real-hero-photo .hero-mini-proof picture,
+  .real-hero-photo .hero-mini-proof img {
+    min-height: 78px !important;
+  }
+
+  .hero-mini-proof figcaption {
+    padding: 22px 5px 6px !important;
+    font-size: 9.4px !important;
+  }
+}
+
+/* Final audit pass: remove mobile overflow and make the proof section feel editorial, not like a narrow card dump. */
+@media (max-width: 760px) {
+  html,
+  body {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+
+  body {
+    background:
+      linear-gradient(180deg, #ffffff 0%, #f8fcff 36%, #ffffff 58%, #fffdf8 78%, #ffffff 100%) !important;
+  }
+
+  .site-header {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  .header-main {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 6px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 10px !important;
+  }
+
+  .brand {
+    flex: 0 1 224px !important;
+    min-width: 0 !important;
+    max-width: 224px !important;
+  }
+
+  .brand-logo {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .header-meta {
+    display: none !important;
+  }
+
+  .menu-toggle {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+    padding: 10px 12px !important;
+    border: 1px solid rgba(8, 120, 184, 0.28) !important;
+    border-radius: 999px !important;
+    background: #ffffff !important;
+    color: #06324a !important;
+    box-shadow: 0 10px 26px rgba(6, 50, 74, 0.08) !important;
+  }
+
+  .hero,
+  .section,
+  .trust-bar,
+  .transport-banner,
+  .final-cta,
+  .roofer-hero,
+  .roofer-proof-section,
+  .roofer-directory,
+  .roofer-final,
+  .site-footer {
+    width: min(100% - 28px, 680px) !important;
+    max-width: min(100% - 28px, 680px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    overflow: hidden !important;
+  }
+
+  .hero,
+  .roofer-hero {
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: stretch !important;
+    gap: 22px !important;
+    padding: 22px !important;
+  }
+
+  .hero-copy,
+  .real-hero-photo,
+  .quote-card,
+  .hero-actions,
+  .hero-actions .button,
+  .roofer-hero .hero-actions,
+  .roofer-hero .hero-actions .button,
+  .region-picker-cta,
+  .region-map-card,
+  .region-choice-card,
+  .real-work-card,
+  .practice-story-card,
+  .real-gallery-card,
+  .included-group-card,
+  .risk-grid article,
+  .caution-grid article,
+  .roofers-grid article,
+  .why-card,
+  .faq-grid details,
+  .public-roofer-card,
+  .roofer-empty-state,
+  .roofer-empty-action {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .hero-actions,
+  .roofer-hero .hero-actions,
+  .final-actions,
+  .roofers-actions,
+  .real-work-actions {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .hero-actions .button,
+  .roofer-hero .hero-actions .button,
+  .final-actions .button,
+  .roofers-actions .button,
+  .real-work-actions .button {
+    justify-content: center !important;
+    white-space: normal !important;
+  }
+
+  .hero h1,
+  .roofer-hero h1 {
+    font-size: clamp(34px, 10.4vw, 43px) !important;
+    line-height: 1.08 !important;
+    overflow-wrap: anywhere !important;
+  }
+
+  .hero-text,
+  .roofer-hero p,
+  .section-intro,
+  .section-heading p {
+    line-height: 1.58 !important;
+  }
+
+  .hero-mini-proof {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .hero-mini-proof figure {
+    min-width: 0 !important;
+    min-height: 74px !important;
+  }
+
+  .hero-mini-proof figcaption {
+    font-size: 8.8px !important;
+    line-height: 1.1 !important;
+    padding: 20px 4px 5px !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .quote-card {
+    padding: 20px !important;
+  }
+
+  .form-stage,
+  .form-stage-priority {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .field input,
+  .field select,
+  .field textarea,
+  .file-drop-label {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .mobile-sticky-cta {
+    right: 10px !important;
+    left: 10px !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .real-work-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: clamp(22px, 2vw, 30px) !important;
+  }
+
+  .real-work-card {
+    display: grid !important;
+    grid-template-columns: minmax(230px, 0.88fr) minmax(0, 1.12fr) !important;
+    gap: 0 !important;
+    min-height: 340px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .real-work-picture,
+  .real-work-card picture,
+  .real-work-picture img,
+  .real-work-card picture img {
+    height: 100% !important;
+    min-height: 100% !important;
+    aspect-ratio: auto !important;
+  }
+
+  .real-work-picture img,
+  .real-work-card picture img {
+    object-fit: cover !important;
+  }
+
+  .real-work-content {
+    display: grid !important;
+    align-content: center !important;
+    padding: clamp(26px, 2.5vw, 36px) !important;
+  }
+
+  .real-work-content h3 {
+    font-size: clamp(26px, 2.15vw, 34px) !important;
+    line-height: 1.1 !important;
+  }
+
+  .real-work-content li {
+    font-size: clamp(14.5px, 1vw, 16px) !important;
+    line-height: 1.5 !important;
+  }
+}
+
+@media (min-width: 1220px) {
+  .real-work-card {
+    min-height: 365px !important;
+  }
+}
+
+/* Final form QA: generic input styling must never turn the GDPR checkbox into a large text field. */
+.lead-form .consent {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0, 1fr) !important;
+  align-items: start !important;
+  gap: 10px !important;
+  padding: 8px 0 !important;
+  background: transparent !important;
+}
+
+.lead-form .consent input[type="checkbox"],
+.quote-card .lead-form .consent input[type="checkbox"] {
+  appearance: auto !important;
+  accent-color: #8f163c !important;
+  width: 18px !important;
+  max-width: 18px !important;
+  min-width: 18px !important;
+  height: 18px !important;
+  max-height: 18px !important;
+  min-height: 18px !important;
+  margin: 1px 0 0 !important;
+  padding: 0 !important;
+  border-radius: 4px !important;
+  flex: 0 0 18px !important;
+  box-shadow: none !important;
+}
+
+.transport-banner,
+.transport-banner strong {
+  text-transform: none !important;
+}
+
+.hero-proof-flow {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.hero-proof-flow span {
+  min-width: 0 !important;
+  padding-inline: 10px !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.15 !important;
+}
+
+.roofer-hero-points {
+  display: grid;
+  gap: 12px;
+  margin-top: clamp(26px, 4vw, 52px);
+  max-width: 520px;
+}
+
+.roofer-hero-points span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(217, 230, 238, 0.96);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #06324a;
+  font-size: 14px;
+  font-weight: 850;
+  box-shadow: 0 14px 32px rgba(6, 50, 74, 0.08);
+}
+
+.roofer-hero-points span::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #8f163c;
+  box-shadow: 0 0 0 5px rgba(143, 22, 60, 0.08);
+  flex: 0 0 auto;
+}
+
+@media (max-width: 760px) {
+  .hero {
+    padding-inline: clamp(20px, 6vw, 28px) !important;
+  }
+
+  .hero-copy {
+    align-items: start !important;
+    overflow: visible !important;
+  }
+
+  .hero h1 {
+    max-width: 11ch !important;
+    font-size: clamp(2.35rem, 9.3vw, 3rem) !important;
+    line-height: 1.04 !important;
+    letter-spacing: 0 !important;
+    text-wrap: balance !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  .hero-claim,
+  .hero-text,
+  .hero-real-note {
+    max-width: min(100%, 32ch) !important;
+  }
+
+  .hero-claim {
+    width: min(100%, 286px) !important;
+    max-width: min(100%, 286px) !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    word-break: normal !important;
+  }
+
+  .hero-actions {
+    max-width: min(100%, 310px) !important;
+  }
+
+  .hero-mini-proof {
+    display: none !important;
+  }
+
+  .hero-real-caption {
+    right: 14px !important;
+    bottom: 14px !important;
+    left: 14px !important;
+    padding: 12px 14px !important;
+    border-radius: 16px !important;
+  }
+
+  .hero-real-caption strong {
+    font-size: 12px !important;
+  }
+
+  .hero-real-caption span {
+    font-size: 12px !important;
+    line-height: 1.28 !important;
+  }
+
+  .lead-form .consent {
+    grid-template-columns: 18px minmax(0, 1fr) !important;
+    font-size: 12.5px !important;
+    line-height: 1.42 !important;
+  }
+
+  .roofer-hero-points {
+    margin-top: 18px;
+    gap: 9px;
+  }
+
+  .roofer-hero-points span {
+    width: 100%;
+    border-radius: 18px;
+    padding: 11px 13px;
+    font-size: 13px;
+    line-height: 1.25;
+  }
+
+  .realizations-page .hero-actions,
+  .roofer-hero .hero-actions,
+  .region-map-card .hero-actions {
+    width: min(100%, 310px) !important;
+    max-width: min(100%, 310px) !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .realizations-page .hero-actions .button,
+  .roofer-hero .hero-actions .button,
+  .region-map-card .hero-actions .button {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+    line-height: 1.18 !important;
+    padding-inline: 14px !important;
+    text-align: center !important;
   }
 }

@@ -1,0 +1,13 @@
+artifacts/
+.tmp-chrome-cdp/
+.git/
+.next/
+node_modules/
+.env
+.env.*
+!.env.example
+coverage/
+logs/
+*.tsbuildinfo
+*.log
+*.tmp

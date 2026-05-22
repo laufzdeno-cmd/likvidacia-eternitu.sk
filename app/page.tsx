@@ -1,16 +1,13 @@
 import LandingClient from './landing-client';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
-  galleryCategories,
-  galleryReferences,
   heroPhoto,
   heroProofPhotos,
-  practiceBlocks,
   processPhotoReferences,
   realizationHighlights,
   whyProofPhotos,
 } from '@/src/data/azbestReferences';
-import { getSiteContentMap, listApprovedTestimonials, listPublishedRealizations } from '@/src/server/db';
+import { getSiteContentMap, listApprovedTestimonials } from '@/src/server/db';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 
 const defaultIncludedItems = [
@@ -60,7 +57,7 @@ const defaultRiskItems = [
 const defaultCautionItems = [
   [
     'Pýtajte si doklady ku konkrétnej stavbe',
-    'Nestačí počuť „máme povolenie“. Seriózna firma vie ukázať, že pre vašu stavbu rieši potrebný postup a doklady k RÚVZ a OÚŽP / životnému prostrediu podľa konkrétneho prípadu.',
+    'Nestačí počuť „máme povolenie“. Seriózna firma vie ukázať, že pre vašu stavbu rieši potrebný postup a doklady podľa konkrétneho prípadu.',
   ],
   [
     'Pozor na odpad ponechaný na dvore',
@@ -245,18 +242,9 @@ async function getHomepageTestimonials() {
   }
 }
 
-async function getHomepageRealizations() {
-  try {
-    return await listPublishedRealizations(6);
-  } catch {
-    return [];
-  }
-}
-
 export default async function HomePage() {
-  const [testimonials, realizations, content] = await Promise.all([
+  const [testimonials, content] = await Promise.all([
     getHomepageTestimonials(),
-    getHomepageRealizations(),
     getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion }),
   ]);
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
@@ -290,7 +278,6 @@ export default async function HomePage() {
   const whyItems = parseLines(content.whyItems, defaultWhyItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
   const jsonLd = buildJsonLd(faq);
-  const showRealizations = realizations.length > 0;
 
   return (
     <>
@@ -332,8 +319,8 @@ export default async function HomePage() {
           <a href="#ako-to-prebieha">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
           <a href="#preco">Prečo ASTANA</a>
-          {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
-          <a href={testimonials.length ? '#referencie' : '#prax'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
+          <a href="/realizacie/">Realizácie</a>
+          <a href={testimonials.length ? '#referencie' : '#realizacie-astana'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
         </nav>
@@ -346,7 +333,6 @@ export default async function HomePage() {
             <h1 id="hero-title">{content.heroTitle}</h1>
             <p className="hero-claim">{content.heroClaim}</p>
             <p className="hero-text">{content.heroText}</p>
-            <p className="hero-real-note">Pozrite si ukážky reálnych striech, ktoré sme riešili.</p>
             <div className="hero-actions">
               <a className="button button-primary" href="#dopyt">
                 {content.ctaPrimary}
@@ -355,6 +341,7 @@ export default async function HomePage() {
                 <span className="button-phone" aria-hidden="true"></span>{content.ctaPhone}
               </a>
             </div>
+            <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
             <div className="hero-proof-flow" aria-label="Od výmery po potvrdenie">
               {heroFlowItems.map((item) => (
                 <span key={item}>{item}</span>
@@ -385,12 +372,16 @@ export default async function HomePage() {
             />
             <div className="hero-real-caption">
               <strong>Reálne realizácie ASTANA</strong>
-              <span>Stabilizácia, demontáž, balenie a odvoz eternitu zo striech.</span>
+              <span>Stabilizácia, demontáž, balenie a odvoz.</span>
             </div>
             <div className="hero-mini-proof" aria-label="Ukážky reálnych prác ASTANA">
               {heroProofPhotos.map((photo) => (
-                <figure key={photo.id}>
-                  <ResponsiveImage image={photo} width={420} height={300} sizes="120px" />
+                <figure
+                  key={photo.id}
+                  style={{
+                    backgroundImage: `linear-gradient(180deg, rgba(6, 50, 74, 0.06), rgba(6, 50, 74, 0.84)), url(${photo.webp})`,
+                  }}
+                >
                   <figcaption>{photo.title}</figcaption>
                 </figure>
               ))}
@@ -574,6 +565,7 @@ export default async function HomePage() {
           </div>
           <div className="real-work-actions">
             <a className="button button-primary" href="#dopyt">Chcem naceniť podobnú realizáciu</a>
+            <a className="button button-outline" href="/realizacie/">Zobraziť všetky realizácie</a>
           </div>
         </section>
 
@@ -727,39 +719,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {showRealizations ? (
-          <section className="section realizations-section" id="realizacie" aria-labelledby="realizations-title">
-            <div className="section-heading split">
-              <div>
-                <p className="eyebrow">{content.realizationsEyebrow}</p>
-                <h2 id="realizations-title">{content.realizationsTitle}</h2>
-              </div>
-              <p>{content.realizationsText}</p>
-            </div>
-            <div className="realization-grid">
-              {realizations.map((realization) => (
-                <article key={realization.id} className="realization-card">
-                  {realization.imageUrls.length ? (
-                    <div className="realization-photos" aria-label={`Fotky: ${realization.title}`}>
-                      {realization.imageUrls.slice(0, 3).map((url, index) => (
-                        <img key={`${url}-${index}`} src={url} alt={`${realization.title} - fotka ${index + 1}`} loading="lazy" />
-                      ))}
-                    </div>
-                  ) : null}
-                  <div>
-                    <p className="realization-meta">
-                      {realization.location || 'Slovensko'}{realization.areaEstimate ? ` · ${realization.areaEstimate} m²` : ''}
-                    </p>
-                    <h3>{realization.title}</h3>
-                    <p>{realization.description}</p>
-                    {realization.materialType ? <span>{realization.materialType}</span> : null}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
         {testimonials.length ? (
           <section className="section testimonial-section" id="referencie" aria-labelledby="testimonial-title">
             <div className="section-heading split">
@@ -785,97 +744,6 @@ export default async function HomePage() {
             </div>
           </section>
         ) : null}
-        <section className="section practice-story-section" id="prax" aria-labelledby="practice-story-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">{content.practiceEyebrow}</p>
-              <h2 id="practice-story-title">{content.practiceTitle}</h2>
-            </div>
-            <p>{content.practiceText}</p>
-          </div>
-          <div className="practice-story-list">
-            {practiceBlocks.map((block) => (
-              <article className="practice-story-card" key={block.title}>
-                <ResponsiveImage image={block.image} className="practice-story-picture" width={760} height={520} sizes="(max-width: 760px) 100vw, 42vw" />
-                <div>
-                  <span className="practice-story-label">Reálna realizácia ASTANA</span>
-                  <h3>{block.title}</h3>
-                  <ul>
-                    {block.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                  <a className="button button-outline" href="#dopyt">Naceniť podobnú realizáciu</a>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section gallery-section" id="galeria-striech" aria-labelledby="gallery-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">Fotogaléria realizácií</p>
-              <h2 id="gallery-title">Fotogaléria realizácií ASTANA</h2>
-            </div>
-            <p>
-              Toto je doplnková galéria k procesnej sekcii vyššie. Nájdete tu ďalšie schválené zábery zo striech,
-              hospodárskych objektov, priemyslu a balenia odpadu.
-            </p>
-          </div>
-          <div className="gallery-filters" aria-label="Filtrovanie galérie">
-            {galleryCategories.map((category) => (
-              <button key={category.key} type="button" data-gallery-filter={category.key}>
-                {category.label}
-              </button>
-            ))}
-          </div>
-          <div className="real-gallery-grid">
-            {galleryReferences.map((photo, index) => (
-              <button
-                className="real-gallery-card"
-                type="button"
-                key={photo.id}
-                data-gallery-card
-                data-gallery-index={index}
-                data-gallery-category={photo.category}
-                data-gallery-webp={photo.webp}
-                data-gallery-jpg={photo.jpg}
-                data-gallery-title={photo.title}
-                data-gallery-alt={photo.alt}
-                hidden={index >= 12}
-              >
-                <ResponsiveImage
-                  image={photo}
-                  width={520}
-                  height={420}
-                  sizes="(max-width: 760px) 100vw, 25vw"
-                  loading={index < 12 ? 'eager' : 'lazy'}
-                  fetchPriority={index < 12 ? 'low' : 'auto'}
-                />
-                <span>
-                  <strong>{photo.title}</strong>
-                  <small>{photo.recommendedUse}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="gallery-actions">
-            <button className="button button-outline" type="button" data-gallery-load-more>
-              Zobraziť ďalšie realizácie
-            </button>
-          </div>
-          <div className="gallery-lightbox" data-gallery-lightbox hidden aria-modal="true" role="dialog" aria-label="Fotografia realizácie">
-            <button type="button" className="gallery-lightbox-close" data-lightbox-close aria-label="Zatvoriť galériu">×</button>
-            <button type="button" className="gallery-lightbox-prev" data-lightbox-prev aria-label="Predchádzajúca fotka">‹</button>
-            <figure>
-              <img data-lightbox-image src="" alt="" />
-              <figcaption data-lightbox-caption></figcaption>
-            </figure>
-            <button type="button" className="gallery-lightbox-next" data-lightbox-next aria-label="Ďalšia fotka">›</button>
-          </div>
-        </section>
-
         <section className="section faq-section" id="faq" aria-labelledby="faq-title">
           <div className="section-heading split">
             <div>
@@ -931,8 +799,8 @@ export default async function HomePage() {
         </div>
         <div>
           <h2>Užitočné</h2>
-          {showRealizations ? <a href="#realizacie">Realizácie</a> : null}
-          <a href={testimonials.length ? '#referencie' : '#prax'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
+          <a href="/realizacie/">Realizácie</a>
+          <a href={testimonials.length ? '#referencie' : '#realizacie-astana'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
           <a href="/strechari/">Strechári</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>

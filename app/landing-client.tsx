@@ -312,9 +312,11 @@ export default function LandingClient() {
 
     const onScroll = () => {
       header?.classList.toggle('is-compact', window.scrollY > 28);
-      if (!stickyCta || !form) return;
-      const formBottom = form.getBoundingClientRect().bottom;
-      const shouldShow = window.innerWidth <= 760 && formBottom < 120;
+      if (!stickyCta) return;
+      const isMobile = window.innerWidth <= 760;
+      const shouldShow = form
+        ? isMobile && form.getBoundingClientRect().bottom < 120
+        : isMobile && window.scrollY > 280;
       stickyCta.classList.toggle('is-visible', shouldShow);
     };
 
