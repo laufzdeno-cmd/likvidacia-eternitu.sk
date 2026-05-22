@@ -11,6 +11,18 @@ type ResponsiveImageProps = {
   sizes?: string;
 };
 
+const optimizedImageUrl = (src: string, width: number) =>
+  `/_next/image/?url=${encodeURIComponent(src)}&w=${width}&q=75`;
+
+const srcSetFor = (src: string, widths: number[]) =>
+  widths.map((item) => `${optimizedImageUrl(src, item)} ${item}w`).join(', ');
+
+const widthsFor = (displayWidth: number) => {
+  if (displayWidth <= 520) return [384, 640, 828];
+  if (displayWidth <= 900) return [384, 640, 828, 1080];
+  return [640, 828, 1080, 1200, 1920];
+};
+
 export function ResponsiveImage({
   image,
   className,
@@ -21,12 +33,17 @@ export function ResponsiveImage({
   height = 860,
   sizes = '(max-width: 760px) 100vw, 50vw',
 }: ResponsiveImageProps) {
+  const responsiveWidths = widthsFor(width);
+  const fallbackWidth = responsiveWidths.includes(1080) ? 1080 : responsiveWidths[responsiveWidths.length - 1];
+
   return (
     <picture className={className}>
-      <source srcSet={image.webp} type="image/webp" />
+      <source srcSet={srcSetFor(image.webp, responsiveWidths)} sizes={sizes} type="image/webp" />
       <img
         className={imgClassName}
-        src={image.jpg}
+        src={optimizedImageUrl(image.jpg, fallbackWidth)}
+        srcSet={srcSetFor(image.jpg, responsiveWidths)}
+        sizes={sizes}
         alt={image.alt}
         title={image.title}
         loading={loading}
@@ -34,7 +51,6 @@ export function ResponsiveImage({
         fetchPriority={fetchPriority}
         width={width}
         height={height}
-        sizes={sizes}
       />
     </picture>
   );

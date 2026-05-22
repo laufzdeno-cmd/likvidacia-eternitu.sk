@@ -2148,7 +2148,7 @@ body {
   position: absolute;
   left: 22px;
   right: 22px;
-  bottom: 128px;
+  bottom: 22px;
   z-index: 24;
   display: grid;
   gap: 4px;

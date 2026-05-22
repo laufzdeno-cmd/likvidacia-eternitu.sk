@@ -2,10 +2,8 @@ import LandingClient from './landing-client';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
   heroPhoto,
-  heroProofPhotos,
   processPhotoReferences,
   realizationHighlights,
-  whyProofPhotos,
 } from '@/src/data/azbestReferences';
 import { getSiteContentMap, listApprovedTestimonials } from '@/src/server/db';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
@@ -354,13 +352,6 @@ export default async function HomePage() {
             </ul>
           </div>
 
-          <div className="hero-photo" role="img" aria-label="Pracovníci v ochranných oblekoch pri odbornej demontáži eternitovej strechy">
-            <img src="/assets/hero-workers.webp" alt="" aria-hidden="true" loading="eager" />
-            <span className="photo-proof photo-proof-top">Ochranné obleky</span>
-            <span className="photo-proof photo-proof-bottom">Eternitová strecha</span>
-            <span className="photo-proof photo-proof-side">Odvoz a doklady</span>
-          </div>
-
           <div className="hero-photo real-hero-photo" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
             <ResponsiveImage
               image={heroPhoto}
@@ -373,18 +364,6 @@ export default async function HomePage() {
             <div className="hero-real-caption">
               <strong>Reálne realizácie ASTANA</strong>
               <span>Stabilizácia, demontáž, balenie a odvoz.</span>
-            </div>
-            <div className="hero-mini-proof" aria-label="Ukážky reálnych prác ASTANA">
-              {heroProofPhotos.map((photo) => (
-                <figure
-                  key={photo.id}
-                  style={{
-                    backgroundImage: `linear-gradient(180deg, rgba(6, 50, 74, 0.06), rgba(6, 50, 74, 0.84)), url(${photo.webp})`,
-                  }}
-                >
-                  <figcaption>{photo.title}</figcaption>
-                </figure>
-              ))}
             </div>
           </div>
 
@@ -533,11 +512,12 @@ export default async function HomePage() {
         <section className="section real-work-section" id="realizacie-astana" aria-labelledby="real-work-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Reálne práce ASTANA</p>
-              <h2 id="real-work-title">Postup v praxi: stabilizácia, demontáž, balenie</h2>
+              <p className="eyebrow">Vybrané realizácie</p>
+              <h2 id="real-work-title">Takto vyzerá legálna likvidácia v praxi</h2>
             </div>
             <p>
-              Každý záber ukazuje časť procesu — pracovisko, stabilizáciu, demontáž, balenie, odvoz alebo doklady.
+              Šesť silných záberov z praxe: rodinný dom, stabilizácia, demontáž, balenie, odvoz a väčší rozsah prác.
+              Celú fotogalériu nájdete na samostatnej stránke realizácií.
             </p>
           </div>
           <div className="real-work-grid">
@@ -546,7 +526,7 @@ export default async function HomePage() {
                 <ResponsiveImage
                   image={item.image}
                   className="real-work-picture"
-                  loading="eager"
+                  loading="lazy"
                   width={720}
                   height={520}
                   sizes="(max-width: 760px) 100vw, 33vw"
@@ -708,14 +688,6 @@ export default async function HomePage() {
                 <li key={item}>{item}</li>
               ))}
             </ul>
-            <div className="why-proof-strip" aria-label="Reálne dôkazy práce ASTANA">
-              {whyProofPhotos.map((photo) => (
-                <figure key={photo.id}>
-                  <ResponsiveImage image={photo} width={420} height={300} sizes="(max-width: 760px) 100vw, 18vw" />
-                  <figcaption>{photo.title}</figcaption>
-                </figure>
-              ))}
-            </div>
           </div>
         </section>
 

@@ -38,9 +38,44 @@ const categoryBadgeCopy: Record<string, string> = {
   strechari: 'strecha pripravená pre strechára',
 };
 
+const realizationsJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'CollectionPage',
+      '@id': 'https://likvidacia-eternitu.sk/realizacie/#page',
+      name: 'Realizácie likvidácie azbestu a eternitu ASTANA',
+      url: 'https://likvidacia-eternitu.sk/realizacie/',
+      isPartOf: { '@id': 'https://likvidacia-eternitu.sk/#website' },
+      about: { '@id': 'https://likvidacia-eternitu.sk/#service' },
+    },
+    {
+      '@type': 'ImageGallery',
+      '@id': 'https://likvidacia-eternitu.sk/realizacie/#gallery',
+      name: 'Fotogaléria realizácií ASTANA',
+      url: 'https://likvidacia-eternitu.sk/realizacie/',
+      image: galleryReferences.slice(0, 12).map((photo) => ({
+        '@type': 'ImageObject',
+        url: `https://likvidacia-eternitu.sk${photo.webp}`,
+        caption: photo.title,
+        description: photo.alt,
+      })),
+    },
+    {
+      '@type': 'BreadcrumbList',
+      '@id': 'https://likvidacia-eternitu.sk/realizacie/#breadcrumbs',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Úvod', item: 'https://likvidacia-eternitu.sk/' },
+        { '@type': 'ListItem', position: 2, name: 'Realizácie', item: 'https://likvidacia-eternitu.sk/realizacie/' },
+      ],
+    },
+  ],
+};
+
 export default function RealizationsPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(realizationsJsonLd) }} />
       <header className="site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
@@ -131,8 +166,8 @@ export default function RealizationsPage() {
                   width={520}
                   height={420}
                   sizes="(max-width: 760px) 100vw, 25vw"
-                  loading={index < 12 ? 'eager' : 'lazy'}
-                  fetchPriority={index < 12 ? 'low' : 'auto'}
+                  loading="lazy"
+                  fetchPriority="low"
                 />
                 <span>
                   <strong>{photo.title}</strong>

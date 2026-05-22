@@ -120,17 +120,7 @@ export const realizationHighlights = [
     ],
   },
   {
-    image: getAzbestReference('azbest-119'),
-    title: 'Kontrolované pracovisko',
-    type: 'Rodinný dom',
-    bullets: [
-      'Priestor okolo stavby organizujeme tak, aby bolo jasné, kde prebieha práca.',
-      'Materiál sa nerieši náhodne na dvore, ale podľa pripraveného postupu.',
-      'Postup prispôsobujeme konkrétnej stavbe, prístupu a nadväznosti ďalších prác.',
-    ],
-  },
-  {
-    image: getAzbestReference('azbest-087'),
+    image: getAzbestReference('azbest-051'),
     title: 'Stabilizácia materiálu',
     type: 'Rodinný dom',
     bullets: [
@@ -170,16 +160,6 @@ export const realizationHighlights = [
     ],
   },
   {
-    image: getAzbestReference('azbest-057'),
-    title: 'Dlhý hospodársky objekt',
-    type: 'Hospodárska budova',
-    bullets: [
-      'Riešime aj dlhé hospodárske objekty, kravíny a rozsiahle strechy.',
-      'Postup nastavujeme podľa veľkosti objektu, prístupu a bezpečnej manipulácie.',
-      'Pri väčšom rozsahu je dôležitá logistika, balenie a plánovanie odvozu.',
-    ],
-  },
-  {
     image: getAzbestReference('azbest-106'),
     title: 'Priemyselný objekt / väčší rozsah',
     type: 'Priemyselný objekt',
@@ -192,11 +172,11 @@ export const realizationHighlights = [
 ];
 
 export const processPhotoReferences = [
-  getAzbestReference('azbest-164'),
-  getAzbestReference('azbest-124'),
   null,
-  getAzbestReference('azbest-110'),
-  getAzbestReference('azbest-120'),
+  null,
+  null,
+  null,
+  null,
 ] as const;
 
 export const whyProofPhotos = [
