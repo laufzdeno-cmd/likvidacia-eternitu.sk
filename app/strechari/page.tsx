@@ -90,12 +90,10 @@ export default function RoofersPage() {
           <button className="menu-toggle" type="button" aria-controls="site-nav" aria-expanded="false">Menu</button>
         </div>
         <nav className="site-nav" id="site-nav" aria-label="Hlavná navigácia">
-          <a href="/">Úvod</a>
           <a href="/#orientacna-cena">Orientačná cena</a>
           <a href="/#ako-to-prebieha">Ako to prebieha</a>
           <a className="is-active" href="/strechari/" aria-current="page">Strechári</a>
           <a href="/realizacie/">Realizácie</a>
-          <a href="/#preco">Prečo ASTANA</a>
           <a href="/#faq">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
         </nav>

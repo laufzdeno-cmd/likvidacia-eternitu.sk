@@ -33,7 +33,7 @@ const getReviewInitials = (name: string) =>
     .toUpperCase();
 
 const formatHeroCounterValue = (counter: (typeof heroCounters)[number]) =>
-  `${counter.format === 'plain' ? counter.value : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
+  `${counter.value === 2011 ? counter.value.toString() : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
 
 const whyCardMeta = [
   { icon: 'shield', title: 'Bezpečný postup' },
@@ -362,14 +362,10 @@ export default async function HomePage() {
           </button>
         </div>
         <nav className="site-nav" id="site-nav" aria-label="Hlavná navigácia">
-          <a href="#top" aria-current="page">
-            Úvod
-          </a>
           <a href="#orientacna-cena">Orientačná cena</a>
           <a href="#ako-to-prebieha">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
           <a href="/realizacie/">Realizácie</a>
-          <a href="#preco">Prečo ASTANA</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
         </nav>
@@ -777,7 +773,7 @@ export default async function HomePage() {
         <section className="section reviews-section" id="recenzie" aria-labelledby="reviews-title">
           <div className="reviews-heading">
             <h2 id="reviews-title">Čo hovoria naši zákazníci</h2>
-            <p><span aria-hidden="true">⭐⭐⭐⭐⭐</span> 4.9 / 5 — Google hodnotenie</p>
+            <p>Hodnotenia zákazníkov</p>
           </div>
           <div className="reviews-grid">
             {/* TODO: nahradiť reálnymi recenziami z Google Business Profile */}
