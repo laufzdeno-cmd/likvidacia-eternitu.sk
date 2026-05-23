@@ -657,7 +657,7 @@ export default async function HomePage() {
             <p className="section-intro">{content.riskText}</p>
           </div>
           <div className="risk-notice">
-            <span className="risk-notice-icon"><VisualIcon name="warning" /></span>
+            <span className="risk-notice-icon"><span style={{ fontSize: 28 }}>🛡️</span></span>
             <div>
               <h3>{content.riskNoticeTitle}</h3>
               <p>{content.riskNoticeText}</p>
@@ -667,7 +667,7 @@ export default async function HomePage() {
             {riskItems.map(([title, text], index) => (
               <article key={title}>
                 <span className="risk-card-icon">
-                  <VisualIcon name={(['alert', 'document', 'waste', 'certificate'] as const)[index] || 'alert'} />
+                  <span style={{ fontSize: 28 }}>{(['⚠️', '📋', '🗑️', '✅'] as const)[index] || '⚠️'}</span>
                 </span>
                 <h3>{title}</h3>
                 <p>{text}</p>
@@ -802,8 +802,8 @@ export default async function HomePage() {
           </div>
           <div className="reviews-grid">
             {/* TODO: nahradiť reálnymi recenziami z Google Business Profile */}
-            {reviews.map((review) => (
-              <article className="review-card" key={review.id}>
+            {reviews.map((review, index) => (
+              <article className="review-card" data-review-extra={index >= 3 ? 'true' : undefined} hidden={index >= 3} key={review.id}>
                 <div className="review-stars" aria-label={`${review.stars} z 5`}>{'★'.repeat(review.stars)}</div>
                 <p className="review-text">{review.text}</p>
                 <footer className="review-author">
@@ -816,6 +816,11 @@ export default async function HomePage() {
               </article>
             ))}
           </div>
+          {reviews.length > 3 ? (
+            <button className="reviews-toggle" type="button" data-reviews-toggle>
+              Zobraziť všetky
+            </button>
+          ) : null}
           <a className="reviews-google-link" href="https://maps.google.com" target="_blank" rel="noopener">
             Zobraziť recenzie na Google →
           </a>

@@ -23,6 +23,8 @@ export default function LandingClient() {
     const galleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
     const homeGalleryCards = Array.from(document.querySelectorAll<HTMLElement>('[data-home-gallery-card]'));
     const homeGalleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-home-gallery-filter]'));
+    const reviewsToggle = document.querySelector<HTMLButtonElement>('[data-reviews-toggle]');
+    const extraReviewCards = Array.from(document.querySelectorAll<HTMLElement>('[data-review-extra="true"]'));
     const heroCounterRoot = document.querySelector<HTMLElement>('[data-hero-counters]');
     const heroCounters = Array.from(document.querySelectorAll<HTMLElement>('[data-hero-counter]'));
     const galleryLoadMore = document.querySelector<HTMLButtonElement>('[data-gallery-load-more]');
@@ -375,6 +377,17 @@ export default function LandingClient() {
       });
     };
 
+    const onReviewsToggle = () => {
+      const isExpanded = reviewsToggle?.getAttribute('aria-expanded') === 'true';
+      extraReviewCards.forEach((card) => {
+        card.hidden = isExpanded;
+      });
+      if (reviewsToggle) {
+        reviewsToggle.setAttribute('aria-expanded', String(!isExpanded));
+        reviewsToggle.textContent = isExpanded ? 'Zobraziť všetky' : 'Skryť';
+      }
+    };
+
     const formatCounterValue = (value: number, suffix: string, format?: string) =>
       `${format === 'plain' ? String(value) : new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(value)}${suffix}`;
 
@@ -465,6 +478,8 @@ export default function LandingClient() {
       button.setAttribute('aria-pressed', String(index === 0));
       button.addEventListener('click', onHomeGalleryFilter);
     });
+    reviewsToggle?.setAttribute('aria-expanded', 'false');
+    reviewsToggle?.addEventListener('click', onReviewsToggle);
     priceArea?.addEventListener('input', updatePriceCalculator);
     priceMaterialButtons.forEach((button, index) => {
       button.setAttribute('aria-pressed', String(index === 0));
@@ -600,6 +615,7 @@ export default function LandingClient() {
       quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
       galleryFilters.forEach((button) => button.removeEventListener('click', onGalleryFilter));
       homeGalleryFilters.forEach((button) => button.removeEventListener('click', onHomeGalleryFilter));
+      reviewsToggle?.removeEventListener('click', onReviewsToggle);
       priceArea?.removeEventListener('input', updatePriceCalculator);
       priceMaterialButtons.forEach((button) => button.removeEventListener('click', onPriceMaterialClick));
       galleryLoadMore?.removeEventListener('click', onGalleryLoadMore);
