@@ -19,6 +19,10 @@ export default function LandingClient() {
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
     const galleryCards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
     const galleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
+    const homeGalleryCards = Array.from(document.querySelectorAll<HTMLElement>('[data-home-gallery-card]'));
+    const homeGalleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-home-gallery-filter]'));
+    const heroCounterRoot = document.querySelector<HTMLElement>('[data-hero-counters]');
+    const heroCounters = Array.from(document.querySelectorAll<HTMLElement>('[data-hero-counter]'));
     const galleryLoadMore = document.querySelector<HTMLButtonElement>('[data-gallery-load-more]');
     const galleryLightbox = document.querySelector<HTMLElement>('[data-gallery-lightbox]');
     const lightboxImage = document.querySelector<HTMLImageElement>('[data-lightbox-image]');
@@ -319,6 +323,44 @@ export default function LandingClient() {
       }
     };
 
+    const onHomeGalleryFilter = (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      const category = button.dataset.homeGalleryFilter || 'vsetky';
+      homeGalleryFilters.forEach((filter) => {
+        const active = filter === button;
+        filter.classList.toggle('is-active', active);
+        filter.setAttribute('aria-pressed', String(active));
+      });
+      homeGalleryCards.forEach((card) => {
+        const matches = category === 'vsetky' || card.dataset.category === category;
+        card.classList.toggle('is-hidden', !matches);
+      });
+    };
+
+    const formatCounterValue = (value: number, suffix: string) =>
+      `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(value)}${suffix}`;
+
+    const runHeroCounters = () => {
+      heroCounters.forEach((counter) => {
+        const target = Number(counter.dataset.counterTarget || 0);
+        const start = Number(counter.dataset.counterStart || 0);
+        const suffix = counter.dataset.counterSuffix || '';
+        const duration = 1500;
+        const startedAt = performance.now();
+        const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+        const tick = (now: number) => {
+          const progress = Math.min((now - startedAt) / duration, 1);
+          const value = Math.round(start + (target - start) * easeOutQuart(progress));
+          counter.textContent = formatCounterValue(value, suffix);
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+
+        counter.textContent = formatCounterValue(start, suffix);
+        requestAnimationFrame(tick);
+      });
+    };
+
     const onGalleryLoadMore = () => {
       const category = galleryLoadMore?.dataset.galleryCurrentFilter || 'vsetko';
       let shown = 0;
@@ -379,6 +421,10 @@ export default function LandingClient() {
     quoteLinks.forEach((link) => link.addEventListener('click', onRooferQuoteClick));
     galleryFilters.forEach((button) => button.addEventListener('click', onGalleryFilter));
     galleryFilters[0]?.classList.add('is-active');
+    homeGalleryFilters.forEach((button, index) => {
+      button.setAttribute('aria-pressed', String(index === 0));
+      button.addEventListener('click', onHomeGalleryFilter);
+    });
     priceArea?.addEventListener('input', updatePriceCalculator);
     priceMaterialButtons.forEach((button, index) => {
       button.setAttribute('aria-pressed', String(index === 0));
@@ -397,6 +443,28 @@ export default function LandingClient() {
     let observer: IntersectionObserver | undefined;
     let sectionObserver: IntersectionObserver | undefined;
     let revealObserver: IntersectionObserver | undefined;
+    let counterObserver: IntersectionObserver | undefined;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (heroCounters.length) {
+      if (prefersReducedMotion) {
+        heroCounters.forEach((counter) => {
+          const target = Number(counter.dataset.counterTarget || 0);
+          const suffix = counter.dataset.counterSuffix || '';
+          counter.textContent = formatCounterValue(target, suffix);
+        });
+      } else if ('IntersectionObserver' in window && heroCounterRoot) {
+        counterObserver = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            runHeroCounters();
+            counterObserver?.disconnect();
+          });
+        }, { threshold: 0.35 });
+        counterObserver.observe(heroCounterRoot);
+      } else {
+        runHeroCounters();
+      }
+    }
     const viewedRoofers = new Set<string>();
     if ('IntersectionObserver' in window && rooferCards.length) {
       observer = new IntersectionObserver((entries) => {
@@ -489,6 +557,7 @@ export default function LandingClient() {
       contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));
       quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
       galleryFilters.forEach((button) => button.removeEventListener('click', onGalleryFilter));
+      homeGalleryFilters.forEach((button) => button.removeEventListener('click', onHomeGalleryFilter));
       priceArea?.removeEventListener('input', updatePriceCalculator);
       priceMaterialButtons.forEach((button) => button.removeEventListener('click', onPriceMaterialClick));
       galleryLoadMore?.removeEventListener('click', onGalleryLoadMore);
@@ -497,6 +566,7 @@ export default function LandingClient() {
       observer?.disconnect();
       sectionObserver?.disconnect();
       revealObserver?.disconnect();
+      counterObserver?.disconnect();
       hashScrollTimers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);

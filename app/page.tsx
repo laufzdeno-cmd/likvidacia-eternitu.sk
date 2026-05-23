@@ -2,11 +2,35 @@ import LandingClient from './landing-client';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
   heroPhoto,
-  processPhotoReferences,
   realizationHighlights,
 } from '@/src/data/azbestReferences';
+import reviews from '@/data/reviews.json';
 import { getSiteContentMap, listApprovedTestimonials } from '@/src/server/db';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
+
+
+const heroCounters = [
+  { value: 80000, suffix: '+', label: 'm² zlikvidovaných', start: 0 },
+  { value: 500, suffix: '+', label: 'zákazníkov', start: 0 },
+  { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990 },
+] as const;
+
+const realizationFilters = [
+  { value: 'vsetky', label: 'Všetky' },
+  { value: 'rodinny-dom', label: 'Rodinný dom' },
+  { value: 'hospodarska-budova', label: 'Hospodárska budova' },
+  { value: 'garaz', label: 'Garáž' },
+  { value: 'priemyselny-objekt', label: 'Priemyselný objekt' },
+] as const;
+
+const getReviewInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
 
 const defaultIncludedItems = [
   'Podklady pre RÚVZ ku konkrétnej stavbe',
@@ -337,6 +361,21 @@ export default async function HomePage() {
                 <span className="button-phone" aria-hidden="true"></span>{content.ctaPhone}
               </a>
             </div>
+            <div className="hero-counters" data-hero-counters aria-label="Výsledky ASTANA v číslach">
+              {heroCounters.map((counter) => (
+                <div className="hero-counter-item" key={counter.label}>
+                  <strong
+                    data-hero-counter
+                    data-counter-target={counter.value}
+                    data-counter-start={counter.start}
+                    data-counter-suffix={counter.suffix}
+                  >
+                    {counter.value.toLocaleString('sk-SK')}{counter.suffix}
+                  </strong>
+                  <span>{counter.label}</span>
+                </div>
+              ))}
+            </div>
             <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
             <div className="hero-proof-flow" aria-label="Od výmery po potvrdenie">
               {heroFlowItems.map((item) => (
@@ -359,6 +398,15 @@ export default async function HomePage() {
               height={1120}
               sizes="(max-width: 760px) 100vw, 34vw"
             />
+            <div className="hero-trust-card">
+              <div>
+                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                  <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 2.714Z" />
+                </svg>
+                <strong>Legálna likvidácia</strong>
+              </div>
+              <span>RÚVZ · OÚŽP · Doklady</span>
+            </div>
             <div className="hero-real-caption">
               <strong>Reálne realizácie ASTANA</strong>
               <span>Stabilizácia, demontáž, balenie a odvoz.</span>
@@ -630,27 +678,14 @@ export default async function HomePage() {
             <h2 id="process-title">{content.processTitle}</h2>
             <p className="section-intro">Od prvého odhadu po odvoz a doklady. Kroky držíme jednoduché, aby zákazník vedel, čo sa bude diať a čo má pripraviť.</p>
           </div>
-          <ol className="process-list">
+          <ol className="process-list process-stepper">
             {processSteps.map(([title, text], index) => (
               <li key={title}>
                 <span>{index + 1}</span>
-                {processPhotoReferences[index] ? (
-                  <ResponsiveImage
-                    image={processPhotoReferences[index]!}
-                    className="process-photo"
-                    width={420}
-                    height={300}
-                    sizes="(max-width: 760px) 100vw, 18vw"
-                  />
-                ) : (
-                  <div className="process-document-proof" aria-hidden="true">
-                    <span className="quote-proof-mark">m²</span>
-                    <span className="quote-proof-arrow">→</span>
-                    <span className="quote-proof-mark">€</span>
-                  </div>
-                )}
-                <strong>{title}</strong>
-                <p>{text}</p>
+                <div className="process-step-copy">
+                  <strong>{title}</strong>
+                  <p>{text}</p>
+                </div>
               </li>
             ))}
           </ol>
@@ -667,9 +702,22 @@ export default async function HomePage() {
               Plná filtrovaná galéria je na samostatnej stránke realizácií.
             </p>
           </div>
+          <div className="realization-filter-pills" data-home-gallery-filters aria-label="Filtrovať realizácie podľa typu objektu">
+            {realizationFilters.map((filter, index) => (
+              <button
+                className={index === 0 ? 'is-active' : undefined}
+                type="button"
+                data-home-gallery-filter={filter.value}
+                aria-pressed={index === 0}
+                key={filter.value}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
           <div className="real-work-grid">
             {realizationHighlights.map((item) => (
-              <article className="real-work-card" key={item.title}>
+              <article className="real-work-card" data-home-gallery-card data-category={item.category} key={item.title}>
                 <ResponsiveImage
                   image={item.image}
                   className="real-work-picture"
@@ -694,6 +742,32 @@ export default async function HomePage() {
             <a className="button button-primary" href="#dopyt">Chcem naceniť podobnú realizáciu</a>
             <a className="button button-outline" href="/realizacie/">Zobraziť všetky realizácie</a>
           </div>
+        </section>
+
+        <section className="section reviews-section" id="recenzie" aria-labelledby="reviews-title">
+          <div className="reviews-heading">
+            <h2 id="reviews-title">Čo hovoria naši zákazníci</h2>
+            <p><span aria-hidden="true">⭐⭐⭐⭐⭐</span> 4.9 / 5 — Google hodnotenie</p>
+          </div>
+          <div className="reviews-grid">
+            {/* TODO: nahradiť reálnymi recenziami z Google Business Profile */}
+            {reviews.map((review) => (
+              <article className="review-card" key={review.id}>
+                <div className="review-stars" aria-label={`${review.stars} z 5`}>{'★'.repeat(review.stars)}</div>
+                <p className="review-text">{review.text}</p>
+                <footer className="review-author">
+                  <span className="review-avatar" aria-hidden="true">{getReviewInitials(review.name)}</span>
+                  <div>
+                    <strong>{review.name}</strong>
+                    <span>{review.location} · {review.object} · {review.date}</span>
+                  </div>
+                </footer>
+              </article>
+            ))}
+          </div>
+          <a className="reviews-google-link" href="https://maps.google.com" target="_blank" rel="noopener">
+            Zobraziť recenzie na Google →
+          </a>
         </section>
 
         <section className="section roofers-section" id="strechari" aria-labelledby="roofers-title">

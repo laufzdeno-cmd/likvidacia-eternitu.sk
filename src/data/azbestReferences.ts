@@ -110,8 +110,9 @@ export const heroProofPhotos = [
 
 export const realizationHighlights = [
   {
-    image: getAzbestReference('azbest-087'),
-    title: 'Stabilizácia veľkej eternitovej strechy',
+    image: getAzbestReference('azbest-164'),
+    category: 'rodinny-dom',
+    title: 'Rodinný dom s kontrolovaným pracoviskom',
     type: 'Rodinný dom',
     bullets: [
       'Materiál stabilizujeme ešte pred manipuláciou, aby sa znížilo riziko uvoľňovania prachu.',
@@ -120,56 +121,67 @@ export const realizationHighlights = [
     ],
   },
   {
-    image: getAzbestReference('azbest-134'),
-    title: 'Strecha s lešením',
+    image: getAzbestReference('azbest-051'),
+    category: 'rodinny-dom',
+    title: 'Detail stabilizácie materiálu',
     type: 'Rodinný dom',
     bullets: [
-      'Pri horšom prístupe alebo vyššej stavbe riešime bezpečné pracovisko.',
-      'Demontáž plánujeme tak, aby sa dalo nadviazať ďalšími prácami na streche.',
-      'Rozsah a postup sa nastavujú podľa konkrétneho objektu.',
+      'Materiál pred manipuláciou stabilizujeme, aby sa znížilo riziko uvoľňovania prachu.',
+      'Fotky a výmera pomáhajú spresniť prístup, výšku objektu a rozsah prác.',
+      'Postup nastavujeme podľa konkrétnej strechy a požadovaných dokladov.',
     ],
   },
   {
-    image: getAzbestReference('azbest-111'),
-    title: 'Technika a odvoz ASTANA',
-    type: 'Odvoz a logistika',
+    image: getAzbestReference('azbest-068'),
+    category: 'rodinny-dom',
+    title: 'Kontrolovaná demontáž na streche',
+    type: 'Rodinný dom',
     bullets: [
-      'Pri väčších zákazkách koordinujeme ľudí, techniku, odvoz aj dokumentáciu podľa rozsahu prác.',
-      'Odpad neostáva na dvore, po zabalení ho odvážame na určené miesto podľa dohodnutého postupu.',
-      'Logistiku nastavujeme tak, aby bol priebeh čitateľný pre zákazníka aj ďalšie profesie na stavbe.',
+      'Krytinu odoberáme kontrolovane bez zhadzovania zo strechy.',
+      'Pracovisko držíme čitateľné pre zákazníka aj nadväzujúce profesie.',
+      'Demontáž plánujeme tak, aby strechári mohli plynulo pokračovať.',
     ],
   },
   {
-    image: getAzbestReference('azbest-106'),
-    title: 'Dopravníky v priemyselnom podniku',
-    type: 'Priemyselný objekt',
-    bullets: [
-      'Robíme aj priemyselné areály, dopravníky a technické prevádzky.',
-      'Pri väčšom rozsahu je dôležitá logistika, bezpečné zóny a postup po etapách.',
-      'Dokumentácia sa rieši podľa konkrétnej zákazky a typu materiálu.',
-    ],
-  },
-  {
-    image: getAzbestReference('azbest-062'),
-    title: 'Technologické veže a väčší rozsah',
-    type: 'Priemyselný objekt',
-    bullets: [
-      'Zabezpečujeme aj zložitejšie objekty, kde nestačí bežná strešná rutina.',
-      'Pri technických prevádzkach je rozhodujúca príprava pracoviska a koordinácia.',
-      'Postup nastavujeme podľa prístupu, rozsahu a požadovaných dokladov.',
-    ],
-  },
-  {
-    image: getAzbestReference('azbest-057'),
-    title: 'Dlhý hospodársky objekt',
+    image: getAzbestReference('azbest-120'),
+    category: 'hospodarska-budova',
+    title: 'Hospodárska budova po odvoze',
     type: 'Hospodárska budova',
     bullets: [
-      'Riešime aj dlhé hospodárske objekty, kravíny a rozsiahle strechy.',
+      'Riešime aj hospodárske objekty, dlhé strechy a väčšie plochy.',
       'Pri väčšom rozsahu je dôležitá logistika, balenie a plánovanie odvozu.',
       'Zákazník dostane jasný postup od nacenenia až po doklady.',
     ],
   },
-];
+  {
+    image: getAzbestReference('azbest-110'),
+    category: 'priemyselny-objekt',
+    title: 'Priemyselný objekt a odvoz',
+    type: 'Priemyselný objekt',
+    bullets: [
+      'Priemyselné zákazky vyžadujú koordináciu ľudí, techniky a dokumentácie.',
+      'Odpad po zabalení odvážame na určené miesto podľa dohodnutého postupu.',
+      'Priebeh nastavujeme podľa prístupu, rozsahu a typu materiálu.',
+    ],
+  },
+  {
+    image: getAzbestReference('azbest-106'),
+    category: 'priemyselny-objekt',
+    title: 'Dopravníky v priemyselnom podniku',
+    type: 'Priemyselný objekt',
+    bullets: [
+      'Robíme aj technické prevádzky, dopravníky a väčšie priemyselné areály.',
+      'Pri zložitejších objektoch je rozhodujúca príprava pracoviska a etapizácia.',
+      'Dokumentácia sa rieši podľa konkrétnej zákazky a typu materiálu.',
+    ],
+  },
+] satisfies Array<{
+  image: AzbestReference;
+  category: 'rodinny-dom' | 'hospodarska-budova' | 'garaz' | 'priemyselny-objekt';
+  title: string;
+  type: string;
+  bullets: string[];
+}>;
 
 export const processPhotoReferences = [
   getAzbestReference('azbest-164'),

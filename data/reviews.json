@@ -1,0 +1,29 @@
+[
+  {
+    "id": 1,
+    "name": "Martin H.",
+    "location": "Košice",
+    "object": "Rodinný dom",
+    "date": "Jún 2024",
+    "stars": 5,
+    "text": "Zlikvidovali nám eternit na rodinnom dome. Prišli včas, strechári mohli nastúpiť hneď na druhý deň. Všetko prebehlo s dokladmi a cena zodpovedala ponuke."
+  },
+  {
+    "id": 2,
+    "name": "Peter K.",
+    "location": "Prešov",
+    "object": "Hospodárska budova",
+    "date": "Apríl 2024",
+    "stars": 5,
+    "text": "Riešili sme hospodársku budovu. Bál som sa byrokracie, ale ASTANA vybavila dokumentáciu sama. Zaplatil som až po ukončení prác."
+  },
+  {
+    "id": 3,
+    "name": "Jana N.",
+    "location": "Banská Bystrica",
+    "object": "Rodinný dom",
+    "date": "Február 2024",
+    "stars": 5,
+    "text": "Prišli presne na dohodnutý deň, pracovisko zostalo čisté. Doklady dostupné ihneď po ukončení. Cena férová, odporúčam."
+  }
+]
