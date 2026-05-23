@@ -63,9 +63,8 @@ export const homeContentDefaults = {
   finalCtaPrimary: 'Získať cenovú ponuku',
   footerText:
     'Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
-  heroFlowItems: 'm²\nPonuka\nDokumentácia\nDemontáž\nOdvoz\nPotvrdenie',
-  heroBulletItems:
-    'Cenu počítame hlavne podľa m²\nFotky pomôžu spresniť prístup a typ materiálu\nDokumentácia RÚVZ / OÚŽP v procese\nOdvoz a doklady po likvidácii',
+  heroFlowItems: '',
+  heroBulletItems: '',
   trustItems:
     'Od roku 2011|Skúsenosti s azbestom a eternitom\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\nRÚVZ / OÚŽP ku konkrétnej stavbe|Postup riešime legálne, nie iba všeobecným sľubom\nDoprava nad 100 m² zdarma|Pri väčších zákazkách dopravu neúčtujeme\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade',
   includedItems:

@@ -614,11 +614,10 @@ export default async function HomePage() {
               Najrýchlejšie sa orientujeme podľa približnej výmery v m². Zadajte plochu a typ materiálu, uvidíte pracovný
               rozsah ceny. Záväznú ponuku pripravíme po overení detailov.
             </p>
-            <ul>
-              <li><VisualIcon name="check" className="price-check-icon" />m² je hlavný údaj pre výpočet ceny</li>
-              <li><VisualIcon name="check" className="price-check-icon" />fotky pomôžu spresniť prístup, výšku a náročnosť</li>
-              <li><VisualIcon name="check" className="price-check-icon" />dopravu pri zákazkách nad 100 m² neúčtujeme</li>
-            </ul>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginTop: '12px' }}>
+              ✓ Bez záväzkov &nbsp;·&nbsp; ✓ Odpovieme do 24h
+              &nbsp;·&nbsp; ✓ Platíte po dokončení
+            </p>
           </div>
           <div className="price-calculator-card" data-price-calculator>
             <div className="price-area-row">
