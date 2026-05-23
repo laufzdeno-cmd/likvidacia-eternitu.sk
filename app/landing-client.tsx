@@ -9,6 +9,7 @@ export default function LandingClient() {
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
     const testimonialForm = document.querySelector<HTMLFormElement>('.testimonial-submit-form');
+    const rooferRegistrationForm = document.querySelector<HTMLFormElement>('.roofer-registration-form');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
     const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
@@ -16,6 +17,7 @@ export default function LandingClient() {
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
     const testimonialStatus = document.querySelector<HTMLElement>('.testimonial-form-status');
+    const rooferRegistrationStatus = document.querySelector<HTMLElement>('.roofer-registration-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
     const galleryCards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
     const galleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
@@ -262,6 +264,42 @@ export default function LandingClient() {
       }
     };
 
+    const onRooferRegistrationSubmit = async (event: SubmitEvent) => {
+      if (!rooferRegistrationForm) return;
+      event.preventDefault();
+      if (rooferRegistrationStatus) {
+        rooferRegistrationStatus.textContent = '';
+        rooferRegistrationStatus.classList.remove('is-success', 'is-error');
+      }
+      const button = rooferRegistrationForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+      button?.setAttribute('disabled', 'true');
+
+      try {
+        const response = await fetch(rooferRegistrationForm.action, {
+          method: 'POST',
+          body: new FormData(rooferRegistrationForm),
+          headers: { Accept: 'application/json' },
+        });
+        const result = (await response.json()) as { ok?: boolean; message?: string };
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || 'Registráciu sa nepodarilo odoslať.');
+        }
+        rooferRegistrationForm.reset();
+        if (rooferRegistrationStatus) {
+          rooferRegistrationStatus.textContent =
+            result.message || 'Ďakujeme! Vaša registrácia bola prijatá.\nOzveme sa vám do 48 hodín na zadané telefónne číslo.';
+          rooferRegistrationStatus.classList.add('is-success');
+        }
+      } catch (error) {
+        if (rooferRegistrationStatus) {
+          rooferRegistrationStatus.textContent = error instanceof Error ? error.message : 'Registráciu sa nepodarilo odoslať.';
+          rooferRegistrationStatus.classList.add('is-error');
+        }
+      } finally {
+        button?.removeAttribute('disabled');
+      }
+    };
+
     const refreshGalleryActiveItems = () => {
       activeGallery = galleryCards.filter((card) => !card.hidden);
       if (!activeGallery.length) activeGallery = galleryCards.slice(0, 12);
@@ -337,14 +375,15 @@ export default function LandingClient() {
       });
     };
 
-    const formatCounterValue = (value: number, suffix: string) =>
-      `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(value)}${suffix}`;
+    const formatCounterValue = (value: number, suffix: string, format?: string) =>
+      `${format === 'plain' ? String(value) : new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(value)}${suffix}`;
 
     const runHeroCounters = () => {
       heroCounters.forEach((counter) => {
         const target = Number(counter.dataset.counterTarget || 0);
         const start = Number(counter.dataset.counterStart || 0);
         const suffix = counter.dataset.counterSuffix || '';
+        const format = counter.dataset.counterFormat || 'locale';
         const duration = 1500;
         const startedAt = performance.now();
         const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
@@ -352,11 +391,11 @@ export default function LandingClient() {
         const tick = (now: number) => {
           const progress = Math.min((now - startedAt) / duration, 1);
           const value = Math.round(start + (target - start) * easeOutQuart(progress));
-          counter.textContent = formatCounterValue(value, suffix);
+          counter.textContent = formatCounterValue(value, suffix, format);
           if (progress < 1) requestAnimationFrame(tick);
         };
 
-        counter.textContent = formatCounterValue(start, suffix);
+        counter.textContent = formatCounterValue(start, suffix, format);
         requestAnimationFrame(tick);
       });
     };
@@ -414,6 +453,7 @@ export default function LandingClient() {
     });
     form?.addEventListener('submit', onSubmit);
     testimonialForm?.addEventListener('submit', onTestimonialSubmit);
+    rooferRegistrationForm?.addEventListener('submit', onRooferRegistrationSubmit);
     const contactButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-roofer-contact]'));
     const quoteLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-roofer-quote]'));
     const rooferCards = Array.from(document.querySelectorAll<HTMLElement>('[data-roofer-card]'));
@@ -450,7 +490,8 @@ export default function LandingClient() {
         heroCounters.forEach((counter) => {
           const target = Number(counter.dataset.counterTarget || 0);
           const suffix = counter.dataset.counterSuffix || '';
-          counter.textContent = formatCounterValue(target, suffix);
+          const format = counter.dataset.counterFormat || 'locale';
+          counter.textContent = formatCounterValue(target, suffix, format);
         });
       } else if ('IntersectionObserver' in window && heroCounterRoot) {
         counterObserver = new IntersectionObserver((entries) => {
@@ -554,6 +595,7 @@ export default function LandingClient() {
       fileInput?.removeEventListener('change', onFilesChange);
       form?.removeEventListener('submit', onSubmit);
       testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
+      rooferRegistrationForm?.removeEventListener('submit', onRooferRegistrationSubmit);
       contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));
       quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
       galleryFilters.forEach((button) => button.removeEventListener('click', onGalleryFilter));

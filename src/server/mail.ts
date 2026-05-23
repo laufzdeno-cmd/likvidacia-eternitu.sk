@@ -69,3 +69,55 @@ export async function sendLeadEmails(lead: Lead, fileCount: number) {
 
   return { sent: true };
 }
+
+export type RooferRegistrationEmail = {
+  fullName: string;
+  companyName?: string;
+  phone: string;
+  email: string;
+  regions: string[];
+  jobTypes: string[];
+  message?: string;
+};
+
+export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail) {
+  const client = transporter();
+  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
+
+  const adminText = [
+    'Prišla nová registrácia strechára z webu likvidacia-eternitu.sk.',
+    '',
+    `Meno: ${input.fullName}`,
+    `Firma / živnosť: ${input.companyName || 'neuvedené'}`,
+    `Telefón: ${input.phone}`,
+    `Email: ${input.email}`,
+    `Regióny: ${input.regions.join(', ')}`,
+    `Typ zákaziek: ${input.jobTypes.length ? input.jobTypes.join(', ') : 'neuvedené'}`,
+    '',
+    `Poznámka: ${input.message || 'bez poznámky'}`,
+  ].join('\n');
+
+  await client.sendMail({
+    from: process.env.MAIL_FROM,
+    to: process.env.LEAD_TO_EMAIL,
+    subject: `[STRECHÁR] Nová registrácia – ${input.fullName}`,
+    text: adminText,
+  });
+
+  await client.sendMail({
+    from: process.env.MAIL_FROM,
+    to: input.email,
+    subject: 'Prijali sme vašu registráciu – ASTANA',
+    text: [
+      `Dobrý deň, ${input.fullName},`,
+      '',
+      'ďakujeme za registráciu do siete ASTANA. Ozveme sa vám do 48 hodín na zadané telefónne číslo a prejdeme si možnosti spolupráce.',
+      '',
+      'ASTANA, s.r.o.',
+      '0905 217 946',
+      'astana@astana.sk',
+    ].join('\n'),
+  });
+
+  return { sent: true };
+}

@@ -10,9 +10,9 @@ import { homeContentDefaults, homeContentVersion } from '@/src/server/site-conte
 
 
 const heroCounters = [
-  { value: 80000, suffix: '+', label: 'm² zlikvidovaných', start: 0 },
-  { value: 500, suffix: '+', label: 'zákazníkov', start: 0 },
-  { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990 },
+  { value: 80000, suffix: '+', label: 'm² zlikvidovaných', start: 0, format: 'locale' },
+  { value: 500, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
+  { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
 ] as const;
 
 const realizationFilters = [
@@ -31,6 +31,35 @@ const getReviewInitials = (name: string) =>
     .map((part) => part[0])
     .join('')
     .toUpperCase();
+
+const formatHeroCounterValue = (counter: (typeof heroCounters)[number]) =>
+  `${counter.format === 'plain' ? counter.value : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
+
+const whyCardMeta = [
+  { icon: 'shield', title: 'Bezpečný postup' },
+  { icon: 'document', title: 'Dokumentácia' },
+  { icon: 'truck', title: 'Demontáž aj odvoz' },
+  { icon: 'clock', title: 'Skúsenosti od roku 2011' },
+  { icon: 'euro', title: 'Jasné nacenenie' },
+  { icon: 'map', title: 'Celé Slovensko' },
+] as const;
+
+function HeroOutlineIcon({ name }: { name: (typeof whyCardMeta)[number]['icon'] }) {
+  const paths = {
+    shield: 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 2.714Z',
+    document: 'M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm-3.75 9h7.5m-7.5 3h7.5m-7.5 3h4.5',
+    truck: 'M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.125-.504 1.125-1.125V13.5a3.375 3.375 0 0 0-.879-2.277l-1.99-2.211A3.375 3.375 0 0 0 16.5 7.875H14.25V6.375c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v7.875m12 4.5V7.875m0 10.875h2.25',
+    clock: 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+    euro: 'M14.25 7.756a4.5 4.5 0 1 0 0 8.488M7.5 10.5h6m-6 3h6',
+    map: 'M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z',
+  } satisfies Record<(typeof whyCardMeta)[number]['icon'], string>;
+
+  return (
+    <svg className="why-card-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d={paths[name]} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
 
 const defaultIncludedItems = [
   'Podklady pre RÚVZ ku konkrétnej stavbe',
@@ -369,8 +398,9 @@ export default async function HomePage() {
                     data-counter-target={counter.value}
                     data-counter-start={counter.start}
                     data-counter-suffix={counter.suffix}
+                    data-counter-format={counter.format}
                   >
-                    {counter.value.toLocaleString('sk-SK')}{counter.suffix}
+                    {formatHeroCounterValue(counter)}
                   </strong>
                   <span>{counter.label}</span>
                 </div>
@@ -681,7 +711,7 @@ export default async function HomePage() {
           <ol className="process-list process-stepper">
             {processSteps.map(([title, text], index) => (
               <li key={title}>
-                <span>{index + 1}</span>
+                <span className="step-num">{index + 1}</span>
                 <div className="process-step-copy">
                   <strong>{title}</strong>
                   <p>{text}</p>
@@ -788,7 +818,7 @@ export default async function HomePage() {
             ))}
           </div>
           <div className="roofers-actions">
-            <a className="button button-outline" href="/strechari/">{content.roofersCtaPrimary}</a>
+            <a className="button button-outline" href="/strechari/#registracia">Ste strechár? Zaregistrujte sa →</a>
             <a className="button button-primary" href="#dopyt">{content.roofersCtaSecondary}</a>
           </div>
         </section>
@@ -800,11 +830,15 @@ export default async function HomePage() {
               <h2 id="why-title">{content.whyTitle}</h2>
               <p className="why-lead">{content.whyText}</p>
             </div>
-            <ul className="why-list">
-              {whyItems.map((item) => (
-                <li key={item}>{item}</li>
+            <div className="why-card-grid">
+              {whyCardMeta.map((card, index) => (
+                <article className="why-feature-card" key={card.title}>
+                  <HeroOutlineIcon name={card.icon} />
+                  <h3>{card.title}</h3>
+                  <p>{whyItems[index] || defaultWhyItems[index]}</p>
+                </article>
               ))}
-            </ul>
+            </div>
           </div>
         </section>
 

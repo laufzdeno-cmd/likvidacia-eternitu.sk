@@ -1,29 +1,47 @@
 [
   {
     "id": 1,
-    "name": "Martin H.",
-    "location": "Košice",
+    "name": "Miroslav H.",
+    "location": "Liptovský Mikuláš",
     "object": "Rodinný dom",
-    "date": "Jún 2024",
+    "date": "Marec 2025",
     "stars": 5,
-    "text": "Zlikvidovali nám eternit na rodinnom dome. Prišli včas, strechári mohli nastúpiť hneď na druhý deň. Všetko prebehlo s dokladmi a cena zodpovedala ponuke."
+    "text": "Prišli presne o šiestej ráno ako sme sa dohodli. Strechári nastúpili o ôsmej a strecha bola do poludnia čistá. Žiadny chaos, žiadny odpad na dvore — azbest si odniesli so sebou."
   },
   {
     "id": 2,
-    "name": "Peter K.",
-    "location": "Prešov",
-    "object": "Hospodárska budova",
-    "date": "Apríl 2024",
+    "name": "Jana K.",
+    "location": "Trenčín",
+    "object": "Rodinný dom",
+    "date": "Apríl 2025",
     "stars": 5,
-    "text": "Riešili sme hospodársku budovu. Bál som sa byrokracie, ale ASTANA vybavila dokumentáciu sama. Zaplatil som až po ukončení prác."
+    "text": "Bála som sa ako to celé prebehne, ale chalani pracovali čisto a pokojne. Najskôr niečím postriekali strechu, potom opatrne rozobrali eternit a spustili dole. Po skončení ešte raz striekali — vraj vyhmlievanie. Doklady som dostala do týždňa."
   },
   {
     "id": 3,
-    "name": "Jana N.",
-    "location": "Banská Bystrica",
-    "object": "Rodinný dom",
-    "date": "Február 2024",
+    "name": "Peter V.",
+    "location": "Žilina",
+    "object": "Hospodárska budova",
+    "date": "Február 2025",
     "stars": 5,
-    "text": "Prišli presne na dohodnutý deň, pracovisko zostalo čisté. Doklady dostupné ihneď po ukončení. Cena férová, odporúčam."
+    "text": "Väčšia hospodárska budova, cca 300 m². Zvládli to za jeden deň. Ocenil som že nepotreboval som riešiť nič — dokumentáciu, odvoz ani úrady. ASTANA to vzala celé na seba."
+  },
+  {
+    "id": 4,
+    "name": "Tomáš R.",
+    "location": "Prešov",
+    "object": "Rodinný dom",
+    "date": "Január 2025",
+    "stars": 5,
+    "text": "Kontrola z hygieny neskôr nenamietala nič — doklady boli v poriadku, postup správny. Strechár ktorého mi odporučili bol tiež spoľahlivý. Odporúčam každému kto rieši eternit."
+  },
+  {
+    "id": 5,
+    "name": "Rastislav M.",
+    "location": "Banská Bystrica",
+    "object": "Priemyselný objekt",
+    "date": "November 2024",
+    "stars": 5,
+    "text": "Priemyselná hala, komplikovanejší prístup. Prišli skoro ráno, pracovisko si pripravili sami. Šablóny vrecovali priamo na streche, nič nepadalo dolu. Profesionálna práca."
   }
 ]

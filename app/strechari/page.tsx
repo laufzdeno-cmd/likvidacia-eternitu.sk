@@ -1,93 +1,76 @@
 import type { Metadata } from 'next';
 import LandingClient from '../landing-client';
-import { listPublicRoofers } from '@/src/server/db';
 
 export const metadata: Metadata = {
-  title: 'Strechári podľa regiónu | ASTANA',
+  title: 'Spolupráca pre strechárov | ASTANA',
   description:
-    'Máte strechára? Zladíme sa. Nemáte? Pomôžeme nájsť partnera podľa regiónu a zladiť demontáž eternitu s výmenou strechy.',
+    'Zaregistrujte sa do siete ASTANA. Likvidujeme azbest skoro ráno, aby mohli strechári začať pracovať ešte dopoludnia.',
   alternates: {
     canonical: '/strechari/',
   },
   openGraph: {
-    title: 'Strechári podľa regiónu | ASTANA',
-    description:
-      'Zladenie likvidácie eternitu so strechárom. Verejný zoznam partnerov sa zobrazuje len po schválení v adminovi.',
+    title: 'Spolupráca pre strechárov | ASTANA',
+    description: 'B2B spolupráca pre strechárov: skorá likvidácia azbestu, čisté pracovisko a odporúčanie zákaziek.',
     url: '/strechari/',
   },
 };
 
+const benefits = [
+  {
+    icon: 'clock',
+    title: 'Príchod o 6:00 – 7:00',
+    text: 'Na stavbu prichádzame skoro ráno. Vy môžete začať klásť novú krytinu ešte dopoludnia. Strecha nezostáva zbytočne otvorená.',
+  },
+  {
+    icon: 'shield',
+    title: 'Čistá práca, žiadny chaos',
+    text: 'Strechu stabilizujeme penetračným roztokom, azbest vrecujeme priamo na streche alebo opatrne zlaňujeme dolu. Po skončení robíme vyhmlievanie. Pracovisko odovzdávame čisté.',
+  },
+  {
+    icon: 'document-check',
+    title: 'Doklady v poriadku',
+    text: 'Všetky kontroly hygieny dopadli bez problémov. Zákazník dostane kompletnú dokumentáciu. Vy nemáte starosti so zodpovednosťou za azbest.',
+  },
+] as const;
+
+const steps = [
+  ['Zaregistrujete sa', 'Vyplníte krátky formulár — región, typ zákaziek, kontakt.'],
+  ['Zladíme termín', 'Keď máte zákazníka s azbestom, napíšete nám. Dohodneme príchod na skoro ráno.'],
+  ['My zlikvidujeme, vy staviate', 'Prídeme, urobíme svoju prácu čisto a odídeme. Vy nastúpite na čerstvú strechu.'],
+  ['Dohadzujeme si zákazky navzájom', 'Ak zákazník nemá strechára, odporučíme vás. Funguje to oboma smermi.'],
+] as const;
+
 const regions = [
-  'Bratislavský',
-  'Trnavský',
-  'Trenčiansky',
-  'Nitriansky',
-  'Žilinský',
-  'Banskobystrický',
-  'Prešovský',
-  'Košický',
+  'Bratislavský kraj',
+  'Trnavský kraj',
+  'Trenčiansky kraj',
+  'Nitriansky kraj',
+  'Žilinský kraj',
+  'Banskobystrický kraj',
+  'Prešovský kraj',
+  'Košický kraj',
+  'Celé Slovensko',
 ];
 
-const districts = [
-  'Poprad',
-  'Kežmarok',
-  'Prešov',
-  'Košice-okolie',
-  'Žilina',
-  'Banská Bystrica',
-  'Nitra',
-  'Trnava',
-  'Bratislava',
-];
+const jobTypes = ['Šikmé strechy', 'Ploché strechy', 'Priemyselné objekty', 'Hospodárske budovy'];
 
-const regionChoices = [
-  {
-    region: 'Bratislavský',
-    label: 'Bratislavský kraj',
-  },
-  {
-    region: 'Trnavský',
-    label: 'Trnavský kraj',
-  },
-  {
-    region: 'Trenčiansky',
-    label: 'Trenčiansky kraj',
-  },
-  {
-    region: 'Nitriansky',
-    label: 'Nitriansky kraj',
-  },
-  {
-    region: 'Žilinský',
-    label: 'Žilinský kraj',
-  },
-  {
-    region: 'Banskobystrický',
-    label: 'Banskobystrický kraj',
-  },
-  {
-    region: 'Prešovský',
-    label: 'Prešovský kraj',
-  },
-  {
-    region: 'Košický',
-    label: 'Košický kraj',
-  },
-];
+function OutlineIcon({ name }: { name: (typeof benefits)[number]['icon'] }) {
+  const paths = {
+    clock: 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+    shield:
+      'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 2.714Z',
+    'document-check':
+      'M10.125 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm0 0c4.97 0 9 4.03 9 9m-9-9v5.625c0 .621.504 1.125 1.125 1.125H16.5m-6 7.5 2.25 2.25L16.5 15',
+  } satisfies Record<(typeof benefits)[number]['icon'], string>;
 
-export default async function RoofersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
-  const params = await searchParams;
-  const region = (params.kraj || '').trim();
-  const district = (params.okres || '').trim();
-  const verifiedOnly = params.overeny === 'ano';
-  const minRating = Number(params.hodnotenie || 0);
-  const allRoofers = await listPublicRoofers({ region, district });
-  const roofers = allRoofers.filter((roofer) => (!verifiedOnly || roofer.verifiedPartner)).filter((roofer) => !minRating || roofer.rating >= minRating);
-  const selectedRegion = regionChoices.find((item) => item.region === region);
-  const emptyStateText = region
-    ? `V kraji ${selectedRegion?.label || region} ešte verejne nezobrazujeme partnera. Uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera, aby ste nedostali náhodný kontakt, ale použiteľné odporúčanie.`
-    : 'Ak strechára ešte nemáte, uveďte kraj a okres v cenovej ponuke. Odporúčanie potvrdíme ručne podľa regiónu, dostupnosti a vhodnosti partnera, aby ste nedostali náhodný kontakt, ale použiteľné odporúčanie.';
+  return (
+    <svg className="roofer-b2b-icon" width="32" height="32" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d={paths[name]} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+    </svg>
+  );
+}
 
+export default function RoofersPage() {
   return (
     <>
       <header className="site-header">
@@ -102,7 +85,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
               <strong>0905 217 946</strong>
               <small>Po-Pia 7:00 - 18:00</small>
             </a>
-            <a className="button button-primary header-button" href="/#dopyt">Chcem cenovú ponuku</a>
+            <a className="button button-primary header-button" href="#registracia">Chcem spolupracovať</a>
           </div>
           <button className="menu-toggle" type="button" aria-controls="site-nav" aria-expanded="false">Menu</button>
         </div>
@@ -110,7 +93,7 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
           <a href="/">Úvod</a>
           <a href="/#orientacna-cena">Orientačná cena</a>
           <a href="/#ako-to-prebieha">Ako to prebieha</a>
-          <a href="/strechari/" aria-current="page">Strechári</a>
+          <a className="is-active" href="/strechari/" aria-current="page">Strechári</a>
           <a href="/realizacie/">Realizácie</a>
           <a href="/#preco">Prečo ASTANA</a>
           <a href="/#faq">FAQ</a>
@@ -118,268 +101,133 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
         </nav>
       </header>
 
-      <main className="roofer-page">
-        <section className="roofer-hero" aria-labelledby="roofer-title">
-          <div>
-            <p className="eyebrow">Strechári podľa regiónu</p>
-            <h1 id="roofer-title">
-              <span>Máte strechára?</span>
-              <span>Zladíme sa.</span>
-              <span>Nemáte?</span>
-              <span>Pomôžeme nájsť.</span>
-            </h1>
+      <main className="roofer-b2b-page">
+        <section className="roofer-b2b-hero" aria-labelledby="roofer-title">
+          <div className="roofer-b2b-inner">
+            <h1 id="roofer-title">Ste strechár?<br />Spolupracujte s ASTANA.</h1>
             <p>
-              Pri výmene strechy rozhoduje načasovanie. Demontáž plánujeme tak, aby mohli strechári nadviazať čo
-              najplynulejšie a strecha nezostala zbytočne otvorená.
+              Likvidujeme azbest skoro ráno — tak aby ste mohli začať pracovať ešte dopoludnia.
+              Zaregistrujte sa a začneme si dohadzovať zákazky.
             </p>
             <div className="hero-actions">
-              <a className="button button-primary" href="#filter-region">Vybrať región</a>
+              <a className="button button-primary" href="#registracia">Chcem spolupracovať →</a>
               <a className="button button-outline" href="tel:+421905217946">Zavolať 0905 217 946</a>
             </div>
-            <div className="roofer-hero-points" aria-label="Ako pomáhame pri výmene strechy">
-              <span>Termín ladíme vopred</span>
-              <span>Strecha nezostáva zbytočne otvorená</span>
-              <span>Odporúčanie partnera kontroluje ASTANA</span>
-            </div>
-          </div>
-          <div className="region-map-card region-grid-card">
-            <div className="region-map-copy">
-              <p className="eyebrow">Výber regiónu</p>
-              <strong>Nájdeme strechára podľa regiónu</strong>
-              <p>
-                Vyberte kraj alebo okres. Ak nemáte vlastného strechára, odporučíme vám partnera a zladíme termín
-                demontáže s výmenou strechy.
-              </p>
-            </div>
-            <a className="button button-primary region-picker-cta" href="#filter-region">Vybrať región</a>
-            <div className="region-choice-grid" aria-label="Vyberte kraj">
-              {regionChoices.map((item) => (
-                <a
-                  key={item.region}
-                  className={`region-choice-card${item.region === region ? ' is-selected' : ''}`}
-                  href={`/strechari/?kraj=${encodeURIComponent(item.region)}#filter-region`}
-                  aria-label={`Vybrať ${item.label}`}
-                >
-                  <span className="line-icon map" aria-hidden="true"></span>
-                  <span>
-                    <strong>{item.label}</strong>
-                    <small>Preveríme partnera v regióne</small>
-                  </span>
-                </a>
-              ))}
-            </div>
-            <p className="region-map-selected">
-              {selectedRegion ? (
-                <>Vybraný región: <strong>{selectedRegion.label}</strong></>
-              ) : (
-                'Vyberte kraj kliknutím na kartu alebo použite filter nižšie.'
-              )}
-            </p>
           </div>
         </section>
 
-        <section className="section roofer-proof-section" aria-labelledby="roofer-proof-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">Zladenie prác v praxi</p>
-              <h2 id="roofer-proof-title">Zladenie demontáže so strechárskou prácou</h2>
-            </div>
-            <p>
-              Pri výmene strechy je dôležité načasovanie. Demontáž plánujeme tak, aby strechári mohli nadviazať
-              fóliou, latovaním alebo novou krytinou bez zbytočného čakania.
-            </p>
-          </div>
-          <div className="roofer-roof-panel">
-            <div className="roofer-roof-illustration" aria-hidden="true">
-              <div className="roof-sky"></div>
-              <div className="roof-plane roof-plane-old"></div>
-              <div className="roof-plane roof-plane-new"></div>
-              <span className="roof-label roof-label-old">Demontáž</span>
-              <span className="roof-label roof-label-new">Nová strecha</span>
-              <span className="roof-pin roof-pin-one"></span>
-              <span className="roof-pin roof-pin-two"></span>
-            </div>
-            <div className="roofer-proof-steps">
-              <article>
-                <span className="line-icon calendar" aria-hidden="true"></span>
-                <h3>Termín ladíme vopred</h3>
-                <p>Najprv sa dohodne deň demontáže, rozsah prác a nadväznosť strechárov.</p>
-              </article>
-              <article>
-                <span className="line-icon shield" aria-hidden="true"></span>
-                <h3>Strecha nezostáva zbytočne otvorená</h3>
-                <p>Práce plánujeme tak, aby po odstránení eternitu mohli pokračovať ďalšie kroky.</p>
-              </article>
-              <article>
-                <span className="line-icon map" aria-hidden="true"></span>
-                <h3>Partner podľa regiónu</h3>
-                <p>Ak strechára nemáte, odporúčanie preveríme ručne podľa kraja, okresu a dostupnosti.</p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section className="section roofer-directory" aria-labelledby="directory-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">Kontrolovaný zoznam partnerov</p>
-              <h2 id="directory-title">Zoznam spolupracujúcich strechárov</h2>
-            </div>
-            <p>
-              Vyberte kraj alebo okres. Ak partner vo vašom regióne zatiaľ nie je verejne zobrazený, uveďte región
-              v cenovej ponuke a preveríme vhodný kontakt.
-            </p>
-          </div>
-
-          <form className="roofer-filters" id="filter-region" aria-label="Filtrovanie strechárov" method="get" action="/strechari/">
-            <label>
-              Kraj
-              <select name="kraj" defaultValue={region}>
-                <option value="">Všetky kraje</option>
-                {regions.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>
-              Okres
-              <select name="okres" defaultValue={district}>
-                <option value="">Všetky okresy</option>
-                {districts.map((item) => <option key={item}>{item}</option>)}
-              </select>
-            </label>
-            <label>
-              Overený partner
-              <select name="overeny" defaultValue={verifiedOnly ? 'ano' : ''}>
-                <option value="">Všetci aktívni</option>
-                <option value="ano">Iba overení</option>
-              </select>
-            </label>
-            <label>
-              Hodnotenie
-              <select name="hodnotenie" defaultValue={minRating ? String(minRating) : ''}>
-                <option value="">Bez obmedzenia</option>
-                <option value="4">4+ hviezdičky</option>
-                <option value="4.5">4,5+ hviezdičky</option>
-              </select>
-            </label>
-            <button className="button button-outline" type="submit">Filtrovať</button>
-          </form>
-
-          {roofers.length ? (
-            <div className="roofer-card-grid">
-              {roofers.map((roofer) => (
-                <article className="public-roofer-card" key={roofer.id} data-roofer-card={roofer.id} data-roofer-region={roofer.region}>
-                  <div className="roofer-card-top">
-                    <div>
-                      <h3>{roofer.name}</h3>
-                      <p>{roofer.region}{roofer.districts.length ? ` · ${roofer.districts.join(', ')}` : ''}</p>
-                    </div>
-                    {roofer.verifiedPartner ? <span>Overený partner ASTANA</span> : <span>Partner v overovaní</span>}
-                  </div>
-                  <dl>
-                    <dt>Hodnotenie</dt>
-                    <dd>{roofer.rating ? `${roofer.rating.toFixed(1)} / 5` : 'zatiaľ bez hodnotení'}{roofer.reviewCount ? ` · ${roofer.reviewCount} hodnotení` : ''}</dd>
-                    <dt>Špecializácia</dt>
-                    <dd>{roofer.specialization || 'strechárske práce podľa dohody'}</dd>
-                  </dl>
-                  {roofer.publicNote ? <p>{roofer.publicNote}</p> : null}
-                  <div className="roofer-card-actions">
-                    <button
-                      className="button button-outline"
-                      type="button"
-                      data-roofer-contact={roofer.id}
-                      data-roofer-region={roofer.region}
-                      aria-controls={`roofer-contact-${roofer.id}`}
-                      aria-expanded="false"
-                    >
-                      Zobraziť kontakt
-                    </button>
-                    <a
-                      className="button button-primary"
-                      data-roofer-quote={roofer.id}
-                      data-roofer-region={roofer.region}
-                      href={`/?wantsRooferRecommendation=true&selectedRooferId=${encodeURIComponent(roofer.id)}#dopyt`}
-                    >
-                      Použiť pri cenovej ponuke
-                    </a>
-                  </div>
-                  <div className="roofer-contact-panel" id={`roofer-contact-${roofer.id}`} hidden>
-                    {roofer.phone ? <a href={`tel:${roofer.phone}`}>{roofer.phone}</a> : <span>Telefón cez ASTANA</span>}
-                    {roofer.email ? <a href={`mailto:${roofer.email}`}>{roofer.email}</a> : null}
-                    {roofer.web ? <a href={roofer.web} target="_blank" rel="noreferrer">Web partnera</a> : null}
-                  </div>
+        <section className="roofer-b2b-benefits" aria-labelledby="roofer-benefits-title">
+          <div className="roofer-b2b-inner">
+            <h2 id="roofer-benefits-title">Čo pre vás robíme my</h2>
+            <div className="roofer-b2b-card-grid">
+              {benefits.map((benefit) => (
+                <article className="roofer-b2b-card" key={benefit.title}>
+                  <OutlineIcon name={benefit.icon} />
+                  <h3>{benefit.title}</h3>
+                  <p>{benefit.text}</p>
                 </article>
               ))}
             </div>
-          ) : (
-            <div className="roofer-empty-state">
-              <div className="roofer-empty-copy">
-                <p className="eyebrow">Partneri podľa regiónu</p>
-                <h3>Partnerov nezobrazujeme automaticky. Najprv ich overujeme.</h3>
-                <p>{emptyStateText}</p>
-                <div className="roofer-empty-steps" aria-label="Ako odporúčanie strechára prebieha">
-                  <span>Zadáte kraj a okres</span>
-                  <span>Preveríme vhodný kontakt</span>
-                  <span>Odporúčanie potvrdí admin</span>
-                </div>
-              </div>
-              <div className="roofer-empty-action">
-                <span className="line-icon map" aria-hidden="true"></span>
-                <strong>Nemáte strechára?</strong>
-                <p>V dopyte zaškrtnite odporúčanie podľa regiónu. Nič neposielame automaticky bez kontroly.</p>
-                <a className="button button-primary" href="/#dopyt">Vyplniť cenovú ponuku</a>
-              </div>
-            </div>
-          )}
+          </div>
         </section>
 
-        <section className="final-cta roofer-final" aria-labelledby="roofer-final-title">
-          <div>
-            <p className="eyebrow">Nemáte strechára?</p>
-            <h2 id="roofer-final-title">Zadajte výmeru, lokalitu a či už máte strechára.</h2>
-            <p>My preveríme postup, cenu a podľa regiónu aj možnosti zladenia so strechárskou prácou.</p>
+        <section className="roofer-b2b-how" aria-labelledby="roofer-how-title">
+          <div className="roofer-b2b-inner">
+            <h2 id="roofer-how-title">Ako to funguje</h2>
+            <ol className="roofer-b2b-stepper">
+              {steps.map(([title, text], index) => (
+                <li key={title}>
+                  <span className="step-num">{index + 1}</span>
+                  <div>
+                    <strong>{title}</strong>
+                    <p>{text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
-          <div className="final-actions">
-            <a className="button button-primary" href="/#dopyt">Získať cenovú ponuku</a>
-            <a className="button button-outline" href="/">Späť na úvod</a>
+        </section>
+
+        <section className="roofer-b2b-registration" id="registracia" aria-labelledby="registration-title">
+          <div className="roofer-b2b-inner">
+            <div className="roofer-registration-head">
+              <h2 id="registration-title">Zaregistrujte sa do siete ASTANA</h2>
+              <p>Vyplňte krátky formulár. Ozveme sa do 48 hodín.</p>
+            </div>
+            <form className="roofer-registration-form" action="/api/roofer-registration/" method="post" noValidate>
+              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <div className="roofer-form-grid">
+                <label>
+                  Meno a priezvisko *
+                  <input name="fullName" type="text" autoComplete="name" required />
+                </label>
+                <label>
+                  Názov firmy / živnosť
+                  <input name="companyName" type="text" autoComplete="organization" />
+                </label>
+                <label>
+                  Telefón *
+                  <input name="phone" type="tel" autoComplete="tel" required />
+                </label>
+                <label>
+                  Email *
+                  <input name="email" type="email" autoComplete="email" required />
+                </label>
+              </div>
+
+              <fieldset>
+                <legend>Región pôsobenia *</legend>
+                <div className="roofer-checkbox-grid">
+                  {regions.map((region) => (
+                    <label key={region}>
+                      <input type="checkbox" name="regions" value={region} />
+                      <span>{region}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <fieldset>
+                <legend>Typ zákaziek</legend>
+                <div className="roofer-checkbox-grid roofer-checkbox-grid-compact">
+                  {jobTypes.map((type) => (
+                    <label key={type}>
+                      <input type="checkbox" name="jobTypes" value={type} />
+                      <span>{type}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label>
+                Správa / poznámka
+                <textarea
+                  name="message"
+                  rows={4}
+                  placeholder="Napr. koľko zákaziek ročne riešite, s čím potrebujete pomôcť..."
+                ></textarea>
+              </label>
+
+              <label className="roofer-consent">
+                <input type="checkbox" name="gdpr" required />
+                <span>Súhlasím so spracovaním údajov na vybavenie registrácie.</span>
+              </label>
+
+              <button className="button button-primary" type="submit">Odoslať registráciu</button>
+              <p className="roofer-registration-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </section>
+
+        <section className="roofer-b2b-footer-cta" aria-labelledby="roofer-footer-title">
+          <div className="roofer-b2b-inner">
+            <h2 id="roofer-footer-title">Zaujíma vás spolupráca? Zavolajte.</h2>
+            <a href="tel:+421905217946">0905 217 946</a>
+            <p>Po–Pia 7:00 – 18:00</p>
           </div>
         </section>
       </main>
 
-      <footer className="site-footer" id="kontakt">
-        <div>
-          <a className="brand footer-brand" href="/" aria-label="ASTANA">
-            <img className="brand-logo" src="/assets/astana-logo.svg" alt="ASTANA" width="195" height="65" />
-            <span><small>Bezpečná likvidácia azbestu</small></span>
-          </a>
-          <p>Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.</p>
-        </div>
-        <div>
-          <h2>Kontakt</h2>
-          <span>ASTANA, s.r.o.</span>
-          <span>Scherffelova 1364/28</span>
-          <span>058 01 Poprad</span>
-          <a href="tel:+421905217946">0905 217 946</a>
-          <a href="mailto:astana@astana.sk">astana@astana.sk</a>
-        </div>
-        <div>
-          <h2>Firma</h2>
-          <span>IČO: 46 157 701</span>
-          <span>DIČ: 2023253771</span>
-          <span>IČ DPH: SK2023253771</span>
-        </div>
-        <div>
-          <h2>Užitočné</h2>
-          <a href="/">Úvod</a>
-          <a href="/#realizacie-astana">Prax</a>
-          <a href="/ochrana-osobnych-udajov/">GDPR</a>
-          <a href="/cookies/">Cookies</a>
-          <a href="/sitemap.xml">Sitemap</a>
-        </div>
-      </footer>
-      <div className="mobile-sticky-cta" aria-label="Rýchle kontakty">
-        <a href="tel:+421905217946">Zavolať</a>
-        <a href="/#dopyt">Cenová ponuka</a>
-      </div>
       <LandingClient />
     </>
   );

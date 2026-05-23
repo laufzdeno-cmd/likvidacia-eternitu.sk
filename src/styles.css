@@ -34,6 +34,8 @@ html {
   overflow-x: clip;
 }
 
+
+
 /* Content strategy pass: make the hero photo a real proof column again and keep mobile fluid. */
 @media (min-width: 1081px) {
   .hero {
@@ -7099,11 +7101,12 @@ h2 {
   background: #d4d2cb;
 }
 
-.process-list.process-stepper > li > span {
+.process-list.process-stepper .step-num {
   position: relative !important;
   z-index: 1;
-  display: grid !important;
-  place-items: center;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
   width: 44px !important;
   height: 44px !important;
   border-radius: 999px !important;
@@ -7115,7 +7118,7 @@ h2 {
   transition: background 0.2s ease;
 }
 
-.process-list.process-stepper li:hover > span {
+.process-list.process-stepper li:hover .step-num {
   background: #e8541a !important;
 }
 
@@ -7289,6 +7292,43 @@ h2 {
   text-decoration: underline;
 }
 
+.why-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin-top: 28px;
+}
+
+.why-feature-card {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #e8e6df;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.why-card-icon {
+  color: #e8541a;
+}
+
+.why-feature-card h3 {
+  margin: 0;
+  color: #242321;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.why-feature-card p {
+  margin: 0;
+  color: #4a4845;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
 @media (max-width: 767px) {
   .hero-counters {
     padding: 32px 0;
@@ -7327,10 +7367,14 @@ h2 {
     height: calc(100% - 36px);
   }
 
-  .process-list.process-stepper > li > span {
+  .process-list.process-stepper .step-num {
     width: 36px !important;
     height: 36px !important;
     font-size: 16px !important;
+  }
+
+  .why-card-grid {
+    grid-template-columns: 1fr;
   }
 
   .reviews-section {
@@ -7340,5 +7384,357 @@ h2 {
 
   .reviews-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* B2B roofer registration landing page. */
+.roofer-b2b-page {
+  background: #ffffff;
+}
+
+.roofer-b2b-inner {
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.roofer-b2b-hero {
+  padding: 80px 0;
+  background: #0f1f3d;
+  color: #ffffff;
+}
+
+.roofer-b2b-hero h1 {
+  max-width: 760px;
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(42px, 6vw, 74px);
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.roofer-b2b-hero p {
+  max-width: 760px;
+  margin: 22px 0 0;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 18px;
+  line-height: 1.65;
+}
+
+.roofer-b2b-hero .hero-actions {
+  margin-top: 30px;
+}
+
+.roofer-b2b-hero .button-primary,
+.roofer-registration-form .button-primary {
+  background: #e8541a;
+  border-color: #e8541a;
+}
+
+.roofer-b2b-hero .button-outline,
+.roofer-b2b-footer-cta .button-outline {
+  border-color: rgba(255, 255, 255, 0.72);
+  color: #ffffff;
+}
+
+.roofer-b2b-benefits,
+.roofer-b2b-registration {
+  padding: 96px 0;
+  background: #f8f7f4;
+}
+
+.roofer-b2b-benefits h2,
+.roofer-b2b-how h2,
+.roofer-registration-head h2 {
+  margin: 0;
+  color: #0f1f3d;
+}
+
+.roofer-b2b-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 34px;
+}
+
+.roofer-b2b-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 28px;
+  border: 1px solid #e8e6df;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.roofer-b2b-icon {
+  color: #e8541a;
+}
+
+.roofer-b2b-card h3 {
+  margin: 0;
+  color: #242321;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.roofer-b2b-card p {
+  margin: 0;
+  color: #4a4845;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.roofer-b2b-how {
+  padding: 96px 0;
+  background: #ffffff;
+}
+
+.roofer-b2b-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  margin: 36px 0 0;
+  list-style: none;
+}
+
+.roofer-b2b-stepper li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 14px;
+  padding: 0 18px;
+  text-align: center;
+}
+
+.roofer-b2b-stepper li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 22px;
+  left: calc(50% + 22px);
+  width: calc(100% - 44px);
+  height: 1px;
+  background: #d4d2cb;
+}
+
+.roofer-b2b-stepper .step-num {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #0f1f3d;
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.roofer-b2b-stepper strong {
+  display: block;
+  color: #242321;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.roofer-b2b-stepper p {
+  margin: 8px 0 0;
+  color: #8a8880;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.roofer-registration-head {
+  display: grid;
+  gap: 10px;
+  max-width: 700px;
+  margin-bottom: 28px;
+}
+
+.roofer-registration-head p {
+  margin: 0;
+  color: #4a4845;
+  font-size: 17px;
+}
+
+.roofer-registration-form {
+  display: grid;
+  gap: 22px;
+  padding: 30px;
+  border: 1px solid #e8e6df;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.roofer-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.roofer-registration-form label,
+.roofer-registration-form fieldset {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  color: #242321;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.roofer-registration-form fieldset {
+  padding: 0;
+  border: 0;
+}
+
+.roofer-registration-form legend {
+  margin-bottom: 10px;
+  color: #242321;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.roofer-registration-form input[type="text"],
+.roofer-registration-form input[type="tel"],
+.roofer-registration-form input[type="email"],
+.roofer-registration-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d4d2cb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #242321;
+  font: inherit;
+  font-weight: 400;
+}
+
+.roofer-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.roofer-checkbox-grid-compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.roofer-checkbox-grid label,
+.roofer-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 10px 12px;
+  border: 1px solid #e8e6df;
+  border-radius: 8px;
+  background: #f8f7f4;
+  color: #4a4845;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.roofer-consent {
+  background: transparent;
+}
+
+.roofer-registration-form button {
+  justify-self: start;
+}
+
+.roofer-registration-status {
+  white-space: pre-line;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.roofer-registration-status.is-success {
+  color: #2d7a3a;
+}
+
+.roofer-registration-status.is-error {
+  color: #a1121f;
+}
+
+.roofer-registration-status.is-success::before {
+  content: "✓ ";
+  font-weight: 700;
+}
+
+.roofer-b2b-footer-cta {
+  padding: 72px 0;
+  background: #0f1f3d;
+  color: #ffffff;
+  text-align: center;
+}
+
+.roofer-b2b-footer-cta h2 {
+  margin: 0;
+  color: #ffffff;
+}
+
+.roofer-b2b-footer-cta a {
+  display: inline-block;
+  margin-top: 18px;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.roofer-b2b-footer-cta p {
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 14px;
+}
+
+@media (max-width: 767px) {
+  .roofer-b2b-inner {
+    width: min(calc(100vw - 24px), 366px);
+  }
+
+  .roofer-b2b-hero,
+  .roofer-b2b-benefits,
+  .roofer-b2b-how,
+  .roofer-b2b-registration {
+    padding: 64px 0;
+  }
+
+  .roofer-b2b-card-grid,
+  .roofer-form-grid,
+  .roofer-checkbox-grid,
+  .roofer-checkbox-grid-compact {
+    grid-template-columns: 1fr;
+  }
+
+  .roofer-b2b-stepper {
+    grid-template-columns: 1fr;
+  }
+
+  .roofer-b2b-stepper li {
+    grid-template-columns: 44px minmax(0, 1fr);
+    justify-items: start;
+    gap: 14px;
+    min-height: 104px;
+    padding: 0 0 22px;
+    text-align: left;
+  }
+
+  .roofer-b2b-stepper li:not(:last-child)::after {
+    top: 44px;
+    left: 22px;
+    width: 1px;
+    height: calc(100% - 44px);
+  }
+
+  .roofer-registration-form {
+    padding: 20px;
+  }
+
+  .roofer-registration-form button {
+    width: 100%;
+    justify-self: stretch;
   }
 }
