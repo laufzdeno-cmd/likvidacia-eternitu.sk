@@ -6907,3 +6907,46 @@ main .included-group-card::after {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* Polish: logo without white box, sticky form panel, clean hero slogan. */
+.site-header .brand:not(.footer-brand) {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.site-header .brand:not(.footer-brand) .brand-logo {
+  filter: brightness(0) invert(1) !important;
+}
+
+@media (min-width: 901px) {
+  main .quote-section-inner > .quote-info-panel {
+    position: sticky !important;
+    top: 100px !important;
+    align-self: flex-start !important;
+    max-height: calc(100vh - 120px) !important;
+    min-width: 0 !important;
+    overflow-y: auto !important;
+  }
+}
+
+main .hero-claim {
+  margin: 20px 0 !important;
+  padding: 0 0 0 14px !important;
+  border: 0 !important;
+  border-left: 3px solid #e8541a !important;
+  border-radius: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+  color: #0f1f3d !important;
+  font-size: 18px !important;
+  font-style: italic !important;
+  font-weight: 600 !important;
+}
+
+main .hero-claim::before,
+main .hero-claim::after {
+  content: none !important;
+  display: none !important;
+}
