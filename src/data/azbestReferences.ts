@@ -112,7 +112,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-164'),
     category: 'rodinny-dom',
-    title: 'Rodinný dom s kontrolovaným pracoviskom',
+    title: 'Kontrolované pracovisko',
     type: 'Rodinný dom',
     bullets: [
       'Materiál stabilizujeme ešte pred manipuláciou, aby sa znížilo riziko uvoľňovania prachu.',
@@ -123,7 +123,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-051'),
     category: 'rodinny-dom',
-    title: 'Detail stabilizácie materiálu',
+    title: 'Stabilizácia materiálu',
     type: 'Rodinný dom',
     bullets: [
       'Materiál pred manipuláciou stabilizujeme, aby sa znížilo riziko uvoľňovania prachu.',
@@ -134,7 +134,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-068'),
     category: 'rodinny-dom',
-    title: 'Kontrolovaná demontáž na streche',
+    title: 'Demontáž na streche',
     type: 'Rodinný dom',
     bullets: [
       'Krytinu odoberáme kontrolovane bez zhadzovania zo strechy.',
@@ -145,7 +145,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-120'),
     category: 'hospodarska-budova',
-    title: 'Hospodárska budova po odvoze',
+    title: 'Hospodárska budova',
     type: 'Hospodárska budova',
     bullets: [
       'Riešime aj hospodárske objekty, dlhé strechy a väčšie plochy.',
@@ -156,7 +156,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-110'),
     category: 'priemyselny-objekt',
-    title: 'Priemyselný objekt a odvoz',
+    title: 'Priemyselný objekt',
     type: 'Priemyselný objekt',
     bullets: [
       'Priemyselné zákazky vyžadujú koordináciu ľudí, techniky a dokumentácie.',
@@ -167,7 +167,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-106'),
     category: 'priemyselny-objekt',
-    title: 'Dopravníky v priemyselnom podniku',
+    title: 'Priemyselná prevádzka',
     type: 'Priemyselný objekt',
     bullets: [
       'Robíme aj technické prevádzky, dopravníky a väčšie priemyselné areály.',

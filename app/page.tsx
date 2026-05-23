@@ -44,7 +44,20 @@ const whyCardMeta = [
   { icon: 'map', title: 'Celé Slovensko' },
 ] as const;
 
-function HeroOutlineIcon({ name }: { name: (typeof whyCardMeta)[number]['icon'] }) {
+type VisualIconName =
+  | (typeof whyCardMeta)[number]['icon']
+  | 'warning'
+  | 'check'
+  | 'home'
+  | 'waste'
+  | 'tools'
+  | 'calendar'
+  | 'lock'
+  | 'spray'
+  | 'alert'
+  | 'certificate';
+
+function VisualIcon({ name, className = 'visual-icon' }: { name: VisualIconName; className?: string }) {
   const paths = {
     shield: 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 2.714Z',
     document: 'M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Zm-3.75 9h7.5m-7.5 3h7.5m-7.5 3h4.5',
@@ -52,10 +65,20 @@ function HeroOutlineIcon({ name }: { name: (typeof whyCardMeta)[number]['icon'] 
     clock: 'M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
     euro: 'M14.25 7.756a4.5 4.5 0 1 0 0 8.488M7.5 10.5h6m-6 3h6',
     map: 'M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z',
-  } satisfies Record<(typeof whyCardMeta)[number]['icon'], string>;
+    warning: 'M12 9v4.5m0 3.75h.008v.008H12v-.008ZM10.29 3.86 1.82 18a1.5 1.5 0 0 0 1.29 2.25h17.78A1.5 1.5 0 0 0 22.18 18L13.71 3.86a1.5 1.5 0 0 0-2.42 0Z',
+    check: 'm4.5 12.75 4.5 4.5 10.5-10.5',
+    home: 'm3 10.5 9-7.5 9 7.5M5.25 9.25v10.5h13.5V9.25M9.75 19.75v-6h4.5v6',
+    waste: 'M8.25 6.75V5.25A2.25 2.25 0 0 1 10.5 3h3A2.25 2.25 0 0 1 15.75 5.25v1.5m-10.5 0h13.5m-12 0 .75 13.5h9l.75-13.5M10.5 10.5v6m3-6v6',
+    tools: 'M14.25 6.087c0 1.242-.504 2.367-1.318 3.182L4.875 17.326a2.121 2.121 0 0 0 3 3l8.057-8.057A4.5 4.5 0 0 0 21.913 6.75l-3.182 3.182-2.121-2.121 3.182-3.182a4.5 4.5 0 0 0-5.542 1.458Z',
+    calendar: 'M6.75 3v3m10.5-3v3M3.75 8.25h16.5M5.25 5.25h13.5c.828 0 1.5.672 1.5 1.5v12c0 .828-.672 1.5-1.5 1.5H5.25c-.828 0-1.5-.672-1.5-1.5v-12c0-.828.672-1.5 1.5-1.5Z',
+    lock: 'M8.25 10.5V8.25a3.75 3.75 0 1 1 7.5 0v2.25m-9 0h10.5c.828 0 1.5.672 1.5 1.5v7.5c0 .828-.672 1.5-1.5 1.5H6.75c-.828 0-1.5-.672-1.5-1.5V12c0-.828.672-1.5 1.5-1.5Z',
+    spray: 'M9.75 6.75h4.5m-3.75 0V3.75h3v3m-6 0h9v4.5h-9v-4.5Zm1.5 4.5-3 8.25h10.5l-3-8.25M6 15.75H3.75m16.5 0H18M5.25 12.75 3 11.25m15.75 1.5L21 11.25',
+    alert: 'M12 8.25v5.25m0 3h.008v.008H12V16.5Zm8.25-4.5a8.25 8.25 0 1 1-16.5 0 8.25 8.25 0 0 1 16.5 0Z',
+    certificate: 'M7.5 3.75h9A2.25 2.25 0 0 1 18.75 6v12A2.25 2.25 0 0 1 16.5 20.25h-9A2.25 2.25 0 0 1 5.25 18V6A2.25 2.25 0 0 1 7.5 3.75Zm2.25 5.25h4.5m-4.5 3h4.5m-4.5 3h2.25',
+  } satisfies Record<VisualIconName, string>;
 
   return (
-    <svg className="why-card-icon" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d={paths[name]} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
     </svg>
   );
@@ -71,15 +94,6 @@ const defaultIncludedItems = [
   'Balenie do označených vriec',
   'Odvoz na skládku nebezpečného odpadu',
   'Potvrdenie / dokumentácia po legálnej likvidácii',
-];
-
-const defaultHeroFlowItems = ['m²', 'Ponuka', 'Dokumentácia', 'Demontáž', 'Odvoz', 'Potvrdenie'];
-
-const defaultHeroBulletItems = [
-  'Cenu počítame hlavne podľa m²',
-  'Fotky pomôžu spresniť prístup a typ materiálu',
-  'Dokumentácia RÚVZ / OÚŽP v procese',
-  'Odvoz a doklady po likvidácii',
 ];
 
 const defaultTrustItems = [
@@ -319,8 +333,6 @@ export default async function HomePage() {
       items: includedItems.slice(6),
     },
   ].filter((group) => group.items.length > 0);
-  const heroFlowItems = parseLines(content.heroFlowItems, defaultHeroFlowItems);
-  const heroBulletItems = parseLines(content.heroBulletItems, defaultHeroBulletItems);
   const trustItems = parsePairs(content.trustItems, defaultTrustItems);
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
@@ -403,16 +415,6 @@ export default async function HomePage() {
               ))}
             </div>
             <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
-            <div className="hero-proof-flow" aria-label="Od výmery po potvrdenie">
-              {heroFlowItems.map((item) => (
-                <span key={item}>{item}</span>
-              ))}
-            </div>
-            <ul className="hero-points" aria-label="Ako pripravujeme cenovú ponuku">
-              {heroBulletItems.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
           </div>
 
           <div className="hero-photo real-hero-photo" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
@@ -439,7 +441,24 @@ export default async function HomePage() {
             </div>
           </div>
 
-          <aside className="quote-card" id="dopyt" aria-labelledby="quote-title">
+        </section>
+
+        <section className="quote-section" id="dopyt" aria-labelledby="quote-title">
+          <div className="quote-section-inner">
+            <div className="quote-info-panel">
+              <p className="eyebrow">Rýchle nacenenie</p>
+              <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
+              <p>
+                Formulár zostáva krátky. Najdôležitejšia je približná výmera v m², lokalita a kontakt, aby sme vedeli pripraviť reálnu ponuku.
+              </p>
+              <ul>
+                <li><VisualIcon name="check" className="quote-panel-icon" />Bez záväzku a bez automatickej objednávky</li>
+                <li><VisualIcon name="check" className="quote-panel-icon" />Fotky sú voliteľné, ale výrazne pomôžu</li>
+                <li><VisualIcon name="check" className="quote-panel-icon" />Cenová ponuka odíde až po kontrole</li>
+              </ul>
+            </div>
+
+          <aside className="quote-card" aria-labelledby="quote-title">
             <p className="quote-kicker">{content.quoteKicker}</p>
             <h2 id="quote-title">{content.quoteTitle}</h2>
             <p>{content.quoteIntro}</p>
@@ -447,6 +466,11 @@ export default async function HomePage() {
             <div className="quote-priority">
               <strong>{content.quotePriorityTitle}</strong>
               <span>{content.quotePriorityText}</span>
+            </div>
+            <div className="quote-form-progress" aria-hidden="true">
+              <span></span>
+              <span></span>
+              <span></span>
             </div>
             <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
@@ -569,6 +593,7 @@ export default async function HomePage() {
               <p className="form-status" role="status" aria-live="polite"></p>
             </form>
           </aside>
+          </div>
         </section>
 
         <section className="trust-bar" aria-label="Dôveryhodné prvky služby">
@@ -590,9 +615,9 @@ export default async function HomePage() {
               rozsah ceny. Záväznú ponuku pripravíme po overení detailov.
             </p>
             <ul>
-              <li>m² je hlavný údaj pre výpočet ceny</li>
-              <li>fotky pomôžu spresniť prístup, výšku a náročnosť</li>
-              <li>dopravu pri zákazkách nad 100 m² neúčtujeme</li>
+              <li><VisualIcon name="check" className="price-check-icon" />m² je hlavný údaj pre výpočet ceny</li>
+              <li><VisualIcon name="check" className="price-check-icon" />fotky pomôžu spresniť prístup, výšku a náročnosť</li>
+              <li><VisualIcon name="check" className="price-check-icon" />dopravu pri zákazkách nad 100 m² neúčtujeme</li>
             </ul>
           </div>
           <div className="price-calculator-card" data-price-calculator>
@@ -632,15 +657,18 @@ export default async function HomePage() {
             <p className="section-intro">{content.riskText}</p>
           </div>
           <div className="risk-notice">
-            <span className="line-icon certificate" aria-hidden="true"></span>
+            <span className="risk-notice-icon"><VisualIcon name="warning" /></span>
             <div>
               <h3>{content.riskNoticeTitle}</h3>
               <p>{content.riskNoticeText}</p>
             </div>
           </div>
           <div className="risk-grid">
-            {riskItems.map(([title, text]) => (
+            {riskItems.map(([title, text], index) => (
               <article key={title}>
+                <span className="risk-card-icon">
+                  <VisualIcon name={(['alert', 'document', 'waste', 'certificate'] as const)[index] || 'alert'} />
+                </span>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </article>
@@ -659,7 +687,9 @@ export default async function HomePage() {
           <div className="caution-grid">
             {cautionItems.map(([title, text], index) => (
               <article key={title}>
-                <span className={`line-icon ${['certificate', 'shield', 'document'][index] || 'document'}`} aria-hidden="true"></span>
+                <span className="caution-card-icon">
+                  <VisualIcon name={(['certificate', 'waste', 'tools', 'euro', 'calendar', 'lock'] as const)[index] || 'alert'} />
+                </span>
                 <h3>{title}</h3>
                 <p>{text}</p>
               </article>
@@ -677,7 +707,7 @@ export default async function HomePage() {
             {includedGroups.map((group) => (
               <article className="included-group-card" key={group.title}>
                 <div className="included-group-head">
-                  <span className={`line-icon ${group.icon}`} aria-hidden="true"></span>
+                  <span className="included-group-icon"><VisualIcon name={group.icon as VisualIconName} /></span>
                   <div>
                     <h3>{group.title}</h3>
                     <p>{group.text}</p>
@@ -694,7 +724,7 @@ export default async function HomePage() {
         </section>
 
         <section className="transport-banner" aria-label="Doprava zdarma nad 100 metrov štvorcových">
-          <span className="line-icon truck" aria-hidden="true"></span>
+          <span className="transport-icon"><VisualIcon name="truck" /></span>
           <strong>Dopravu pri zákazkách nad 100 m² neúčtujeme!</strong>
         </section>
 
@@ -755,11 +785,6 @@ export default async function HomePage() {
                 <div className="real-work-content">
                   <span>Reálna realizácia · {item.type}</span>
                   <h3>{item.title}</h3>
-                  <ul>
-                    {item.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
                 </div>
               </article>
             ))}
@@ -829,7 +854,7 @@ export default async function HomePage() {
             <div className="why-card-grid">
               {whyCardMeta.map((card, index) => (
                 <article className="why-feature-card" key={card.title}>
-                  <HeroOutlineIcon name={card.icon} />
+                  <VisualIcon name={card.icon} className="why-card-icon" />
                   <h3>{card.title}</h3>
                   <p>{whyItems[index] || defaultWhyItems[index]}</p>
                 </article>
