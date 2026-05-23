@@ -6848,3 +6848,62 @@ main .reviews-section .review-author span:not(.review-avatar) {
   font-size: 12px !important;
   line-height: 1.35 !important;
 }
+
+/* CSS fix: remove section card wrappers, restore 50/50 form grid, unify included cards. */
+main > .hero,
+main > .quote-section,
+main .quote-section-inner {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+main > .hero,
+main .quote-section-inner {
+  background: transparent !important;
+}
+
+main > .quote-section {
+  background: inherit !important;
+}
+
+main .quote-section-inner {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  min-height: 600px !important;
+  overflow: visible !important;
+}
+
+main .quote-section-inner > .quote-info-panel,
+main .quote-section-inner > .quote-card {
+  position: static !important;
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+
+main .quote-section-inner > .quote-info-panel {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+main .quote-info-panel h2 {
+  font-size: clamp(20px, 2vw, 28px) !important;
+}
+
+main .included-group-card {
+  border-top: 3px solid #e8541a !important;
+}
+
+main .included-group-card::before,
+main .included-group-card::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+}
+
+@media (max-width: 900px) {
+  main .quote-section-inner {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
