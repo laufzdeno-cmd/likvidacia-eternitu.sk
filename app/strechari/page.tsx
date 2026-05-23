@@ -108,11 +108,11 @@ export default async function RoofersPage({ searchParams }: { searchParams: Prom
         </div>
         <nav className="site-nav" id="site-nav" aria-label="Hlavná navigácia">
           <a href="/">Úvod</a>
-          <a href="/#azbest">Prečo odborný postup</a>
-          <a href="/#cena">Čo vybavíme</a>
+          <a href="/#orientacna-cena">Orientačná cena</a>
           <a href="/#ako-to-prebieha">Ako to prebieha</a>
           <a href="/strechari/" aria-current="page">Strechári</a>
-          <a href="/#realizacie-astana">Prax</a>
+          <a href="/realizacie/">Realizácie</a>
+          <a href="/#preco">Prečo ASTANA</a>
           <a href="/#faq">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
         </nav>

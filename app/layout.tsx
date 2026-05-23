@@ -1,7 +1,15 @@
 import type { Metadata } from 'next';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import '../src/styles.css';
 import '../src/premium-overrides.css';
 import '../src/final-visual-polish.css';
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plus-jakarta',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://likvidacia-eternitu.sk'),
@@ -31,12 +39,16 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  other: {
+    'geo.region': 'SK',
+    'geo.placename': 'Slovensko',
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="sk">
-      <body>{children}</body>
+    <html lang="sk" className={plusJakarta.variable}>
+      <body className={plusJakarta.className}>{children}</body>
     </html>
   );
 }

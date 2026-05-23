@@ -27,9 +27,15 @@ export default function LandingClient() {
     const lightboxPrev = document.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
     const lightboxNext = document.querySelector<HTMLButtonElement>('[data-lightbox-next]');
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
+    const priceArea = document.querySelector<HTMLInputElement>('[data-price-area]');
+    const priceAreaOutput = document.querySelector<HTMLOutputElement>('[data-price-area-output]');
+    const priceMin = document.querySelector<HTMLElement>('[data-price-min]');
+    const priceMax = document.querySelector<HTMLElement>('[data-price-max]');
+    const priceMaterialButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-price-material]'));
     let selectedFiles: File[] = [];
     let activeGallery = galleryCards.slice(0, 12);
     let activeGalleryIndex = 0;
+    let activePriceMaterial = 'vlnity';
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -42,6 +48,36 @@ export default function LandingClient() {
       if (!menuToggle || !nav) return;
       menuToggle.setAttribute('aria-expanded', 'false');
       nav.classList.remove('is-open');
+    };
+
+    const priceRates: Record<string, { min: number; max: number }> = {
+      vlnity: { min: 8, max: 14 },
+      hladky: { min: 9, max: 15 },
+      boleticky: { min: 11, max: 18 },
+      neviem: { min: 8, max: 16 },
+    };
+
+    const formatPrice = (value: number) =>
+      `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(value / 10) * 10)} €`;
+
+    const updatePriceCalculator = () => {
+      if (!priceArea || !priceAreaOutput || !priceMin || !priceMax) return;
+      const area = Number(priceArea.value || 120);
+      const rates = priceRates[activePriceMaterial] || priceRates.vlnity;
+      priceAreaOutput.textContent = `${area} m²`;
+      priceMin.textContent = formatPrice(area * rates.min);
+      priceMax.textContent = formatPrice(area * rates.max);
+    };
+
+    const onPriceMaterialClick = (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      activePriceMaterial = button.dataset.priceMaterial || 'vlnity';
+      priceMaterialButtons.forEach((item) => {
+        const active = item === button;
+        item.classList.toggle('is-active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+      updatePriceCalculator();
     };
 
     const updateFileInput = () => {
@@ -343,6 +379,12 @@ export default function LandingClient() {
     quoteLinks.forEach((link) => link.addEventListener('click', onRooferQuoteClick));
     galleryFilters.forEach((button) => button.addEventListener('click', onGalleryFilter));
     galleryFilters[0]?.classList.add('is-active');
+    priceArea?.addEventListener('input', updatePriceCalculator);
+    priceMaterialButtons.forEach((button, index) => {
+      button.setAttribute('aria-pressed', String(index === 0));
+      button.addEventListener('click', onPriceMaterialClick);
+    });
+    updatePriceCalculator();
     galleryLoadMore?.addEventListener('click', onGalleryLoadMore);
     galleryCards.forEach((card) => card.addEventListener('click', () => openGalleryLightbox(card)));
     lightboxClose?.addEventListener('click', closeGalleryLightbox);
@@ -447,6 +489,8 @@ export default function LandingClient() {
       contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));
       quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
       galleryFilters.forEach((button) => button.removeEventListener('click', onGalleryFilter));
+      priceArea?.removeEventListener('input', updatePriceCalculator);
+      priceMaterialButtons.forEach((button) => button.removeEventListener('click', onPriceMaterialClick));
       galleryLoadMore?.removeEventListener('click', onGalleryLoadMore);
       lightboxClose?.removeEventListener('click', closeGalleryLightbox);
       window.removeEventListener('keydown', onGalleryKeyDown);

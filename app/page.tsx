@@ -312,13 +312,11 @@ export default async function HomePage() {
           <a href="#top" aria-current="page">
             Úvod
           </a>
-          <a href="#azbest">Prečo odborný postup</a>
-          <a href="#cena">Čo vybavíme</a>
+          <a href="#orientacna-cena">Orientačná cena</a>
           <a href="#ako-to-prebieha">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
-          <a href="#preco">Prečo ASTANA</a>
           <a href="/realizacie/">Realizácie</a>
-          <a href={testimonials.length ? '#referencie' : '#realizacie-astana'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
+          <a href="#preco">Prečo ASTANA</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
         </nav>
@@ -507,6 +505,50 @@ export default async function HomePage() {
               <p>{text}</p>
             </div>
           ))}
+        </section>
+
+        <section className="price-calculator-section" id="orientacna-cena" aria-labelledby="price-calculator-title">
+          <div className="price-calculator-copy">
+            <p className="eyebrow">Orientačná cena</p>
+            <h2 id="price-calculator-title">Koľko môže stáť likvidácia?</h2>
+            <p>
+              Najrýchlejšie sa orientujeme podľa približnej výmery v m². Zadajte plochu a typ materiálu, uvidíte pracovný
+              rozsah ceny. Záväznú ponuku pripravíme po overení detailov.
+            </p>
+            <ul>
+              <li>m² je hlavný údaj pre výpočet ceny</li>
+              <li>fotky pomôžu spresniť prístup, výšku a náročnosť</li>
+              <li>dopravu pri zákazkách nad 100 m² neúčtujeme</li>
+            </ul>
+          </div>
+          <div className="price-calculator-card" data-price-calculator>
+            <div className="price-area-row">
+              <label htmlFor="price-area">Približná výmera</label>
+              <output htmlFor="price-area" data-price-area-output>120 m²</output>
+            </div>
+            <input
+              id="price-area"
+              data-price-area
+              type="range"
+              min="10"
+              max="500"
+              step="10"
+              defaultValue="120"
+              aria-label="Približná výmera v metroch štvorcových"
+            />
+            <div className="price-materials" role="group" aria-label="Typ materiálu">
+              <button type="button" className="is-active" data-price-material="vlnity">Vlnitý eternit</button>
+              <button type="button" data-price-material="hladky">Hladký eternit</button>
+              <button type="button" data-price-material="boleticky">Boletické panely</button>
+              <button type="button" data-price-material="neviem">Neviem posúdiť</button>
+            </div>
+            <div className="price-result" aria-live="polite">
+              <span>Orientačná cena</span>
+              <strong><span data-price-min>960 €</span> – <span data-price-max>1 680 €</span></strong>
+              <small>Presná cena závisí od prístupu, výšky objektu, typu materiálu a rozsahu dokumentácie.</small>
+            </div>
+            <a className="button button-primary" href="#dopyt">Získať presnú cenovú ponuku</a>
+          </div>
         </section>
 
         <section className="section risk-section asbestos-section" id="azbest" aria-labelledby="risk-title">
