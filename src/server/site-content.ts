@@ -1,4 +1,4 @@
-export const homeContentVersion = '2026-05-22-premium-audit-v9';
+export const homeContentVersion = '2026-05-23-proof-cleanup-v10';
 
 export const homeContentDefaults = {
   heroEyebrow: 'Kompletné riešenie azbestu a eternitu',
@@ -18,8 +18,8 @@ export const homeContentDefaults = {
   includedEyebrow: 'Čo všetko vybavíme za vás',
   includedTitle: 'Všetko potrebné okolo azbestu',
   includedText: 'Dokumentácia, demontáž, balenie, odvoz aj doklady v jednom postupe.',
-  processEyebrow: 'Ako to prebieha',
-  processTitle: 'Ako prebieha bezpečná likvidácia azbestu',
+  processEyebrow: 'Postup v praxi',
+  processTitle: 'Od výmery po doklady',
   riskEyebrow: 'Prečo odborný postup',
   riskTitle: 'Azbest nie je obyčajná strešná krytina',
   riskText:
@@ -71,7 +71,7 @@ export const homeContentDefaults = {
   includedItems:
     'Podklady pre RÚVZ ku konkrétnej stavbe\nPodklady pre OÚŽP / životné prostredie\nDokumentácia k nakladaniu s nebezpečným odpadom\nStabilizácia materiálu\nOdborná demontáž\nDekontaminácia pracovného priestoru\nBalenie do označených vriec\nOdvoz na skládku nebezpečného odpadu\nPotvrdenie / dokumentácia po legálnej likvidácii',
   processSteps:
-    'Zadáte m² a údaje|Uveďte približnú výmeru, lokalitu a typ materiálu.\nPriložíte fotky, ak ich máte|Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.\nPripravíme cenovú ponuku|Na základe m² a údajov pripravíme nezáväznú cenovú ponuku.\nPo objednávke vybavíme dokumentáciu a termín|Pripravíme potrebný postup, doklady a dohodneme realizáciu.\nZrealizujeme demontáž, odvoz a odovzdáme doklady|Materiál stabilizujeme, zabalíme, odvezieme a po ukončení odovzdáme dokumentáciu.',
+    'Zadáte m² a údaje|Uveďte približnú výmeru, lokalitu a typ materiálu.\nPriložíte fotky, ak ich máte|Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.\nPripravíme cenovú ponuku|Na základe m², lokality a typu materiálu pripravíme nezáväznú ponuku.\nPo objednávke vybavíme doklady a termín|Pripravíme potrebný postup, podklady a dohodneme realizáciu.\nZrealizujeme demontáž, odvoz a odovzdáme doklady|Materiál stabilizujeme, odoberáme kontrolovane, zabalíme ho a po ukončení odovzdáme súvisiacu dokumentáciu.',
   riskItems:
     'Zdravotné riziko|Pri neodbornej manipulácii môžu vznikať nebezpečné vlákna a prach.\nÚradný postup|Pri azbeste sa rieši postup a dokumentácia podľa konkrétnej zákazky.\nNebezpečný odpad|Azbest nepatrí do bežného odpadu. Musí byť správne zabalený a odovzdaný.\nDoklady|Po legálnej likvidácii získate potrebné potvrdenie alebo dokumentáciu.',
   cautionItems:

@@ -509,46 +509,6 @@ export default async function HomePage() {
           ))}
         </section>
 
-        <section className="section real-work-section" id="realizacie-astana" aria-labelledby="real-work-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">Vybrané realizácie</p>
-              <h2 id="real-work-title">Takto vyzerá legálna likvidácia v praxi</h2>
-            </div>
-            <p>
-              Šesť silných záberov z praxe: rodinný dom, stabilizácia, demontáž, balenie, odvoz a väčší rozsah prác.
-              Celú fotogalériu nájdete na samostatnej stránke realizácií.
-            </p>
-          </div>
-          <div className="real-work-grid">
-            {realizationHighlights.map((item) => (
-              <article className="real-work-card" key={item.title}>
-                <ResponsiveImage
-                  image={item.image}
-                  className="real-work-picture"
-                  loading="lazy"
-                  width={720}
-                  height={520}
-                  sizes="(max-width: 760px) 100vw, 33vw"
-                />
-                <div className="real-work-content">
-                  <span>Reálna realizácia · {item.type}</span>
-                  <h3>{item.title}</h3>
-                  <ul>
-                    {item.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
-            ))}
-          </div>
-          <div className="real-work-actions">
-            <a className="button button-primary" href="#dopyt">Chcem naceniť podobnú realizáciu</a>
-            <a className="button button-outline" href="/realizacie/">Zobraziť všetky realizácie</a>
-          </div>
-        </section>
-
         <section className="section risk-section asbestos-section" id="azbest" aria-labelledby="risk-title">
           <div className="section-heading">
             <p className="eyebrow">{content.riskEyebrow}</p>
@@ -626,6 +586,7 @@ export default async function HomePage() {
           <div className="section-heading">
             <p className="eyebrow">{content.processEyebrow}</p>
             <h2 id="process-title">{content.processTitle}</h2>
+            <p className="section-intro">Od prvého odhadu po odvoz a doklady. Kroky držíme jednoduché, aby zákazník vedel, čo sa bude diať a čo má pripraviť.</p>
           </div>
           <ol className="process-list">
             {processSteps.map(([title, text], index) => (
@@ -651,6 +612,46 @@ export default async function HomePage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section className="section real-work-section" id="realizacie-astana" aria-labelledby="real-work-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Vybrané realizácie</p>
+              <h2 id="real-work-title">Naša práca v praxi</h2>
+            </div>
+            <p>
+              Kurátorovaný výber šiestich záberov: rodinné domy, väčší rozsah, technika, dopravníky, hospodárske objekty aj interiér.
+              Plná filtrovaná galéria je na samostatnej stránke realizácií.
+            </p>
+          </div>
+          <div className="real-work-grid">
+            {realizationHighlights.map((item) => (
+              <article className="real-work-card" key={item.title}>
+                <ResponsiveImage
+                  image={item.image}
+                  className="real-work-picture"
+                  loading="lazy"
+                  width={720}
+                  height={520}
+                  sizes="(max-width: 760px) 100vw, 33vw"
+                />
+                <div className="real-work-content">
+                  <span>Reálna realizácia · {item.type}</span>
+                  <h3>{item.title}</h3>
+                  <ul>
+                    {item.bullets.map((bullet) => (
+                      <li key={bullet}>{bullet}</li>
+                    ))}
+                  </ul>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="real-work-actions">
+            <a className="button button-primary" href="#dopyt">Chcem naceniť podobnú realizáciu</a>
+            <a className="button button-outline" href="/realizacie/">Zobraziť všetky realizácie</a>
+          </div>
         </section>
 
         <section className="section roofers-section" id="strechari" aria-labelledby="roofers-title">
