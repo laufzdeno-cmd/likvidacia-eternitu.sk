@@ -497,203 +497,6 @@ main {
   }
 }
 
-/* Layout fix pass - final cascade. */
-.hero {
-  width: 100% !important;
-  max-width: none !important;
-  margin: 0 !important;
-  padding: 80px max(20px, calc((100vw - 1180px) / 2)) !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: #f8f7f4 !important;
-  box-shadow: none !important;
-}
-
-.quote-section {
-  width: 100% !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: #f8f7f4 !important;
-  box-shadow: none !important;
-}
-
-.quote-section-inner {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  width: 100% !important;
-  max-width: none !important;
-  min-height: 600px !important;
-  margin: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  overflow: visible !important;
-}
-
-.quote-info-panel {
-  min-width: 0 !important;
-  overflow: hidden !important;
-  padding: 64px 48px !important;
-  background: #0f1f3d !important;
-  color: #ffffff !important;
-}
-
-.quote-info-panel h2 {
-  font-size: clamp(22px, 2.5vw, 32px) !important;
-  line-height: 1.14 !important;
-  word-break: break-word !important;
-}
-
-.quote-section .quote-card {
-  min-width: 0 !important;
-  padding: 48px !important;
-  background: #ffffff !important;
-}
-
-.risk-notice {
-  background: #0f1f3d !important;
-  color: #ffffff !important;
-}
-
-.risk-notice-icon,
-.risk-card-icon {
-  width: 52px !important;
-  height: 52px !important;
-  margin-bottom: 16px !important;
-  border-radius: 12px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
-.risk-notice-icon {
-  background: rgba(255, 255, 255, 0.12) !important;
-  color: #ffffff !important;
-}
-
-.risk-card-icon {
-  background: rgba(232, 84, 26, 0.08) !important;
-  color: #0f1f3d !important;
-}
-
-.risk-notice-icon svg,
-.risk-card-icon svg {
-  display: none !important;
-}
-
-.included-group-card {
-  border-top: 3px solid #e8541a !important;
-}
-
-.included-group-card::before,
-.included-group-card::after {
-  display: none !important;
-  background: none !important;
-}
-
-.reviews-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-}
-
-.review-card[hidden] {
-  display: none !important;
-}
-
-.reviews-toggle {
-  display: block;
-  width: fit-content;
-  margin: 28px auto 0;
-  padding: 10px 18px;
-  border: 1px solid #e8541a;
-  border-radius: 999px;
-  background: #e8541a;
-  color: #ffffff;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: 0.15s ease;
-}
-
-.reviews-toggle:hover {
-  background: #c84211;
-  border-color: #c84211;
-}
-
-.reviews-toggle + .reviews-google-link {
-  margin-top: 16px;
-}
-
-.why-card {
-  display: block !important;
-  width: min(1180px, calc(100% - 40px)) !important;
-  max-width: 1180px !important;
-  margin: 0 auto !important;
-  padding: 0 !important;
-  border: 0 !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-.why-card > div:first-child {
-  max-width: 760px;
-  margin: 0 auto 48px !important;
-  text-align: center !important;
-}
-
-.why-card-grid {
-  width: 100% !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 24px !important;
-}
-
-.why-feature-card {
-  padding: 24px !important;
-}
-
-@media (max-width: 900px) {
-  .quote-section-inner {
-    grid-template-columns: 1fr !important;
-  }
-
-  .quote-info-panel,
-  .quote-section .quote-card {
-    padding: 40px 28px !important;
-  }
-
-  .reviews-grid,
-  .why-card-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-@media (max-width: 767px) {
-  .hero {
-    width: 100% !important;
-    max-width: none !important;
-    padding: 48px 20px 56px !important;
-  }
-
-  .quote-section-inner {
-    width: 100% !important;
-    border-radius: 0 !important;
-  }
-
-  .quote-info-panel,
-  .quote-section .quote-card {
-    padding: 28px 20px !important;
-  }
-
-  .why-card {
-    width: min(calc(100vw - 24px), 366px) !important;
-  }
-}
-
-
-
 /* Content strategy pass: make the hero photo a real proof column again and keep mobile fluid. */
 @media (min-width: 1081px) {
   .hero {
@@ -8858,4 +8661,675 @@ main {
     flex-direction: column !important;
     text-align: center !important;
   }
+}
+
+/* Visual QA correction - must remain last. */
+main .hero {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.9fr) !important;
+  align-items: center !important;
+  gap: clamp(32px, 5vw, 72px) !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 600px !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 80px max(24px, calc((100vw - 1180px) / 2)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #f8f7f4 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+main .hero::before,
+main .hero::after {
+  content: none !important;
+  display: none !important;
+}
+
+main .hero-copy {
+  z-index: 1 !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  grid-area: auto !important;
+  max-width: 640px !important;
+  padding: 0 !important;
+}
+
+main .hero-claim {
+  display: block !important;
+  max-width: 560px !important;
+  margin: 20px 0 0 !important;
+  padding: 0 0 0 16px !important;
+  border: 0 !important;
+  border-left: 3px solid #e8541a !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #4a4845 !important;
+  box-shadow: none !important;
+  font-size: 18px !important;
+  font-style: italic !important;
+  font-weight: 500 !important;
+  line-height: 1.55 !important;
+}
+
+main .hero-photo.real-hero-photo {
+  position: relative !important;
+  inset: auto !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  grid-area: auto !important;
+  width: 100% !important;
+  min-height: 520px !important;
+  margin: 0 !important;
+  border-radius: 18px !important;
+  background: transparent !important;
+  overflow: visible !important;
+  box-shadow: 0 24px 70px rgba(15, 31, 61, 0.16) !important;
+}
+
+main .hero-photo.real-hero-photo picture,
+main .hero-photo.real-hero-photo img {
+  position: static !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 520px !important;
+  border-radius: 18px !important;
+  object-fit: cover !important;
+}
+
+main .hero-photo.real-hero-photo::after {
+  content: none !important;
+  display: none !important;
+}
+
+main .quote-section {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #f8f7f4 !important;
+  box-shadow: none !important;
+}
+
+main .quote-section-inner {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 600px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+main .quote-info-panel {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  padding: 64px 48px !important;
+  background: #0f1f3d !important;
+  color: #ffffff !important;
+}
+
+main .quote-info-panel h2 {
+  font-size: clamp(22px, 2.5vw, 32px) !important;
+  line-height: 1.14 !important;
+  word-break: break-word !important;
+}
+
+main .quote-section .quote-card {
+  min-width: 0 !important;
+  padding: 48px !important;
+  background: #ffffff !important;
+}
+
+main .risk-notice-icon,
+main .risk-card-icon {
+  width: 52px !important;
+  height: 52px !important;
+  margin-bottom: 16px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+main .risk-notice-icon {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+main .risk-card-icon {
+  background: rgba(232, 84, 26, 0.08) !important;
+  color: #0f1f3d !important;
+}
+
+main .included-group-card {
+  border-top: 3px solid #e8541a !important;
+}
+
+main .included-group-card::before,
+main .included-group-card::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+}
+
+main .reviews-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+main .review-card[hidden] {
+  display: none !important;
+}
+
+main .why-card {
+  display: block !important;
+  width: min(1180px, calc(100% - 40px)) !important;
+  max-width: 1180px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+main .why-card > div:first-child {
+  max-width: 760px !important;
+  margin: 0 auto 48px !important;
+  text-align: center !important;
+}
+
+main .why-card-grid {
+  width: 100% !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 24px !important;
+}
+
+main .why-feature-card {
+  padding: 24px !important;
+}
+
+@media (max-width: 900px) {
+  main .hero,
+  main .quote-section-inner {
+    grid-template-columns: 1fr !important;
+  }
+
+  main .quote-info-panel,
+  main .quote-section .quote-card {
+    padding: 40px 28px !important;
+  }
+
+  main .reviews-grid,
+  main .why-card-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 767px) {
+  main .hero {
+    padding: 48px 20px 56px !important;
+  }
+
+  main .hero-photo.real-hero-photo,
+  main .hero-photo.real-hero-photo picture,
+  main .hero-photo.real-hero-photo img {
+    min-height: 320px !important;
+  }
+
+  main .quote-info-panel,
+  main .quote-section .quote-card {
+    padding: 28px 20px !important;
+  }
+
+  main .hero-trust-card {
+    display: none !important;
+  }
+}
+
+/* Layout fix pass - final cascade. */
+.hero {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 80px max(20px, calc((100vw - 1180px) / 2)) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #f8f7f4 !important;
+  box-shadow: none !important;
+}
+
+.quote-section {
+  width: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #f8f7f4 !important;
+  box-shadow: none !important;
+}
+
+.quote-section-inner {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 600px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.quote-info-panel {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  padding: 64px 48px !important;
+  background: #0f1f3d !important;
+  color: #ffffff !important;
+}
+
+.quote-info-panel h2 {
+  font-size: clamp(22px, 2.5vw, 32px) !important;
+  line-height: 1.14 !important;
+  word-break: break-word !important;
+}
+
+.quote-section .quote-card {
+  min-width: 0 !important;
+  padding: 48px !important;
+  background: #ffffff !important;
+}
+
+.risk-notice {
+  background: #0f1f3d !important;
+  color: #ffffff !important;
+}
+
+.risk-notice-icon,
+.risk-card-icon {
+  width: 52px !important;
+  height: 52px !important;
+  margin-bottom: 16px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.risk-notice-icon {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.risk-card-icon {
+  background: rgba(232, 84, 26, 0.08) !important;
+  color: #0f1f3d !important;
+}
+
+.risk-notice-icon svg,
+.risk-card-icon svg {
+  display: none !important;
+}
+
+.included-group-card {
+  border-top: 3px solid #e8541a !important;
+}
+
+.included-group-card::before,
+.included-group-card::after {
+  display: none !important;
+  background: none !important;
+}
+
+.reviews-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.review-card[hidden] {
+  display: none !important;
+}
+
+.reviews-toggle {
+  display: block;
+  width: fit-content;
+  margin: 28px auto 0;
+  padding: 10px 18px;
+  border: 1px solid #e8541a;
+  border-radius: 999px;
+  background: #e8541a;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.reviews-toggle:hover {
+  background: #c84211;
+  border-color: #c84211;
+}
+
+.reviews-toggle + .reviews-google-link {
+  margin-top: 16px;
+}
+
+.why-card {
+  display: block !important;
+  width: min(1180px, calc(100% - 40px)) !important;
+  max-width: 1180px !important;
+  margin: 0 auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.why-card > div:first-child {
+  max-width: 760px;
+  margin: 0 auto 48px !important;
+  text-align: center !important;
+}
+
+.why-card-grid {
+  width: 100% !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 24px !important;
+}
+
+.why-feature-card {
+  padding: 24px !important;
+}
+
+@media (max-width: 900px) {
+  .quote-section-inner {
+    grid-template-columns: 1fr !important;
+  }
+
+  .quote-info-panel,
+  .quote-section .quote-card {
+    padding: 40px 28px !important;
+  }
+
+  .reviews-grid,
+  .why-card-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .hero {
+    width: 100% !important;
+    max-width: none !important;
+    padding: 48px 20px 56px !important;
+  }
+
+  .quote-section-inner {
+    width: 100% !important;
+    border-radius: 0 !important;
+  }
+
+  .quote-info-panel,
+  .quote-section .quote-card {
+    padding: 28px 20px !important;
+  }
+
+  .why-card {
+    width: min(calc(100vw - 24px), 366px) !important;
+  }
+}
+
+
+/* Visual QA form correction - absolute last. */
+main .quote-section-inner {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 600px !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+main .quote-section-inner > .quote-info-panel,
+main .quote-section-inner > .quote-card {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  align-self: stretch !important;
+  justify-self: stretch !important;
+}
+
+main .quote-info-panel {
+  padding: 64px 48px !important;
+  overflow: hidden !important;
+}
+
+main .quote-info-panel h2,
+main .quote-info-panel p,
+main .quote-info-panel ul,
+main .quote-info-panel li {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+}
+
+main .quote-info-panel h2 {
+  font-size: clamp(22px, 2.5vw, 32px) !important;
+  line-height: 1.14 !important;
+}
+
+@media (max-width: 900px) {
+  main .quote-section-inner {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Visual QA hard fix for quote split - absolute last. */
+@media (min-width: 901px) {
+  main .quote-section-inner {
+    position: relative !important;
+    display: block !important;
+    min-height: 600px !important;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  main .quote-section-inner > .quote-info-panel {
+    position: absolute !important;
+    inset: 0 auto 0 0 !important;
+    width: 50% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 64px 48px !important;
+    background: #0f1f3d !important;
+    color: #ffffff !important;
+    overflow: hidden !important;
+  }
+
+  main .quote-section-inner > .quote-card {
+    position: relative !important;
+    width: 50% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 0 0 50% !important;
+    padding: 48px !important;
+    background: #ffffff !important;
+  }
+
+  main .quote-info-panel h2,
+  main .quote-info-panel p,
+  main .quote-info-panel ul,
+  main .quote-info-panel li {
+    max-width: 100% !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  main .quote-info-panel h2 {
+    font-size: clamp(22px, 2.5vw, 32px) !important;
+    line-height: 1.14 !important;
+  }
+}
+
+@media (max-width: 900px) {
+  main .quote-section-inner {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    background: transparent !important;
+  }
+
+  main .quote-section-inner > .quote-info-panel,
+  main .quote-section-inner > .quote-card {
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+}
+
+/* Visual QA quote panel vertical alignment - absolute last. */
+main .quote-info-panel {
+  justify-content: flex-start !important;
+}
+
+/* Visual QA risk cards correction - absolute last. */
+main section.risk-section .risk-notice {
+  background: #0f1f3d !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+main section.risk-section .risk-notice h3,
+main section.risk-section .risk-notice p {
+  color: #ffffff !important;
+}
+
+main section.risk-section .risk-notice-icon {
+  width: 52px !important;
+  height: 52px !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+main section.risk-section .risk-grid article::before,
+main section.risk-section .risk-grid article::after {
+  content: none !important;
+  display: none !important;
+}
+
+main section.risk-section .risk-card-icon {
+  width: 52px !important;
+  height: 52px !important;
+  margin-bottom: 16px !important;
+  background: rgba(232, 84, 26, 0.08) !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Visual QA mobile counter fit - absolute last. */
+@media (max-width: 767px) {
+  main .hero-counters {
+    width: calc(100vw - 68px) !important;
+    max-width: calc(100vw - 68px) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  main .hero-counter-item {
+    min-width: 0 !important;
+    padding: 0 10px !important;
+    overflow: hidden !important;
+    text-align: center !important;
+  }
+
+  main .hero-counter-item:first-child {
+    padding-left: 0 !important;
+  }
+
+  main .hero-counter-item:last-child {
+    padding-right: 0 !important;
+  }
+
+  main .hero-counter-item strong {
+    display: block !important;
+    font-size: clamp(22px, 6vw, 26px) !important;
+    white-space: nowrap !important;
+  }
+
+  main .hero-counter-item span {
+    display: block !important;
+    font-size: 11px !important;
+    white-space: normal !important;
+  }
+
+  main .hero-counter-item:not(:last-child)::after {
+    right: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  main .hero-counters {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-template-columns: 1fr !important;
+    gap: 0 !important;
+    padding: 28px 0 !important;
+  }
+
+  main .hero-counter-item {
+    padding: 14px 0 !important;
+    text-align: left !important;
+  }
+
+  main .hero-counter-item:not(:last-child)::after {
+    top: auto !important;
+    right: auto !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 1px !important;
+  }
+
+  main .hero-counter-item strong {
+    font-size: 28px !important;
+  }
+
+  main .hero-counter-item span {
+    font-size: 13px !important;
+  }
+}
+
+/* Visual QA hero photo overlay cleanup - absolute last. */
+main .hero-photo .hero-real-caption {
+  display: none !important;
+}
+
+main .hero-photo .hero-trust-card {
+  z-index: 6 !important;
 }

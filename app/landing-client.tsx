@@ -402,7 +402,7 @@ export default function LandingClient() {
         const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
 
         const tick = (now: number) => {
-          const progress = Math.min((now - startedAt) / duration, 1);
+          const progress = Math.min(Math.max((now - startedAt) / duration, 0), 1);
           const value = Math.round(start + (target - start) * easeOutQuart(progress));
           counter.textContent = formatCounterValue(value, suffix, format);
           if (progress < 1) requestAnimationFrame(tick);

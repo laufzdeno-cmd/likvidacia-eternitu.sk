@@ -6816,3 +6816,35 @@ body {
     text-wrap: balance !important;
   }
 }
+
+/* Visual QA: keep review author rows readable after global footer polish. */
+main .reviews-section .review-author {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 0 !important;
+  margin-top: 16px !important;
+  padding: 16px 0 0 !important;
+  border-top: 1px solid #f1f0ec !important;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+main .reviews-section .review-author div {
+  display: grid !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+}
+
+main .reviews-section .review-author strong {
+  color: #242321 !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.25 !important;
+}
+
+main .reviews-section .review-author span:not(.review-avatar) {
+  color: #8a8880 !important;
+  font-size: 12px !important;
+  line-height: 1.35 !important;
+}
