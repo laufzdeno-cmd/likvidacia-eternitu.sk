@@ -16,11 +16,32 @@ function mark(name: string, ok: boolean, detail = '') {
 }
 
 async function snap(page: import('@playwright/test').Page, name: string) {
-  await page.screenshot({ path: path.join(resultDir, `${test.info().project.name}-${name}.png`), fullPage: true });
+  await page.screenshot({ path: path.join(resultDir, `${test.info().project.name}-${name}.png`) });
 }
 
 function field(page: import('@playwright/test').Page, name: string) {
   return page.locator(`[name="${name}"]`).first();
+}
+
+async function cleanupTestJobs(page: import('@playwright/test').Page) {
+  await page.goto('/admin/zakazky/');
+  for (let index = 0; index < 5; index += 1) {
+    const row = page.locator('tr').filter({ hasText: 'Playwright Test' }).first();
+    if (!(await row.isVisible().catch(() => false))) return;
+    await row.getByRole('button', { name: /Zmazať|Odstrániť/i }).click();
+    await page.waitForTimeout(1_000);
+    await page.goto('/admin/zakazky/');
+  }
+}
+
+async function workerRewardRows(page: import('@playwright/test').Page) {
+  return page.locator('table').filter({ hasText: 'PRACOVNÍK' }).locator('tbody tr').evaluateAll((rows) =>
+    rows.map((row) => {
+      const cells = Array.from(row.querySelectorAll('td')).map((cell) => cell.textContent || '');
+      const reward = (row.querySelector('input[name^="workerReward_"]') as HTMLInputElement | null)?.value || '';
+      return { name: cells[0], reward };
+    }),
+  );
 }
 
 async function login(page: import('@playwright/test').Page) {
@@ -67,20 +88,27 @@ test.describe.serial('ASTANA admin QA', () => {
       await field(page, 'location').fill('Košice');
       await field(page, 'm2').fill('210');
       await field(page, 'pricePerM2').fill('12');
-      await page.getByLabel(/Cash/i).check();
-      await page.getByLabel(/^Demontáž$/i).check();
-      for (const worker of ['Robo', 'Maťo', 'Miloš']) await page.getByLabel(worker, { exact: true }).check();
+      await page.locator('input[name="paymentType"][value="CASH"]').check();
+      await page.locator('input[name="workType"][value="DEMONTAZ"]').check();
+      for (const worker of ['Robo', 'Maťo', 'Miloš']) {
+        await page.getByLabel(worker, { exact: true }).scrollIntoViewIfNeeded();
+        await page.getByLabel(worker, { exact: true }).check();
+      }
       await page.waitForTimeout(500);
       const body210 = await page.locator('body').innerText();
+      const rewards210 = await workerRewardRows(page);
       details['Výpočet 210m²'] = /2\s?520/.test(body210);
-      details['Robo 140€'] = /140([,.]00)?/.test(body210);
-      details['Maťo 105€'] = /105([,.]00)?/.test(body210);
-      details['Miloš 105€'] = /105([,.]00)?/.test(body210);
+      details['Robo 140€'] = rewards210.some((row) => /Robo/.test(row.name) && /140([,.]00)?/.test(row.reward));
+      details['Maťo 105€'] = rewards210.some((row) => /Maťo/.test(row.name) && /105([,.]00)?/.test(row.reward));
+      details['Miloš 105€'] = rewards210.some((row) => /Miloš/.test(row.name) && /105([,.]00)?/.test(row.reward));
 
       await field(page, 'm2').fill('200');
       await page.waitForTimeout(500);
-      const body200 = await page.locator('body').innerText();
-      details['Zaokrúhľovanie 200m²'] = /133/.test(body200) && /100/.test(body200);
+      const rewards200 = await workerRewardRows(page);
+      details['Zaokrúhľovanie 200m²'] =
+        rewards200.some((row) => /Robo/.test(row.name) && /133/.test(row.reward)) &&
+        rewards200.some((row) => /Maťo/.test(row.name) && /100/.test(row.reward)) &&
+        rewards200.some((row) => /Miloš/.test(row.name) && /100/.test(row.reward));
 
       await field(page, 'm2').fill('210');
       await field(page, 'fuel').fill('45');
@@ -133,10 +161,11 @@ test.describe.serial('ASTANA admin QA', () => {
 
     try {
       await page.goto('/admin/nastavenia/');
-      await expect(page.locator('body')).toContainText('Robo');
-      await expect(page.locator('body')).toContainText(/2|2\.00|2,00/);
-      await expect(page.locator('body')).toContainText('Maťo');
-      await expect(page.locator('body')).toContainText(/1\.5|1,5|1\.50|1,50/);
+      const settingsInputs = await page.locator('input').evaluateAll((inputs) => inputs.map((input) => (input as HTMLInputElement).value));
+      expect(settingsInputs).toContain('Robo');
+      expect(settingsInputs.some((value) => /2|2\.00|2,00/.test(value))).toBeTruthy();
+      expect(settingsInputs).toContain('Maťo');
+      expect(settingsInputs.some((value) => /1\.5|1,5|1\.50|1,50/.test(value))).toBeTruthy();
       await expect(page.locator('body')).toContainText(/Skládky|Ceny skládok/);
       await snap(page, '06-settings-pass');
       mark('TEST 6  NASTAVENIA', true, 'pracovníci a skládky OK');
@@ -171,11 +200,9 @@ test.describe.serial('ASTANA admin QA', () => {
 
     try {
       await page.goto('/admin/zakazky/');
-      const row = page.locator('tr').filter({ hasText: 'Playwright Test' }).first();
-      await expect(row).toBeVisible();
-      await row.getByRole('button', { name: /Zmazať|Odstrániť/i }).click();
-      await page.waitForTimeout(1000);
-      await expect(page.locator('tr').filter({ hasText: 'Playwright Test' })).toHaveCount(0);
+      await expect(page.locator('tr').filter({ hasText: 'Playwright Test' }).first()).toBeVisible();
+      await cleanupTestJobs(page);
+      await expect(page.locator('body')).not.toContainText('Playwright Test');
       await snap(page, '09-cleanup-pass');
       mark('TEST 9  VYČISTENIE', true, 'testovacia zákazka zmazaná');
     } catch (error) {

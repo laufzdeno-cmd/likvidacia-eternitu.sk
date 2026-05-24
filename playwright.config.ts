@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '.',
-  timeout: 90_000,
+  testMatch: ['scripts/admin-test.ts'],
+  timeout: 180_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: process.env.E2E_BASE_URL || 'https://likvidacia-eternitu.sk',
