@@ -7,7 +7,7 @@
   --secondary: #03324f;
   --secondary-soft: #084765;
   --soft-blue: #dff5ff;
-  --clean-bg: #fff7ec;
+  --clean-bg: #ffffff !important;
   --paper: #ffffff;
   --ink: #0e1726;
   --muted: #374151;
@@ -28,7 +28,7 @@
   --secondary: #0f1f3d;
   --secondary-soft: #1a2f52;
   --soft-blue: #eaf7fc;
-  --clean-bg: #f8f7f4;
+  --clean-bg: #ffffff !important;
   --paper: #ffffff;
   --ink: #1c1b19;
   --muted: #4a4845;
@@ -48,7 +48,7 @@ body {
   background:
     radial-gradient(circle at 8% 0%, rgba(216, 106, 38, 0.13), transparent 27rem),
     radial-gradient(circle at 92% 6%, rgba(0, 163, 215, 0.15), transparent 32rem),
-    linear-gradient(180deg, #f8f7f4 0%, #ffffff 36%, #eef8fc 70%, #f8f7f4 100%) !important;
+    linear-gradient(180deg, #ffffff 0%, #ffffff 36%, #eef8fc 70%, #ffffff 100%) !important;
 }
 
 .site-header {
@@ -140,7 +140,7 @@ body {
   background:
     radial-gradient(circle at 18% 12%, rgba(217, 151, 50, 0.14), transparent 24rem),
     radial-gradient(circle at 76% 4%, rgba(0, 163, 215, 0.22), transparent 32rem),
-    linear-gradient(104deg, #ffffff 0%, #f8f7f4 35%, #eef9fd 70%, #ffffff 100%) !important;
+    linear-gradient(104deg, #ffffff 0%, #ffffff 35%, #eef9fd 70%, #ffffff 100%) !important;
 }
 
 .hero::before {
@@ -295,7 +295,7 @@ body {
   min-height: 48px;
   border: 1px solid rgba(15, 31, 61, 0.14);
   border-radius: 12px;
-  background: #f8f7f4;
+  background: #ffffff;
   color: var(--secondary);
   font: inherit;
   font-size: 13px;
@@ -1463,7 +1463,7 @@ body {
   --burgundy: #86143a !important;
   --burgundy-hover: #6d102e !important;
   --soft-blue: #f3fbfe !important;
-  --clean-bg: #fffaf3 !important;
+  --clean-bg: #ffffff !important;
 }
 
 .button-primary,
@@ -3188,7 +3188,7 @@ body.is-lightbox-open {
   --secondary: #06324a !important;
   --secondary-soft: #0c4a66 !important;
   --soft-blue: #edf9fd !important;
-  --clean-bg: #fff6e8 !important;
+  --clean-bg: #ffffff !important;
   --warm-ivory: #fffaf2 !important;
   --sand: #c99a4a !important;
   --sand-soft: #fff2d8 !important;
@@ -6642,7 +6642,7 @@ textarea {
   --secondary: #0f1f3d;
   --secondary-soft: #1a2f52;
   --soft-blue: #eaf7fc;
-  --clean-bg: #f8f7f4;
+  --clean-bg: #ffffff !important;
   --paper: #ffffff;
   --ink: #1c1b19;
   --muted: #4a4845;
@@ -6658,7 +6658,7 @@ body {
   background:
     radial-gradient(circle at 8% 0%, rgba(216, 106, 38, 0.13), transparent 27rem),
     radial-gradient(circle at 92% 6%, rgba(0, 163, 215, 0.15), transparent 32rem),
-    linear-gradient(180deg, #f8f7f4 0%, #ffffff 36%, #eef8fc 70%, #f8f7f4 100%) !important;
+    linear-gradient(180deg, #ffffff 0%, #ffffff 36%, #eef8fc 70%, #ffffff 100%) !important;
 }
 
 .site-header {
@@ -6760,7 +6760,7 @@ body {
   background:
     radial-gradient(circle at 18% 12%, rgba(217, 151, 50, 0.14), transparent 24rem),
     radial-gradient(circle at 76% 4%, rgba(0, 163, 215, 0.22), transparent 32rem),
-    linear-gradient(104deg, #ffffff 0%, #f8f7f4 35%, #eef9fd 70%, #ffffff 100%) !important;
+    linear-gradient(104deg, #ffffff 0%, #ffffff 35%, #eef9fd 70%, #ffffff 100%) !important;
 }
 
 .hero::before {
@@ -6971,7 +6971,7 @@ main .hero-claim::after {
 
 main > .hero {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(248, 247, 244, 0.94)) !important;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 255, 255, 0.94)) !important;
 }
 
 main .hero-copy {
@@ -6996,7 +6996,7 @@ main .hero-trust-card {
 }
 
 main .quote-section {
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
 }
 
 main .quote-section-inner {
@@ -7024,7 +7024,7 @@ main .quote-priority {
 }
 
 main .included-section {
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
 }
 
 main .included-group-card {
@@ -7037,7 +7037,7 @@ main .included-group-card {
 main .real-work-section,
 main .reviews-section,
 main .why-section {
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
 }
 
 @media (max-width: 900px) {

@@ -11,7 +11,7 @@
   --secondary: #062d46;
   --secondary-soft: #0d3e5e;
   --soft-blue: #eaf7fc;
-  --clean-bg: #f7fbfd;
+  --clean-bg: #ffffff !important;
   --paper: #ffffff;
   --ink: #111827;
   --muted: #4b5563;
@@ -32,7 +32,7 @@
   --secondary: #06324a;
   --secondary-soft: #0c4566;
   --soft-blue: #eaf7fc;
-  --clean-bg: #fff9f1;
+  --clean-bg: #ffffff !important;
   --paper: #ffffff;
   --ink: #101827;
   --muted: #4b5563;
@@ -50,7 +50,7 @@ body {
   background:
     radial-gradient(circle at 10% 0%, rgba(217, 151, 50, 0.16), transparent 26rem),
     radial-gradient(circle at 88% 4%, rgba(8, 120, 184, 0.16), transparent 31rem),
-    linear-gradient(180deg, #ffffff 0%, var(--soft-blue) 36%, #ffffff 66%, var(--clean-bg) 100%) !important;
+    linear-gradient(180deg, #ffffff 0%, var(--soft-blue) 36%, #ffffff 66%, #ffffff 100%) !important;
 }
 
 body::before {
@@ -269,7 +269,7 @@ body::before {
 .asbestos-section {
   background:
     radial-gradient(circle at 16% 10%, rgba(217, 151, 50, 0.12), transparent 24rem),
-    linear-gradient(180deg, #ffffff, var(--clean-bg)) !important;
+    linear-gradient(180deg, #ffffff, #ffffff) !important;
 }
 
 .risk-grid article {
@@ -373,7 +373,7 @@ body::before {
 .testimonial-section {
   background:
     radial-gradient(circle at 9% 10%, rgba(217, 151, 50, 0.1), transparent 22rem),
-    linear-gradient(180deg, #ffffff, var(--clean-bg)) !important;
+    linear-gradient(180deg, #ffffff, #ffffff) !important;
 }
 
 .faq-section {
@@ -1733,7 +1733,7 @@ body::before {
   padding-right: max(24px, calc((100% - 1320px) / 2)) !important;
   padding-left: max(24px, calc((100% - 1320px) / 2)) !important;
   background:
-    linear-gradient(180deg, #ffffff, var(--clean-bg)) !important;
+    linear-gradient(180deg, #ffffff, #ffffff) !important;
 }
 
 .risk-grid {
@@ -1871,7 +1871,7 @@ body::before {
 .faq-section {
   border-radius: 42px !important;
   background:
-    linear-gradient(180deg, #ffffff, var(--clean-bg)) !important;
+    linear-gradient(180deg, #ffffff, #ffffff) !important;
 }
 
 .testimonial-layout {
@@ -2463,7 +2463,7 @@ body::before {
   --secondary: #06324a;
   --secondary-soft: #0c4566;
   --soft-blue: #eaf7fc;
-  --clean-bg: #fff9f1;
+  --clean-bg: #ffffff !important;
   --paper: #ffffff;
   --ink: #101827;
   --muted: #4b5563;
@@ -2481,7 +2481,7 @@ body {
   background:
     radial-gradient(circle at 10% 0%, rgba(217, 151, 50, 0.16), transparent 26rem),
     radial-gradient(circle at 88% 4%, rgba(8, 120, 184, 0.16), transparent 31rem),
-    linear-gradient(180deg, #ffffff 0%, var(--soft-blue) 36%, #ffffff 66%, var(--clean-bg) 100%) !important;
+    linear-gradient(180deg, #ffffff 0%, var(--soft-blue) 36%, #ffffff 66%, #ffffff 100%) !important;
 }
 
 .site-header::before {
@@ -2617,7 +2617,7 @@ body {
 .asbestos-section {
   background:
     radial-gradient(circle at 16% 10%, rgba(217, 151, 50, 0.12), transparent 24rem),
-    linear-gradient(180deg, #ffffff, var(--clean-bg)) !important;
+    linear-gradient(180deg, #ffffff, #ffffff) !important;
 }
 
 .risk-grid article::before {
@@ -2857,7 +2857,7 @@ body {
   --secondary: #06324a;
   --bright: #00a3d7;
   --soft-blue: #eaf7fc;
-  --clean-bg: #ffffff;
+  --clean-bg: #ffffff !important;
   --warm-ivory: #fff9f1;
   --warm-ivory-strong: #fff2df;
   --border: #d9e6ee;

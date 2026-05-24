@@ -45,7 +45,7 @@ html {
   max-height: 100vh;
   margin: 0 auto !important;
   padding: 80px 0 !important;
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
 }
 
 .hero::before,
@@ -54,7 +54,7 @@ html {
 }
 
 main {
-  background: #f8f7f4;
+  background: #ffffff;
 }
 
 .hero-copy {
@@ -143,7 +143,7 @@ main {
 
 .quote-section {
   padding: 0 0 88px;
-  background: #f8f7f4;
+  background: #ffffff;
 }
 
 .quote-section-inner {
@@ -7643,7 +7643,7 @@ h2 {
 }
 
 .reviews-section {
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
   padding-top: 96px !important;
   padding-bottom: 96px !important;
 }
@@ -7900,7 +7900,7 @@ h2 {
 .roofer-b2b-benefits,
 .roofer-b2b-registration {
   padding: 96px 0;
-  background: #f8f7f4;
+  background: #ffffff;
 }
 
 .roofer-b2b-benefits h2,
@@ -8090,7 +8090,7 @@ h2 {
   padding: 10px 12px;
   border: 1px solid #e8e6df;
   border-radius: 8px;
-  background: #f8f7f4;
+  background: #ffffff;
   color: #4a4845;
   font-size: 13px;
   font-weight: 500;
@@ -8211,7 +8211,7 @@ h2 {
   max-height: 100vh;
   margin: 0 auto !important;
   padding: 80px 0 !important;
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
 }
 
 .hero::before,
@@ -8220,7 +8220,7 @@ h2 {
 }
 
 main {
-  background: #f8f7f4;
+  background: #ffffff;
 }
 
 .hero-copy {
@@ -8309,7 +8309,7 @@ main {
 
 .quote-section {
   padding: 0 0 88px;
-  background: #f8f7f4;
+  background: #ffffff;
 }
 
 .quote-section-inner {
@@ -8677,7 +8677,7 @@ main .hero {
   padding: 80px max(24px, calc((100vw - 1180px) / 2)) !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
   box-shadow: none !important;
   overflow: visible !important;
 }
@@ -8752,7 +8752,7 @@ main .quote-section {
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
   box-shadow: none !important;
 }
 
@@ -8904,7 +8904,7 @@ main .why-feature-card {
   padding: 80px max(20px, calc((100vw - 1180px) / 2)) !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
   box-shadow: none !important;
 }
 
@@ -8913,7 +8913,7 @@ main .why-feature-card {
   padding: 0 !important;
   border: 0 !important;
   border-radius: 0 !important;
-  background: #f8f7f4 !important;
+  background: #ffffff !important;
   box-shadow: none !important;
 }
 
