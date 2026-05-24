@@ -1,6 +1,7 @@
 import { listBusinessJobs, listWorkers } from '@/src/server/db';
 import type { BusinessJobStatus, BusinessLandfill, BusinessPaymentType } from '@/src/server/types';
 import { euro, jobStatusLabels, jobStatuses, landfillLabels, landfills, numberSk, paymentLabels, paymentTypes } from './constants';
+import { deleteBusinessJobAction } from './actions';
 
 function monthBounds(month?: string) {
   if (!month) return {};
@@ -77,7 +78,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
       <section className="admin-card">
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Tržba €</th><th>Platba</th><th>Tím</th><th>Stav</th><th>Zisk €</th></tr></thead>
+            <thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Tržba €</th><th>Platba</th><th>Tím</th><th>Stav</th><th>Zisk €</th><th className="no-print">Akcie</th></tr></thead>
             <tbody>
               {filtered.map((job) => (
                 <tr key={job.id}>
@@ -90,9 +91,15 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   <td>{job.workers.map((worker) => worker.workerName).join(', ') || 'bez tímu'}</td>
                   <td><span className="status-pill">{jobStatusLabels[job.status]}</span></td>
                   <td>{euro(job.grossProfit)}</td>
+                  <td className="no-print">
+                    <form action={deleteBusinessJobAction}>
+                      <input type="hidden" name="id" value={job.id} />
+                      <button type="submit">Zmazať</button>
+                    </form>
+                  </td>
                 </tr>
               ))}
-              {!filtered.length ? <tr><td colSpan={9}>Nenašli sa žiadne zákazky.</td></tr> : null}
+              {!filtered.length ? <tr><td colSpan={10}>Nenašli sa žiadne zákazky.</td></tr> : null}
             </tbody>
             <tfoot>
               <tr><th colSpan={3}>Súčet</th><th>{numberSk(totals.m2)}</th><th>{euro(totals.revenue)}</th><th colSpan={3}>Zákaziek: {totals.count}</th><th>{euro(totals.profit)}</th></tr>

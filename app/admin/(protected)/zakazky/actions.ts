@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/src/server/auth';
-import { saveBusinessJob } from '@/src/server/db';
+import { deleteBusinessJob, saveBusinessJob } from '@/src/server/db';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
@@ -53,5 +53,17 @@ export async function saveBusinessJobAction(formData: FormData) {
   revalidatePath('/admin/rok');
   revalidatePath(`/admin/zakazky/${job.id}`);
   if (next === 'new') redirect('/admin/zakazky/nova');
+  if (!id) redirect('/admin/zakazky');
   redirect(`/admin/zakazky/${job.id}`);
+}
+
+export async function deleteBusinessJobAction(formData: FormData) {
+  const actor = await requireAdmin();
+  const id = String(formData.get('id') || '');
+  if (id) {
+    await deleteBusinessJob(id, actor);
+    revalidatePath('/admin/zakazky');
+    revalidatePath('/admin/dashboard');
+    revalidatePath('/admin/rok');
+  }
 }

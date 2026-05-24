@@ -1494,6 +1494,20 @@ export async function getBusinessJob(id: string): Promise<BusinessJob | null> {
   return jobs[0] ?? null;
 }
 
+export async function deleteBusinessJob(id: string, actorEmail: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.businessJobs = local.businessJobs.filter((job) => job.id !== id);
+    await writeLocalDb(local);
+    await addAuditLog('system', id, 'business_job_deleted', actorEmail, {});
+    return;
+  }
+  await db.query('DELETE FROM business_jobs WHERE id = $1', [id]);
+  await addAuditLog('system', id, 'business_job_deleted', actorEmail, {});
+}
+
 export async function saveBusinessJob(input: BusinessJobInput, actorEmail: string, id?: string): Promise<BusinessJob> {
   await ensureSchema();
   const timestamp = now();
