@@ -7854,8 +7854,8 @@ main .quote-panel-testimonial-author {
 .why-card-grid .why-feature-card:nth-child(odd),
 .testimonial-grid .testimonial-card:nth-child(odd),
 .faq-grid details:nth-child(odd) {
-  background: #ffffff !important;
-  border: 1px solid #e8e6df !important;
+  background: linear-gradient(135deg, #fff1df 0%, #fff8ef 42%, #ffffff 100%) !important;
+  border: 1px solid #f0cda5 !important;
 }
 
 .risk-grid article:nth-child(even),
@@ -7880,4 +7880,12 @@ main .quote-panel-testimonial-author {
 .roofers-grid article:nth-child(even) .line-icon,
 .why-card-grid .why-feature-card:nth-child(even) .why-card-icon {
   background-color: rgba(24, 95, 165, 0.16) !important;
+}
+
+.risk-grid article:nth-child(odd) .risk-card-icon,
+.caution-grid article:nth-child(odd) .caution-card-icon,
+.included-group-grid .included-group-card:nth-child(odd) .included-group-icon,
+.roofers-grid article:nth-child(odd) .line-icon,
+.why-card-grid .why-feature-card:nth-child(odd) .why-card-icon {
+  background-color: rgba(232, 84, 26, 0.1) !important;
 }
