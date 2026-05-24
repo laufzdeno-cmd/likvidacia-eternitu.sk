@@ -8206,3 +8206,17 @@ main .quote-panel-testimonial-author {
     flex-direction: column;
   }
 }
+
+main .caution-grid article:nth-child(odd) {
+  background: #ffffff !important;
+  border: 1px solid #e8e6df !important;
+}
+
+main .caution-grid article:nth-child(even) {
+  background: #eef4ff !important;
+  border: 1px solid #d0e2ff !important;
+}
+
+main .caution-grid article:nth-child(even) .caution-card-icon {
+  background: rgba(24, 95, 165, 0.1) !important;
+}
