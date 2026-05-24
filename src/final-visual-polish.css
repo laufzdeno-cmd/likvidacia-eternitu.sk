@@ -7845,16 +7845,39 @@ main .quote-panel-testimonial-author {
   }
 }
 
-.caution-grid article:nth-child(odd) {
+.risk-grid article:nth-child(odd),
+.caution-grid article:nth-child(odd),
+.included-group-grid .included-group-card:nth-child(odd),
+.real-work-grid .real-work-card:nth-child(odd),
+.reviews-grid .review-card:nth-child(odd),
+.roofers-grid article:nth-child(odd),
+.why-card-grid .why-feature-card:nth-child(odd),
+.testimonial-grid .testimonial-card:nth-child(odd),
+.faq-grid details:nth-child(odd) {
   background: #ffffff !important;
   border: 1px solid #e8e6df !important;
 }
 
-.caution-grid article:nth-child(even) {
-  background: #eef4ff !important;
-  border: 1px solid #d0e2ff !important;
+.risk-grid article:nth-child(even),
+.caution-grid article:nth-child(even),
+.included-group-grid .included-group-card:nth-child(even),
+.real-work-grid .real-work-card:nth-child(even),
+.reviews-grid .review-card:nth-child(even),
+.roofers-grid article:nth-child(even),
+.why-card-grid .why-feature-card:nth-child(even),
+.testimonial-grid .testimonial-card:nth-child(even),
+.faq-grid details:nth-child(even) {
+  background: #e3f0ff !important;
+  border: 1px solid #b7d4ff !important;
 }
 
+.risk-grid article:nth-child(even) .risk-card-icon,
 .caution-grid article:nth-child(even) .caution-card-icon {
-  background: rgba(24, 95, 165, 0.1) !important;
+  background: rgba(24, 95, 165, 0.16) !important;
+}
+
+.included-group-grid .included-group-card:nth-child(even) .included-group-icon,
+.roofers-grid article:nth-child(even) .line-icon,
+.why-card-grid .why-feature-card:nth-child(even) .why-card-icon {
+  background-color: rgba(24, 95, 165, 0.16) !important;
 }
