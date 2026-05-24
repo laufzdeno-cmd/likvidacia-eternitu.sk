@@ -7779,19 +7779,21 @@ main .quote-panel-main {
 main .quote-panel-testimonial {
   position: relative !important;
   width: 100% !important;
-  max-width: 520px !important;
-  height: clamp(168px, 18vh, 220px) !important;
+  max-width: 420px !important;
+  height: clamp(340px, 38vh, 460px) !important;
+  aspect-ratio: auto !important;
   margin-top: clamp(28px, 5vh, 48px) !important;
   overflow: hidden !important;
   border-radius: 12px !important;
+  background: #0a1223 !important;
 }
 
 main .quote-panel-testimonial img {
   display: block !important;
   width: 100% !important;
   height: 100% !important;
-  object-fit: cover !important;
-  object-position: center 42% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
 }
 
 main .quote-panel-testimonial-overlay {
