@@ -15,6 +15,10 @@ function n(value: string | number | undefined) {
   return Number(String(value ?? '').replace(',', '.')) || 0;
 }
 
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export default function JobForm({ workers, landfillPrices, defaultPricePerM2, job }: Props) {
   const initialWorkerIds = job?.workers.map((worker) => worker.workerId) ?? [];
   const [m2, setM2] = useState(job?.m2 ?? 0);
@@ -43,11 +47,11 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
   }, [date, landfill, landfillPrices, wasteKg]);
 
   const totalPrice = m2 * pricePerM2;
-  const share = selectedWorkers.length ? m2 / selectedWorkers.length : 0;
+  const share = selectedWorkers.length ? round2(m2 / selectedWorkers.length) : 0;
   const rewards = selectedWorkers.map((workerId) => {
     const worker = workers.find((item) => item.id === workerId);
     const rate = job?.workers.find((item) => item.workerId === workerId)?.rate ?? worker?.ratePerM2 ?? 0;
-    const automatic = share * rate;
+    const automatic = round2(share * rate);
     const manual = manualRewards[workerId]?.manual;
     const reward = manual ? manualRewards[workerId]?.reward ?? automatic : automatic;
     return { workerId, worker, rate, reward, manual };
@@ -128,7 +132,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
                   </td>
                   <td>
                     {item.manual ? '✏️' : 'auto'}{' '}
-                    <button type="button" onClick={() => setManualRewards((values) => ({ ...values, [item.workerId]: { reward: share * item.rate, manual: false } }))}>↺ Prepočítať</button>
+                    <button type="button" onClick={() => setManualRewards((values) => ({ ...values, [item.workerId]: { reward: round2(share * item.rate), manual: false } }))}>↺ Prepočítať</button>
                   </td>
                 </tr>
               ))}

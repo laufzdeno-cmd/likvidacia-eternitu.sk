@@ -1505,10 +1505,10 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
   const selectedWorkers = input.workers
     .map((item) => ({ ...item, worker: allWorkers.find((worker) => worker.id === item.workerId) }))
     .filter((item) => item.worker);
-  const share = selectedWorkers.length ? money(input.m2 / selectedWorkers.length) : 0;
+  const share = selectedWorkers.length ? Math.round((input.m2 / selectedWorkers.length) * 100) / 100 : 0;
   const jobWorkers = selectedWorkers.map((item) => {
     const rate = money(item.rate ?? item.worker?.ratePerM2 ?? 0);
-    const automaticReward = money(share * rate);
+    const automaticReward = Math.round((share * rate) * 100) / 100;
     const reward = item.manuallyEdited ? money(item.reward) : automaticReward;
     return {
       id: randomUUID(),
