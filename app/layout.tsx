@@ -55,11 +55,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'LocalBusiness',
-              name: 'ASTANA — Likvidácia azbestu',
+              name: 'ASTANA — Likvidácia azbestu a eternitu',
+              description:
+                'Bezpečná likvidácia azbestu a eternitu po celom Slovensku. Dokumentácia RÚVZ a OÚŽP, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii.',
               telephone: '+421905217946',
               email: 'astana@astana.sk',
               url: 'https://likvidacia-eternitu.sk',
               foundingDate: '2011',
+              priceRange: '€€',
+              currenciesAccepted: 'EUR',
+              paymentAccepted: 'Hotovosť, Bankový prevod',
               areaServed: { '@type': 'Country', name: 'Slovakia' },
               address: {
                 '@type': 'PostalAddress',
@@ -76,6 +81,29 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                   closes: '18:00',
                 },
               ],
+              sameAs: ['https://likvidacia-eternitu.sk'],
+              hasOfferCatalog: {
+                '@type': 'OfferCatalog',
+                name: 'Služby likvidácie azbestu',
+                itemListElement: [
+                  {
+                    '@type': 'Offer',
+                    itemOffered: {
+                      '@type': 'Service',
+                      name: 'Likvidácia azbestovej strechy',
+                      description: 'Stabilizácia, demontáž, balenie, odvoz a dokumentácia',
+                    },
+                  },
+                  {
+                    '@type': 'Offer',
+                    itemOffered: {
+                      '@type': 'Service',
+                      name: 'Dokumentácia RÚVZ a OÚŽP',
+                      description: 'Kompletné vybavenie dokumentácie pre úrady',
+                    },
+                  },
+                ],
+              },
             }),
           }}
         />

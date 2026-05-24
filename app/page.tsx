@@ -308,10 +308,15 @@ async function getHomepageTestimonials() {
 }
 
 export default async function HomePage() {
-  const [testimonials, content] = await Promise.all([
+  const [testimonials, rawContent] = await Promise.all([
     getHomepageTestimonials(),
     getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion }),
   ]);
+  const content: typeof homeContentDefaults = {
+    ...homeContentDefaults,
+    ...rawContent,
+    riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
+  };
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
   const includedGroups = [
     {

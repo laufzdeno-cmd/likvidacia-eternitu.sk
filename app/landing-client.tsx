@@ -19,6 +19,7 @@ export default function LandingClient() {
     const testimonialStatus = document.querySelector<HTMLElement>('.testimonial-form-status');
     const rooferRegistrationStatus = document.querySelector<HTMLElement>('.roofer-registration-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
+    const quoteSection = document.getElementById('dopyt');
     const galleryCards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
     const galleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
     const homeGalleryCards = Array.from(document.querySelectorAll<HTMLElement>('[data-home-gallery-card]'));
@@ -44,6 +45,7 @@ export default function LandingClient() {
     let activeGallery = galleryCards.slice(0, 12);
     let activeGalleryIndex = 0;
     let activePriceMaterial = 'vlnity';
+    let isQuoteSectionVisible = false;
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -445,7 +447,7 @@ export default function LandingClient() {
       if (!stickyCta) return;
       const isMobile = window.innerWidth <= 760;
       const shouldShow = form
-        ? isMobile && form.getBoundingClientRect().bottom < 120
+        ? isMobile && !isQuoteSectionVisible && form.getBoundingClientRect().bottom < 120
         : isMobile && window.scrollY > 280;
       stickyCta.classList.toggle('is-visible', shouldShow);
     };
@@ -485,6 +487,17 @@ export default function LandingClient() {
       button.setAttribute('aria-pressed', String(index === 0));
       button.addEventListener('click', onPriceMaterialClick);
     });
+    let quoteSectionObserver: IntersectionObserver | null = null;
+    if (quoteSection && stickyCta) {
+      quoteSectionObserver = new IntersectionObserver(
+        ([entry]) => {
+          isQuoteSectionVisible = entry.isIntersecting;
+          onScroll();
+        },
+        { threshold: 0.1 },
+      );
+      quoteSectionObserver.observe(quoteSection);
+    }
     updatePriceCalculator();
     galleryLoadMore?.addEventListener('click', onGalleryLoadMore);
     galleryCards.forEach((card) => card.addEventListener('click', () => openGalleryLightbox(card)));
@@ -625,6 +638,7 @@ export default function LandingClient() {
       sectionObserver?.disconnect();
       revealObserver?.disconnect();
       counterObserver?.disconnect();
+      quoteSectionObserver?.disconnect();
       hashScrollTimers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);

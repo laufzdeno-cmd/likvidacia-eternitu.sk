@@ -134,7 +134,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-068'),
     category: 'rodinny-dom',
-    title: 'Demontáž na streche',
+    title: 'Demontáž bez zhadzovania',
     type: 'Rodinný dom',
     bullets: [
       'Krytinu odoberáme kontrolovane bez zhadzovania zo strechy.',
@@ -145,7 +145,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-120'),
     category: 'hospodarska-budova',
-    title: 'Hospodárska budova',
+    title: 'Balenie a odvoz',
     type: 'Hospodárska budova',
     bullets: [
       'Riešime aj hospodárske objekty, dlhé strechy a väčšie plochy.',
@@ -156,7 +156,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-110'),
     category: 'priemyselny-objekt',
-    title: 'Priemyselný objekt',
+    title: 'Technika ASTANA',
     type: 'Priemyselný objekt',
     bullets: [
       'Priemyselné zákazky vyžadujú koordináciu ľudí, techniky a dokumentácie.',
@@ -167,7 +167,7 @@ export const realizationHighlights = [
   {
     image: getAzbestReference('azbest-106'),
     category: 'priemyselny-objekt',
-    title: 'Priemyselná prevádzka',
+    title: 'Väčší rozsah prác',
     type: 'Priemyselný objekt',
     bullets: [
       'Robíme aj technické prevádzky, dopravníky a väčšie priemyselné areály.',

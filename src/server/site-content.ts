@@ -20,7 +20,7 @@ export const homeContentDefaults = {
   includedText: 'Dokumentácia, demontáž, balenie, odvoz aj doklady v jednom postupe.',
   processEyebrow: 'Postup v praxi',
   processTitle: 'Od výmery po doklady',
-  riskEyebrow: 'Prečo odborný postup',
+  riskEyebrow: 'Bezpečný postup',
   riskTitle: 'Azbest nie je obyčajná strešná krytina',
   riskText:
     'Azbest nestačí iba zložiť zo strechy. Rozhoduje manipulácia, odvoz a doklady po likvidácii. Preto riešime postup ku konkrétnej stavbe — od podkladov a rozhodnutí až po dokumentáciu.',

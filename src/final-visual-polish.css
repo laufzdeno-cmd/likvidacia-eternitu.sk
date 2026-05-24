@@ -7313,3 +7313,142 @@ main .quote-card h2 {
 .site-header .header-phone small {
   color: rgba(255, 255, 255, 0.78) !important;
 }
+
+/* Final perfection pass: exact SEO and visual QA overrides. */
+.site-header .brand:not(.footer-brand) {
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.site-header .brand:not(.footer-brand) .brand-logo {
+  filter: brightness(0) invert(1) !important;
+}
+
+main .hero-claim {
+  display: block !important;
+  margin: 20px 0 !important;
+  padding: 0 0 0 14px !important;
+  border: 0 !important;
+  border-left: 3px solid #e8541a !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: #0f1f3d !important;
+  font-size: 18px !important;
+  font-style: italic !important;
+  font-weight: 600 !important;
+}
+
+main .hero-claim::before,
+main .hero-claim::after {
+  content: none !important;
+  display: none !important;
+}
+
+main > .quote-section {
+  background: #0f1f3d !important;
+}
+
+main .quote-section-inner {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  align-items: start !important;
+  min-height: 600px !important;
+}
+
+main .quote-section-inner > .quote-info-panel {
+  position: sticky !important;
+  top: 88px !important;
+  align-self: start !important;
+  min-width: 0 !important;
+  max-height: calc(100vh - 108px) !important;
+  padding: 64px 48px !important;
+  overflow: hidden auto !important;
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+main .quote-info-panel h2 {
+  font-size: clamp(20px, 2.2vw, 30px) !important;
+  line-height: 1.2 !important;
+  word-break: break-word !important;
+}
+
+main .quote-section-inner > .quote-card {
+  min-width: 0 !important;
+  padding: 48px !important;
+  background: #ffffff !important;
+}
+
+main .hero-counters {
+  gap: 32px !important;
+}
+
+main .hero-counter-item {
+  border-right: 1px solid rgba(15, 31, 61, 0.15) !important;
+}
+
+main .hero-counter-item:last-child {
+  border-right: 0 !important;
+}
+
+main .hero-counter-item:not(:last-child)::after {
+  content: none !important;
+  display: none !important;
+}
+
+main .included-group-card {
+  border-top: 3px solid #e8541a !important;
+}
+
+main .included-group-card::before,
+main .included-group-card::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+}
+
+main section.risk-section .risk-notice-icon,
+main section.risk-section .risk-card-icon {
+  width: 52px !important;
+  height: 52px !important;
+  border-radius: 12px !important;
+}
+
+main section.risk-section .risk-notice-icon span,
+main section.risk-section .risk-card-icon span {
+  font-size: 28px !important;
+  line-height: 1 !important;
+}
+
+main .why-feature-card {
+  padding: 24px 20px !important;
+}
+
+main .why-feature-card h3 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+}
+
+main .why-feature-card p {
+  font-size: 13px !important;
+}
+
+@media (max-width: 900px) {
+  main .quote-section-inner {
+    grid-template-columns: 1fr !important;
+  }
+
+  main .quote-section-inner > .quote-info-panel {
+    position: static !important;
+    max-height: none !important;
+    padding: 40px 28px !important;
+  }
+
+  main .quote-section-inner > .quote-card {
+    padding: 30px 22px !important;
+  }
+}
