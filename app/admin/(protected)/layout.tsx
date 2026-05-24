@@ -15,16 +15,19 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </a>
         <nav>
           <a href="/admin/dashboard">Dashboard</a>
+          <a href="/admin/zakazky">Zákazky</a>
+          <a href="/admin/rok">Ročný prehľad</a>
+          <a href="/admin/reviews">Recenzie</a>
           <a href="/admin/analytics">Analytika</a>
-          <a href="/admin/health">Kontrola systému</a>
-          <a href="/admin/obsah">Obsah webu</a>
+          <a href="/admin/nastavenia">Nastavenia</a>
+          <a href="/admin/import">Import</a>
+          <a href="/admin/reviews/request">Žiadosť o recenziu</a>
           <a href="/admin/dopyty">Dopyty</a>
           <a href="/admin/cenove-ponuky">Cenové ponuky</a>
-          <a href="/admin/zakazky">Zákazky</a>
           <a href="/admin/strechari">Strechári</a>
           <a href="/admin/realizacie">Realizácie</a>
-          <a href="/admin/referencie">Referencie</a>
-          <a href="/admin/nastavenia">Nastavenia</a>
+          <a href="/admin/obsah">Obsah webu</a>
+          <a href="/admin/health">Kontrola systému</a>
         </nav>
         <form action="/admin/logout" method="post">
           <button type="submit">Odhlásiť</button>
@@ -37,6 +40,12 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </header>
         {children}
       </div>
+      <script
+        dangerouslySetInnerHTML={{
+          __html:
+            "document.addEventListener('click',function(e){var b=e.target.closest('[data-print]');if(b){e.preventDefault();window.print();}})",
+        }}
+      />
     </div>
   );
 }

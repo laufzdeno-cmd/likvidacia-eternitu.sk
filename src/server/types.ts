@@ -1,9 +1,13 @@
 export type LeadStatus =
   | 'novy'
+  | 'kontaktovany'
   | 'caka_na_doplnenie'
   | 'naceneny'
   | 'cenova_ponuka_odoslana'
   | 'objednane'
+  | 'v_realizacii'
+  | 'dokoncena'
+  | 'zrusena'
   | 'nevyslo'
   | 'archivovane';
 
@@ -52,7 +56,7 @@ export type LeadFile = {
 
 export type AuditLog = {
   id: string;
-  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content' | 'roofer';
+  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content' | 'roofer' | 'review_request';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -91,12 +95,16 @@ export type TestimonialStatus = 'draft' | 'approved' | 'hidden';
 export type TestimonialInput = {
   customerName: string;
   location?: string;
+  objectType?: string;
+  realizationDate?: string;
   rating: number;
   text: string;
   status: TestimonialStatus;
   customerEmail?: string;
   consentPublication?: boolean;
-  source?: 'admin' | 'public';
+  source?: 'admin' | 'public' | 'google' | 'phone' | 'whatsapp' | 'email' | 'personal';
+  internalNote?: string;
+  photoUrl?: string;
 };
 
 export type Testimonial = TestimonialInput & {
@@ -105,6 +113,120 @@ export type Testimonial = TestimonialInput & {
   updatedAt: string;
   approvedAt?: string;
   approvedBy?: string;
+};
+
+export type ReviewRequestStatus = 'sent' | 'review_received';
+
+export type ReviewRequestInput = {
+  customerName: string;
+  phone: string;
+  location?: string;
+  objectType?: string;
+  realizationDate?: string;
+  googleReviewLink: string;
+  message: string;
+  status?: ReviewRequestStatus;
+  createdBy: string;
+  leadId?: string;
+};
+
+export type ReviewRequest = ReviewRequestInput & {
+  id: string;
+  status: ReviewRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BusinessPaymentType = 'FAKTURA' | 'CASH';
+export type BusinessWorkType = 'DEMONTAZ' | 'ODVOZ' | 'DEMONTAZ_A_ODVOZ';
+export type BusinessLandfill = 'MOCHOVCE' | 'LIVINKE_OPATOVCE' | 'KOSICE' | 'INA';
+export type BusinessJobStatus = 'DOPYT' | 'PONUKA_ODOSLANA' | 'PRIJATA' | 'V_REALIZACII' | 'DOKONCENA' | 'ZRUSENA';
+
+export type Worker = {
+  id: string;
+  name: string;
+  ratePerM2: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type LandfillPrice = {
+  id: string;
+  year: number;
+  landfill: BusinessLandfill;
+  pricePerTon: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BusinessJobWorker = {
+  id: string;
+  jobId: string;
+  workerId: string;
+  workerName: string;
+  m2Share: number;
+  rate: number;
+  reward: number;
+  manuallyEdited: boolean;
+};
+
+export type BusinessJobCosts = {
+  jobId: string;
+  fuel: number;
+  suits: number;
+  gloves: number;
+  penetrant: number;
+  landfillCost: number;
+  otherName: string;
+  otherAmount: number;
+  total: number;
+};
+
+export type BusinessJobInput = {
+  demolitionDate: string;
+  customerName: string;
+  location: string;
+  district?: string;
+  m2: number;
+  pricePerM2: number;
+  paymentType: BusinessPaymentType;
+  workType: BusinessWorkType;
+  wasteKg?: number;
+  landfill: BusinessLandfill;
+  status: BusinessJobStatus;
+  note?: string;
+  workers: Array<{ workerId: string; rate?: number; reward?: number; manuallyEdited?: boolean }>;
+  costs: Omit<BusinessJobCosts, 'jobId' | 'total'>;
+};
+
+export type BusinessJob = {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  demolitionDate: string;
+  customerName: string;
+  location: string;
+  district: string;
+  m2: number;
+  pricePerM2: number;
+  totalPrice: number;
+  paymentType: BusinessPaymentType;
+  workType: BusinessWorkType;
+  wasteKg: number;
+  landfill: BusinessLandfill;
+  status: BusinessJobStatus;
+  note: string;
+  workers: BusinessJobWorker[];
+  costs: BusinessJobCosts;
+  rewardsTotal: number;
+  grossProfit: number;
+  marginPercent: number;
+};
+
+export type BusinessSettings = {
+  defaultPricePerM2: number;
+  googleReviewLink: string;
 };
 
 export type RealizationStatus = 'draft' | 'published' | 'hidden';

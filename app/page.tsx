@@ -5,7 +5,6 @@ import {
   heroPhoto,
   realizationHighlights,
 } from '@/src/data/azbestReferences';
-import reviews from '@/data/reviews.json';
 import { getSiteContentMap, listApprovedTestimonials } from '@/src/server/db';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 
@@ -32,6 +31,9 @@ const getReviewInitials = (name: string) =>
     .map((part) => part[0])
     .join('')
     .toUpperCase();
+
+const formatReviewDate = (value?: string) =>
+  value ? new Intl.DateTimeFormat('sk-SK', { month: 'long', year: 'numeric' }).format(new Date(value)) : '';
 
 const formatHeroCounterValue = (counter: (typeof heroCounters)[number]) =>
   `${counter.value === 2011 ? counter.value.toString() : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
@@ -816,28 +818,23 @@ export default async function HomePage() {
             <p>Hodnotenia zákazníkov</p>
           </div>
           <div className="reviews-grid">
-            {/* TODO: nahradiť reálnymi recenziami z Google Business Profile */}
-            {reviews.map((review, index) => (
-              <article className="review-card" data-review-extra={index >= 3 ? 'true' : undefined} hidden={index >= 3} key={review.id}>
-                <div className="review-stars" aria-label={`${review.stars} z 5`}>{'★'.repeat(review.stars)}</div>
+            {testimonials.slice(0, 3).map((review) => (
+              <article className="review-card" key={review.id}>
+                <div className="review-stars" aria-label={`${review.rating} z 5`}>{'★'.repeat(review.rating)}</div>
                 <p className="review-text">{review.text}</p>
                 <footer className="review-author">
-                  <span className="review-avatar" aria-hidden="true">{getReviewInitials(review.name)}</span>
+                  <span className="review-avatar" aria-hidden="true">{getReviewInitials(review.customerName)}</span>
                   <div>
-                    <strong>{review.name}</strong>
-                    <span>{review.location} · {review.object} · {review.date}</span>
+                    <strong>{review.customerName}</strong>
+                    <span>{[review.location, review.objectType, formatReviewDate(review.realizationDate)].filter(Boolean).join(' · ')}</span>
                   </div>
                 </footer>
               </article>
             ))}
+            {!testimonials.length ? <p>Recenzie pripravujeme na zverejnenie po schválení v administrácii.</p> : null}
           </div>
-          {reviews.length > 3 ? (
-            <button className="reviews-toggle" type="button" data-reviews-toggle>
-              Zobraziť všetky
-            </button>
-          ) : null}
-          <a className="reviews-google-link" href="https://maps.google.com" target="_blank" rel="noopener">
-            Zobraziť recenzie na Google →
+          <a className="reviews-google-link" href="/recenzie/">
+            Zobraziť všetky hodnotenia →
           </a>
         </section>
 

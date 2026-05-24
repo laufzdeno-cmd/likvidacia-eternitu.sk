@@ -25,10 +25,14 @@ export const tagLabels: Record<LeadTag, string> = {
 
 export const statusLabels: Record<LeadStatus, string> = {
   novy: 'nový',
+  kontaktovany: 'kontaktovaný',
   caka_na_doplnenie: 'čaká na doplnenie',
   naceneny: 'nacenený',
   cenova_ponuka_odoslana: 'cenová ponuka odoslaná',
   objednane: 'objednané',
+  v_realizacii: 'v realizácii',
+  dokoncena: 'dokončená',
+  zrusena: 'zrušená',
   nevyslo: 'nevyšlo',
   archivovane: 'archivované',
 };

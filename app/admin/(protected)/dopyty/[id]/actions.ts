@@ -7,10 +7,14 @@ import type { LeadStatus } from '@/src/server/types';
 
 const allowedStatuses = new Set<LeadStatus>([
   'novy',
+  'kontaktovany',
   'caka_na_doplnenie',
   'naceneny',
   'cenova_ponuka_odoslana',
   'objednane',
+  'v_realizacii',
+  'dokoncena',
+  'zrusena',
   'nevyslo',
   'archivovane',
 ]);
@@ -23,6 +27,8 @@ export async function saveLeadStatus(formData: FormData) {
     await updateLeadStatus(id, status, actor);
     revalidatePath(`/admin/dopyty/${id}`);
     revalidatePath('/admin/dopyty');
+    revalidatePath(`/admin/zakazky/${id}`);
+    revalidatePath('/admin/zakazky');
   }
 }
 
@@ -33,5 +39,6 @@ export async function saveInternalNote(formData: FormData) {
   if (id) {
     await updateLeadInternalNote(id, internalNote, actor);
     revalidatePath(`/admin/dopyty/${id}`);
+    revalidatePath(`/admin/zakazky/${id}`);
   }
 }

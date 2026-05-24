@@ -8226,3 +8226,132 @@ main .caution-grid article:nth-child(even) {
 main .caution-grid article:nth-child(even) .caution-card-icon {
   background: rgba(24, 95, 165, 0.1) !important;
 }
+
+.business-form {
+  display: grid;
+  gap: 18px;
+}
+
+.business-chart {
+  width: 100%;
+  min-height: 280px;
+}
+
+.worker-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.print-report-heading {
+  display: none;
+}
+
+.is-error-row td {
+  background: #fff1f1 !important;
+  color: #8f1d1d;
+}
+
+.admin-kanban {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(220px, 1fr));
+  gap: 14px;
+  overflow-x: auto;
+}
+
+.admin-kanban-column {
+  min-height: 220px;
+  padding: 14px;
+  border: 1px solid #d0e2ff;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #eef6ff 0%, #ffffff 100%);
+}
+
+.admin-kanban-column h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0;
+  font-size: 14px;
+}
+
+.admin-job-card {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #e8e6df;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0f1f3d;
+  text-decoration: none;
+}
+
+.admin-job-card span,
+.admin-job-card small {
+  color: #61708a;
+}
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  .year-report-page {
+    page: year-report;
+  }
+
+  @page year-report {
+    size: A4 landscape;
+  }
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .admin-sidebar,
+  .admin-topbar,
+  .no-print,
+  .admin-filter-bar,
+  button,
+  form button {
+    display: none !important;
+  }
+
+  .admin-shell,
+  .admin-main,
+  .admin-page {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .print-report-heading {
+    display: block !important;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #000000;
+  }
+
+  .print-report-heading img {
+    width: 140px;
+    height: auto;
+    filter: grayscale(1);
+  }
+
+  .admin-card,
+  .admin-stat-grid article {
+    break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #cccccc !important;
+    background: #ffffff !important;
+  }
+
+  .admin-table {
+    font-size: 11px;
+  }
+}

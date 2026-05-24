@@ -5,10 +5,14 @@ import { saveInternalNote, saveLeadStatus } from './actions';
 
 const statuses = [
   'novy',
+  'kontaktovany',
   'caka_na_doplnenie',
   'naceneny',
   'cenova_ponuka_odoslana',
   'objednane',
+  'v_realizacii',
+  'dokoncena',
+  'zrusena',
   'nevyslo',
   'archivovane',
 ] as const;

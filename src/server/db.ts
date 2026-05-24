@@ -7,6 +7,15 @@ import type {
   AnalyticsEvent,
   AnalyticsEventInput,
   AnalyticsReport,
+  BusinessJob,
+  BusinessJobCosts,
+  BusinessJobInput,
+  BusinessJobStatus,
+  BusinessLandfill,
+  BusinessPaymentType,
+  BusinessSettings,
+  BusinessWorkType,
+  LandfillPrice,
   Lead,
   LeadFile,
   LeadInput,
@@ -17,12 +26,16 @@ import type {
   Realization,
   RealizationInput,
   RealizationStatus,
+  ReviewRequest,
+  ReviewRequestInput,
+  ReviewRequestStatus,
   Roofer,
   RooferInput,
   SiteContentItem,
   Testimonial,
   TestimonialInput,
   TestimonialStatus,
+  Worker,
 } from './types';
 
 type LocalDb = {
@@ -31,6 +44,10 @@ type LocalDb = {
   auditLogs: AuditLog[];
   quotes: Quote[];
   testimonials: Testimonial[];
+  reviewRequests: ReviewRequest[];
+  workers: Worker[];
+  businessJobs: BusinessJob[];
+  landfillPrices: LandfillPrice[];
   realizations: Realization[];
   roofers: Roofer[];
   siteContent: SiteContentItem[];
@@ -256,6 +273,26 @@ async function ensureSchema() {
     ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS customer_email text;
     ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS consent_publication boolean NOT NULL DEFAULT false;
     ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'admin';
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS object_type text NOT NULL DEFAULT '';
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS realization_date date;
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS internal_note text NOT NULL DEFAULT '';
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS photo_url text NOT NULL DEFAULT '';
+
+    CREATE TABLE IF NOT EXISTS review_requests (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      status text NOT NULL DEFAULT 'sent',
+      customer_name text NOT NULL,
+      phone text NOT NULL,
+      location text NOT NULL DEFAULT '',
+      object_type text NOT NULL DEFAULT '',
+      realization_date date,
+      google_review_link text NOT NULL DEFAULT '',
+      message text NOT NULL DEFAULT '',
+      created_by text NOT NULL DEFAULT '',
+      lead_id uuid REFERENCES leads(id) ON DELETE SET NULL
+    );
 
     CREATE TABLE IF NOT EXISTS realizations (
       id uuid PRIMARY KEY,
@@ -347,18 +384,83 @@ async function ensureSchema() {
       metadata jsonb NOT NULL DEFAULT '{}'::jsonb
     );
 
+    CREATE TABLE IF NOT EXISTS workers (
+      id uuid PRIMARY KEY,
+      name text NOT NULL,
+      rate_per_m2 numeric(12,2) NOT NULL DEFAULT 0,
+      active boolean NOT NULL DEFAULT true,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS landfill_prices (
+      id uuid PRIMARY KEY,
+      year integer NOT NULL,
+      landfill text NOT NULL,
+      price_per_ton numeric(12,2) NOT NULL DEFAULT 0,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE(year, landfill)
+    );
+
+    CREATE TABLE IF NOT EXISTS business_jobs (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      demolition_date date NOT NULL,
+      customer_name text NOT NULL,
+      location text NOT NULL DEFAULT '',
+      district text NOT NULL DEFAULT '',
+      m2 numeric(12,2) NOT NULL DEFAULT 0,
+      price_per_m2 numeric(12,2) NOT NULL DEFAULT 0,
+      total_price numeric(12,2) NOT NULL DEFAULT 0,
+      payment_type text NOT NULL DEFAULT 'FAKTURA',
+      work_type text NOT NULL DEFAULT 'DEMONTAZ_A_ODVOZ',
+      waste_kg numeric(12,2) NOT NULL DEFAULT 0,
+      landfill text NOT NULL DEFAULT 'INA',
+      status text NOT NULL DEFAULT 'DOPYT',
+      note text NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS business_job_workers (
+      id uuid PRIMARY KEY,
+      job_id uuid NOT NULL REFERENCES business_jobs(id) ON DELETE CASCADE,
+      worker_id uuid NOT NULL REFERENCES workers(id) ON DELETE RESTRICT,
+      worker_name text NOT NULL DEFAULT '',
+      m2_share numeric(12,2) NOT NULL DEFAULT 0,
+      rate numeric(12,2) NOT NULL DEFAULT 0,
+      reward numeric(12,2) NOT NULL DEFAULT 0,
+      manually_edited boolean NOT NULL DEFAULT false
+    );
+
+    CREATE TABLE IF NOT EXISTS business_job_costs (
+      job_id uuid PRIMARY KEY REFERENCES business_jobs(id) ON DELETE CASCADE,
+      fuel numeric(12,2) NOT NULL DEFAULT 0,
+      suits numeric(12,2) NOT NULL DEFAULT 0,
+      gloves numeric(12,2) NOT NULL DEFAULT 0,
+      penetrant numeric(12,2) NOT NULL DEFAULT 0,
+      landfill_cost numeric(12,2) NOT NULL DEFAULT 0,
+      other_name text NOT NULL DEFAULT '',
+      other_amount numeric(12,2) NOT NULL DEFAULT 0,
+      total numeric(12,2) NOT NULL DEFAULT 0
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
     CREATE INDEX IF NOT EXISTS quotes_lead_id_idx ON quotes (lead_id);
     CREATE INDEX IF NOT EXISTS testimonials_status_created_at_idx ON testimonials (status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS review_requests_status_created_at_idx ON review_requests (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS roofers_active_region_idx ON roofers (active, region, updated_at DESC);
     CREATE INDEX IF NOT EXISTS roofer_events_roofer_created_idx ON roofer_events (roofer_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
+    CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
   `);
+  await seedDefaultWorkers();
   schemaReady = true;
 }
 
@@ -369,6 +471,10 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     auditLogs: data.auditLogs ?? [],
     quotes: data.quotes ?? [],
     testimonials: data.testimonials ?? [],
+    reviewRequests: data.reviewRequests ?? [],
+    workers: data.workers ?? [],
+    businessJobs: data.businessJobs ?? [],
+    landfillPrices: data.landfillPrices ?? [],
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
     siteContent: data.siteContent ?? [],
@@ -468,6 +574,96 @@ function toSiteContent(row: Record<string, unknown>): SiteContentItem {
   };
 }
 
+function toReviewRequest(row: Record<string, unknown>): ReviewRequest {
+  return {
+    id: String(row.id),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+    status: String(row.status ?? 'sent') as ReviewRequestStatus,
+    customerName: String(row.customer_name ?? row.customerName ?? ''),
+    phone: String(row.phone ?? ''),
+    location: String(row.location ?? ''),
+    objectType: String(row.object_type ?? row.objectType ?? ''),
+    realizationDate: row.realization_date || row.realizationDate ? String(row.realization_date ?? row.realizationDate) : '',
+    googleReviewLink: String(row.google_review_link ?? row.googleReviewLink ?? ''),
+    message: String(row.message ?? ''),
+    createdBy: String(row.created_by ?? row.createdBy ?? ''),
+    leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : '',
+  };
+}
+
+function toWorker(row: Record<string, unknown>): Worker {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    ratePerM2: Number(row.rate_per_m2 ?? row.ratePerM2 ?? 0),
+    active: Boolean(row.active),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+  };
+}
+
+function toLandfillPrice(row: Record<string, unknown>): LandfillPrice {
+  return {
+    id: String(row.id),
+    year: Number(row.year),
+    landfill: String(row.landfill) as BusinessLandfill,
+    pricePerTon: Number(row.price_per_ton ?? row.pricePerTon ?? 0),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+  };
+}
+
+function toBusinessJobCosts(row: Record<string, unknown>): BusinessJobCosts {
+  return {
+    jobId: String(row.job_id ?? row.jobId ?? ''),
+    fuel: Number(row.fuel ?? 0),
+    suits: Number(row.suits ?? 0),
+    gloves: Number(row.gloves ?? 0),
+    penetrant: Number(row.penetrant ?? 0),
+    landfillCost: Number(row.landfill_cost ?? row.landfillCost ?? 0),
+    otherName: String(row.other_name ?? row.otherName ?? ''),
+    otherAmount: Number(row.other_amount ?? row.otherAmount ?? 0),
+    total: Number(row.total ?? 0),
+  };
+}
+
+function enrichBusinessJob(
+  row: Record<string, unknown>,
+  workers: BusinessJob['workers'] = [],
+  costs?: BusinessJobCosts,
+): BusinessJob {
+  const totalPrice = Number(row.total_price ?? row.totalPrice ?? 0);
+  const jobCosts =
+    costs ??
+    ({ jobId: String(row.id), fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0, total: 0 } satisfies BusinessJobCosts);
+  const rewardsTotal = workers.reduce((sum, worker) => sum + worker.reward, 0);
+  const grossProfit = totalPrice - rewardsTotal - jobCosts.total;
+  return {
+    id: String(row.id),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+    demolitionDate: String(row.demolition_date ?? row.demolitionDate ?? '').slice(0, 10),
+    customerName: String(row.customer_name ?? row.customerName ?? ''),
+    location: String(row.location ?? ''),
+    district: String(row.district ?? ''),
+    m2: Number(row.m2 ?? 0),
+    pricePerM2: Number(row.price_per_m2 ?? row.pricePerM2 ?? 0),
+    totalPrice,
+    paymentType: String(row.payment_type ?? row.paymentType ?? 'FAKTURA') as BusinessPaymentType,
+    workType: String(row.work_type ?? row.workType ?? 'DEMONTAZ_A_ODVOZ') as BusinessWorkType,
+    wasteKg: Number(row.waste_kg ?? row.wasteKg ?? 0),
+    landfill: String(row.landfill ?? 'INA') as BusinessLandfill,
+    status: String(row.status ?? 'DOPYT') as BusinessJobStatus,
+    note: String(row.note ?? ''),
+    workers,
+    costs: jobCosts,
+    rewardsTotal,
+    grossProfit,
+    marginPercent: totalPrice ? Math.round((grossProfit / totalPrice) * 1000) / 10 : 0,
+  };
+}
+
 function toAnalyticsEvent(row: Record<string, unknown>): AnalyticsEvent {
   return {
     id: String(row.id),
@@ -490,7 +686,21 @@ async function readLocalDb(): Promise<LocalDb> {
   try {
     return normalizeLocalDb(JSON.parse(await readFile(localDbPath, 'utf8')) as Partial<LocalDb>);
   } catch {
-    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [], realizations: [], roofers: [], siteContent: [], analyticsEvents: [] };
+    const empty: LocalDb = {
+      leads: [],
+      leadFiles: [],
+      auditLogs: [],
+      quotes: [],
+      testimonials: [],
+      reviewRequests: [],
+      workers: [],
+      businessJobs: [],
+      landfillPrices: [],
+      realizations: [],
+      roofers: [],
+      siteContent: [],
+      analyticsEvents: [],
+    };
     await writeFile(localDbPath, JSON.stringify(empty, null, 2), 'utf8');
     return empty;
   }
@@ -865,12 +1075,16 @@ export async function createTestimonial(input: TestimonialInput, actorEmail: str
     id: randomUUID(),
     customerName: input.customerName.trim(),
     location: input.location?.trim() ?? '',
+    objectType: input.objectType?.trim() ?? '',
+    realizationDate: input.realizationDate || '',
     rating: Math.min(5, Math.max(1, Math.round(input.rating || 5))),
     text: input.text.trim(),
     status: input.status,
     customerEmail: input.customerEmail?.trim() ?? '',
     consentPublication: Boolean(input.consentPublication),
     source: input.source ?? 'admin',
+    internalNote: input.internalNote?.trim() ?? '',
+    photoUrl: input.photoUrl?.trim() ?? '',
     createdAt: timestamp,
     updatedAt: timestamp,
     approvedAt: input.status === 'approved' ? timestamp : undefined,
@@ -889,8 +1103,8 @@ export async function createTestimonial(input: TestimonialInput, actorEmail: str
   await db.query(
     `INSERT INTO testimonials (
       id, created_at, updated_at, status, customer_name, location, rating, text, approved_at, approved_by,
-      customer_email, consent_publication, source
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      customer_email, consent_publication, source, object_type, realization_date, internal_note, photo_url
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
     [
       testimonial.id,
       testimonial.createdAt,
@@ -905,6 +1119,10 @@ export async function createTestimonial(input: TestimonialInput, actorEmail: str
       testimonial.customerEmail,
       testimonial.consentPublication,
       testimonial.source,
+      testimonial.objectType,
+      testimonial.realizationDate || null,
+      testimonial.internalNote,
+      testimonial.photoUrl,
     ],
   );
   await addAuditLog('testimonial', testimonial.id, 'testimonial_created', actorEmail, { status: testimonial.status });
@@ -943,6 +1161,452 @@ export async function updateTestimonialStatus(id: string, status: TestimonialSta
   if (!rows[0]) return null;
   await addAuditLog('testimonial', id, 'testimonial_status_changed', actorEmail, { previous: previous.rows[0]?.status, next: status });
   return toTestimonial(rows[0]);
+}
+
+export async function listReviewRequests(): Promise<ReviewRequest[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.reviewRequests].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query('SELECT * FROM review_requests ORDER BY created_at DESC LIMIT 300');
+  return rows.map(toReviewRequest);
+}
+
+export async function createReviewRequest(input: ReviewRequestInput): Promise<ReviewRequest> {
+  await ensureSchema();
+  const timestamp = now();
+  const request: ReviewRequest = {
+    id: randomUUID(),
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    status: input.status ?? 'sent',
+    customerName: input.customerName.trim(),
+    phone: input.phone.trim(),
+    location: input.location?.trim() ?? '',
+    objectType: input.objectType?.trim() ?? '',
+    realizationDate: input.realizationDate || '',
+    googleReviewLink: input.googleReviewLink.trim(),
+    message: input.message.trim(),
+    createdBy: input.createdBy,
+    leadId: input.leadId || '',
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.reviewRequests.unshift(request);
+    await writeLocalDb(local);
+    await addAuditLog('review_request', request.id, 'review_request_created', input.createdBy, { status: request.status });
+    return request;
+  }
+
+  await db.query(
+    `INSERT INTO review_requests (
+      id, created_at, updated_at, status, customer_name, phone, location, object_type,
+      realization_date, google_review_link, message, created_by, lead_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+    [
+      request.id,
+      request.createdAt,
+      request.updatedAt,
+      request.status,
+      request.customerName,
+      request.phone,
+      request.location,
+      request.objectType,
+      request.realizationDate || null,
+      request.googleReviewLink,
+      request.message,
+      request.createdBy,
+      request.leadId || null,
+    ],
+  );
+  await addAuditLog('review_request', request.id, 'review_request_created', input.createdBy, { status: request.status });
+  return request;
+}
+
+export async function updateReviewRequestStatus(id: string, status: ReviewRequestStatus, actorEmail: string): Promise<ReviewRequest | null> {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const request = local.reviewRequests.find((item) => item.id === id);
+    if (!request) return null;
+    const previous = request.status;
+    request.status = status;
+    request.updatedAt = timestamp;
+    await writeLocalDb(local);
+    await addAuditLog('review_request', id, 'review_request_status_changed', actorEmail, { previous, next: status });
+    return request;
+  }
+  const previous = await db.query('SELECT status FROM review_requests WHERE id = $1 LIMIT 1', [id]);
+  const { rows } = await db.query(
+    'UPDATE review_requests SET status = $1, updated_at = $2 WHERE id = $3 RETURNING *',
+    [status, timestamp, id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('review_request', id, 'review_request_status_changed', actorEmail, { previous: previous.rows[0]?.status, next: status });
+  return toReviewRequest(rows[0]);
+}
+
+const defaultWorkers = [
+  { name: 'Robo', ratePerM2: 2 },
+  { name: 'Maťo', ratePerM2: 1.5 },
+  { name: 'Miloš', ratePerM2: 1.5 },
+];
+
+async function seedDefaultWorkers() {
+  const db = getPool();
+  if (!db) return;
+  for (const worker of defaultWorkers) {
+    await db.query(
+      `INSERT INTO workers (id, name, rate_per_m2, active)
+       SELECT $1, $2, $3, true
+       WHERE NOT EXISTS (SELECT 1 FROM workers WHERE lower(name) = lower($2))`,
+      [randomUUID(), worker.name, worker.ratePerM2],
+    );
+  }
+}
+
+async function ensureLocalBusinessDefaults(local: LocalDb) {
+  if (!local.workers.length) {
+    local.workers = defaultWorkers.map((worker) => ({
+      id: randomUUID(),
+      name: worker.name,
+      ratePerM2: worker.ratePerM2,
+      active: true,
+      createdAt: now(),
+      updatedAt: now(),
+    }));
+    await writeLocalDb(local);
+  }
+}
+
+function money(value: unknown) {
+  return Math.max(0, Math.round(Number(value || 0) * 100) / 100);
+}
+
+function calculateCosts(input: Omit<BusinessJobCosts, 'jobId' | 'total'>): Omit<BusinessJobCosts, 'jobId'> {
+  const costs = {
+    fuel: money(input.fuel),
+    suits: money(input.suits),
+    gloves: money(input.gloves),
+    penetrant: money(input.penetrant),
+    landfillCost: money(input.landfillCost),
+    otherName: String(input.otherName || '').trim(),
+    otherAmount: money(input.otherAmount),
+  };
+  return { ...costs, total: money(costs.fuel + costs.suits + costs.gloves + costs.penetrant + costs.landfillCost + costs.otherAmount) };
+}
+
+export async function listWorkers(includeInactive = false): Promise<Worker[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    await ensureLocalBusinessDefaults(local);
+    return [...local.workers].filter((worker) => includeInactive || worker.active).sort((a, b) => a.name.localeCompare(b.name, 'sk'));
+  }
+  await seedDefaultWorkers();
+  const { rows } = await db.query(`SELECT * FROM workers ${includeInactive ? '' : 'WHERE active = true'} ORDER BY name ASC`);
+  return rows.map(toWorker);
+}
+
+export async function upsertWorker(input: { id?: string; name: string; ratePerM2: number; active?: boolean }): Promise<Worker> {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    await ensureLocalBusinessDefaults(local);
+    const existing = input.id ? local.workers.find((worker) => worker.id === input.id) : undefined;
+    if (existing) {
+      existing.name = input.name.trim();
+      existing.ratePerM2 = money(input.ratePerM2);
+      existing.active = Boolean(input.active);
+      existing.updatedAt = timestamp;
+      await writeLocalDb(local);
+      return existing;
+    }
+    const worker: Worker = { id: randomUUID(), name: input.name.trim(), ratePerM2: money(input.ratePerM2), active: true, createdAt: timestamp, updatedAt: timestamp };
+    local.workers.push(worker);
+    await writeLocalDb(local);
+    return worker;
+  }
+  const id = input.id || randomUUID();
+  const { rows } = await db.query(
+    `INSERT INTO workers (id, name, rate_per_m2, active, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$5)
+     ON CONFLICT (id) DO UPDATE SET name = $2, rate_per_m2 = $3, active = $4, updated_at = $5
+     RETURNING *`,
+    [id, input.name.trim(), money(input.ratePerM2), Boolean(input.active ?? true), timestamp],
+  );
+  return toWorker(rows[0]);
+}
+
+export async function listLandfillPrices(): Promise<LandfillPrice[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.landfillPrices].sort((a, b) => b.year - a.year || a.landfill.localeCompare(b.landfill));
+  }
+  const { rows } = await db.query('SELECT * FROM landfill_prices ORDER BY year DESC, landfill ASC');
+  return rows.map(toLandfillPrice);
+}
+
+export async function upsertLandfillPrice(input: { id?: string; year: number; landfill: BusinessLandfill; pricePerTon: number }): Promise<LandfillPrice> {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const existing = input.id ? local.landfillPrices.find((price) => price.id === input.id) : local.landfillPrices.find((price) => price.year === input.year && price.landfill === input.landfill);
+    if (existing) {
+      existing.year = input.year;
+      existing.landfill = input.landfill;
+      existing.pricePerTon = money(input.pricePerTon);
+      existing.updatedAt = timestamp;
+      await writeLocalDb(local);
+      return existing;
+    }
+    const price: LandfillPrice = { id: randomUUID(), year: input.year, landfill: input.landfill, pricePerTon: money(input.pricePerTon), createdAt: timestamp, updatedAt: timestamp };
+    local.landfillPrices.push(price);
+    await writeLocalDb(local);
+    return price;
+  }
+  const id = input.id || randomUUID();
+  const { rows } = await db.query(
+    `INSERT INTO landfill_prices (id, year, landfill, price_per_ton, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$5)
+     ON CONFLICT (year, landfill) DO UPDATE SET price_per_ton = $4, updated_at = $5
+     RETURNING *`,
+    [id, input.year, input.landfill, money(input.pricePerTon), timestamp],
+  );
+  return toLandfillPrice(rows[0]);
+}
+
+export async function deleteLandfillPrice(id: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.landfillPrices = local.landfillPrices.filter((price) => price.id !== id);
+    await writeLocalDb(local);
+    return;
+  }
+  await db.query('DELETE FROM landfill_prices WHERE id = $1', [id]);
+}
+
+export async function getBusinessSettings(): Promise<BusinessSettings> {
+  const content = await getSiteContentMap();
+  return {
+    defaultPricePerM2: Number(content.defaultPricePerM2 || 12),
+    googleReviewLink: content.googleReviewLink || '',
+  };
+}
+
+export async function saveBusinessSettings(input: BusinessSettings, actorEmail: string) {
+  await upsertSiteContentValues(
+    {
+      defaultPricePerM2: String(money(input.defaultPricePerM2)),
+      googleReviewLink: input.googleReviewLink.trim(),
+    },
+    actorEmail,
+  );
+}
+
+export async function calculateLandfillCostForJob(date: string, landfill: BusinessLandfill, wasteKg?: number) {
+  const year = new Date(date).getFullYear();
+  const weight = money(wasteKg);
+  if (!weight || landfill === 'INA') return { cost: 0, missingPrice: false };
+  const prices = await listLandfillPrices();
+  const price = prices.find((item) => item.year === year && item.landfill === landfill);
+  if (!price) return { cost: 0, missingPrice: true };
+  return { cost: money((weight / 1000) * price.pricePerTon), missingPrice: false };
+}
+
+async function hydrateBusinessJobs(rows: Record<string, unknown>[]): Promise<BusinessJob[]> {
+  const ids = rows.map((row) => String(row.id));
+  if (!ids.length) return [];
+  const db = getPool();
+  if (!db) return [];
+  const [workerRows, costRows] = await Promise.all([
+    db.query('SELECT * FROM business_job_workers WHERE job_id = ANY($1::uuid[])', [ids]),
+    db.query('SELECT * FROM business_job_costs WHERE job_id = ANY($1::uuid[])', [ids]),
+  ]);
+  const workerMap = new Map<string, BusinessJob['workers']>();
+  for (const row of workerRows.rows) {
+    const jobId = String(row.job_id);
+    const items = workerMap.get(jobId) ?? [];
+    items.push({
+      id: String(row.id),
+      jobId,
+      workerId: String(row.worker_id),
+      workerName: String(row.worker_name),
+      m2Share: Number(row.m2_share),
+      rate: Number(row.rate),
+      reward: Number(row.reward),
+      manuallyEdited: Boolean(row.manually_edited),
+    });
+    workerMap.set(jobId, items);
+  }
+  const costMap = new Map(costRows.rows.map((row) => [String(row.job_id), toBusinessJobCosts(row)]));
+  return rows.map((row) => enrichBusinessJob(row, workerMap.get(String(row.id)) ?? [], costMap.get(String(row.id))));
+}
+
+export async function listBusinessJobs(filters: { from?: string; to?: string } = {}): Promise<BusinessJob[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.businessJobs]
+      .filter((job) => (!filters.from || job.demolitionDate >= filters.from) && (!filters.to || job.demolitionDate <= filters.to))
+      .sort((a, b) => b.demolitionDate.localeCompare(a.demolitionDate));
+  }
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  if (filters.from) {
+    values.push(filters.from);
+    conditions.push(`demolition_date >= $${values.length}`);
+  }
+  if (filters.to) {
+    values.push(filters.to);
+    conditions.push(`demolition_date <= $${values.length}`);
+  }
+  const { rows } = await db.query(`SELECT * FROM business_jobs ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''} ORDER BY demolition_date DESC, created_at DESC LIMIT 1000`, values);
+  return hydrateBusinessJobs(rows);
+}
+
+export async function getBusinessJob(id: string): Promise<BusinessJob | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.businessJobs.find((job) => job.id === id) ?? null;
+  }
+  const { rows } = await db.query('SELECT * FROM business_jobs WHERE id = $1 LIMIT 1', [id]);
+  if (!rows[0]) return null;
+  const jobs = await hydrateBusinessJobs(rows);
+  return jobs[0] ?? null;
+}
+
+export async function saveBusinessJob(input: BusinessJobInput, actorEmail: string, id?: string): Promise<BusinessJob> {
+  await ensureSchema();
+  const timestamp = now();
+  const jobId = id || randomUUID();
+  const totalPrice = money(input.m2 * input.pricePerM2);
+  const landfillCost = input.costs.landfillCost || (await calculateLandfillCostForJob(input.demolitionDate, input.landfill, input.wasteKg)).cost;
+  const costs = calculateCosts({ ...input.costs, landfillCost });
+  const allWorkers = await listWorkers(true);
+  const selectedWorkers = input.workers
+    .map((item) => ({ ...item, worker: allWorkers.find((worker) => worker.id === item.workerId) }))
+    .filter((item) => item.worker);
+  const share = selectedWorkers.length ? money(input.m2 / selectedWorkers.length) : 0;
+  const jobWorkers = selectedWorkers.map((item) => {
+    const rate = money(item.rate ?? item.worker?.ratePerM2 ?? 0);
+    const automaticReward = money(share * rate);
+    const reward = item.manuallyEdited ? money(item.reward) : automaticReward;
+    return {
+      id: randomUUID(),
+      jobId,
+      workerId: item.workerId,
+      workerName: item.worker?.name ?? '',
+      m2Share: share,
+      rate,
+      reward,
+      manuallyEdited: Boolean(item.manuallyEdited),
+    };
+  });
+
+  const baseRow = {
+    id: jobId,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    demolitionDate: input.demolitionDate,
+    customerName: input.customerName.trim(),
+    location: input.location.trim(),
+    district: input.district?.trim() ?? '',
+    m2: money(input.m2),
+    pricePerM2: money(input.pricePerM2),
+    totalPrice,
+    paymentType: input.paymentType,
+    workType: input.workType,
+    wasteKg: money(input.wasteKg),
+    landfill: input.landfill,
+    status: input.status,
+    note: input.note?.trim() ?? '',
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const previous = local.businessJobs.find((job) => job.id === jobId);
+    const job = enrichBusinessJob(baseRow, jobWorkers, { ...costs, jobId });
+    job.createdAt = previous?.createdAt ?? timestamp;
+    local.businessJobs = [job, ...local.businessJobs.filter((item) => item.id !== jobId)];
+    await writeLocalDb(local);
+    await addAuditLog('system', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: job.status });
+    return job;
+  }
+
+  await db.query('BEGIN');
+  try {
+    await db.query(
+      `INSERT INTO business_jobs (
+        id, created_at, updated_at, demolition_date, customer_name, location, district, m2, price_per_m2, total_price,
+        payment_type, work_type, waste_kg, landfill, status, note
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      ON CONFLICT (id) DO UPDATE SET
+        updated_at = $3, demolition_date = $4, customer_name = $5, location = $6, district = $7, m2 = $8,
+        price_per_m2 = $9, total_price = $10, payment_type = $11, work_type = $12, waste_kg = $13,
+        landfill = $14, status = $15, note = $16`,
+      [
+        jobId,
+        timestamp,
+        timestamp,
+        baseRow.demolitionDate,
+        baseRow.customerName,
+        baseRow.location,
+        baseRow.district,
+        baseRow.m2,
+        baseRow.pricePerM2,
+        baseRow.totalPrice,
+        baseRow.paymentType,
+        baseRow.workType,
+        baseRow.wasteKg,
+        baseRow.landfill,
+        baseRow.status,
+        baseRow.note,
+      ],
+    );
+    await db.query('DELETE FROM business_job_workers WHERE job_id = $1', [jobId]);
+    for (const worker of jobWorkers) {
+      await db.query(
+        `INSERT INTO business_job_workers (id, job_id, worker_id, worker_name, m2_share, rate, reward, manually_edited)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [worker.id, jobId, worker.workerId, worker.workerName, worker.m2Share, worker.rate, worker.reward, worker.manuallyEdited],
+      );
+    }
+    await db.query(
+      `INSERT INTO business_job_costs (job_id, fuel, suits, gloves, penetrant, landfill_cost, other_name, other_amount, total)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT (job_id) DO UPDATE SET fuel = $2, suits = $3, gloves = $4, penetrant = $5,
+       landfill_cost = $6, other_name = $7, other_amount = $8, total = $9`,
+      [jobId, costs.fuel, costs.suits, costs.gloves, costs.penetrant, costs.landfillCost, costs.otherName, costs.otherAmount, costs.total],
+    );
+    await db.query('COMMIT');
+  } catch (error) {
+    await db.query('ROLLBACK');
+    throw error;
+  }
+  await addAuditLog('system', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: input.status });
+  const saved = await getBusinessJob(jobId);
+  if (!saved) throw new Error('Zákazku sa nepodarilo uložiť.');
+  return saved;
 }
 
 export async function listRealizations(): Promise<Realization[]> {
@@ -1613,7 +2277,11 @@ function toTestimonial(row: Record<string, unknown>): Testimonial {
     status: String(row.status) as TestimonialStatus,
     customerEmail: row.customer_email ? String(row.customer_email) : '',
     consentPublication: Boolean(row.consent_publication),
-    source: row.source === 'public' ? 'public' : 'admin',
+    source: String(row.source ?? 'admin') as Testimonial['source'],
+    objectType: row.object_type ? String(row.object_type) : '',
+    realizationDate: row.realization_date ? String(row.realization_date).slice(0, 10) : '',
+    internalNote: row.internal_note ? String(row.internal_note) : '',
+    photoUrl: row.photo_url ? String(row.photo_url) : '',
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
     approvedAt: row.approved_at ? new Date(String(row.approved_at)).toISOString() : undefined,

@@ -5,10 +5,14 @@ import type { LeadStatus } from '@/src/server/types';
 const statusOptions: Array<['', string] | [LeadStatus, string]> = [
   ['', 'Všetky statusy'],
   ['novy', 'nový'],
+  ['kontaktovany', 'kontaktovaný'],
   ['caka_na_doplnenie', 'čaká na doplnenie'],
   ['naceneny', 'nacenený'],
   ['cenova_ponuka_odoslana', 'cenová ponuka odoslaná'],
   ['objednane', 'objednané'],
+  ['v_realizacii', 'v realizácii'],
+  ['dokoncena', 'dokončená'],
+  ['zrusena', 'zrušená'],
   ['nevyslo', 'nevyšlo'],
   ['archivovane', 'archivované'],
 ];

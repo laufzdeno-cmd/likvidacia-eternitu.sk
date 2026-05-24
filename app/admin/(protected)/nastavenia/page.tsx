@@ -1,11 +1,69 @@
-export default function SettingsAdminPage() {
+import { getBusinessSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
+import { euro, landfillLabels, landfills } from '../zakazky/constants';
+import { deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, saveWorkerAction } from './actions';
+
+export default async function SettingsAdminPage() {
+  const [workers, prices, settings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings()]);
+
   return (
     <main className="admin-page">
       <div className="admin-heading"><div><p>Konfigurácia</p><h1>Nastavenia</h1></div></div>
+
       <section className="admin-card">
-        <h2>Aktuálne firemné údaje</h2>
-        <p>ASTANA, s.r.o., Scherffelova 1364/28, 058 01 Poprad, IČO: 46 157 701, DIČ: 2023253771, IČ DPH: SK2023253771.</p>
-        <p>Emailové, databázové a storage nastavenia sa v tejto fáze nastavujú cez bezpečné premenné prostredia vo Verceli.</p>
+        <h2>Ceny skládok</h2>
+        <form className="admin-filter-bar" action={saveLandfillPriceAction}>
+          <label>Rok<input name="year" type="number" defaultValue={new Date().getFullYear()} /></label>
+          <label>Skládka<select name="landfill">{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select></label>
+          <label>€/tonu<input name="pricePerTon" type="number" step="0.01" /></label>
+          <button type="submit">Pridať</button>
+        </form>
+        <table className="admin-table">
+          <thead><tr><th>Rok</th><th>Skládka</th><th>€/tonu</th><th>Upraviť</th><th></th></tr></thead>
+          <tbody>{prices.map((price) => (
+            <tr key={price.id}>
+              <form action={saveLandfillPriceAction}>
+                <td><input name="year" type="number" defaultValue={price.year} /></td>
+                <td><select name="landfill" defaultValue={price.landfill}>{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select></td>
+                <td><input name="pricePerTon" type="number" step="0.01" defaultValue={price.pricePerTon} /></td>
+                <td><input type="hidden" name="id" value={price.id} /><button type="submit">Uložiť</button></td>
+              </form>
+              <td><form action={deleteLandfillPriceAction}><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </section>
+
+      <section className="admin-card">
+        <h2>Pracovníci</h2>
+        <table className="admin-table">
+          <thead><tr><th>Meno</th><th>Sadzba €/m²</th><th>Aktívny</th><th></th></tr></thead>
+          <tbody>{workers.map((worker) => (
+            <tr key={worker.id}>
+              <form action={saveWorkerAction}>
+                <td><input name="name" defaultValue={worker.name} /></td>
+                <td><input name="ratePerM2" type="number" step="0.01" defaultValue={worker.ratePerM2} /></td>
+                <td><input name="active" type="checkbox" defaultChecked={worker.active} /></td>
+                <td><input type="hidden" name="id" value={worker.id} /><button type="submit">Uložiť</button></td>
+              </form>
+            </tr>
+          ))}</tbody>
+        </table>
+        <form className="admin-filter-bar" action={saveWorkerAction}>
+          <label>Meno<input name="name" /></label>
+          <label>Sadzba<input name="ratePerM2" type="number" step="0.01" /></label>
+          <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked /> Aktívny</label>
+          <button type="submit">Pridať pracovníka</button>
+        </form>
+      </section>
+
+      <section className="admin-card">
+        <h2>Predvolené hodnoty</h2>
+        <form className="admin-quote-form" action={saveGeneralSettingsAction}>
+          <label>Základná cena za m²<input name="defaultPricePerM2" type="number" step="0.01" defaultValue={settings.defaultPricePerM2} /></label>
+          <label className="admin-form-wide">Google review link<input name="googleReviewLink" defaultValue={settings.googleReviewLink} /></label>
+          <button className="admin-primary-button" type="submit">Uložiť nastavenia</button>
+        </form>
+        <p>Aktuálna základná cena: {euro(settings.defaultPricePerM2)} / m²</p>
       </section>
     </main>
   );
