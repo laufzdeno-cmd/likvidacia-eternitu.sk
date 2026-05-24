@@ -56,7 +56,7 @@ export type LeadFile = {
 
 export type AuditLog = {
   id: string;
-  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content' | 'roofer' | 'review_request';
+  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content' | 'roofer' | 'review_request' | 'business_job';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -186,8 +186,13 @@ export type BusinessJobCosts = {
 export type BusinessJobInput = {
   demolitionDate: string;
   customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
   location: string;
   district?: string;
+  materialType?: string;
+  objectType?: string;
+  term?: string;
   m2: number;
   pricePerM2: number;
   paymentType: BusinessPaymentType;
@@ -206,8 +211,13 @@ export type BusinessJob = {
   updatedAt: string;
   demolitionDate: string;
   customerName: string;
+  customerPhone: string;
+  customerEmail: string;
   location: string;
   district: string;
+  materialType: string;
+  objectType: string;
+  term: string;
   m2: number;
   pricePerM2: number;
   totalPrice: number;

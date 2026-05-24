@@ -55,6 +55,7 @@ type LocalDb = {
 };
 
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
+type BusinessJobWithActivity = BusinessJob & { activityLogs: AuditLog[] };
 
 const databaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
 const localDbPath = path.join(process.cwd(), '.data', 'local-db.json');
@@ -409,8 +410,13 @@ async function ensureSchema() {
       updated_at timestamptz NOT NULL DEFAULT now(),
       demolition_date date NOT NULL,
       customer_name text NOT NULL,
+      customer_phone text NOT NULL DEFAULT '',
+      customer_email text NOT NULL DEFAULT '',
       location text NOT NULL DEFAULT '',
       district text NOT NULL DEFAULT '',
+      material_type text NOT NULL DEFAULT '',
+      object_type text NOT NULL DEFAULT '',
+      term text NOT NULL DEFAULT '',
       m2 numeric(12,2) NOT NULL DEFAULT 0,
       price_per_m2 numeric(12,2) NOT NULL DEFAULT 0,
       total_price numeric(12,2) NOT NULL DEFAULT 0,
@@ -421,6 +427,11 @@ async function ensureSchema() {
       status text NOT NULL DEFAULT 'DOPYT',
       note text NOT NULL DEFAULT ''
     );
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_phone text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS material_type text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS object_type text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS term text NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS business_job_workers (
       id uuid PRIMARY KEY,
@@ -645,8 +656,13 @@ function enrichBusinessJob(
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     demolitionDate: String(row.demolition_date ?? row.demolitionDate ?? '').slice(0, 10),
     customerName: String(row.customer_name ?? row.customerName ?? ''),
+    customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
+    customerEmail: String(row.customer_email ?? row.customerEmail ?? ''),
     location: String(row.location ?? ''),
     district: String(row.district ?? ''),
+    materialType: String(row.material_type ?? row.materialType ?? ''),
+    objectType: String(row.object_type ?? row.objectType ?? ''),
+    term: String(row.term ?? ''),
     m2: Number(row.m2 ?? 0),
     pricePerM2: Number(row.price_per_m2 ?? row.pricePerM2 ?? 0),
     totalPrice,
@@ -1494,6 +1510,22 @@ export async function getBusinessJob(id: string): Promise<BusinessJob | null> {
   return jobs[0] ?? null;
 }
 
+export async function getBusinessJobWithActivity(id: string): Promise<BusinessJobWithActivity | null> {
+  const job = await getBusinessJob(id);
+  if (!job) return null;
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return {
+      ...job,
+      activityLogs: local.auditLogs.filter((log) => log.entityId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    };
+  }
+  const { rows } = await db.query('SELECT * FROM audit_logs WHERE entity_id = $1 ORDER BY created_at DESC', [id]);
+  return { ...job, activityLogs: rows.map(toAuditLog) };
+}
+
 export async function deleteBusinessJob(id: string, actorEmail: string) {
   await ensureSchema();
   const db = getPool();
@@ -1501,17 +1533,55 @@ export async function deleteBusinessJob(id: string, actorEmail: string) {
     const local = await readLocalDb();
     local.businessJobs = local.businessJobs.filter((job) => job.id !== id);
     await writeLocalDb(local);
-    await addAuditLog('system', id, 'business_job_deleted', actorEmail, {});
+    await addAuditLog('business_job', id, 'business_job_deleted', actorEmail, {});
     return;
   }
   await db.query('DELETE FROM business_jobs WHERE id = $1', [id]);
-  await addAuditLog('system', id, 'business_job_deleted', actorEmail, {});
+  await addAuditLog('business_job', id, 'business_job_deleted', actorEmail, {});
+}
+
+export async function addBusinessJobNote(id: string, note: string, actorEmail: string) {
+  const text = note.trim();
+  if (!text) return null;
+  return addAuditLog('business_job', id, 'business_job_note_added', actorEmail, { note: text });
+}
+
+export async function markBusinessJobQuoteSent(
+  id: string,
+  actorEmail: string,
+  quote: { validUntil: string; pricePerM2: number; totalPrice: number; note?: string },
+) {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const job = local.businessJobs.find((item) => item.id === id);
+    if (!job) return null;
+    const previous = job.status;
+    job.status = 'PONUKA_ODOSLANA';
+    job.updatedAt = timestamp;
+    await writeLocalDb(local);
+    await addAuditLog('business_job', id, 'business_job_status_changed', actorEmail, { previous, next: job.status });
+    await addAuditLog('business_job', id, 'business_job_quote_sent', actorEmail, quote);
+    return job;
+  }
+  const previous = await getBusinessJob(id);
+  const { rows } = await db.query('UPDATE business_jobs SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', ['PONUKA_ODOSLANA', id]);
+  if (!rows[0]) return null;
+  if (previous?.status !== 'PONUKA_ODOSLANA') {
+    await addAuditLog('business_job', id, 'business_job_status_changed', actorEmail, { previous: previous?.status, next: 'PONUKA_ODOSLANA' });
+  }
+  await addAuditLog('business_job', id, 'business_job_quote_sent', actorEmail, quote);
+  const saved = await getBusinessJob(id);
+  return saved;
 }
 
 export async function saveBusinessJob(input: BusinessJobInput, actorEmail: string, id?: string): Promise<BusinessJob> {
   await ensureSchema();
   const timestamp = now();
   const jobId = id || randomUUID();
+  const previousJob = id ? await getBusinessJob(id) : null;
   const totalPrice = money(input.m2 * input.pricePerM2);
   const landfillCost = input.costs.landfillCost || (await calculateLandfillCostForJob(input.demolitionDate, input.landfill, input.wasteKg)).cost;
   const costs = calculateCosts({ ...input.costs, landfillCost });
@@ -1542,8 +1612,13 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     updatedAt: timestamp,
     demolitionDate: input.demolitionDate,
     customerName: input.customerName.trim(),
+    customerPhone: input.customerPhone?.trim() ?? '',
+    customerEmail: input.customerEmail?.trim() ?? '',
     location: input.location.trim(),
     district: input.district?.trim() ?? '',
+    materialType: input.materialType?.trim() ?? '',
+    objectType: input.objectType?.trim() ?? '',
+    term: input.term?.trim() ?? '',
     m2: money(input.m2),
     pricePerM2: money(input.pricePerM2),
     totalPrice,
@@ -1563,7 +1638,10 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     job.createdAt = previous?.createdAt ?? timestamp;
     local.businessJobs = [job, ...local.businessJobs.filter((item) => item.id !== jobId)];
     await writeLocalDb(local);
-    await addAuditLog('system', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: job.status });
+    await addAuditLog('business_job', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: job.status });
+    if (previous?.status && previous.status !== job.status) {
+      await addAuditLog('business_job', jobId, 'business_job_status_changed', actorEmail, { previous: previous.status, next: job.status });
+    }
     return job;
   }
 
@@ -1571,21 +1649,27 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
   try {
     await db.query(
       `INSERT INTO business_jobs (
-        id, created_at, updated_at, demolition_date, customer_name, location, district, m2, price_per_m2, total_price,
-        payment_type, work_type, waste_kg, landfill, status, note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+        id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
+        material_type, object_type, term, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
       ON CONFLICT (id) DO UPDATE SET
-        updated_at = $3, demolition_date = $4, customer_name = $5, location = $6, district = $7, m2 = $8,
-        price_per_m2 = $9, total_price = $10, payment_type = $11, work_type = $12, waste_kg = $13,
-        landfill = $14, status = $15, note = $16`,
+        updated_at = $3, demolition_date = $4, customer_name = $5, customer_phone = $6, customer_email = $7,
+        location = $8, district = $9, material_type = $10, object_type = $11, term = $12, m2 = $13,
+        price_per_m2 = $14, total_price = $15, payment_type = $16, work_type = $17, waste_kg = $18,
+        landfill = $19, status = $20, note = $21`,
       [
         jobId,
         timestamp,
         timestamp,
         baseRow.demolitionDate,
         baseRow.customerName,
+        baseRow.customerPhone,
+        baseRow.customerEmail,
         baseRow.location,
         baseRow.district,
+        baseRow.materialType,
+        baseRow.objectType,
+        baseRow.term,
         baseRow.m2,
         baseRow.pricePerM2,
         baseRow.totalPrice,
@@ -1617,10 +1701,43 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     await db.query('ROLLBACK');
     throw error;
   }
-  await addAuditLog('system', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: input.status });
+  await addAuditLog('business_job', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: input.status });
+  if (previousJob?.status && previousJob.status !== input.status) {
+    await addAuditLog('business_job', jobId, 'business_job_status_changed', actorEmail, { previous: previousJob.status, next: input.status });
+  }
   const saved = await getBusinessJob(jobId);
   if (!saved) throw new Error('Zákazku sa nepodarilo uložiť.');
   return saved;
+}
+
+export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob> {
+  const settings = await getBusinessSettings();
+  const job = await saveBusinessJob(
+    {
+      demolitionDate: new Date().toISOString().slice(0, 10),
+      customerName: lead.fullName,
+      customerPhone: lead.phone,
+      customerEmail: lead.email,
+      location: lead.city,
+      district: lead.district,
+      materialType: lead.materialType,
+      objectType: lead.objectType,
+      term: lead.term,
+      m2: lead.areaEstimate,
+      pricePerM2: settings.defaultPricePerM2,
+      paymentType: 'FAKTURA',
+      workType: 'DEMONTAZ_A_ODVOZ',
+      wasteKg: 0,
+      landfill: 'INA',
+      status: 'DOPYT',
+      note: lead.note,
+      workers: [],
+      costs: { fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0 },
+    },
+    'system',
+  );
+  await addAuditLog('business_job', job.id, 'business_job_lead_received', 'system', { leadId: lead.id });
+  return job;
 }
 
 export async function listRealizations(): Promise<Realization[]> {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { addAuditLog, addLeadFiles, createLead } from '@/src/server/db';
+import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLead } from '@/src/server/db';
 import { validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
 import { storeLeadFile } from '@/src/server/storage';
@@ -130,6 +130,8 @@ export async function POST(request: NextRequest) {
       rawData: { userAgent: request.headers.get('user-agent') || undefined, wantsRooferRecommendation, selectedRooferId },
     });
 
+    const businessJob = await createBusinessJobFromLead(lead);
+
     const stored = [];
     for (const file of uploadedFiles) {
       stored.push(await storeLeadFile(lead.id, file));
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     let mailResult: Record<string, unknown>;
     try {
-      mailResult = await sendLeadEmails(lead, fileRows.length);
+      mailResult = await sendLeadEmails(lead, fileRows.length, businessJob.id);
     } catch (error) {
       mailResult = {
         sent: false,

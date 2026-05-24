@@ -28,7 +28,8 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   images: {
-    formats: ['image/webp', 'image/avif'],
+    formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 60,
   },
   trailingSlash: true,
   async headers() {

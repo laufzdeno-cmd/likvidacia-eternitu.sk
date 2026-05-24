@@ -69,8 +69,13 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
         <div className="admin-quote-form">
           <label>Dátum demontáže<input name="demolitionDate" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
           <label>Meno zákazníka<input name="customerName" defaultValue={job?.customerName} required /></label>
+          <label>Telefón zákazníka<input name="customerPhone" defaultValue={job?.customerPhone} /></label>
+          <label>Email zákazníka<input name="customerEmail" type="email" defaultValue={job?.customerEmail} /></label>
           <label>Lokalita<input name="location" defaultValue={job?.location} required /></label>
           <label>Okres<input name="district" defaultValue={job?.district} /></label>
+          <label>Typ materiálu<input name="materialType" defaultValue={job?.materialType} /></label>
+          <label>Typ objektu<input name="objectType" defaultValue={job?.objectType} /></label>
+          <label>Termín<input name="term" defaultValue={job?.term} /></label>
           <label>Stav<select name="status" defaultValue={job?.status ?? 'DOPYT'}>{jobStatuses.map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select></label>
         </div>
       </section>
@@ -131,7 +136,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
                     <input type="hidden" name={`workerManual_${item.workerId}`} value={item.manual ? 'on' : ''} />
                   </td>
                   <td>
-                    {item.manual ? '✏️' : 'auto'}{' '}
+                    {item.manual ? '✎' : 'auto'}{' '}
                     <button type="button" onClick={() => setManualRewards((values) => ({ ...values, [item.workerId]: { reward: round2(share * item.rate), manual: false } }))}>↺ Prepočítať</button>
                   </td>
                 </tr>

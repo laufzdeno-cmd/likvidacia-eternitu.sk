@@ -35,9 +35,8 @@ export const allowedFileTypes = new Set([
   'image/webp',
   'image/heic',
   'image/heif',
-  'application/pdf',
 ]);
 
-export const allowedFileExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.pdf']);
+export const allowedFileExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
 export const maxLeadFiles = 10;
 export const maxLeadFileSize = 10 * 1024 * 1024;

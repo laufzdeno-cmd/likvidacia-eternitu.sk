@@ -32,8 +32,6 @@ function fallbackTypeFromExtension(ext: string) {
       return 'image/heic';
     case '.heif':
       return 'image/heif';
-    case '.pdf':
-      return 'application/pdf';
     default:
       return '';
   }
@@ -42,7 +40,7 @@ function fallbackTypeFromExtension(ext: string) {
 export async function validateUploadedLeadFile(file: File) {
   const ext = extension(file.name || '');
   if (!allowedFileExtensions.has(ext)) {
-    return 'Povolené sú iba JPG, PNG, WEBP, HEIC alebo PDF súbory.';
+    return 'Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.';
   }
   if (file.size <= 0) return 'Nahraný súbor je prázdny.';
   if (file.size > maxLeadFileSize) {
@@ -55,18 +53,17 @@ export async function validateUploadedLeadFile(file: File) {
       ? declaredType
       : fallbackTypeFromExtension(ext);
   if (!allowedFileTypes.has(contentType)) {
-    return 'Povolené sú iba JPG, PNG, WEBP, HEIC alebo PDF súbory.';
+    return 'Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.';
   }
 
   const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
   const isJpeg = contentType === 'image/jpeg' && startsWith(header, [0xff, 0xd8, 0xff]);
   const isPng = contentType === 'image/png' && startsWith(header, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-  const isPdf = contentType === 'application/pdf' && ascii(header, 0, 4) === '%PDF';
   const isWebp = contentType === 'image/webp' && ascii(header, 0, 4) === 'RIFF' && ascii(header, 8, 12) === 'WEBP';
   const isHeic = (contentType === 'image/heic' || contentType === 'image/heif') && looksLikeHeic(header);
 
-  if (!isJpeg && !isPng && !isPdf && !isWebp && !isHeic) {
-    return 'Súbor nevyzerá ako povolený typ. Skúste nahrať fotku vo formáte JPG, PNG, WEBP, HEIC alebo PDF.';
+  if (!isJpeg && !isPng && !isWebp && !isHeic) {
+    return 'Súbor nevyzerá ako povolený typ. Skúste nahrať fotku vo formáte JPG, JPEG, PNG, WEBP alebo HEIC.';
   }
 
   return null;

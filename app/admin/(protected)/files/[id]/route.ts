@@ -16,6 +16,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       'Content-Type': file.mimeType,
       'Content-Disposition': `inline; filename="${encodeURIComponent(file.originalName)}"`,
       'X-Robots-Tag': 'noindex, nofollow, noarchive',
+      'Cache-Control': 'private, no-store',
     },
   });
 }

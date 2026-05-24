@@ -28,7 +28,7 @@ async function cleanupTestJobs(page: import('@playwright/test').Page) {
   for (let index = 0; index < 5; index += 1) {
     const row = page.locator('tr').filter({ hasText: 'Playwright Test' }).first();
     if (!(await row.isVisible().catch(() => false))) return;
-    await row.getByRole('button', { name: /Zmazať|Odstrániť/i }).click();
+    await row.locator('button[type="submit"]').click();
     await page.waitForTimeout(1_000);
     await page.goto('/admin/zakazky/');
   }
@@ -49,7 +49,7 @@ async function login(page: import('@playwright/test').Page) {
   await page.goto('/admin/login/');
   await field(page, 'email').fill(email);
   await field(page, 'password').fill(password);
-  await page.getByRole('button', { name: /prihlásiť/i }).click();
+  await page.locator('button[type="submit"]').click();
   await page.waitForURL(/\/admin\/(dopyty|dashboard|zakazky|$)/, { timeout: 15_000 });
 }
 

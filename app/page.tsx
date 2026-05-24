@@ -590,10 +590,10 @@ export default async function HomePage() {
                     id="photos"
                     name="photos"
                     type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.heic,.pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                    accept=".jpg,.jpeg,.png,.webp,.heic,image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
                   />
-                  <p className="field-help">Podporované sú JPG, PNG, WEBP, HEIC alebo PDF. Fotky z mobilu úplne stačia.</p>
+                  <p className="field-help">Podporované sú JPG, JPEG, PNG, WEBP alebo HEIC. Fotky z mobilu úplne stačia.</p>
                   <div className="file-preview" aria-live="polite"></div>
                 </div>
                 <div className="field field-full">
