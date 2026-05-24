@@ -57,10 +57,15 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'LocalBusiness',
-              name: 'ASTANA — Likvidácia azbestu',
-              telephone: '+421905217946',
+              name: 'ASTANA — Likvidácia azbestu a eternitu',
+              description:
+                'Bezpečná likvidácia azbestu a eternitu po celom Slovensku. Dokumentácia RÚVZ a OÚŽP, demontáž, balenie, odvoz a potvrdenie.',
               url: 'https://likvidacia-eternitu.sk',
+              telephone: '+421905217946',
+              email: 'astana@astana.sk',
               foundingDate: '2011',
+              priceRange: '€€',
+              areaServed: { '@type': 'Country', name: 'Slovakia' },
               address: {
                 '@type': 'PostalAddress',
                 streetAddress: 'Scherffelova 1364/28',
