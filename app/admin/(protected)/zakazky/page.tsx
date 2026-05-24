@@ -1,4 +1,4 @@
-import { listBusinessJobs, listWorkers } from '@/src/server/db';
+import { listBusinessJobs, listPriceOffers, listWorkers } from '@/src/server/db';
 import type { BusinessJobStatus, BusinessLandfill, BusinessPaymentType } from '@/src/server/types';
 import { euro, jobStatusLabels, jobStatuses, landfillLabels, landfills, numberSk, paymentLabels, paymentTypes } from './constants';
 import { deleteBusinessJobAction } from './actions';
@@ -24,7 +24,11 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
   const payment = (params.payment || '') as BusinessPaymentType | '';
   const landfill = (params.landfill || '') as BusinessLandfill | '';
   const month = params.month || '';
-  const [jobs, workers] = await Promise.all([listBusinessJobs(monthBounds(month)), listWorkers(true)]);
+  const [jobs, workers, offers] = await Promise.all([listBusinessJobs(monthBounds(month)), listWorkers(true), listPriceOffers()]);
+  const offersByJob = new Map<string, number>();
+  for (const offer of offers) {
+    if (offer.jobId) offersByJob.set(offer.jobId, (offersByJob.get(offer.jobId) ?? 0) + 1);
+  }
   const qn = normalize(q);
   const filtered = jobs.filter((job) => {
     const haystack = normalize([job.customerName, job.location, job.district].join(' '));
@@ -37,12 +41,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
     );
   });
   const totals = filtered.reduce(
-    (sum, job) => ({
-      count: sum.count + 1,
-      m2: sum.m2 + job.m2,
-      revenue: sum.revenue + job.totalPrice,
-      profit: sum.profit + job.grossProfit,
-    }),
+    (sum, job) => ({ count: sum.count + 1, m2: sum.m2 + job.m2, revenue: sum.revenue + job.totalPrice, profit: sum.profit + job.grossProfit }),
     { count: 0, m2: 0, revenue: 0, profit: 0 },
   );
   const exportQuery = new URLSearchParams({ q, status, worker: workerId, payment, landfill, month }).toString();
@@ -78,7 +77,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
       <section className="admin-card">
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Tržba €</th><th>Platba</th><th>Tím</th><th>Stav</th><th>Zisk €</th><th className="no-print">Akcie</th></tr></thead>
+            <thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Tržba €</th><th>Platba</th><th>Tím</th><th>Stav</th><th>CP</th><th>Zisk €</th><th className="no-print">Akcie</th></tr></thead>
             <tbody>
               {filtered.map((job) => (
                 <tr key={job.id}>
@@ -90,6 +89,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   <td>{paymentLabels[job.paymentType]}</td>
                   <td>{job.workers.map((worker) => worker.workerName).join(', ') || 'bez tímu'}</td>
                   <td><span className="status-pill">{jobStatusLabels[job.status]}</span></td>
+                  <td><a href={`/admin/ponuky?jobId=${job.id}`}>{offersByJob.get(job.id) ?? 0}</a></td>
                   <td>{euro(job.grossProfit)}</td>
                   <td className="no-print">
                     <form action={deleteBusinessJobAction}>
@@ -99,10 +99,10 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   </td>
                 </tr>
               ))}
-              {!filtered.length ? <tr><td colSpan={10}>Nenašli sa žiadne zákazky.</td></tr> : null}
+              {!filtered.length ? <tr><td colSpan={11}>Nenašli sa žiadne zákazky.</td></tr> : null}
             </tbody>
             <tfoot>
-              <tr><th colSpan={3}>Súčet</th><th>{numberSk(totals.m2)}</th><th>{euro(totals.revenue)}</th><th colSpan={3}>Zákaziek: {totals.count}</th><th>{euro(totals.profit)}</th></tr>
+              <tr><th colSpan={3}>Súčet</th><th>{numberSk(totals.m2)}</th><th>{euro(totals.revenue)}</th><th colSpan={4}>Zákaziek: {totals.count}</th><th>{euro(totals.profit)}</th></tr>
             </tfoot>
           </table>
         </div>

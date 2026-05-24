@@ -1,9 +1,10 @@
-import { getBusinessSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
+import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
+import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
-import { deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, saveWorkerAction } from './actions';
+import { deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
 
 export default async function SettingsAdminPage() {
-  const [workers, prices, settings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings()]);
+  const [workers, prices, settings, offerSettings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings(), getPriceOfferSettings()]);
 
   return (
     <main className="admin-page">
@@ -64,6 +65,20 @@ export default async function SettingsAdminPage() {
           <button className="admin-primary-button" type="submit">Uložiť nastavenia</button>
         </form>
         <p>Aktuálna základná cena: {euro(settings.defaultPricePerM2)} / m²</p>
+      </section>
+
+      <section className="admin-card">
+        <h2>Ceny materiálov</h2>
+        <form className="admin-quote-form" action={savePriceOfferSettingsAction}>
+          {Object.entries(priceOfferMaterialLabels).map(([key, label]) => (
+            <label key={key}>{label}<input name={`material_${key}`} type="number" step="0.01" defaultValue={offerSettings.materialPrices[key as keyof typeof offerSettings.materialPrices]} /></label>
+          ))}
+          <label>Cena dokumentácia bez DPH<input name="documentationFee" type="number" step="0.01" defaultValue={offerSettings.documentationFee} /></label>
+          <label>DPH sadzba %<input name="vatRate" type="number" step="0.01" defaultValue={offerSettings.vatRate} /></label>
+          <label>Vyhotovil meno<input name="preparedByName" defaultValue={offerSettings.preparedByName} /></label>
+          <label>Vyhotovil telefón<input name="preparedByPhone" defaultValue={offerSettings.preparedByPhone} /></label>
+          <button className="admin-primary-button admin-form-wide" type="submit">Uložiť ceny ponúk</button>
+        </form>
       </section>
     </main>
   );

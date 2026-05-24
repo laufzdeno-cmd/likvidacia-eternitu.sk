@@ -141,6 +141,8 @@ export type BusinessPaymentType = 'FAKTURA' | 'CASH';
 export type BusinessWorkType = 'DEMONTAZ' | 'ODVOZ' | 'DEMONTAZ_A_ODVOZ';
 export type BusinessLandfill = 'MOCHOVCE' | 'LIVINKE_OPATOVCE' | 'KOSICE' | 'INA';
 export type BusinessJobStatus = 'DOPYT' | 'PONUKA_ODOSLANA' | 'PRIJATA' | 'V_REALIZACII' | 'DOKONCENA' | 'ZRUSENA';
+export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
+export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSLANA' | 'PRIJATA' | 'ZRUSENA';
 
 export type Worker = {
   id: string;
@@ -193,6 +195,7 @@ export type BusinessJobInput = {
   materialType?: string;
   objectType?: string;
   term?: string;
+  leadSource?: string;
   m2: number;
   pricePerM2: number;
   paymentType: BusinessPaymentType;
@@ -218,6 +221,7 @@ export type BusinessJob = {
   materialType: string;
   objectType: string;
   term: string;
+  leadSource: string;
   m2: number;
   pricePerM2: number;
   totalPrice: number;
@@ -237,6 +241,66 @@ export type BusinessJob = {
 export type BusinessSettings = {
   defaultPricePerM2: number;
   googleReviewLink: string;
+};
+
+export type CompanyAddressSettings = {
+  name: string;
+  street: string;
+  city: string;
+  postalCode: string;
+  phone: string;
+  email: string;
+  mainWeb: string;
+  asbestosWeb: string;
+  ico: string;
+  dic: string;
+  icDph: string;
+  authorization: string;
+  preparedByName: string;
+  preparedByPhone: string;
+  vatRate: number;
+};
+
+export type PriceOfferSettings = {
+  materialPrices: Record<PriceOfferMaterialType, number>;
+  documentationFee: number;
+  vatRate: number;
+  preparedByName: string;
+  preparedByPhone: string;
+  company: CompanyAddressSettings;
+};
+
+export type PriceOfferInput = {
+  jobId?: string;
+  objectType: string;
+  objectAddress: string;
+  municipality: string;
+  district: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  realizationTerm: string;
+  materialType: PriceOfferMaterialType;
+  areaM2: number;
+  pricePerM2WithoutVat: number;
+  documentationFeeWithoutVat: number;
+  includeDocumentation: boolean;
+  validUntil: string;
+  offerNote?: string;
+  internalNote?: string;
+  sourceInquiry?: string;
+};
+
+export type PriceOffer = PriceOfferInput & {
+  id: string;
+  number: string;
+  createdAt: string;
+  sentAt?: string;
+  acceptedAt?: string;
+  materialPriceWithoutVat: number;
+  totalWithoutVat: number;
+  totalWithVat: number;
+  status: PriceOfferStatus;
 };
 
 export type RealizationStatus = 'draft' | 'published' | 'hidden';

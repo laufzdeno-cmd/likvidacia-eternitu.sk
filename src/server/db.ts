@@ -21,6 +21,11 @@ import type {
   LeadInput,
   LeadStatus,
   LeadSummary,
+  PriceOffer,
+  PriceOfferInput,
+  PriceOfferMaterialType,
+  PriceOfferSettings,
+  PriceOfferStatus,
   Quote,
   QuoteInput,
   Realization,
@@ -47,6 +52,7 @@ type LocalDb = {
   reviewRequests: ReviewRequest[];
   workers: Worker[];
   businessJobs: BusinessJob[];
+  priceOffers: PriceOffer[];
   landfillPrices: LandfillPrice[];
   realizations: Realization[];
   roofers: Roofer[];
@@ -417,6 +423,7 @@ async function ensureSchema() {
       material_type text NOT NULL DEFAULT '',
       object_type text NOT NULL DEFAULT '',
       term text NOT NULL DEFAULT '',
+      lead_source text NOT NULL DEFAULT '',
       m2 numeric(12,2) NOT NULL DEFAULT 0,
       price_per_m2 numeric(12,2) NOT NULL DEFAULT 0,
       total_price numeric(12,2) NOT NULL DEFAULT 0,
@@ -432,6 +439,37 @@ async function ensureSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS material_type text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS object_type text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS term text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_source text NOT NULL DEFAULT '';
+
+    CREATE TABLE IF NOT EXISTS price_offers (
+      id uuid PRIMARY KEY,
+      number text NOT NULL UNIQUE,
+      job_id uuid REFERENCES business_jobs(id) ON DELETE SET NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      valid_until date NOT NULL,
+      object_type text NOT NULL DEFAULT '',
+      object_address text NOT NULL DEFAULT '',
+      municipality text NOT NULL DEFAULT '',
+      district text NOT NULL DEFAULT '',
+      contact_person text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      realization_term text NOT NULL DEFAULT '',
+      material_type text NOT NULL DEFAULT 'VLNITY_ETERNIT',
+      area_m2 numeric(12,2) NOT NULL DEFAULT 0,
+      price_per_m2_without_vat numeric(12,2) NOT NULL DEFAULT 0,
+      documentation_fee_without_vat numeric(12,2) NOT NULL DEFAULT 161,
+      include_documentation boolean NOT NULL DEFAULT true,
+      material_price_without_vat numeric(12,2) NOT NULL DEFAULT 0,
+      total_without_vat numeric(12,2) NOT NULL DEFAULT 0,
+      total_with_vat numeric(12,2) NOT NULL DEFAULT 0,
+      offer_note text NOT NULL DEFAULT '',
+      internal_note text NOT NULL DEFAULT '',
+      status text NOT NULL DEFAULT 'PRIPRAVENA',
+      sent_at timestamptz,
+      accepted_at timestamptz,
+      source_inquiry text NOT NULL DEFAULT ''
+    );
 
     CREATE TABLE IF NOT EXISTS business_job_workers (
       id uuid PRIMARY KEY,
@@ -470,9 +508,43 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
     CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
+    CREATE INDEX IF NOT EXISTS price_offers_created_status_idx ON price_offers (created_at DESC, status);
+    CREATE INDEX IF NOT EXISTS price_offers_job_idx ON price_offers (job_id);
   `);
   await seedDefaultWorkers();
   schemaReady = true;
+}
+
+function toPriceOffer(row: Record<string, unknown>): PriceOffer {
+  return {
+    id: String(row.id),
+    number: String(row.number ?? row.cislo ?? ''),
+    jobId: row.job_id || row.jobId ? String(row.job_id ?? row.jobId) : '',
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    validUntil: String(row.valid_until ?? row.validUntil ?? '').slice(0, 10),
+    objectType: String(row.object_type ?? row.objectType ?? ''),
+    objectAddress: String(row.object_address ?? row.objectAddress ?? ''),
+    municipality: String(row.municipality ?? ''),
+    district: String(row.district ?? ''),
+    contactPerson: String(row.contact_person ?? row.contactPerson ?? ''),
+    phone: String(row.phone ?? ''),
+    email: String(row.email ?? ''),
+    realizationTerm: String(row.realization_term ?? row.realizationTerm ?? ''),
+    materialType: String(row.material_type ?? row.materialType ?? 'VLNITY_ETERNIT') as PriceOfferMaterialType,
+    areaM2: Number(row.area_m2 ?? row.areaM2 ?? 0),
+    pricePerM2WithoutVat: Number(row.price_per_m2_without_vat ?? row.pricePerM2WithoutVat ?? 0),
+    documentationFeeWithoutVat: Number(row.documentation_fee_without_vat ?? row.documentationFeeWithoutVat ?? 0),
+    includeDocumentation: Boolean(row.include_documentation ?? row.includeDocumentation ?? true),
+    materialPriceWithoutVat: Number(row.material_price_without_vat ?? row.materialPriceWithoutVat ?? 0),
+    totalWithoutVat: Number(row.total_without_vat ?? row.totalWithoutVat ?? 0),
+    totalWithVat: Number(row.total_with_vat ?? row.totalWithVat ?? 0),
+    offerNote: String(row.offer_note ?? row.offerNote ?? ''),
+    internalNote: String(row.internal_note ?? row.internalNote ?? ''),
+    status: String(row.status ?? 'PRIPRAVENA') as PriceOfferStatus,
+    sentAt: row.sent_at || row.sentAt ? new Date(String(row.sent_at ?? row.sentAt)).toISOString() : undefined,
+    acceptedAt: row.accepted_at || row.acceptedAt ? new Date(String(row.accepted_at ?? row.acceptedAt)).toISOString() : undefined,
+    sourceInquiry: String(row.source_inquiry ?? row.sourceInquiry ?? ''),
+  };
 }
 
 function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
@@ -485,6 +557,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     reviewRequests: data.reviewRequests ?? [],
     workers: data.workers ?? [],
     businessJobs: data.businessJobs ?? [],
+    priceOffers: data.priceOffers ?? [],
     landfillPrices: data.landfillPrices ?? [],
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
@@ -663,6 +736,7 @@ function enrichBusinessJob(
     materialType: String(row.material_type ?? row.materialType ?? ''),
     objectType: String(row.object_type ?? row.objectType ?? ''),
     term: String(row.term ?? ''),
+    leadSource: String(row.lead_source ?? row.leadSource ?? ''),
     m2: Number(row.m2 ?? 0),
     pricePerM2: Number(row.price_per_m2 ?? row.pricePerM2 ?? 0),
     totalPrice,
@@ -711,6 +785,7 @@ async function readLocalDb(): Promise<LocalDb> {
       reviewRequests: [],
       workers: [],
       businessJobs: [],
+      priceOffers: [],
       landfillPrices: [],
       realizations: [],
       roofers: [],
@@ -1435,6 +1510,72 @@ export async function saveBusinessSettings(input: BusinessSettings, actorEmail: 
   );
 }
 
+export const materialTypeLabels: Record<PriceOfferMaterialType, string> = {
+  VLNITY_ETERNIT: 'Vlnitý eternit (AZC)',
+  HLADKY_ETERNIT: 'Hladký eternit',
+  AZBESTOVE_RURY: 'Azbestové rúry',
+  PODHLADOVE_DOSKY: 'Podhľadové dosky',
+  BOLETICKY: 'Boletické panely',
+  INE: 'Iné',
+};
+
+const defaultMaterialPrices: Record<PriceOfferMaterialType, number> = {
+  VLNITY_ETERNIT: 10.5,
+  HLADKY_ETERNIT: 11.5,
+  AZBESTOVE_RURY: 13,
+  PODHLADOVE_DOSKY: 12,
+  BOLETICKY: 14,
+  INE: 0,
+};
+
+export async function getPriceOfferSettings(): Promise<PriceOfferSettings> {
+  const content = await getSiteContentMap();
+  const materialPrices = { ...defaultMaterialPrices };
+  for (const key of Object.keys(materialPrices) as PriceOfferMaterialType[]) {
+    materialPrices[key] = Number(content[`priceOfferMaterial.${key}`] || materialPrices[key]);
+  }
+  const vatRate = Number(content.priceOfferVatRate || 23);
+  const preparedByName = content.priceOfferPreparedByName || 'Ing. Peklanská Jadroňová';
+  const preparedByPhone = content.priceOfferPreparedByPhone || '0918 518 277';
+  return {
+    materialPrices,
+    documentationFee: Number(content.priceOfferDocumentationFee || 161),
+    vatRate,
+    preparedByName,
+    preparedByPhone,
+    company: {
+      name: content.companyName || 'ASTANA, s.r.o.',
+      street: content.companyStreet || 'Scherffelova 1364/28',
+      city: content.companyCity || 'Poprad',
+      postalCode: content.companyPostalCode || '058 01',
+      phone: content.companyPhone || '0905 217 946',
+      email: content.companyEmail || 'astana@astana.sk',
+      mainWeb: content.companyMainWeb || 'www.astana.sk',
+      asbestosWeb: content.companyAsbestosWeb || 'likvidacia-eternitu.sk',
+      ico: content.companyIco || '46 157 701',
+      dic: content.companyDic || '2023253771',
+      icDph: content.companyIcDph || 'SK2023253771',
+      authorization: content.companyAuthorization || 'OPPL/3064/2013-Fe',
+      preparedByName,
+      preparedByPhone,
+      vatRate,
+    },
+  };
+}
+
+export async function savePriceOfferSettings(input: PriceOfferSettings, actorEmail: string) {
+  await upsertSiteContentValues(
+    {
+      priceOfferDocumentationFee: String(money(input.documentationFee)),
+      priceOfferVatRate: String(money(input.vatRate)),
+      priceOfferPreparedByName: input.preparedByName.trim(),
+      priceOfferPreparedByPhone: input.preparedByPhone.trim(),
+      ...Object.fromEntries(Object.entries(input.materialPrices).map(([key, value]) => [`priceOfferMaterial.${key}`, String(money(value))])),
+    },
+    actorEmail,
+  );
+}
+
 export async function calculateLandfillCostForJob(date: string, landfill: BusinessLandfill, wasteKg?: number) {
   const year = new Date(date).getFullYear();
   const weight = money(wasteKg);
@@ -1619,6 +1760,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     materialType: input.materialType?.trim() ?? '',
     objectType: input.objectType?.trim() ?? '',
     term: input.term?.trim() ?? '',
+    leadSource: input.leadSource?.trim() ?? '',
     m2: money(input.m2),
     pricePerM2: money(input.pricePerM2),
     totalPrice,
@@ -1650,13 +1792,13 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     await db.query(
       `INSERT INTO business_jobs (
         id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
-        material_type, object_type, term, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+        material_type, object_type, term, lead_source, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
       ON CONFLICT (id) DO UPDATE SET
         updated_at = $3, demolition_date = $4, customer_name = $5, customer_phone = $6, customer_email = $7,
-        location = $8, district = $9, material_type = $10, object_type = $11, term = $12, m2 = $13,
-        price_per_m2 = $14, total_price = $15, payment_type = $16, work_type = $17, waste_kg = $18,
-        landfill = $19, status = $20, note = $21`,
+        location = $8, district = $9, material_type = $10, object_type = $11, term = $12, lead_source = $13, m2 = $14,
+        price_per_m2 = $15, total_price = $16, payment_type = $17, work_type = $18, waste_kg = $19,
+        landfill = $20, status = $21, note = $22`,
       [
         jobId,
         timestamp,
@@ -1670,6 +1812,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
         baseRow.materialType,
         baseRow.objectType,
         baseRow.term,
+        baseRow.leadSource,
         baseRow.m2,
         baseRow.pricePerM2,
         baseRow.totalPrice,
@@ -1723,6 +1866,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
       materialType: lead.materialType,
       objectType: lead.objectType,
       term: lead.term,
+      leadSource: lead.source || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
       m2: lead.areaEstimate,
       pricePerM2: settings.defaultPricePerM2,
       paymentType: 'FAKTURA',
@@ -1738,6 +1882,197 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
   );
   await addAuditLog('business_job', job.id, 'business_job_lead_received', 'system', { leadId: lead.id });
   return job;
+}
+
+function defaultValidUntil(days = 60) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export async function nextPriceOfferNumber() {
+  await ensureSchema();
+  const year = String(new Date().getFullYear());
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const count = local.priceOffers.filter((offer) => offer.number.startsWith(year)).length + 1;
+    return `${year}${String(count).padStart(4, '0')}`;
+  }
+  const { rows } = await db.query('SELECT number FROM price_offers WHERE number LIKE $1 ORDER BY number DESC LIMIT 1', [`${year}%`]);
+  const last = rows[0]?.number ? Number(String(rows[0].number).slice(4)) : 0;
+  return `${year}${String(last + 1).padStart(4, '0')}`;
+}
+
+function calculatePriceOfferTotals(input: PriceOfferInput, vatRate: number) {
+  const materialPriceWithoutVat = money(input.areaM2 * input.pricePerM2WithoutVat);
+  const documentation = input.includeDocumentation ? money(input.documentationFeeWithoutVat) : 0;
+  const totalWithoutVat = money(materialPriceWithoutVat + documentation);
+  const totalWithVat = money(totalWithoutVat * (1 + vatRate / 100));
+  return { materialPriceWithoutVat, totalWithoutVat, totalWithVat };
+}
+
+export async function savePriceOffer(input: PriceOfferInput, actorEmail: string, id?: string): Promise<PriceOffer> {
+  await ensureSchema();
+  const settings = await getPriceOfferSettings();
+  const timestamp = now();
+  const offerId = id || randomUUID();
+  const existing = id ? await getPriceOffer(id) : null;
+  const totals = calculatePriceOfferTotals(input, settings.vatRate);
+  const offer: PriceOffer = {
+    ...input,
+    id: offerId,
+    number: existing?.number || (await nextPriceOfferNumber()),
+    createdAt: existing?.createdAt || timestamp,
+    validUntil: input.validUntil || defaultValidUntil(),
+    documentationFeeWithoutVat: money(input.documentationFeeWithoutVat),
+    areaM2: money(input.areaM2),
+    pricePerM2WithoutVat: money(input.pricePerM2WithoutVat),
+    materialPriceWithoutVat: totals.materialPriceWithoutVat,
+    totalWithoutVat: totals.totalWithoutVat,
+    totalWithVat: totals.totalWithVat,
+    offerNote: input.offerNote?.trim() ?? '',
+    internalNote: input.internalNote?.trim() ?? '',
+    sourceInquiry: input.sourceInquiry?.trim() || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
+    status: existing?.status || 'PRIPRAVENA',
+    sentAt: existing?.sentAt,
+    acceptedAt: existing?.acceptedAt,
+  };
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.priceOffers = [offer, ...local.priceOffers.filter((item) => item.id !== offerId)];
+    await writeLocalDb(local);
+    await addAuditLog('business_job', offer.jobId || offer.id, id ? 'price_offer_updated' : 'price_offer_created', actorEmail, { number: offer.number });
+    return offer;
+  }
+  await db.query(
+    `INSERT INTO price_offers (
+      id, number, job_id, created_at, valid_until, object_type, object_address, municipality, district,
+      contact_person, phone, email, realization_term, material_type, area_m2, price_per_m2_without_vat,
+      documentation_fee_without_vat, include_documentation, material_price_without_vat, total_without_vat,
+      total_with_vat, offer_note, internal_note, status, sent_at, accepted_at, source_inquiry
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27)
+    ON CONFLICT (id) DO UPDATE SET
+      job_id = $3, valid_until = $5, object_type = $6, object_address = $7, municipality = $8, district = $9,
+      contact_person = $10, phone = $11, email = $12, realization_term = $13, material_type = $14,
+      area_m2 = $15, price_per_m2_without_vat = $16, documentation_fee_without_vat = $17,
+      include_documentation = $18, material_price_without_vat = $19, total_without_vat = $20,
+      total_with_vat = $21, offer_note = $22, internal_note = $23, source_inquiry = $27`,
+    [
+      offer.id,
+      offer.number,
+      offer.jobId || null,
+      offer.createdAt,
+      offer.validUntil,
+      offer.objectType,
+      offer.objectAddress,
+      offer.municipality,
+      offer.district,
+      offer.contactPerson,
+      offer.phone,
+      offer.email,
+      offer.realizationTerm,
+      offer.materialType,
+      offer.areaM2,
+      offer.pricePerM2WithoutVat,
+      offer.documentationFeeWithoutVat,
+      offer.includeDocumentation,
+      offer.materialPriceWithoutVat,
+      offer.totalWithoutVat,
+      offer.totalWithVat,
+      offer.offerNote,
+      offer.internalNote,
+      offer.status,
+      offer.sentAt || null,
+      offer.acceptedAt || null,
+      offer.sourceInquiry,
+    ],
+  );
+  await addAuditLog('business_job', offer.jobId || offer.id, id ? 'price_offer_updated' : 'price_offer_created', actorEmail, { number: offer.number });
+  return offer;
+}
+
+export async function listPriceOffers(filters: { status?: PriceOfferStatus | ''; month?: string; jobId?: string } = {}): Promise<PriceOffer[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.priceOffers]
+      .filter((offer) => (!filters.status || offer.status === filters.status) && (!filters.jobId || offer.jobId === filters.jobId) && (!filters.month || offer.createdAt.startsWith(filters.month)))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  if (filters.status) {
+    values.push(filters.status);
+    conditions.push(`status = $${values.length}`);
+  }
+  if (filters.jobId) {
+    values.push(filters.jobId);
+    conditions.push(`job_id = $${values.length}`);
+  }
+  if (filters.month) {
+    values.push(`${filters.month}-01`);
+    conditions.push(`created_at >= $${values.length}::date`);
+    values.push(`${filters.month}-01`);
+    conditions.push(`created_at < ($${values.length}::date + interval '1 month')`);
+  }
+  const { rows } = await db.query(`SELECT * FROM price_offers ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT 1000`, values);
+  return rows.map(toPriceOffer);
+}
+
+export async function getPriceOffer(id: string): Promise<PriceOffer | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.priceOffers.find((offer) => offer.id === id) ?? null;
+  }
+  const { rows } = await db.query('SELECT * FROM price_offers WHERE id = $1 LIMIT 1', [id]);
+  return rows[0] ? toPriceOffer(rows[0]) : null;
+}
+
+export async function updatePriceOfferStatus(id: string, status: PriceOfferStatus, actorEmail: string) {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const offer = local.priceOffers.find((item) => item.id === id);
+    if (!offer) return null;
+    offer.status = status;
+    if (status === 'ODOSLANA') offer.sentAt = timestamp;
+    if (status === 'PRIJATA') offer.acceptedAt = timestamp;
+    await writeLocalDb(local);
+    await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail, { number: offer.number, status });
+    return offer;
+  }
+  const { rows } = await db.query(
+    `UPDATE price_offers SET status = $1,
+      sent_at = CASE WHEN $1 = 'ODOSLANA' THEN $2 ELSE sent_at END,
+      accepted_at = CASE WHEN $1 = 'PRIJATA' THEN $2 ELSE accepted_at END
+      WHERE id = $3 RETURNING *`,
+    [status, timestamp, id],
+  );
+  if (!rows[0]) return null;
+  const offer = toPriceOffer(rows[0]);
+  await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail, { number: offer.number, status });
+  return offer;
+}
+
+export async function deletePriceOffer(id: string, actorEmail: string) {
+  await ensureSchema();
+  const offer = await getPriceOffer(id);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.priceOffers = local.priceOffers.filter((item) => item.id !== id);
+    await writeLocalDb(local);
+  } else {
+    await db.query('DELETE FROM price_offers WHERE id = $1', [id]);
+  }
+  await addAuditLog('business_job', offer?.jobId || id, 'price_offer_deleted', actorEmail, { number: offer?.number });
 }
 
 export async function listRealizations(): Promise<Realization[]> {

@@ -1,15 +1,16 @@
 import nodemailer from 'nodemailer';
-import type { BusinessJob, Lead } from './types';
+import type { BusinessJob, Lead, PriceOffer, PriceOfferSettings } from './types';
 
-const siteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
+const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
+const fromEmail = () => process.env.FROM_EMAIL || process.env.MAIL_FROM || 'astana@astana.sk';
 
 function mailConfigured() {
-  return Boolean(process.env.SMTP_HOST && process.env.MAIL_FROM && process.env.LEAD_TO_EMAIL);
+  return Boolean(process.env.SMTP_HOST && fromEmail() && process.env.LEAD_TO_EMAIL);
 }
 
 function assertAstanaSender() {
-  const from = process.env.MAIL_FROM || '';
+  const from = fromEmail();
   const match = from.match(/<([^>]+)>/)?.[1] || from;
   const domain = match.split('@')[1]?.toLowerCase();
   if (domain && domain !== 'astana.sk') {
@@ -64,7 +65,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobI
   ].join('\n');
 
   await client.sendMail({
-    from: process.env.MAIL_FROM,
+    from: fromEmail(),
     to: leadRecipient(),
     replyTo: lead.email,
     subject: `🔔 Nový dopyt — ${lead.fullName} ${lead.city} ${lead.areaEstimate}m²`,
@@ -72,7 +73,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobI
   });
 
   await client.sendMail({
-    from: process.env.MAIL_FROM,
+    from: fromEmail(),
     to: lead.email,
     replyTo: leadRecipient(),
     subject: 'ASTANA — potvrdenie prijatia dopytu',
@@ -99,7 +100,7 @@ export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUnt
   if (!job.customerEmail) return { sent: false, reason: 'Zákazka nemá email zákazníka.' };
 
   await client.sendMail({
-    from: process.env.MAIL_FROM,
+    from: fromEmail(),
     to: job.customerEmail,
     replyTo: leadRecipient(),
     subject: `ASTANA — cenová ponuka pre ${job.location}`,
@@ -122,6 +123,64 @@ export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUnt
       'S pozdravom, tím ASTANA',
       'likvidacia-eternitu.sk',
     ].join('\n'),
+  });
+
+  return { sent: true };
+}
+
+function surname(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : name.trim();
+}
+
+export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: PriceOfferSettings, pdf: Buffer) {
+  const client = transporter();
+  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
+  if (!offer.email) return { sent: false, reason: 'Ponuka nemá email zákazníka.' };
+  const c = settings.company;
+  const body = [
+    `Dobrý deň p./pani ${surname(offer.contactPerson)},`,
+    '',
+    'V prílohe Vám zasielame cenovú ponuku na likvidáciu „AZC" krytiny.',
+    '',
+    'Až by sa Vám naša cenová ponuka pozdávala, alebo by ste mali akékoľvek otázky, neváhajte nás prosím kontaktovať mailom, alebo na tel. čísle 0905 217 946.',
+    '',
+    'V prípade záujmu nám prosím potvrďte CP mailom vo forme záväznej objednávky v ktorej je potrebné uviesť číslo cenovej ponuky s ktorou súhlasíte a uviesť:',
+    `1) adresu kde sa ${offer.objectType} nachádza (ulicu a číslo, prípadne aj parcelu)`,
+    '2) uviesť kto je objednávateľ a adresu objednávateľa',
+    `3) uviesť, kto je vlastníkom ${offer.objectType} + jeho adresu`,
+    '4) po prípade nám zašlite foto situácie',
+    '',
+    'Po ukončení likvidácie, Vám zašleme všetky potrebné dokumenty, ktoré bude nutné predložiť pri prípadnej kontrole zo strany úradov (OÚ ŽP, a RUVZ):',
+    '- kópiu rozhodnutia z Okresného úradu životného prostredia',
+    '- kópiu rozhodnutia z Regionálneho úradu verejného zdravotníctva',
+    '- originál Sprievodný list nebezpečných odpadov s potvrdením zo skládky nebezpečných odpadov',
+    '- kópia vážny lístok',
+    '- potvrdenie o tom, že azbest zlikvidovala firma ASTANA, s.r.o.',
+    '',
+    'S pozdravom a prianím pekného dňa',
+    settings.preparedByName,
+    `tel.: ${settings.preparedByPhone}`,
+    '',
+    '- - - - - - - - - - - - - - - - - - -',
+    c.name,
+    `${c.street} ${c.city} ${c.postalCode}`,
+    'Tel.: +421 905 217 946',
+    `E-mail: ${c.email}`,
+    `Web: ${c.mainWeb}`,
+    `IČO: ${c.ico}`,
+    'DIČ: 202 325 3771',
+    `IČ DPH: ${c.icDph}`,
+  ].join('\n');
+
+  await client.sendMail({
+    from: fromEmail(),
+    to: offer.email,
+    cc: c.email,
+    replyTo: c.email,
+    subject: `Cenová ponuka č. ${offer.number} — ASTANA likvidácia azbestu`,
+    text: body,
+    attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],
   });
 
   return { sent: true };
@@ -155,7 +214,7 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
   ].join('\n');
 
   await client.sendMail({
-    from: process.env.MAIL_FROM,
+    from: fromEmail(),
     to: leadRecipient(),
     replyTo: input.email,
     subject: `[STRECHÁR] Nová registrácia — ${input.fullName}`,
@@ -163,7 +222,7 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
   });
 
   await client.sendMail({
-    from: process.env.MAIL_FROM,
+    from: fromEmail(),
     to: input.email,
     replyTo: leadRecipient(),
     subject: 'Prijali sme vašu registráciu — ASTANA',

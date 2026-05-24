@@ -1,4 +1,4 @@
-import { listBusinessJobs, listLeadSummaries, listWorkers } from '@/src/server/db';
+import { listBusinessJobs, listLeadSummaries, listPriceOffers, listWorkers } from '@/src/server/db';
 import { euro, jobStatusLabels, landfillLabels, numberSk } from '../zakazky/constants';
 import BusinessChart from './business-chart';
 
@@ -24,7 +24,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   const params = await searchParams;
   const period = params.period || 'month';
   const bounds = periodBounds(period, params.from, params.to);
-  const [jobs, allJobs, leads, workers] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true)]);
+  const [jobs, allJobs, leads, workers, offers] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true), listPriceOffers()]);
   const revenue = jobs.reduce((sum, job) => sum + job.totalPrice, 0);
   const invoice = jobs.filter((job) => job.paymentType === 'FAKTURA').reduce((sum, job) => sum + job.totalPrice, 0);
   const cash = jobs.filter((job) => job.paymentType === 'CASH').reduce((sum, job) => sum + job.totalPrice, 0);
@@ -59,6 +59,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   });
   const sent = jobs.filter((job) => ['PONUKA_ODOSLANA', 'PRIJATA', 'V_REALIZACII', 'DOKONCENA'].includes(job.status)).length;
   const accepted = jobs.filter((job) => ['PRIJATA', 'V_REALIZACII', 'DOKONCENA'].includes(job.status)).length;
+  const sentOffers = offers.filter((offer) => offer.status === 'ODOSLANA' || offer.status === 'PRIJATA').length;
+  const acceptedOffers = offers.filter((offer) => offer.status === 'PRIJATA').length;
   const done = jobs.filter((job) => job.status === 'DOKONCENA').length;
 
   return (
@@ -123,6 +125,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
             ['Dopytov', leads.length, 100],
             ['Ponuka odoslaná', sent, jobs.length ? (sent / jobs.length) * 100 : 0],
             ['Ponuka prijatá', accepted, jobs.length ? (accepted / jobs.length) * 100 : 0],
+            ['Cenové ponuky odoslané', sentOffers, offers.length ? (sentOffers / offers.length) * 100 : 0],
+            ['Cenové ponuky prijaté', acceptedOffers, sentOffers ? (acceptedOffers / sentOffers) * 100 : 0],
             ['Dokončených', done, jobs.length ? (done / jobs.length) * 100 : 0],
           ].map(([label, count, rate], index) => <article key={String(label)}><span>{index + 1}</span><strong>{label}</strong><b>{count} · {Number(rate).toFixed(1)} %</b></article>)}
         </div>

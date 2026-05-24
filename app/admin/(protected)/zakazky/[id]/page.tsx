@@ -40,6 +40,7 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
         <div><p>{jobStatusLabels[job.status]}</p><h1>{job.customerName}</h1></div>
         <div className="admin-action-row">
           <button type="button" className="admin-primary-link" data-print>🖨 Tlačiť / PDF</button>
+          <a className="admin-primary-link" href={`/admin/ponuky/nova?zakazka=${job.id}`}>+ Vytvoriť cenovú ponuku</a>
           <a className="admin-primary-link" href={`/admin/reviews/request?meno=${encodeURIComponent(job.customerName)}&lokalita=${encodeURIComponent(job.location)}`}>Generovať žiadosť o recenziu</a>
         </div>
       </div>

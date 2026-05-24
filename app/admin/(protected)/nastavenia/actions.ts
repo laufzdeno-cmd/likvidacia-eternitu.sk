@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/src/server/auth';
-import { deleteLandfillPrice, saveBusinessSettings, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
-import type { BusinessLandfill } from '@/src/server/types';
+import { deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
+import type { BusinessLandfill, PriceOfferMaterialType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
   return Number(String(value || '').replace(',', '.')) || 0;
@@ -45,4 +45,26 @@ export async function saveGeneralSettingsAction(formData: FormData) {
     googleReviewLink: String(formData.get('googleReviewLink') || '').trim(),
   }, actor);
   revalidatePath('/admin/nastavenia');
+}
+
+export async function savePriceOfferSettingsAction(formData: FormData) {
+  const actor = await requireAdmin();
+  const current = await getPriceOfferSettings();
+  const materialPrices = { ...current.materialPrices };
+  for (const key of Object.keys(materialPrices) as PriceOfferMaterialType[]) {
+    materialPrices[key] = num(formData.get(`material_${key}`));
+  }
+  await savePriceOfferSettings(
+    {
+      ...current,
+      materialPrices,
+      documentationFee: num(formData.get('documentationFee')),
+      vatRate: num(formData.get('vatRate')),
+      preparedByName: String(formData.get('preparedByName') || '').trim(),
+      preparedByPhone: String(formData.get('preparedByPhone') || '').trim(),
+    },
+    actor,
+  );
+  revalidatePath('/admin/nastavenia');
+  revalidatePath('/admin/ponuky');
 }
