@@ -8061,7 +8061,8 @@ main .quote-panel-testimonial-author {
 }
 
 .admin-inline-filter select,
-.admin-inline-filter button {
+.admin-inline-filter button,
+.admin-inline-filter a {
   min-height: 40px;
   border-radius: 10px;
   border: 1px solid rgba(159, 197, 255, 0.8);
@@ -8075,11 +8076,16 @@ main .quote-panel-testimonial-author {
   padding: 0 36px 0 12px;
 }
 
-.admin-inline-filter button {
+.admin-inline-filter button,
+.admin-inline-filter a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 18px;
   background: linear-gradient(135deg, #e8541a, #b33118);
   color: #ffffff;
   border-color: transparent;
+  text-decoration: none;
 }
 
 .analytics-stat-grid {

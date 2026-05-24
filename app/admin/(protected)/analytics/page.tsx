@@ -56,6 +56,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
             </select>
           </label>
           <button type="submit">Zobraziť</button>
+          <a href={`/admin/analytics/export?dni=${report.rangeDays}`}>Exportovať</a>
         </form>
       </div>
 
