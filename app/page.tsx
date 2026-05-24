@@ -1,4 +1,5 @@
 import LandingClient from './landing-client';
+import Image from 'next/image';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
   heroPhoto,
@@ -420,10 +421,11 @@ export default async function HomePage() {
           </div>
 
           <div className="hero-photo real-hero-photo" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
-            <ResponsiveImage
-              image={heroPhoto}
-              loading="eager"
-              fetchPriority="high"
+            <Image
+              src={heroPhoto.jpg}
+              alt={heroPhoto.alt}
+              title={heroPhoto.title}
+              priority={true}
               width={1600}
               height={1120}
               sizes="(max-width: 760px) 100vw, 34vw"

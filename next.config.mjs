@@ -25,7 +25,11 @@ const securityHeaders = [
 const noIndexHeaders = [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }];
 
 const nextConfig = {
+  compress: true,
   poweredByHeader: false,
+  images: {
+    formats: ['image/webp', 'image/avif'],
+  },
   trailingSlash: true,
   async headers() {
     return [

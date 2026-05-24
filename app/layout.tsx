@@ -49,6 +49,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="sk" className={plusJakarta.variable}>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
