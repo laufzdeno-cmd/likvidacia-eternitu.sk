@@ -7867,7 +7867,7 @@ main .quote-panel-testimonial-author {
 .why-card-grid .why-feature-card:nth-child(even),
 .testimonial-grid .testimonial-card:nth-child(even),
 .faq-grid details:nth-child(even) {
-  background: #e3f0ff !important;
+  background: linear-gradient(135deg, #e3f0ff 0%, #f4f9ff 46%, #ffffff 100%) !important;
   border: 1px solid #b7d4ff !important;
 }
 
