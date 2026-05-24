@@ -55,8 +55,6 @@ const labels: Record<string, string> = {
   finalText: 'Finálne CTA: text',
   finalCtaPrimary: 'Finálne CTA: hlavné tlačidlo',
   footerText: 'Footer: krátky text',
-  heroFlowItems: 'Hero: postupové body, každý na nový riadok',
-  heroBulletItems: 'Hero: odrážky, každá na nový riadok',
   trustItems: 'Trust bar: položky vo formáte Nadpis|Text, každá na nový riadok',
   includedItems: 'Čo je v cene: položky, každá na nový riadok',
   processSteps: 'Proces: kroky vo formáte Nadpis|Text, každý na nový riadok',
