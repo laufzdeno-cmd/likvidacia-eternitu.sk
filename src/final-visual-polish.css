@@ -7303,3 +7303,13 @@ main .quote-card h2 {
     border-radius: 14px !important;
   }
 }
+
+/* Header contact QA: keep the phone number readable on the navy header. */
+.site-header .header-phone strong {
+  color: #ffffff !important;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.18) !important;
+}
+
+.site-header .header-phone small {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
