@@ -460,7 +460,7 @@ export default async function HomePage() {
               </ul>
               <a className="quote-panel-phone" href="tel:+421905217946">0905 217 946</a>
               <div className="quote-panel-testimonial" aria-label="Hodnotenie zákazníka">
-                <img src="/assets/azbest/jpg/azbest-087.jpg" alt="" loading="lazy" />
+                <img src="/assets/azbest/jpg/azbest-124.jpg" alt="" loading="lazy" />
                 <div className="quote-panel-testimonial-overlay" aria-hidden="true"></div>
                 <div className="quote-panel-testimonial-content">
                   <span className="quote-panel-testimonial-stars">★★★★★</span>
