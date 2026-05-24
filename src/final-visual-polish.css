@@ -7379,7 +7379,7 @@ main .quote-info-panel h2 {
 main .quote-section-inner > .quote-card {
   min-width: 0 !important;
   padding: 48px !important;
-  background: #ffffff !important;
+  background: linear-gradient(135deg, #e3f0ff 0%, #f4f9ff 46%, #ffffff 100%) !important;
 }
 
 main .hero-counters {
