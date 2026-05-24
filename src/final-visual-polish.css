@@ -7176,7 +7176,7 @@ main .quote-section-inner {
 main .quote-section-inner > .quote-info-panel {
   position: sticky !important;
   inset: auto !important;
-  top: 112px !important;
+  top: 88px !important;
   align-self: start !important;
   justify-self: start !important;
   width: 100% !important;

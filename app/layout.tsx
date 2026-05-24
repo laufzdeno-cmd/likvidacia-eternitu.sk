@@ -48,6 +48,38 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sk" className={plusJakarta.variable}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'LocalBusiness',
+              name: 'ASTANA — Likvidácia azbestu',
+              telephone: '+421905217946',
+              email: 'astana@astana.sk',
+              url: 'https://likvidacia-eternitu.sk',
+              foundingDate: '2011',
+              areaServed: { '@type': 'Country', name: 'Slovakia' },
+              address: {
+                '@type': 'PostalAddress',
+                streetAddress: 'Scherffelova 1364/28',
+                addressLocality: 'Poprad',
+                postalCode: '05801',
+                addressCountry: 'SK',
+              },
+              openingHoursSpecification: [
+                {
+                  '@type': 'OpeningHoursSpecification',
+                  dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+                  opens: '07:00',
+                  closes: '18:00',
+                },
+              ],
+            }),
+          }}
+        />
+      </head>
       <body className={plusJakarta.className}>{children}</body>
     </html>
   );
