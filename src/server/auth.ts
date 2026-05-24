@@ -79,8 +79,15 @@ function verifyHash(password: string, storedHash: string) {
 }
 
 export function verifyAdminCredentials(email: string, password: string) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const tempEmail = process.env.TEMP_ADMIN_EMAIL;
+  const tempHash = process.env.TEMP_ADMIN_PASSWORD_HASH;
+  if (tempEmail && tempHash && normalizedEmail === tempEmail.toLowerCase()) {
+    return verifyHash(password, tempHash);
+  }
+
   const configuredEmail = adminEmail();
-  if (!configuredEmail || email.trim().toLowerCase() !== configuredEmail.toLowerCase()) return false;
+  if (!configuredEmail || normalizedEmail !== configuredEmail.toLowerCase()) return false;
 
   if (process.env.ADMIN_PASSWORD_HASH) {
     return verifyHash(password, process.env.ADMIN_PASSWORD_HASH);
