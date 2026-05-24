@@ -39,12 +39,29 @@ type LocalDb = {
 
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
 
-const databaseUrl = process.env.DATABASE_URL;
+const databaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
 const localDbPath = path.join(process.cwd(), '.data', 'local-db.json');
 const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
 
 let pool: Pool | undefined;
 let schemaReady = false;
+
+function normalizeDatabaseUrl(value?: string) {
+  if (!value || value.includes('localhost') || value.includes('127.0.0.1')) return value;
+  try {
+    const url = new URL(value);
+    const sslMode = url.searchParams.get('sslmode');
+    if (!sslMode) {
+      url.searchParams.set('sslmode', 'require');
+    } else if (['prefer', 'require', 'verify-ca'].includes(sslMode) && !url.searchParams.has('uselibpqcompat')) {
+      url.searchParams.set('uselibpqcompat', 'true');
+    }
+    return url.toString();
+  } catch {
+    const separator = value.includes('?') ? '&' : '?';
+    return `${value}${separator}sslmode=require`;
+  }
+}
 
 function getPool() {
   if (!databaseUrl) return undefined;
