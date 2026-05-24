@@ -456,6 +456,7 @@ export default async function HomePage() {
                 <li><VisualIcon name="check" className="quote-panel-icon" />Fotky sú voliteľné, ale výrazne pomôžu</li>
                 <li><VisualIcon name="check" className="quote-panel-icon" />Cenová ponuka odíde až po kontrole</li>
               </ul>
+              <a className="quote-panel-phone" href="tel:+421905217946">0905 217 946</a>
             </div>
 
           <aside className="quote-card" aria-labelledby="quote-title">

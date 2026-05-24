@@ -7153,3 +7153,153 @@ main .why-section {
     border-radius: 12px !important;
   }
 }
+
+/* Quote section final layout: full navy band with a white form card. */
+main > .quote-section {
+  padding: 84px max(24px, calc((100vw - 1180px) / 2)) !important;
+  background: #0f1f3d !important;
+}
+
+main .quote-section-inner {
+  display: grid !important;
+  grid-template-columns: minmax(360px, 500px) minmax(480px, 560px) !important;
+  align-items: start !important;
+  justify-content: space-between !important;
+  gap: 56px !important;
+  width: 100% !important;
+  max-width: 1180px !important;
+  min-height: 0 !important;
+  margin: 0 auto !important;
+  background: transparent !important;
+}
+
+main .quote-section-inner > .quote-info-panel {
+  position: sticky !important;
+  inset: auto !important;
+  top: 112px !important;
+  align-self: start !important;
+  justify-self: start !important;
+  width: 100% !important;
+  max-width: 500px !important;
+  max-height: calc(100vh - 132px) !important;
+  padding: 8px 0 !important;
+  background: transparent !important;
+  overflow-x: visible !important;
+  overflow-y: auto !important;
+}
+
+main .quote-info-panel .eyebrow {
+  color: rgba(255, 255, 255, 0.68) !important;
+}
+
+main .quote-info-panel h2 {
+  max-width: 460px !important;
+  color: #ffffff !important;
+  font-size: clamp(28px, 3vw, 42px) !important;
+  line-height: 1.08 !important;
+}
+
+main .quote-info-panel p {
+  max-width: 460px !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+  font-size: 17px !important;
+  line-height: 1.7 !important;
+}
+
+main .quote-info-panel ul {
+  max-width: 440px !important;
+  margin-top: 28px !important;
+  gap: 14px !important;
+}
+
+main .quote-info-panel li {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  line-height: 1.45 !important;
+}
+
+main .quote-info-panel .quote-panel-icon {
+  color: #7fd18b !important;
+}
+
+main .quote-panel-phone {
+  display: inline-flex !important;
+  margin-top: 34px !important;
+  color: #ffffff !important;
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0 !important;
+  text-decoration: none !important;
+}
+
+main .quote-section-inner > .quote-card {
+  position: relative !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  width: 100% !important;
+  max-width: 560px !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+  justify-self: stretch !important;
+  padding: 42px !important;
+  border: 1px solid rgba(15, 31, 61, 0.08) !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.22) !important;
+}
+
+@media (min-width: 901px) {
+  main .quote-section-inner > .quote-card {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+
+main .quote-card::before,
+main .quote-card::after {
+  content: none !important;
+  display: none !important;
+}
+
+main .quote-card .quote-kicker,
+main .quote-card > p:not(.quote-kicker),
+main .quote-handled,
+main .quote-priority,
+main .quote-form-progress {
+  display: none !important;
+}
+
+main .quote-card h2 {
+  margin-bottom: 24px !important;
+  font-size: clamp(28px, 2.4vw, 36px) !important;
+  line-height: 1.1 !important;
+}
+
+@media (max-width: 900px) {
+  main > .quote-section {
+    padding: 56px 20px !important;
+  }
+
+  main .quote-section-inner {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 34px !important;
+  }
+
+  main .quote-section-inner > .quote-info-panel {
+    position: static !important;
+    max-height: none !important;
+    padding: 0 !important;
+  }
+
+  main .quote-info-panel h2,
+  main .quote-info-panel p,
+  main .quote-info-panel ul {
+    max-width: none !important;
+  }
+
+  main .quote-section-inner > .quote-card {
+    max-width: none !important;
+    padding: 30px 22px !important;
+    border-radius: 14px !important;
+  }
+}
