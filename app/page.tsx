@@ -448,6 +448,7 @@ export default async function HomePage() {
         <section className="quote-section" id="dopyt" aria-labelledby="quote-title">
           <div className="quote-section-inner">
             <div className="quote-info-panel">
+              <div className="quote-panel-main">
               <p className="eyebrow">Rýchle nacenenie</p>
               <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
               <p>
@@ -459,6 +460,7 @@ export default async function HomePage() {
                 <li><VisualIcon name="check" className="quote-panel-icon" />Cenová ponuka odíde až po kontrole</li>
               </ul>
               <a className="quote-panel-phone" href="tel:+421905217946">0905 217 946</a>
+              </div>
               <div className="quote-panel-testimonial" aria-label="Hodnotenie zákazníka">
                 <img src="/assets/azbest/jpg/azbest-124.jpg" alt="" loading="lazy" />
                 <div className="quote-panel-testimonial-overlay" aria-hidden="true"></div>

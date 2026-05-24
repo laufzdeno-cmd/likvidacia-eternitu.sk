@@ -7364,9 +7364,8 @@ main .quote-section-inner > .quote-info-panel {
   top: 88px !important;
   align-self: start !important;
   min-width: 0 !important;
-  max-height: calc(100vh - 108px) !important;
   padding: 64px 48px !important;
-  overflow: hidden auto !important;
+  overflow: visible !important;
   background: transparent !important;
   color: #ffffff !important;
 }
@@ -7767,14 +7766,22 @@ main .why-feature-card p {
 main .quote-section-inner > .quote-info-panel {
   display: flex !important;
   flex-direction: column !important;
-  justify-content: space-between !important;
-  height: 100% !important;
+  justify-content: flex-start !important;
+  height: auto !important;
+  min-height: 100% !important;
+}
+
+main .quote-panel-main {
+  width: 100% !important;
+  max-width: 520px !important;
 }
 
 main .quote-panel-testimonial {
   position: relative !important;
-  height: 220px !important;
-  margin-top: 40px !important;
+  width: 100% !important;
+  max-width: 520px !important;
+  height: clamp(168px, 18vh, 220px) !important;
+  margin-top: clamp(28px, 5vh, 48px) !important;
   overflow: hidden !important;
   border-radius: 12px !important;
 }
