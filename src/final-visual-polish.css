@@ -7889,3 +7889,13 @@ main .quote-panel-testimonial-author {
 .why-card-grid .why-feature-card:nth-child(odd) .why-card-icon {
   background-color: rgba(232, 84, 26, 0.1) !important;
 }
+
+.real-work-grid .real-work-card:nth-child(3) {
+  background: linear-gradient(135deg, #e3f0ff 0%, #f4f9ff 46%, #ffffff 100%) !important;
+  border: 1px solid #b7d4ff !important;
+}
+
+.real-work-grid .real-work-card:nth-child(4) {
+  background: linear-gradient(135deg, #fff1df 0%, #fff8ef 42%, #ffffff 100%) !important;
+  border: 1px solid #f0cda5 !important;
+}
