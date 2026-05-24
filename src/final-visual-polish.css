@@ -7972,3 +7972,73 @@ main .quote-card .area-field {
 .risk-grid article:nth-child(4) .risk-card-icon {
   background-color: rgba(232, 84, 26, 0.1) !important;
 }
+
+main .quote-section-inner > .quote-card {
+  background:
+    radial-gradient(circle at 6% 0%, rgba(232, 84, 26, 0.18), transparent 17rem),
+    radial-gradient(circle at 100% 10%, rgba(24, 95, 165, 0.16), transparent 18rem),
+    linear-gradient(135deg, #cfe5ff 0%, #e9f4ff 40%, #ffffff 100%) !important;
+  border: 1px solid rgba(159, 197, 255, 0.72) !important;
+}
+
+main .quote-card .lead-form > .form-stage:nth-of-type(1),
+main .quote-card .lead-form > .form-stage:nth-of-type(3) {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(232, 84, 26, 0.16), transparent 13rem),
+    linear-gradient(135deg, #ffe0b8 0%, #fff0df 48%, #ffffff 100%) !important;
+  border-color: #e4aa65 !important;
+  box-shadow: 0 16px 38px rgba(142, 86, 21, 0.1) !important;
+}
+
+main .quote-card .lead-form > .form-stage:nth-of-type(2),
+main .quote-card .lead-form > .form-stage:nth-of-type(4) {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(24, 95, 165, 0.15), transparent 13rem),
+    linear-gradient(135deg, #cfe5ff 0%, #e8f4ff 48%, #ffffff 100%) !important;
+  border-color: #94bdff !important;
+  box-shadow: 0 16px 38px rgba(24, 95, 165, 0.1) !important;
+}
+
+main .quote-card .file-drop {
+  background:
+    radial-gradient(circle at 0% 18%, rgba(24, 95, 165, 0.14), transparent 12rem),
+    linear-gradient(135deg, #ffffff 0%, #dceeff 100%) !important;
+  border-color: rgba(24, 95, 165, 0.34) !important;
+}
+
+main .quote-card .consent {
+  padding: 12px 14px !important;
+  border: 1px solid rgba(159, 197, 255, 0.8) !important;
+  border-radius: 12px !important;
+  background: linear-gradient(135deg, #ffffff 0%, #edf6ff 100%) !important;
+}
+
+main .quote-card .form-security {
+  background: linear-gradient(135deg, #ffffff 0%, #e7f4ff 100%) !important;
+  border: 1px solid rgba(159, 197, 255, 0.72) !important;
+}
+
+main .quote-panel-testimonial {
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.28) !important;
+}
+
+main .quote-panel-testimonial img {
+  object-fit: cover !important;
+  object-position: center 42% !important;
+  filter: brightness(1.28) contrast(1.08) saturate(1.12) !important;
+}
+
+main .quote-panel-testimonial-overlay {
+  background: linear-gradient(
+    to top,
+    rgba(10, 18, 35, 0.74) 0%,
+    rgba(10, 18, 35, 0.28) 54%,
+    rgba(10, 18, 35, 0.04) 100%
+  ) !important;
+}
+
+main .quote-panel-testimonial-content p,
+main .quote-panel-testimonial-author {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.42) !important;
+}
