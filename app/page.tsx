@@ -465,7 +465,7 @@ export default async function HomePage() {
                 <div className="quote-panel-testimonial-content">
                   <span className="quote-panel-testimonial-stars">★★★★★</span>
                   <p>"Prišli o šiestej ráno, strecha bola hotová do obeda. Odporúčam."</p>
-                  <span className="quote-panel-testimonial-author">— M. Horváth, Košice · Rodinný dom</span>
+                  <span className="quote-panel-testimonial-author">— M. Fojtík, Košice · Rodinný dom</span>
                 </div>
               </div>
             </div>
