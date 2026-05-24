@@ -7954,3 +7954,21 @@ main .quote-card .area-field {
   background: linear-gradient(135deg, #ffe5c7 0%, #fff2e3 42%, #ffffff 100%) !important;
   border-color: #e9b778 !important;
 }
+
+.risk-grid article:nth-child(3) {
+  background: linear-gradient(135deg, #d5e9ff 0%, #edf6ff 44%, #ffffff 100%) !important;
+  border-color: #9fc5ff !important;
+}
+
+.risk-grid article:nth-child(4) {
+  background: linear-gradient(135deg, #ffe5c7 0%, #fff2e3 42%, #ffffff 100%) !important;
+  border-color: #e9b778 !important;
+}
+
+.risk-grid article:nth-child(3) .risk-card-icon {
+  background: rgba(24, 95, 165, 0.16) !important;
+}
+
+.risk-grid article:nth-child(4) .risk-card-icon {
+  background-color: rgba(232, 84, 26, 0.1) !important;
+}
