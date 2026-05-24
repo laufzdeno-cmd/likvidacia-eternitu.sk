@@ -359,19 +359,12 @@ export default async function HomePage() {
             </span>
           </a>
           <div className="header-meta" aria-label="Kontaktné údaje">
-            <span className="meta-item">
-              <span className="meta-icon pin" aria-hidden="true"></span>Pôsobíme po celej SR
-            </span>
-            <a className="meta-item" href="mailto:astana@astana.sk">
-              <span className="meta-icon mail" aria-hidden="true"></span>astana@astana.sk
-            </a>
             <a className="header-phone" href="tel:+421905217946">
               <span className="meta-icon phone" aria-hidden="true"></span>
               <strong>0905 217 946</strong>
-              <small>Po-Pia 7:00 - 18:00</small>
             </a>
             <a className="button button-primary header-button" href="#dopyt">
-              {content.ctaPrimary}
+              Získať cenovú ponuku
             </a>
           </div>
           <button className="menu-toggle" type="button" aria-controls="site-nav" aria-expanded="false">
@@ -385,6 +378,10 @@ export default async function HomePage() {
           <a href="/realizacie/">Realizácie</a>
           <a href="#faq">FAQ</a>
           <a href="#kontakt">Kontakt</a>
+          <a className="nav-mobile-phone" href="tel:+421905217946">
+            <span className="meta-icon phone" aria-hidden="true"></span>0905 217 946
+          </a>
+          <a className="nav-mobile-cta" href="#dopyt">Získať cenovú ponuku</a>
         </nav>
       </header>
 

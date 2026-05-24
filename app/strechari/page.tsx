@@ -83,9 +83,8 @@ export default function RoofersPage() {
             <a className="header-phone" href="tel:+421905217946">
               <span className="meta-icon phone" aria-hidden="true"></span>
               <strong>0905 217 946</strong>
-              <small>Po-Pia 7:00 - 18:00</small>
             </a>
-            <a className="button button-primary header-button" href="#registracia">Chcem spolupracovať</a>
+            <a className="button button-primary header-button" href="/#dopyt">Získať cenovú ponuku</a>
           </div>
           <button className="menu-toggle" type="button" aria-controls="site-nav" aria-expanded="false">Menu</button>
         </div>
@@ -96,6 +95,10 @@ export default function RoofersPage() {
           <a href="/realizacie/">Realizácie</a>
           <a href="/#faq">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
+          <a className="nav-mobile-phone" href="tel:+421905217946">
+            <span className="meta-icon phone" aria-hidden="true"></span>0905 217 946
+          </a>
+          <a className="nav-mobile-cta" href="/#dopyt">Získať cenovú ponuku</a>
         </nav>
       </header>
 
