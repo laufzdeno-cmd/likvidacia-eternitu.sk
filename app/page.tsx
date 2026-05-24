@@ -459,6 +459,15 @@ export default async function HomePage() {
                 <li><VisualIcon name="check" className="quote-panel-icon" />Cenová ponuka odíde až po kontrole</li>
               </ul>
               <a className="quote-panel-phone" href="tel:+421905217946">0905 217 946</a>
+              <div className="quote-panel-testimonial" aria-label="Hodnotenie zákazníka">
+                <img src="/assets/azbest/jpg/azbest-087.jpg" alt="" loading="lazy" />
+                <div className="quote-panel-testimonial-overlay" aria-hidden="true"></div>
+                <div className="quote-panel-testimonial-content">
+                  <span className="quote-panel-testimonial-stars">★★★★★</span>
+                  <p>"Prišli o šiestej ráno, strecha bola hotová do obeda. Odporúčam."</p>
+                  <span className="quote-panel-testimonial-author">— M. Horváth, Košice · Rodinný dom</span>
+                </div>
+              </div>
             </div>
 
           <aside className="quote-card" aria-labelledby="quote-title">
