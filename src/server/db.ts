@@ -4,6 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { Pool } from 'pg';
 import type {
   AuditLog,
+  AnalyticsEvent,
+  AnalyticsEventInput,
+  AnalyticsReport,
   Lead,
   LeadFile,
   LeadInput,
@@ -31,6 +34,7 @@ type LocalDb = {
   realizations: Realization[];
   roofers: Roofer[];
   siteContent: SiteContentItem[];
+  analyticsEvents: AnalyticsEvent[];
 };
 
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
@@ -311,6 +315,21 @@ async function ensureSchema() {
       updated_by text
     );
 
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      session_id text NOT NULL,
+      event_type text NOT NULL,
+      path text NOT NULL DEFAULT '',
+      referrer text NOT NULL DEFAULT '',
+      device text NOT NULL DEFAULT '',
+      viewport_width integer,
+      utm_source text NOT NULL DEFAULT '',
+      utm_medium text NOT NULL DEFAULT '',
+      utm_campaign text NOT NULL DEFAULT '',
+      metadata jsonb NOT NULL DEFAULT '{}'::jsonb
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
@@ -320,6 +339,8 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS roofers_active_region_idx ON roofers (active, region, updated_at DESC);
     CREATE INDEX IF NOT EXISTS roofer_events_roofer_created_idx ON roofer_events (roofer_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
+    CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
   `);
   schemaReady = true;
 }
@@ -334,6 +355,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
     siteContent: data.siteContent ?? [],
+    analyticsEvents: data.analyticsEvents ?? [],
   };
 }
 
@@ -429,12 +451,29 @@ function toSiteContent(row: Record<string, unknown>): SiteContentItem {
   };
 }
 
+function toAnalyticsEvent(row: Record<string, unknown>): AnalyticsEvent {
+  return {
+    id: String(row.id),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    sessionId: String(row.session_id ?? row.sessionId ?? ''),
+    eventType: String(row.event_type ?? row.eventType) as AnalyticsEvent['eventType'],
+    path: String(row.path ?? ''),
+    referrer: String(row.referrer ?? ''),
+    device: String(row.device ?? '') as AnalyticsEvent['device'],
+    viewportWidth: row.viewport_width === null || row.viewport_width === undefined ? undefined : Number(row.viewport_width),
+    utmSource: String(row.utm_source ?? row.utmSource ?? ''),
+    utmMedium: String(row.utm_medium ?? row.utmMedium ?? ''),
+    utmCampaign: String(row.utm_campaign ?? row.utmCampaign ?? ''),
+    metadata: (row.metadata as Record<string, unknown>) ?? {},
+  };
+}
+
 async function readLocalDb(): Promise<LocalDb> {
   await mkdir(path.dirname(localDbPath), { recursive: true });
   try {
     return normalizeLocalDb(JSON.parse(await readFile(localDbPath, 'utf8')) as Partial<LocalDb>);
   } catch {
-    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [], realizations: [], roofers: [], siteContent: [] };
+    const empty: LocalDb = { leads: [], leadFiles: [], auditLogs: [], quotes: [], testimonials: [], realizations: [], roofers: [], siteContent: [], analyticsEvents: [] };
     await writeFile(localDbPath, JSON.stringify(empty, null, 2), 'utf8');
     return empty;
   }
@@ -1335,6 +1374,215 @@ export async function getDashboardStats() {
     pricedLeads: leads.filter((lead) => lead.status === 'naceneny' || lead.status === 'cenova_ponuka_odoslana').length,
     staleLeads,
     missingPhotos: leads.filter((lead) => lead.fileCount === 0).length,
+  };
+}
+
+function clampText(value: unknown, maxLength: number) {
+  return String(value ?? '').trim().slice(0, maxLength);
+}
+
+function eventDate(value: string) {
+  return new Date(value).toISOString().slice(0, 10);
+}
+
+function percent(part: number, total: number) {
+  if (!total) return 0;
+  return Math.round((part / total) * 1000) / 10;
+}
+
+function sourceFromEvent(event: Pick<AnalyticsEvent, 'utmSource' | 'referrer'>) {
+  if (event.utmSource) return event.utmSource;
+  if (!event.referrer) return 'direct';
+  try {
+    const host = new URL(event.referrer).hostname.replace(/^www\./, '');
+    if (host.includes('google.')) return 'google';
+    if (host.includes('facebook.') || host.includes('instagram.')) return 'social';
+    return host;
+  } catch {
+    return 'referrer';
+  }
+}
+
+export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
+  await ensureSchema();
+  const event: AnalyticsEvent = {
+    id: randomUUID(),
+    createdAt: now(),
+    sessionId: clampText(input.sessionId, 80),
+    eventType: input.eventType,
+    path: clampText(input.path || '/', 300),
+    referrer: clampText(input.referrer, 500),
+    device: input.device || 'desktop',
+    viewportWidth: input.viewportWidth ? Math.max(0, Math.round(Number(input.viewportWidth))) : undefined,
+    utmSource: clampText(input.utmSource, 120),
+    utmMedium: clampText(input.utmMedium, 120),
+    utmCampaign: clampText(input.utmCampaign, 160),
+    metadata: input.metadata ?? {},
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.analyticsEvents.unshift(event);
+    local.analyticsEvents = local.analyticsEvents.slice(0, 5000);
+    await writeLocalDb(local);
+    return event;
+  }
+
+  await db.query(
+    `INSERT INTO analytics_events (
+      id, created_at, session_id, event_type, path, referrer, device, viewport_width,
+      utm_source, utm_medium, utm_campaign, metadata
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    [
+      event.id,
+      event.createdAt,
+      event.sessionId,
+      event.eventType,
+      event.path,
+      event.referrer,
+      event.device,
+      event.viewportWidth ?? null,
+      event.utmSource,
+      event.utmMedium,
+      event.utmCampaign,
+      event.metadata,
+    ],
+  );
+  return event;
+}
+
+export async function listAnalyticsEvents(days = 30): Promise<AnalyticsEvent[]> {
+  await ensureSchema();
+  const rangeDays = Math.min(365, Math.max(1, Math.round(days)));
+  const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.analyticsEvents
+      .filter((event) => event.createdAt >= since)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query('SELECT * FROM analytics_events WHERE created_at >= $1 ORDER BY created_at DESC LIMIT 20000', [since]);
+  return rows.map(toAnalyticsEvent);
+}
+
+export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
+  const rangeDays = Math.min(365, Math.max(1, Math.round(days)));
+  const sinceMs = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
+  const [events, leads, quotes] = await Promise.all([listAnalyticsEvents(rangeDays), listLeadSummaries(), listQuotes()]);
+  const recentLeads = leads.filter((lead) => new Date(lead.createdAt).getTime() >= sinceMs);
+  const recentQuotes = quotes.filter((quote) => new Date(quote.createdAt).getTime() >= sinceMs);
+  const pageViews = events.filter((event) => event.eventType === 'page_view');
+  const sessionIds = new Set(events.map((event) => event.sessionId).filter(Boolean));
+  const leadSessions = new Set(events.filter((event) => event.eventType === 'form_submit_success').map((event) => event.sessionId).filter(Boolean));
+
+  const byEvent = new Map<string, number>();
+  for (const event of events) byEvent.set(event.eventType, (byEvent.get(event.eventType) ?? 0) + 1);
+
+  const pageMap = new Map<string, { path: string; views: number; sessions: Set<string>; leads: number }>();
+  for (const event of pageViews) {
+    const item = pageMap.get(event.path) ?? { path: event.path, views: 0, sessions: new Set<string>(), leads: 0 };
+    item.views += 1;
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    pageMap.set(event.path, item);
+  }
+  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
+    const item = pageMap.get(event.path) ?? { path: event.path, views: 0, sessions: new Set<string>(), leads: 0 };
+    item.leads += 1;
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    pageMap.set(event.path, item);
+  }
+
+  const sourceMap = new Map<string, { source: string; sessions: Set<string>; leads: Set<string> }>();
+  for (const event of pageViews) {
+    const source = sourceFromEvent(event);
+    const item = sourceMap.get(source) ?? { source, sessions: new Set<string>(), leads: new Set<string>() };
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    sourceMap.set(source, item);
+  }
+  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
+    const source = sourceFromEvent(event);
+    const item = sourceMap.get(source) ?? { source, sessions: new Set<string>(), leads: new Set<string>() };
+    if (event.sessionId) {
+      item.sessions.add(event.sessionId);
+      item.leads.add(event.sessionId);
+    }
+    sourceMap.set(source, item);
+  }
+
+  const deviceMap = new Map<string, { device: string; sessions: Set<string>; pageViews: number; leads: Set<string> }>();
+  for (const event of events) {
+    const device = event.device || 'unknown';
+    const item = deviceMap.get(device) ?? { device, sessions: new Set<string>(), pageViews: 0, leads: new Set<string>() };
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    if (event.eventType === 'page_view') item.pageViews += 1;
+    if (event.eventType === 'form_submit_success' && event.sessionId) item.leads.add(event.sessionId);
+    deviceMap.set(device, item);
+  }
+
+  const dailyMap = new Map<string, { date: string; pageViews: number; sessions: Set<string>; leads: number; formStarts: number; quoteViews: number }>();
+  for (let index = rangeDays - 1; index >= 0; index -= 1) {
+    const date = new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    dailyMap.set(date, { date, pageViews: 0, sessions: new Set<string>(), leads: 0, formStarts: 0, quoteViews: 0 });
+  }
+  for (const event of events) {
+    const date = eventDate(event.createdAt);
+    const item = dailyMap.get(date);
+    if (!item) continue;
+    if (event.eventType === 'page_view') item.pageViews += 1;
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    if (event.eventType === 'form_submit_success') item.leads += 1;
+    if (event.eventType === 'form_start') item.formStarts += 1;
+    if (event.eventType === 'quote_section_view') item.quoteViews += 1;
+  }
+
+  const quoteViews = byEvent.get('quote_section_view') ?? 0;
+  const formStarts = byEvent.get('form_start') ?? 0;
+  const leadCount = recentLeads.length || (byEvent.get('form_submit_success') ?? 0);
+  const quoteCount = recentQuotes.length;
+  const acceptedQuotes = recentQuotes.filter((quote) => quote.status === 'accepted').length;
+
+  return {
+    rangeDays,
+    totals: {
+      pageViews: pageViews.length,
+      sessions: sessionIds.size,
+      leads: leadCount,
+      quotes: quoteCount,
+      acceptedQuotes,
+      leadConversionRate: percent(leadCount || leadSessions.size, sessionIds.size),
+      quoteRate: percent(quoteCount, leadCount),
+      acceptedQuoteRate: percent(acceptedQuotes, quoteCount),
+    },
+    events: [...byEvent.entries()].map(([eventType, count]) => ({ eventType, count })).sort((a, b) => b.count - a.count),
+    topPages: [...pageMap.values()]
+      .map((item) => ({ path: item.path, views: item.views, sessions: item.sessions.size, leads: item.leads, conversionRate: percent(item.leads, item.sessions.size) }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 10),
+    sources: [...sourceMap.values()]
+      .map((item) => ({ source: item.source, sessions: item.sessions.size, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 10),
+    devices: [...deviceMap.values()]
+      .map((item) => ({ device: item.device, sessions: item.sessions.size, pageViews: item.pageViews, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
+      .sort((a, b) => b.sessions - a.sessions),
+    daily: [...dailyMap.values()].map((item) => ({
+      date: item.date,
+      pageViews: item.pageViews,
+      sessions: item.sessions.size,
+      leads: item.leads,
+      formStarts: item.formStarts,
+      quoteViews: item.quoteViews,
+    })),
+    funnel: [
+      { label: 'Návštevy', count: sessionIds.size, rateFromPrevious: 100 },
+      { label: 'Videný dotazník', count: quoteViews, rateFromPrevious: percent(quoteViews, sessionIds.size) },
+      { label: 'Začaté vypĺňanie', count: formStarts, rateFromPrevious: percent(formStarts, quoteViews) },
+      { label: 'Odoslané dopyty', count: leadCount, rateFromPrevious: percent(leadCount, formStarts) },
+      { label: 'Vytvorené ponuky', count: quoteCount, rateFromPrevious: percent(quoteCount, leadCount) },
+      { label: 'Prijaté ponuky', count: acceptedQuotes, rateFromPrevious: percent(acceptedQuotes, quoteCount) },
+    ],
   };
 }
 

@@ -46,6 +46,59 @@ export default function LandingClient() {
     let activeGalleryIndex = 0;
     let activePriceMaterial = 'vlnity';
     let isQuoteSectionVisible = false;
+    let formStarted = false;
+    let quoteSectionTracked = false;
+
+    const analyticsSessionId = (() => {
+      const key = 'astana_analytics_session';
+      try {
+        const existing = window.localStorage.getItem(key);
+        if (existing) return existing;
+        const created = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        window.localStorage.setItem(key, created);
+        return created;
+      } catch {
+        return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+    })();
+
+    const analyticsDevice = () => {
+      if (window.innerWidth < 768) return 'mobile';
+      if (window.innerWidth < 1024) return 'tablet';
+      return 'desktop';
+    };
+
+    const analyticsParams = () => {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        utmSource: params.get('utm_source') || '',
+        utmMedium: params.get('utm_medium') || '',
+        utmCampaign: params.get('utm_campaign') || '',
+      };
+    };
+
+    const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
+      const payload = JSON.stringify({
+        sessionId: analyticsSessionId,
+        eventType,
+        path: `${window.location.pathname}${window.location.hash || ''}`,
+        referrer: document.referrer || '',
+        device: analyticsDevice(),
+        viewportWidth: window.innerWidth,
+        ...analyticsParams(),
+        metadata,
+      });
+      if (navigator.sendBeacon) {
+        const sent = navigator.sendBeacon('/api/analytics/', new Blob([payload], { type: 'application/json' }));
+        if (sent) return;
+      }
+      void fetch('/api/analytics/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    };
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -88,6 +141,7 @@ export default function LandingClient() {
         item.setAttribute('aria-pressed', String(active));
       });
       updatePriceCalculator();
+      trackAnalytics('price_calculator_change', { material: activePriceMaterial, area: priceArea?.value || '' });
     };
 
     const updateFileInput = () => {
@@ -206,9 +260,11 @@ export default function LandingClient() {
         selectedFiles = [];
         updateFileInput();
         if (preview) preview.innerHTML = '';
+        trackAnalytics('form_submit_success', { form: 'lead' });
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
       } catch (error) {
         setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať.', 'error');
+        trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
       } finally {
         button?.removeAttribute('disabled');
       }
@@ -294,6 +350,7 @@ export default function LandingClient() {
             result.message || 'Ďakujeme! Vaša registrácia bola prijatá.\nOzveme sa vám do 48 hodín na zadané telefónne číslo.';
           rooferRegistrationStatus.classList.add('is-success');
         }
+        trackAnalytics('roofer_registration_success', { form: 'roofer_registration' });
       } catch (error) {
         if (rooferRegistrationStatus) {
           rooferRegistrationStatus.textContent = error instanceof Error ? error.message : 'Registráciu sa nepodarilo odoslať.';
@@ -363,6 +420,7 @@ export default function LandingClient() {
         galleryLoadMore.hidden = !hasHiddenMatches;
         galleryLoadMore.dataset.galleryCurrentFilter = category;
       }
+      trackAnalytics('gallery_filter', { gallery: 'realizacie', category });
     };
 
     const onHomeGalleryFilter = (event: Event) => {
@@ -377,6 +435,7 @@ export default function LandingClient() {
         const matches = category === 'vsetky' || card.dataset.category === category;
         card.classList.toggle('is-hidden', !matches);
       });
+      trackAnalytics('gallery_filter', { gallery: 'home', category });
     };
 
     const onReviewsToggle = () => {
@@ -387,6 +446,26 @@ export default function LandingClient() {
       if (reviewsToggle) {
         reviewsToggle.setAttribute('aria-expanded', String(!isExpanded));
         reviewsToggle.textContent = isExpanded ? 'Zobraziť všetky' : 'Skryť';
+      }
+    };
+
+    const onFormStart = () => {
+      if (formStarted) return;
+      formStarted = true;
+      trackAnalytics('form_start', { form: 'lead' });
+    };
+
+    const onAnalyticsClick = (event: MouseEvent) => {
+      const target = event.target instanceof Element ? event.target.closest('a,button') : null;
+      if (!target) return;
+      const label = target.textContent?.trim().slice(0, 80) || '';
+      if (target instanceof HTMLAnchorElement && target.href.startsWith('tel:')) {
+        trackAnalytics('phone_click', { label, href: target.getAttribute('href') || '' });
+        return;
+      }
+      const href = target instanceof HTMLAnchorElement ? target.getAttribute('href') || '' : '';
+      if (href.includes('#dopyt') || target.classList.contains('form-submit')) {
+        trackAnalytics('cta_click', { label, href });
       }
     };
 
@@ -467,6 +546,10 @@ export default function LandingClient() {
       if (event.dataTransfer?.files?.length) addFiles(event.dataTransfer.files);
     });
     form?.addEventListener('submit', onSubmit);
+    form?.addEventListener('focusin', onFormStart);
+    form?.addEventListener('input', onFormStart);
+    document.addEventListener('click', onAnalyticsClick);
+    trackAnalytics('page_view');
     testimonialForm?.addEventListener('submit', onTestimonialSubmit);
     rooferRegistrationForm?.addEventListener('submit', onRooferRegistrationSubmit);
     const contactButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-roofer-contact]'));
@@ -492,6 +575,10 @@ export default function LandingClient() {
       quoteSectionObserver = new IntersectionObserver(
         ([entry]) => {
           isQuoteSectionVisible = entry.isIntersecting;
+          if (entry.isIntersecting && !quoteSectionTracked) {
+            quoteSectionTracked = true;
+            trackAnalytics('quote_section_view');
+          }
           onScroll();
         },
         { threshold: 0.1 },
@@ -622,6 +709,9 @@ export default function LandingClient() {
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
       fileInput?.removeEventListener('change', onFilesChange);
       form?.removeEventListener('submit', onSubmit);
+      form?.removeEventListener('focusin', onFormStart);
+      form?.removeEventListener('input', onFormStart);
+      document.removeEventListener('click', onAnalyticsClick);
       testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
       rooferRegistrationForm?.removeEventListener('submit', onRooferRegistrationSubmit);
       contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));

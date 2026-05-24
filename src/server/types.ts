@@ -135,6 +135,57 @@ export type SiteContentItem = {
   updatedBy?: string;
 };
 
+export type AnalyticsEventType =
+  | 'page_view'
+  | 'quote_section_view'
+  | 'form_start'
+  | 'form_submit_success'
+  | 'form_submit_error'
+  | 'cta_click'
+  | 'phone_click'
+  | 'price_calculator_change'
+  | 'gallery_filter'
+  | 'reviews_expand'
+  | 'roofer_registration_success';
+
+export type AnalyticsEventInput = {
+  sessionId: string;
+  eventType: AnalyticsEventType;
+  path: string;
+  referrer?: string;
+  device?: 'desktop' | 'tablet' | 'mobile';
+  viewportWidth?: number;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type AnalyticsEvent = AnalyticsEventInput & {
+  id: string;
+  createdAt: string;
+};
+
+export type AnalyticsReport = {
+  rangeDays: number;
+  totals: {
+    pageViews: number;
+    sessions: number;
+    leads: number;
+    quotes: number;
+    acceptedQuotes: number;
+    leadConversionRate: number;
+    quoteRate: number;
+    acceptedQuoteRate: number;
+  };
+  events: Array<{ eventType: string; count: number }>;
+  topPages: Array<{ path: string; views: number; sessions: number; leads: number; conversionRate: number }>;
+  sources: Array<{ source: string; sessions: number; leads: number; conversionRate: number }>;
+  devices: Array<{ device: string; sessions: number; pageViews: number; leads: number; conversionRate: number }>;
+  daily: Array<{ date: string; pageViews: number; sessions: number; leads: number; formStarts: number; quoteViews: number }>;
+  funnel: Array<{ label: string; count: number; rateFromPrevious: number }>;
+};
+
 export type Roofer = {
   id: string;
   name: string;
