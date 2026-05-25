@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getPriceOffer, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
 import { savePriceOfferAction, sendPriceOfferAction } from '../actions';
 import PriceOfferForm from '../offer-form';
+import PendingOfferButton from '../pending-offer-button';
 import { euro, priceOfferStatusLabels } from '../constants';
 
 function dateSk(value: string) {
@@ -48,9 +49,15 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         <section className="admin-card">
           <h2>Odoslanie zákazníkovi</h2>
           <p>Skontrolujte údaje a odošlite zákazníkovi PDF prílohu emailom.</p>
-          <form action={sendPriceOfferAction}>
+          <form
+            action={sendPriceOfferAction}
+            className="admin-pending-form admin-send-offer-form"
+          >
             <input type="hidden" name="id" value={offer.id} />
-            <button className="admin-primary-button" type="submit">Odoslať zákazníkovi</button>
+            <PendingOfferButton
+              idleText="Odoslať zákazníkovi"
+              pendingText="Generujem PDF a odosielam cenovú ponuku zákazníkovi. Môže to trvať niekoľko sekúnd..."
+            />
           </form>
         </section>
       ) : null}
@@ -62,7 +69,10 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         <article className={isExpired(offer.validUntil) ? 'is-expired' : ''}><span>Platná do</span><strong>{dateSk(offer.validUntil)}</strong></article>
       </section>
 
-      <form action={savePriceOfferAction}>
+      <form
+        action={savePriceOfferAction}
+        className="admin-pending-form"
+      >
         <PriceOfferForm jobs={jobs} settings={settings} offer={offer} />
       </form>
     </main>

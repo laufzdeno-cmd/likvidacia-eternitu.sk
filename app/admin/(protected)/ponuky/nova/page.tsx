@@ -14,7 +14,11 @@ export default async function NewPriceOfferPage({ searchParams }: { searchParams
         </div>
         <a className="admin-text-link" href="/admin/ponuky">Späť na ponuky</a>
       </div>
-      <form action={savePriceOfferAction}>
+      <form
+        action={savePriceOfferAction}
+        className="admin-pending-form"
+        data-pending-message="Ukladám cenovú ponuku..."
+      >
         <PriceOfferForm jobs={jobs} settings={settings} selectedJobId={params.zakazka || ''} />
       </form>
     </main>

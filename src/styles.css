@@ -9972,3 +9972,276 @@ body .admin-main .admin-page .price-offer-layout .admin-card:nth-child(even) {
     radial-gradient(circle at 100% 0%, rgba(232, 84, 26, 0.18), transparent 32%),
     linear-gradient(135deg, #ffffff 0%, #fffaf2 44%, #ffe4bd 100%) !important;
 }
+
+/* Compact, calmer price-offer admin view */
+.admin-page:has(.price-offer-heading),
+.admin-page:has(.price-offer-layout) {
+  gap: 14px;
+  max-width: 1180px;
+  padding: 18px 22px 28px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-heading {
+  padding: 14px 18px;
+  border-radius: 10px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-heading h1 {
+  font-size: clamp(22px, 2.2vw, 28px);
+  line-height: 1.12;
+}
+
+.admin-page:has(.price-offer-heading) .admin-action-row {
+  gap: 8px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-primary-link,
+.admin-page:has(.price-offer-heading) .admin-secondary-link,
+.admin-page:has(.price-offer-heading) .admin-text-link,
+.admin-page:has(.price-offer-layout) .admin-primary-button,
+.admin-page:has(.price-offer-layout) .admin-secondary-link {
+  min-height: 34px;
+  padding: 8px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+}
+
+.admin-page:has(.price-offer-heading) > .admin-card {
+  padding: 14px 16px !important;
+}
+
+.admin-page:has(.price-offer-heading) > .admin-card h2 {
+  margin-bottom: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+.admin-page:has(.price-offer-heading) > .admin-card p {
+  margin: 0 0 10px;
+  color: #4a4845;
+  font-size: 13px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-stat-grid {
+  gap: 10px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-stat-grid article {
+  min-height: 62px;
+  padding: 10px 12px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-stat-grid span {
+  font-size: 10px;
+}
+
+.admin-page:has(.price-offer-heading) .admin-stat-grid strong {
+  margin-top: 3px;
+  font-size: 17px;
+}
+
+.price-offer-layout {
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.75fr);
+  gap: 12px;
+}
+
+.price-offer-layout .admin-card {
+  padding: 14px 16px !important;
+}
+
+.price-offer-layout .admin-card h2 {
+  margin-bottom: 10px !important;
+  padding-bottom: 8px !important;
+  font-size: 13px !important;
+}
+
+.price-offer-layout .admin-quote-form {
+  gap: 10px 12px;
+}
+
+.price-offer-layout .admin-quote-form label {
+  gap: 3px;
+  font-size: 10px;
+}
+
+.price-offer-layout .admin-quote-form input,
+.price-offer-layout .admin-quote-form select,
+.price-offer-layout .admin-quote-form textarea {
+  min-height: 32px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.price-offer-layout .admin-quote-form textarea {
+  min-height: 64px;
+}
+
+.price-offer-summary {
+  top: 66px;
+  padding: 16px;
+  border-radius: 9px;
+}
+
+.price-offer-summary h2 {
+  margin-bottom: 12px;
+  font-size: 17px;
+}
+
+.price-offer-summary dl {
+  gap: 7px 12px;
+  padding-bottom: 12px;
+  font-size: 13px;
+}
+
+.price-offer-total {
+  margin-top: 12px;
+}
+
+.price-offer-total strong {
+  font-size: 23px;
+}
+
+.price-offer-actions {
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.admin-send-offer-form {
+  display: inline-block;
+}
+
+.admin-submit-busy::before {
+  content: "";
+  position: fixed;
+  z-index: 10000;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #e8541a 0%, #f59e0b 45%, #e8541a 100%);
+  background-size: 220% 100%;
+  animation: adminPendingBar 1s linear infinite;
+}
+
+.admin-pending-toast {
+  position: fixed;
+  z-index: 10000;
+  right: 22px;
+  bottom: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  max-width: 360px;
+  border: 1px solid #f1c58f;
+  border-left: 4px solid #e8541a;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #fffaf2;
+  box-shadow: 0 16px 36px rgba(15, 31, 61, 0.16);
+  color: #0f1f3d;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.admin-pending-toast .admin-button-spinner {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #e8541a;
+}
+
+.admin-pending-form.is-submitting {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.admin-primary-button.is-submitting,
+.admin-secondary-link.is-submitting {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: wait;
+}
+
+.admin-submit-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.admin-submit-wrap .admin-primary-button[disabled] {
+  background: #c93f08;
+  cursor: wait;
+  opacity: 0.9;
+}
+
+.admin-inline-pending {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 360px;
+  overflow: hidden;
+  border: 1px solid #f1c58f;
+  border-left: 4px solid #e8541a;
+  border-radius: 999px;
+  padding: 8px 13px;
+  background: #fffaf2;
+  color: #0f1f3d;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  box-shadow: 0 12px 28px rgba(15, 31, 61, 0.1);
+}
+
+.admin-button-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.75s linear infinite;
+}
+
+@keyframes adminPendingBar {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+.form-status.is-loading {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  overflow: hidden;
+  border: 1px solid #f1c58f;
+  border-radius: 12px;
+  padding: 18px 18px 16px;
+  background: #fffaf2;
+  color: #0f1f3d;
+  text-align: center;
+}
+
+.form-status.is-loading .form-loading-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 4px;
+  background: linear-gradient(90deg, #e8541a 0%, #f59e0b 50%, #e8541a 100%);
+  background-size: 220% 100%;
+  animation: adminPendingBar 1s linear infinite;
+}
+
+.form-status.is-loading strong {
+  margin-top: 6px;
+  color: #0f1f3d;
+  font-size: 16px;
+}
+
+.form-status.is-loading span:not(.form-loading-bar) {
+  color: #8a8880;
+  font-size: 13px;
+  line-height: 1.45;
+}

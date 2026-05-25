@@ -253,11 +253,16 @@ export default function LandingClient() {
       }
     };
 
-    const setStatus = (message: string, type?: 'success' | 'error', variant?: 'submit', email?: string) => {
+    const setStatus = (message: string, type?: 'success' | 'error' | 'loading', variant?: 'submit', email?: string) => {
       if (!status) return;
       status.classList.toggle('is-submit-success', type === 'success' && variant === 'submit');
       status.classList.toggle('is-success', type === 'success');
       status.classList.toggle('is-error', type === 'error');
+      status.classList.toggle('is-loading', type === 'loading');
+      if (type === 'loading') {
+        status.innerHTML = '<span class="form-loading-bar" aria-hidden="true"></span><strong>Odosielame dopyt...</strong><span>Chv&#237;&#318;u po&#269;kajte, uklad&#225;me &#250;daje a posielame potvrdenie.</span>';
+        return;
+      }
       if (type === 'success' && variant === 'submit') {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
@@ -276,7 +281,7 @@ export default function LandingClient() {
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
       event.preventDefault();
-      setStatus('');
+      setStatus('Odosielame dopyt...', 'loading');
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
       const submittedEmail = String(payload.get('email') || '').trim();
