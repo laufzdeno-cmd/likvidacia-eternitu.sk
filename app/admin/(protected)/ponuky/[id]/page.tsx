@@ -4,23 +4,36 @@ import { savePriceOfferAction, sendPriceOfferAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 import { euro, priceOfferStatusLabels } from '../constants';
 
+function dateSk(value: string) {
+  return new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(value));
+}
+
+function isExpired(value: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return new Date(value) < today;
+}
+
 export default async function PriceOfferDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const query = await searchParams;
   const [offer, jobs, settings] = await Promise.all([getPriceOffer(id), listBusinessJobs(), getPriceOfferSettings()]);
   if (!offer) notFound();
+
   return (
     <main className="admin-page">
-      <div className="admin-heading">
+      <div className="admin-heading price-offer-heading">
         <div>
-          <p>{priceOfferStatusLabels[offer.status]}</p>
+          <p className="admin-status-badge">{priceOfferStatusLabels[offer.status]}</p>
           <h1>Cenová ponuka č. {offer.number}</h1>
         </div>
         <div className="admin-action-row">
-          <a className="admin-primary-link" href={`/api/admin/ponuka/${offer.id}/pdf`} target="_blank">Náhľad PDF</a>
-          <a className="admin-secondary-link" href="/admin/ponuky">Späť na ponuky</a>
+          <a className="admin-secondary-link" href={`/api/admin/ponuka/${offer.id}/pdf`} target="_blank">Náhľad PDF</a>
+          <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}?send=1`}>Odoslať zákazníkovi</a>
+          <a className="admin-text-link" href="/admin/ponuky">Späť na ponuky</a>
         </div>
       </div>
+
       {query.sent ? (
         <section className="admin-card">
           <div className="admin-alert is-success">Cenová ponuka bola odoslaná zákazníkovi.</div>
@@ -28,9 +41,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
       ) : null}
       {query.sendError ? (
         <section className="admin-card">
-          <div className="admin-alert">
-            Cenovú ponuku sa nepodarilo odoslať. Detail: {query.sendError}
-          </div>
+          <div className="admin-alert">Cenovú ponuku sa nepodarilo odoslať. Detail: {query.sendError}</div>
         </section>
       ) : null}
       {query.send ? (
@@ -43,18 +54,16 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           </form>
         </section>
       ) : null}
+
       <section className="admin-stat-grid">
         <article><span>m²</span><strong>{offer.areaM2}</strong></article>
         <article><span>Bez DPH</span><strong>{euro(offer.totalWithoutVat)}</strong></article>
-        <article><span>S DPH</span><strong>{euro(offer.totalWithVat)}</strong></article>
-        <article><span>Platná do</span><strong>{offer.validUntil}</strong></article>
+        <article className="is-highlight"><span>S DPH</span><strong>{euro(offer.totalWithVat)}</strong></article>
+        <article className={isExpired(offer.validUntil) ? 'is-expired' : ''}><span>Platná do</span><strong>{dateSk(offer.validUntil)}</strong></article>
       </section>
+
       <form action={savePriceOfferAction}>
         <PriceOfferForm jobs={jobs} settings={settings} offer={offer} />
-        <div className="admin-action-row no-print">
-          <button className="admin-primary-button" type="submit">Uložiť zmeny</button>
-          <button className="admin-secondary-link" type="submit" name="next" value="send">Uložiť a odoslať zákazníkovi</button>
-        </div>
       </form>
     </main>
   );
