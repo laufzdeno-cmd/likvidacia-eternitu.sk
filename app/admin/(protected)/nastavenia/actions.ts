@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { adminEmail, hashPassword, requireAdmin, verifyAdminCredentials } from '@/src/server/auth';
+import { adminEmail, hashPassword, requireSuperAdmin, verifyAdminCredentials } from '@/src/server/auth';
 import { deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, setAdminSetting, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
 import type { BusinessLandfill, PriceOfferMaterialType } from '@/src/server/types';
 
@@ -11,7 +11,7 @@ function num(value: FormDataEntryValue | null) {
 }
 
 export async function saveWorkerAction(formData: FormData) {
-  await requireAdmin();
+  await requireSuperAdmin();
   await upsertWorker({
     id: String(formData.get('id') || '') || undefined,
     name: String(formData.get('name') || '').trim(),
@@ -22,7 +22,7 @@ export async function saveWorkerAction(formData: FormData) {
 }
 
 export async function saveLandfillPriceAction(formData: FormData) {
-  await requireAdmin();
+  await requireSuperAdmin();
   await upsertLandfillPrice({
     id: String(formData.get('id') || '') || undefined,
     year: Number(formData.get('year') || new Date().getFullYear()),
@@ -33,14 +33,14 @@ export async function saveLandfillPriceAction(formData: FormData) {
 }
 
 export async function deleteLandfillPriceAction(formData: FormData) {
-  await requireAdmin();
+  await requireSuperAdmin();
   const id = String(formData.get('id') || '');
   if (id) await deleteLandfillPrice(id);
   revalidatePath('/admin/nastavenia');
 }
 
 export async function saveGeneralSettingsAction(formData: FormData) {
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   await saveBusinessSettings({
     defaultPricePerM2: num(formData.get('defaultPricePerM2')),
     googleReviewLink: String(formData.get('googleReviewLink') || '').trim(),
@@ -49,7 +49,7 @@ export async function saveGeneralSettingsAction(formData: FormData) {
 }
 
 export async function savePriceOfferSettingsAction(formData: FormData) {
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const current = await getPriceOfferSettings();
   const materialPrices = { ...current.materialPrices };
   for (const key of Object.keys(materialPrices) as PriceOfferMaterialType[]) {
@@ -71,7 +71,7 @@ export async function savePriceOfferSettingsAction(formData: FormData) {
 }
 
 export async function changeAdminPasswordAction(formData: FormData) {
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const currentPassword = String(formData.get('currentPassword') || '');
   const newPassword = String(formData.get('newPassword') || '');
   const repeatPassword = String(formData.get('repeatPassword') || '');

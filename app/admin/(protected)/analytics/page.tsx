@@ -1,3 +1,4 @@
+import { requireSuperAdmin } from '@/src/server/auth';
 import { getAnalyticsReport } from '@/src/server/db';
 
 function formatPercent(value: number) {
@@ -33,6 +34,7 @@ function eventLabel(eventType: string) {
 }
 
 export default async function AnalyticsPage({ searchParams }: { searchParams?: Promise<{ dni?: string }> }) {
+  await requireSuperAdmin();
   const params = await searchParams;
   const days = Math.min(365, Math.max(7, Number(params?.dni || 30)));
   const report = await getAnalyticsReport(days);

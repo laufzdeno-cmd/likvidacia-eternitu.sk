@@ -7,6 +7,9 @@ import type {
   AnalyticsEvent,
   AnalyticsEventInput,
   AnalyticsReport,
+  AdminRole,
+  AdminUser,
+  AdminUserInput,
   BusinessJob,
   BusinessJobCosts,
   BusinessJobInput,
@@ -26,6 +29,10 @@ import type {
   PriceOfferMaterialType,
   PriceOfferSettings,
   PriceOfferStatus,
+  PlannerAction,
+  PlannerActionInput,
+  PlannerActionStatus,
+  PlannerActionType,
   Quote,
   QuoteInput,
   Realization,
@@ -51,6 +58,8 @@ type LocalDb = {
   testimonials: Testimonial[];
   reviewRequests: ReviewRequest[];
   workers: Worker[];
+  adminUsers: AdminUser[];
+  plannerActions: PlannerAction[];
   businessJobs: BusinessJob[];
   priceOffers: PriceOffer[];
   landfillPrices: LandfillPrice[];
@@ -396,6 +405,17 @@ async function ensureSchema() {
       updated_by text
     );
 
+    CREATE TABLE IF NOT EXISTS admin_users (
+      id uuid PRIMARY KEY,
+      email text NOT NULL UNIQUE,
+      name text NOT NULL DEFAULT '',
+      role text NOT NULL DEFAULT 'OPERATOR',
+      active boolean NOT NULL DEFAULT true,
+      password_hash text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
     CREATE TABLE IF NOT EXISTS analytics_events (
       id uuid PRIMARY KEY,
       created_at timestamptz NOT NULL DEFAULT now(),
@@ -516,6 +536,29 @@ async function ensureSchema() {
       total numeric(12,2) NOT NULL DEFAULT 0
     );
 
+    CREATE TABLE IF NOT EXISTS planner_actions (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      datum date NOT NULL,
+      cas_od text NOT NULL DEFAULT '',
+      cas_do text NOT NULL DEFAULT '',
+      typ text NOT NULL DEFAULT 'INE',
+      adresa text NOT NULL DEFAULT '',
+      zakazka_id uuid REFERENCES business_jobs(id) ON DELETE SET NULL,
+      pracovnici text NOT NULL DEFAULT '',
+      zakaznik_meno text NOT NULL DEFAULT '',
+      zakaznik_email text NOT NULL DEFAULT '',
+      zakaznik_telefon text NOT NULL DEFAULT '',
+      poznamka text NOT NULL DEFAULT '',
+      stav text NOT NULL DEFAULT 'NAPLANOVANA',
+      notif_2dni boolean NOT NULL DEFAULT false,
+      notif_1den boolean NOT NULL DEFAULT false,
+      notif_zakaznik boolean NOT NULL DEFAULT false,
+      notif_2dni_odoslana boolean NOT NULL DEFAULT false,
+      notif_1den_odoslana boolean NOT NULL DEFAULT false,
+      notif_zakaznik_odoslana boolean NOT NULL DEFAULT false
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
@@ -532,8 +575,11 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
     CREATE INDEX IF NOT EXISTS price_offers_created_status_idx ON price_offers (created_at DESC, status);
     CREATE INDEX IF NOT EXISTS price_offers_job_idx ON price_offers (job_id);
+    CREATE INDEX IF NOT EXISTS admin_users_email_idx ON admin_users (lower(email));
+    CREATE INDEX IF NOT EXISTS planner_actions_date_idx ON planner_actions (datum, stav);
   `);
   await seedDefaultWorkers();
+  await seedDefaultAdminUser();
   schemaReady = true;
 }
 
@@ -578,6 +624,8 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     testimonials: data.testimonials ?? [],
     reviewRequests: data.reviewRequests ?? [],
     workers: data.workers ?? [],
+    adminUsers: data.adminUsers ?? [],
+    plannerActions: data.plannerActions ?? [],
     businessJobs: data.businessJobs ?? [],
     priceOffers: data.priceOffers ?? [],
     landfillPrices: data.landfillPrices ?? [],
@@ -710,6 +758,44 @@ function toWorker(row: Record<string, unknown>): Worker {
   };
 }
 
+function toAdminUser(row: Record<string, unknown>): AdminUser {
+  return {
+    id: String(row.id),
+    email: String(row.email ?? '').trim().toLowerCase(),
+    name: String(row.name ?? ''),
+    role: String(row.role ?? 'OPERATOR') as AdminRole,
+    active: Boolean(row.active),
+    passwordHash: String(row.password_hash ?? row.passwordHash ?? ''),
+    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
+  };
+}
+
+function toPlannerAction(row: Record<string, unknown>): PlannerAction {
+  return {
+    id: String(row.id),
+    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
+    date: dateOnly(row.datum ?? row.date),
+    timeFrom: String(row.cas_od ?? row.timeFrom ?? ''),
+    timeTo: String(row.cas_do ?? row.timeTo ?? ''),
+    type: String(row.typ ?? row.type ?? 'INE') as PlannerActionType,
+    address: String(row.adresa ?? row.address ?? ''),
+    jobId: row.zakazka_id || row.jobId ? String(row.zakazka_id ?? row.jobId) : '',
+    workers: String(row.pracovnici ?? row.workers ?? ''),
+    customerName: String(row.zakaznik_meno ?? row.customerName ?? ''),
+    customerEmail: String(row.zakaznik_email ?? row.customerEmail ?? ''),
+    customerPhone: String(row.zakaznik_telefon ?? row.customerPhone ?? ''),
+    note: String(row.poznamka ?? row.note ?? ''),
+    status: String(row.stav ?? row.status ?? 'NAPLANOVANA') as PlannerActionStatus,
+    notify2Days: Boolean(row.notif_2dni ?? row.notify2Days),
+    notify1Day: Boolean(row.notif_1den ?? row.notify1Day),
+    notifyCustomer: Boolean(row.notif_zakaznik ?? row.notifyCustomer),
+    notify2DaysSent: Boolean(row.notif_2dni_odoslana ?? row.notify2DaysSent),
+    notify1DaySent: Boolean(row.notif_1den_odoslana ?? row.notify1DaySent),
+    notifyCustomerSent: Boolean(row.notif_zakaznik_odoslana ?? row.notifyCustomerSent),
+  };
+}
+
 function toLandfillPrice(row: Record<string, unknown>): LandfillPrice {
   return {
     id: String(row.id),
@@ -808,6 +894,8 @@ async function readLocalDb(): Promise<LocalDb> {
       testimonials: [],
       reviewRequests: [],
       workers: [],
+      adminUsers: [],
+      plannerActions: [],
       businessJobs: [],
       priceOffers: [],
       landfillPrices: [],
@@ -1389,7 +1477,34 @@ async function seedDefaultWorkers() {
   }
 }
 
+async function seedDefaultAdminUser() {
+  const email = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  if (!email) return;
+  const db = getPool();
+  if (!db) return;
+  await db.query(
+    `INSERT INTO admin_users (id, email, name, role, active, password_hash)
+     SELECT $1, $2, 'ASTANA', 'SUPER_ADMIN', true, ''
+     WHERE NOT EXISTS (SELECT 1 FROM admin_users WHERE lower(email) = lower($2))`,
+    [randomUUID(), email],
+  );
+  await db.query("UPDATE admin_users SET role = 'SUPER_ADMIN', active = true WHERE lower(email) = lower($1)", [email]);
+}
+
 async function ensureLocalBusinessDefaults(local: LocalDb) {
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  if (adminEmail && !local.adminUsers.some((user) => user.email.toLowerCase() === adminEmail)) {
+    local.adminUsers.push({
+      id: randomUUID(),
+      email: adminEmail,
+      name: 'ASTANA',
+      role: 'SUPER_ADMIN',
+      active: true,
+      passwordHash: '',
+      createdAt: now(),
+      updatedAt: now(),
+    });
+  }
   if (!local.workers.length) {
     local.workers = defaultWorkers.map((worker) => ({
       id: randomUUID(),
@@ -1399,8 +1514,8 @@ async function ensureLocalBusinessDefaults(local: LocalDb) {
       createdAt: now(),
       updatedAt: now(),
     }));
-    await writeLocalDb(local);
   }
+  await writeLocalDb(local);
 }
 
 function money(value: unknown) {
@@ -2553,6 +2668,223 @@ export async function getAdminSetting(key: string) {
 
   const { rows } = await db.query('SELECT value FROM admin_settings WHERE key = $1 LIMIT 1', [normalizedKey]);
   return rows[0]?.value ? String(rows[0].value) : null;
+}
+
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    await ensureLocalBusinessDefaults(local);
+    return [...local.adminUsers].sort((a, b) => a.email.localeCompare(b.email));
+  }
+  const { rows } = await db.query('SELECT * FROM admin_users ORDER BY email ASC');
+  return rows.map(toAdminUser);
+}
+
+export async function getAdminUserByEmail(email: string): Promise<AdminUser | null> {
+  await ensureSchema();
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return null;
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    await ensureLocalBusinessDefaults(local);
+    return local.adminUsers.find((user) => user.email.toLowerCase() === normalized) ?? null;
+  }
+  const { rows } = await db.query('SELECT * FROM admin_users WHERE lower(email) = lower($1) LIMIT 1', [normalized]);
+  return rows[0] ? toAdminUser(rows[0]) : null;
+}
+
+export async function upsertAdminUser(input: AdminUserInput, actorEmail: string): Promise<AdminUser> {
+  await ensureSchema();
+  const timestamp = now();
+  const user: AdminUser = {
+    id: input.id || randomUUID(),
+    email: input.email.trim().toLowerCase(),
+    name: input.name?.trim() ?? '',
+    role: input.role,
+    active: input.active ?? true,
+    passwordHash: input.passwordHash ?? '',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const existingIndex = local.adminUsers.findIndex((item) => item.id === user.id || item.email.toLowerCase() === user.email);
+    if (existingIndex >= 0) {
+      const existing = local.adminUsers[existingIndex];
+      local.adminUsers[existingIndex] = {
+        ...existing,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        active: user.active,
+        passwordHash: user.passwordHash || existing.passwordHash,
+        updatedAt: timestamp,
+      };
+      await writeLocalDb(local);
+      await addAuditLog('admin_user', local.adminUsers[existingIndex].id, 'admin_user_updated', actorEmail, { email: user.email, role: user.role });
+      return local.adminUsers[existingIndex];
+    }
+    local.adminUsers.push(user);
+    await writeLocalDb(local);
+    await addAuditLog('admin_user', user.id, 'admin_user_created', actorEmail, { email: user.email, role: user.role });
+    return user;
+  }
+  const { rows } = await db.query(
+    `INSERT INTO admin_users (id, email, name, role, active, password_hash, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
+     ON CONFLICT (email)
+     DO UPDATE SET
+       name = EXCLUDED.name,
+       role = EXCLUDED.role,
+       active = EXCLUDED.active,
+       password_hash = CASE WHEN EXCLUDED.password_hash = '' THEN admin_users.password_hash ELSE EXCLUDED.password_hash END,
+       updated_at = EXCLUDED.updated_at
+     RETURNING *`,
+    [user.id, user.email, user.name, user.role, user.active, user.passwordHash, timestamp],
+  );
+  const saved = toAdminUser(rows[0]);
+  await addAuditLog('admin_user', saved.id, 'admin_user_upserted', actorEmail, { email: saved.email, role: saved.role, active: saved.active });
+  return saved;
+}
+
+export async function setAdminUserActive(id: string, active: boolean, actorEmail: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const user = local.adminUsers.find((item) => item.id === id);
+    if (!user) return null;
+    user.active = active;
+    user.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('admin_user', id, 'admin_user_active_changed', actorEmail, { active });
+    return user;
+  }
+  const { rows } = await db.query('UPDATE admin_users SET active = $1, updated_at = now() WHERE id = $2 RETURNING *', [active, id]);
+  if (!rows[0]) return null;
+  await addAuditLog('admin_user', id, 'admin_user_active_changed', actorEmail, { active });
+  return toAdminUser(rows[0]);
+}
+
+export async function listPlannerActions(range?: { from?: string; to?: string }): Promise<PlannerAction[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.plannerActions]
+      .filter((item) => (!range?.from || item.date >= range.from) && (!range?.to || item.date <= range.to))
+      .sort((a, b) => `${a.date} ${a.timeFrom}`.localeCompare(`${b.date} ${b.timeFrom}`));
+  }
+  const values: string[] = [];
+  const conditions: string[] = [];
+  if (range?.from) {
+    values.push(range.from);
+    conditions.push(`datum >= $${values.length}`);
+  }
+  if (range?.to) {
+    values.push(range.to);
+    conditions.push(`datum <= $${values.length}`);
+  }
+  const { rows } = await db.query(
+    `SELECT * FROM planner_actions ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''} ORDER BY datum ASC, cas_od ASC`,
+    values,
+  );
+  return rows.map(toPlannerAction);
+}
+
+export async function savePlannerAction(input: PlannerActionInput, actorEmail: string, id?: string): Promise<PlannerAction> {
+  await ensureSchema();
+  const action: PlannerAction = {
+    ...input,
+    id: id || randomUUID(),
+    createdAt: now(),
+    jobId: input.jobId || '',
+    customerName: input.customerName?.trim() ?? '',
+    customerEmail: input.customerEmail?.trim() ?? '',
+    customerPhone: input.customerPhone?.trim() ?? '',
+    note: input.note?.trim() ?? '',
+    notify2DaysSent: false,
+    notify1DaySent: false,
+    notifyCustomerSent: false,
+  };
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const existingIndex = local.plannerActions.findIndex((item) => item.id === action.id);
+    if (existingIndex >= 0) {
+      local.plannerActions[existingIndex] = { ...local.plannerActions[existingIndex], ...action, createdAt: local.plannerActions[existingIndex].createdAt };
+    } else {
+      local.plannerActions.push(action);
+    }
+    await writeLocalDb(local);
+    await addAuditLog('planner_action', action.id, id ? 'planner_action_updated' : 'planner_action_created', actorEmail, { date: action.date, type: action.type });
+    return action;
+  }
+  const { rows } = await db.query(
+    `INSERT INTO planner_actions (
+      id, datum, cas_od, cas_do, typ, adresa, zakazka_id, pracovnici,
+      zakaznik_meno, zakaznik_email, zakaznik_telefon, poznamka, stav,
+      notif_2dni, notif_1den, notif_zakaznik
+    ) VALUES ($1,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+    ON CONFLICT (id)
+    DO UPDATE SET
+      datum = EXCLUDED.datum,
+      cas_od = EXCLUDED.cas_od,
+      cas_do = EXCLUDED.cas_do,
+      typ = EXCLUDED.typ,
+      adresa = EXCLUDED.adresa,
+      zakazka_id = EXCLUDED.zakazka_id,
+      pracovnici = EXCLUDED.pracovnici,
+      zakaznik_meno = EXCLUDED.zakaznik_meno,
+      zakaznik_email = EXCLUDED.zakaznik_email,
+      zakaznik_telefon = EXCLUDED.zakaznik_telefon,
+      poznamka = EXCLUDED.poznamka,
+      stav = EXCLUDED.stav,
+      notif_2dni = EXCLUDED.notif_2dni,
+      notif_1den = EXCLUDED.notif_1den,
+      notif_zakaznik = EXCLUDED.notif_zakaznik
+    RETURNING *`,
+    [
+      action.id,
+      action.date,
+      action.timeFrom,
+      action.timeTo,
+      action.type,
+      action.address,
+      action.jobId,
+      action.workers,
+      action.customerName,
+      action.customerEmail,
+      action.customerPhone,
+      action.note,
+      action.status,
+      action.notify2Days,
+      action.notify1Day,
+      action.notifyCustomer,
+    ],
+  );
+  const saved = toPlannerAction(rows[0]);
+  await addAuditLog('planner_action', saved.id, id ? 'planner_action_updated' : 'planner_action_created', actorEmail, { date: saved.date, type: saved.type });
+  return saved;
+}
+
+export async function markPlannerNotificationSent(id: string, field: 'notify2DaysSent' | 'notify1DaySent' | 'notifyCustomerSent') {
+  await ensureSchema();
+  const dbField =
+    field === 'notify2DaysSent' ? 'notif_2dni_odoslana' : field === 'notify1DaySent' ? 'notif_1den_odoslana' : 'notif_zakaznik_odoslana';
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const action = local.plannerActions.find((item) => item.id === id);
+    if (action) action[field] = true;
+    await writeLocalDb(local);
+    return;
+  }
+  await db.query(`UPDATE planner_actions SET ${dbField} = true WHERE id = $1`, [id]);
 }
 
 export async function setAdminSetting(key: string, value: string, actorEmail: string) {

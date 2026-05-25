@@ -57,7 +57,18 @@ export type LeadFile = {
 
 export type AuditLog = {
   id: string;
-  entityType: 'lead' | 'quote' | 'system' | 'testimonial' | 'realization' | 'site_content' | 'roofer' | 'review_request' | 'business_job';
+  entityType:
+    | 'lead'
+    | 'quote'
+    | 'system'
+    | 'testimonial'
+    | 'realization'
+    | 'site_content'
+    | 'roofer'
+    | 'review_request'
+    | 'business_job'
+    | 'admin_user'
+    | 'planner_action';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -144,6 +155,56 @@ export type BusinessLandfill = 'MOCHOVCE' | 'LIVINKE_OPATOVCE' | 'KOSICE' | 'INA
 export type BusinessJobStatus = 'DOPYT' | 'PONUKA_ODOSLANA' | 'PRIJATA' | 'V_REALIZACII' | 'DOKONCENA' | 'ZRUSENA';
 export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
 export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSLANA' | 'PRIJATA' | 'ZRUSENA';
+export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR';
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+  active: boolean;
+  passwordHash: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminUserInput = {
+  id?: string;
+  email: string;
+  name?: string;
+  role: AdminRole;
+  active?: boolean;
+  passwordHash?: string;
+};
+
+export type PlannerActionType = 'DEMONTAZ' | 'ODVOZ' | 'DOKUMENTACIA' | 'INE';
+export type PlannerActionStatus = 'NAPLANOVANA' | 'DOKONCENA' | 'ZRUSENA' | 'PRESUNUTA';
+
+export type PlannerActionInput = {
+  date: string;
+  timeFrom: string;
+  timeTo: string;
+  type: PlannerActionType;
+  address: string;
+  jobId?: string;
+  workers: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  note?: string;
+  status: PlannerActionStatus;
+  notify2Days: boolean;
+  notify1Day: boolean;
+  notifyCustomer: boolean;
+};
+
+export type PlannerAction = PlannerActionInput & {
+  id: string;
+  createdAt: string;
+  notify2DaysSent: boolean;
+  notify1DaySent: boolean;
+  notifyCustomerSent: boolean;
+};
 
 export type Worker = {
   id: string;

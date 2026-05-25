@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, requireSuperAdmin } from '@/src/server/auth';
 import {
   addAuditLog,
   deletePriceOffer,
@@ -100,7 +100,7 @@ export async function updatePriceOfferStatusAction(formData: FormData) {
 }
 
 export async function deletePriceOfferAction(formData: FormData) {
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const id = String(formData.get('id') || '');
   if (id) await deletePriceOffer(id, actor);
   revalidatePath('/admin/ponuky');

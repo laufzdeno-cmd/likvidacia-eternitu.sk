@@ -1,10 +1,11 @@
-import { adminEmail } from '@/src/server/auth';
+import { adminEmail, requireSuperAdmin } from '@/src/server/auth';
 import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
 import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
 import { changeAdminPasswordAction, deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
 
 export default async function SettingsAdminPage({ searchParams }: { searchParams?: Promise<{ heslo?: string }> }) {
+  await requireSuperAdmin();
   const [workers, prices, settings, offerSettings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings(), getPriceOfferSettings()]);
   const params = await searchParams;
   const passwordMessage =

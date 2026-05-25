@@ -1,7 +1,9 @@
+import { requireSuperAdmin } from '@/src/server/auth';
 import { importBusinessJobsAction } from './actions';
 import ImportClient from './import-client';
 
-export default function ImportPage() {
+export default async function ImportPage() {
+  await requireSuperAdmin();
   return (
     <main className="admin-page">
       <div className="admin-heading"><div><p>Spätné zadávanie dát</p><h1>Import histórie</h1></div></div>

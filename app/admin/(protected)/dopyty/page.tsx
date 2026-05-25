@@ -112,7 +112,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       {insight.tags.map((item) => <span key={item}>{tagLabels[item]}</span>)}
                     </div>
                   </td>
-                  <td><span className="status-pill">{statusLabels[lead.status] || lead.status}</span></td>
+                  <td><span className={`status-pill status-${lead.status}`}>{statusLabels[lead.status] || lead.status}</span></td>
                   <td><a className="admin-row-link" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a></td>
                 </tr>
               ))}

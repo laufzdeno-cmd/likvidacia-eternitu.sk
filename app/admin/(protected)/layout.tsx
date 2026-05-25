@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdminUser } from '@/src/server/auth';
 import AdminNav from './admin-nav';
 import AdminTopbar from './admin-topbar';
 
@@ -7,8 +7,9 @@ export const metadata = {
 };
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
-  const email = await requireAdmin();
-  const initial = email.trim().charAt(0).toUpperCase() || 'A';
+  const user = await requireAdminUser();
+  const email = user.email;
+  const initial = (user.name || email).trim().charAt(0).toUpperCase() || 'A';
 
   return (
     <div className="admin-shell">
@@ -16,13 +17,13 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         <a className="admin-brand" href="/admin/dashboard">
           <img src="/assets/astana-logo.svg" alt="ASTANA" width="156" height="52" />
         </a>
-        <AdminNav />
+        <AdminNav role={user.role} />
         <form action="/admin/logout" method="post">
           <button type="submit">Odhlásiť</button>
         </form>
       </aside>
       <div className="admin-main">
-        <AdminTopbar email={email} initial={initial} />
+        <AdminTopbar email={email} name={user.name || email} role={user.role} initial={initial} />
         {children}
       </div>
       <script

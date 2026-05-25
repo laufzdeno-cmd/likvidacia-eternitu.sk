@@ -320,6 +320,26 @@ export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUnt
   return { sent: true };
 }
 
+export async function sendPlannerNotificationEmail(input: { to: string; subject: string; html: string; text: string; replyTo?: string }) {
+  const client = transporter();
+  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
+
+  try {
+    await client.sendMail({
+      from: namedFromHeader('ASTANA plánovač'),
+      to: input.to,
+      replyTo: input.replyTo || leadRecipient(),
+      subject: input.subject,
+      text: input.text,
+      html: input.html,
+    });
+  } catch (error) {
+    return { sent: false, reason: mailErrorMessage(error) };
+  }
+
+  return { sent: true };
+}
+
 function surname(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return parts.length > 1 ? parts[parts.length - 1] : name.trim();

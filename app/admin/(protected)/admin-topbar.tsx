@@ -7,6 +7,7 @@ const crumbs = [
   { href: '/admin/dopyty', label: 'Dopyty' },
   { href: '/admin/zakazky', label: 'Zákazky' },
   { href: '/admin/ponuky', label: 'Ponuky' },
+  { href: '/admin/planovac', label: 'Plánovač' },
   { href: '/admin/rok', label: 'Ročný prehľad' },
   { href: '/admin/reviews/request', label: 'Žiadosť o recenziu' },
   { href: '/admin/reviews', label: 'Recenzie' },
@@ -17,6 +18,7 @@ const crumbs = [
   { href: '/admin/analytics', label: 'Analytika' },
   { href: '/admin/import', label: 'Import' },
   { href: '/admin/nastavenia', label: 'Nastavenia' },
+  { href: '/admin/users', label: 'Používatelia' },
   { href: '/admin/health', label: 'Kontrola systému' },
 ];
 
@@ -26,14 +28,16 @@ function activeCrumb(pathname: string) {
     .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? 'Admin';
 }
 
-export default function AdminTopbar({ email, initial }: { email: string; initial: string }) {
+export default function AdminTopbar({ email, name, role, initial }: { email: string; name: string; role: string; initial: string }) {
   const pathname = usePathname();
 
   return (
     <header className="admin-topbar">
       <span>ASTANA CRM / {activeCrumb(pathname)}</span>
       <div className="admin-user-chip">
-        <strong>{email}</strong>
+        <small>Prihlásený ako:</small>
+        <strong>{name || email}</strong>
+        <em>{role === 'SUPER_ADMIN' ? 'Super admin' : 'Operátor'}</em>
         <span>{initial}</span>
       </div>
     </header>

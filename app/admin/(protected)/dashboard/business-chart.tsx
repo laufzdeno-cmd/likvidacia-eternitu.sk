@@ -12,9 +12,9 @@ export default function BusinessChart({ data }: { data: Array<{ month: string; r
           <YAxis />
           <Tooltip formatter={(value) => `${Number(value).toLocaleString('sk-SK')} €`} />
           <Legend />
-          <Bar dataKey="revenue" name="Tržby" fill="#185fa5" />
+          <Bar dataKey="revenue" name="Tržby" fill="#6B2D5E" />
           <Bar dataKey="profit" name="Zisk" fill="#2d7a3a" />
-          <Bar dataKey="costs" name="Náklady" fill="#e8541a" />
+          <Bar dataKey="costs" name="Náklady" fill="#C0392B" />
         </BarChart>
       </ResponsiveContainer>
     </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/src/server/auth';
+import { requireSuperAdmin } from '@/src/server/auth';
 import { listAnalyticsEvents } from '@/src/server/db';
 import type { AnalyticsEvent } from '@/src/server/types';
 
@@ -33,7 +33,7 @@ function csvCell(value: string | number) {
 }
 
 export async function GET(request: NextRequest) {
-  await requireAdmin();
+  await requireSuperAdmin();
   const days = cleanDays(request.nextUrl.searchParams.get('dni'));
   const events = await listAnalyticsEvents(days);
   const rows = new Map<

@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, requireSuperAdmin } from '@/src/server/auth';
 import { addBusinessJobNote, deleteBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob } from '@/src/server/db';
 import { sendBusinessQuoteEmail } from '@/src/server/mail';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
@@ -65,7 +65,7 @@ export async function saveBusinessJobAction(formData: FormData) {
 }
 
 export async function deleteBusinessJobAction(formData: FormData) {
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const id = String(formData.get('id') || '');
   if (id) {
     await deleteBusinessJob(id, actor);

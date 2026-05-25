@@ -1,10 +1,12 @@
 import { listPriceOffers } from '@/src/server/db';
+import { requireAdminUser } from '@/src/server/auth';
 import type { PriceOfferStatus } from '@/src/server/types';
 import { deletePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
 
 export default async function PriceOffersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
+  const adminUser = await requireAdminUser();
   const status = (params.status || '') as PriceOfferStatus | '';
   const month = params.month || '';
   const jobId = params.jobId || '';
@@ -49,13 +51,15 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   <td>{offer.areaM2}</td>
                   <td>{euro(offer.totalWithVat)}</td>
                   <td>{offer.validUntil}</td>
-                  <td><span className="status-pill">{priceOfferStatusLabels[offer.status]}</span></td>
+                  <td><span className={`status-pill status-${offer.status.toLowerCase()}`}>{priceOfferStatusLabels[offer.status]}</span></td>
                   <td className="admin-action-row">
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Náhľad</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
                     <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form>
                     <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Prijatá</button></form>
-                    <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Zmazať</button></form>
+                    {adminUser.role === 'SUPER_ADMIN' ? (
+                      <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Zmazať</button></form>
+                    ) : null}
                   </td>
                 </tr>
               ))}

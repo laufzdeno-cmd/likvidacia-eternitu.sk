@@ -1,4 +1,5 @@
 import { listBusinessJobs, listPriceOffers, listWorkers } from '@/src/server/db';
+import { requireAdminUser } from '@/src/server/auth';
 import type { BusinessJobStatus, BusinessLandfill, BusinessPaymentType } from '@/src/server/types';
 import { euro, jobStatusLabels, jobStatuses, landfillLabels, landfills, numberSk, paymentLabels, paymentTypes } from './constants';
 import { deleteBusinessJobAction } from './actions';
@@ -18,6 +19,7 @@ function normalize(value: string) {
 
 export default async function BusinessJobsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
+  const adminUser = await requireAdminUser();
   const q = (params.q || '').trim();
   const status = (params.status || '') as BusinessJobStatus | '';
   const workerId = params.worker || '';
@@ -88,14 +90,16 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   <td>{euro(job.totalPrice)}</td>
                   <td>{paymentLabels[job.paymentType]}</td>
                   <td>{job.workers.map((worker) => worker.workerName).join(', ') || 'bez tímu'}</td>
-                  <td><span className="status-pill">{jobStatusLabels[job.status]}</span></td>
+                  <td><span className={`status-pill status-${job.status.toLowerCase()}`}>{jobStatusLabels[job.status]}</span></td>
                   <td><a href={`/admin/ponuky?jobId=${job.id}`}>{offersByJob.get(job.id) ?? 0}</a></td>
                   <td>{euro(job.grossProfit)}</td>
                   <td className="no-print">
-                    <form action={deleteBusinessJobAction}>
-                      <input type="hidden" name="id" value={job.id} />
-                      <button type="submit">Zmazať</button>
-                    </form>
+                    {adminUser.role === 'SUPER_ADMIN' ? (
+                      <form action={deleteBusinessJobAction}>
+                        <input type="hidden" name="id" value={job.id} />
+                        <button type="submit">Zmazať</button>
+                      </form>
+                    ) : null}
                   </td>
                 </tr>
               ))}

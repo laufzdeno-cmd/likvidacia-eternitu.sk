@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireSuperAdmin } from '@/src/server/auth';
 import { listWorkers, saveBusinessJob } from '@/src/server/db';
 import type { BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
@@ -25,7 +25,7 @@ function num(value: string) {
 }
 
 export async function importBusinessJobsAction(formData: FormData) {
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const csv = String(formData.get('csv') || '');
   const workers = await listWorkers(true);
   const lines = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);

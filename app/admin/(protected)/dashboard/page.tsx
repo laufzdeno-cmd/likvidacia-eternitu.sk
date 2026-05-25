@@ -71,14 +71,13 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <button className="admin-primary-link no-print" type="button" data-print>🖨 Tlačiť / PDF</button>
       </div>
       <section className="admin-card no-print">
-        <form className="admin-filter-bar" action="/admin/dashboard">
-          <button name="period" value="month">Tento mesiac</button>
-          <button name="period" value="last-month">Minulý mesiac</button>
-          <button name="period" value="year">Tento rok</button>
-          <input type="hidden" name="period" value="custom" />
+        <form className="admin-filter-bar dashboard-period-pills" action="/admin/dashboard">
+          <button className={period === 'month' ? 'is-active' : ''} name="period" value="month">Tento mesiac</button>
+          <button className={period === 'last-month' ? 'is-active' : ''} name="period" value="last-month">Minulý mesiac</button>
+          <button className={period === 'year' ? 'is-active' : ''} name="period" value="year">Tento rok</button>
           <label>Od<input type="date" name="from" defaultValue={params.from} /></label>
           <label>Do<input type="date" name="to" defaultValue={params.to} /></label>
-          <button type="submit">Vlastné</button>
+          <button className={period === 'custom' ? 'is-active' : ''} name="period" value="custom" type="submit">Vlastné</button>
         </form>
       </section>
 

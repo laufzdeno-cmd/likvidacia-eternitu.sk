@@ -2,21 +2,28 @@
 
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import type { AdminRole } from '@/src/server/types';
 
 const navGroups = [
   {
-    title: 'Obchod',
+    title: 'HLAVNÉ',
     items: [
       { href: '/admin/dashboard', label: 'Dashboard', icon: 'chart' },
-      { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
       { href: '/admin/zakazky', label: 'Zákazky', icon: 'list' },
       { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
-      { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar' },
-      { href: '/admin/analytics', label: 'Analytika', icon: 'trend' },
+      { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
+      { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
     ],
   },
   {
-    title: 'Obsah webu',
+    title: 'REPORTING',
+    items: [
+      { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar' },
+      { href: '/admin/analytics', label: 'Analytika', icon: 'trend', superOnly: true },
+    ],
+  },
+  {
+    title: 'KOMUNIKÁCIA',
     items: [
       { href: '/admin/reviews', label: 'Recenzie', icon: 'star' },
       { href: '/admin/reviews/request', label: 'Žiadosť o recenziu', icon: 'chat' },
@@ -27,11 +34,12 @@ const navGroups = [
     ],
   },
   {
-    title: 'Systém',
+    title: 'ADMIN',
     items: [
-      { href: '/admin/import', label: 'Import', icon: 'upload' },
-      { href: '/admin/nastavenia', label: 'Nastavenia', icon: 'gear' },
-      { href: '/admin/health', label: 'Kontrola systému', icon: 'shield' },
+      { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
+      { href: '/admin/nastavenia', label: 'Nastavenia', icon: 'gear', superOnly: true },
+      { href: '/admin/users', label: 'Používatelia', icon: 'users', superOnly: true },
+      { href: '/admin/health', label: 'Kontrola systému', icon: 'shield', superOnly: true },
     ],
   },
 ];
@@ -58,16 +66,20 @@ function Icon({ name }: { name: string }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" {...common}>{paths[name]}</svg>;
 }
 
-export default function AdminNav() {
+export default function AdminNav({ role }: { role: AdminRole }) {
   const pathname = usePathname();
-  const activeHref = navGroups
+  const groups = navGroups.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => role === 'SUPER_ADMIN' || !('superOnly' in item && item.superOnly)),
+  }));
+  const activeHref = groups
     .flatMap((group) => group.items)
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   return (
     <nav>
-      {navGroups.map((group) => (
+      {groups.map((group) => (
         <div className="admin-nav-group" key={group.title}>
           <span className="admin-nav-title">{group.title}</span>
           {group.items.map((item) => {

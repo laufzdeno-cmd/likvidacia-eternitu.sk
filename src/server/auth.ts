@@ -1,7 +1,8 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
-import { getAdminSetting } from './db';
+import { getAdminSetting, getAdminUserByEmail } from './db';
+import type { AdminRole, AdminUser } from './types';
 
 const cookieName = 'astana_admin_session';
 
@@ -49,6 +50,40 @@ export async function requireAdmin() {
   return email;
 }
 
+export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'name' | 'role' | 'active'> | null> {
+  const email = await currentAdminEmail();
+  if (!email) return null;
+  const user = await getAdminUserByEmail(email).catch(() => null);
+  if (user) return { email: user.email, name: user.name || user.email, role: user.role, active: user.active };
+  const configuredEmail = adminEmail();
+  if (configuredEmail && email.toLowerCase() === configuredEmail.toLowerCase()) {
+    return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true };
+  }
+  return { email, name: email, role: 'OPERATOR', active: true };
+}
+
+export async function requireAdminUser() {
+  const user = await currentAdminUser();
+  if (!user?.active) redirect('/admin/login');
+  return user;
+}
+
+export async function requireSuperAdmin() {
+  const user = await requireAdminUser();
+  if (user.role !== 'SUPER_ADMIN') redirect('/admin/dashboard?access=denied');
+  return user;
+}
+
+export function canAccessAdminPath(role: AdminRole, pathname: string) {
+  if (role === 'SUPER_ADMIN') return true;
+  return !(
+    pathname.startsWith('/admin/analytics') ||
+    pathname.startsWith('/admin/nastavenia') ||
+    pathname.startsWith('/admin/import') ||
+    pathname.startsWith('/admin/users')
+  );
+}
+
 export async function setAdminSession(email: string) {
   const cookieStore = await cookies();
   cookieStore.set(cookieName, encodeSession(email), {
@@ -85,6 +120,12 @@ export async function verifyAdminCredentials(email: string, password: string) {
   const tempHash = process.env.TEMP_ADMIN_PASSWORD_HASH;
   if (tempEmail && tempHash && normalizedEmail === tempEmail.toLowerCase()) {
     return verifyHash(password, tempHash);
+  }
+
+  const dbUser = await getAdminUserByEmail(normalizedEmail).catch(() => null);
+  if (dbUser) {
+    if (!dbUser.active) return false;
+    if (dbUser.passwordHash) return verifyHash(password, dbUser.passwordHash);
   }
 
   const configuredEmail = adminEmail();

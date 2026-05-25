@@ -6,6 +6,12 @@
       "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/notifications",
+      "schedule": "0 7 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/admin/(.*)",
