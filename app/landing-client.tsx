@@ -232,16 +232,41 @@ export default function LandingClient() {
       addFiles(fileInput.files);
     };
 
-    const setStatus = (message: string, type?: 'success' | 'error', variant?: 'submit') => {
+    const loadingIcon =
+      '<svg class="submit-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
+
+    const setFormSubmitting = (submitting: boolean, button?: HTMLButtonElement | null) => {
+      if (!form) return;
+      form.classList.toggle('is-submitting', submitting);
+      Array.from(form.elements).forEach((element) => {
+        const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
+        control.disabled = submitting;
+      });
+      if (button) {
+        button.disabled = submitting;
+        button.classList.toggle('is-submitting', submitting);
+        if (submitting) {
+          button.innerHTML = `${loadingIcon}<span>Odosielam...</span>`;
+        } else if (button.dataset.defaultLabel) {
+          button.innerHTML = button.dataset.defaultLabel;
+        }
+      }
+    };
+
+    const setStatus = (message: string, type?: 'success' | 'error', variant?: 'submit', email?: string) => {
       if (!status) return;
       status.classList.toggle('is-submit-success', type === 'success' && variant === 'submit');
       status.classList.toggle('is-success', type === 'success');
       status.classList.toggle('is-error', type === 'error');
       if (type === 'success' && variant === 'submit') {
         status.innerHTML = [
-          '<strong>✓ Ďakujeme! Dopyt sme prijali.</strong>',
-          '<span>Cenovú ponuku vám pošleme do 24 hodín na zadaný email a zavoláme na číslo ktoré ste uviedli.</span>',
-          '<small>V prípade otázok nás môžete kontaktovať na 0905 217 946 (Po–Pia 7:00–18:00)</small>',
+          '<span class="success-check" aria-hidden="true">&#10003;</span>',
+          '<strong>Dopyt sme prijali</strong>',
+          `<span>Cenov&uacute; ponuku v&aacute;m po&scaron;leme do 24 hod&iacute;n na email:<br><b>${email || 'zadan&yacute; email'}</b></span>`,
+          '<div class="success-next"><em>&#268;o sa stane &#271;alej:</em><span>1. Skontrolujeme v&aacute;&scaron; dopyt</span><span>2. Priprav&iacute;me cenov&uacute; ponuku</span><span>3. Po&scaron;leme v&aacute;m ju do 24 hod&iacute;n</span></div>',
+          '<small>M&aacute;te ot&aacute;zky? Zavolajte:</small>',
+          '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
+          '<small>Po&ndash;Pia 7:00&ndash;18:00</small>',
         ].join('');
         return;
       }
@@ -253,32 +278,38 @@ export default function LandingClient() {
       event.preventDefault();
       setStatus('');
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-      button?.setAttribute('disabled', 'true');
+      const payload = new FormData(form);
+      const submittedEmail = String(payload.get('email') || '').trim();
+      if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
+      setFormSubmitting(true, button);
 
       try {
         const response = await fetch(form.action, {
           method: 'POST',
-          body: new FormData(form),
+          body: payload,
           headers: { Accept: 'application/json' },
         });
         const result = (await response.json()) as { ok?: boolean; message?: string };
         if (!response.ok || !result.ok) {
-          throw new Error(result.message || 'Dopyt sa nepodarilo odoslať.');
+          throw new Error(result.message || 'Dopyt sa nepodarilo odosla\u0165.');
         }
         form.reset();
         selectedFiles = [];
         updateFileInput();
         if (preview) preview.innerHTML = '';
         trackAnalytics('form_submit_success', { form: 'lead' });
-        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit');
+        form.classList.add('is-submitted');
+        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa v\u00e1m s \u010fal\u0161\u00edm postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať.', 'error');
+        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odosla\u0165.', 'error');
         trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
+        setFormSubmitting(false, button);
       } finally {
-        button?.removeAttribute('disabled');
+        if (form.classList.contains('is-submitted')) {
+          button?.setAttribute('disabled', 'true');
+        }
       }
     };
-
     const onRooferContactClick = (event: Event) => {
       const button = event.currentTarget as HTMLButtonElement;
       const rooferId = button.dataset.rooferContact || '';
