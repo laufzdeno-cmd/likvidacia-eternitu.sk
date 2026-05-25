@@ -3285,6 +3285,11 @@ select:focus-visible,
   font-weight: 850;
 }
 
+.admin-alert.is-success {
+  background: rgba(45, 122, 58, 0.1);
+  color: #166534;
+}
+
 .admin-shell {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);

@@ -19,6 +19,10 @@ function num(value: FormDataEntryValue | null) {
   return Number(String(value || '').replace(',', '.')) || 0;
 }
 
+function actionErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Cenovu ponuku sa nepodarilo odoslat.';
+}
+
 function parseOffer(formData: FormData): PriceOfferInput {
   return {
     jobId: String(formData.get('jobId') || '') || undefined,
@@ -59,19 +63,32 @@ export async function sendPriceOfferAction(formData: FormData) {
   const id = String(formData.get('id') || '');
   const offer = await getPriceOffer(id);
   if (!offer) redirect('/admin/ponuky');
-  const settings = await getPriceOfferSettings();
-  const pdf = await renderPriceOfferPdf(offer, settings);
-  const result = await sendPriceOfferDocumentEmail(offer, settings, pdf);
-  if (result.sent) {
-    await updatePriceOfferStatus(id, 'ODOSLANA', actor);
-    await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_sent', actor, { number: offer.number, email: offer.email });
-  } else {
-    await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_error', actor, { number: offer.number, reason: result.reason });
+
+  let sent = false;
+  let sendError = '';
+
+  try {
+    const settings = await getPriceOfferSettings();
+    const pdf = await renderPriceOfferPdf(offer, settings);
+    const result = await sendPriceOfferDocumentEmail(offer, settings, pdf);
+    if (result.sent) {
+      await updatePriceOfferStatus(id, 'ODOSLANA', actor);
+      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_sent', actor, { number: offer.number, email: offer.email });
+      sent = true;
+    } else {
+      sendError = result.reason || 'Email sa nepodarilo odoslat.';
+      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_error', actor, { number: offer.number, reason: sendError });
+    }
+  } catch (error) {
+    sendError = actionErrorMessage(error);
+    await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_error', actor, { number: offer.number, reason: sendError });
   }
+
   revalidatePath('/admin/ponuky');
   revalidatePath(`/admin/ponuky/${id}`);
   revalidatePath('/admin/dashboard');
-  redirect(`/admin/ponuky/${id}`);
+  if (sent) redirect(`/admin/ponuky/${id}?sent=1`);
+  redirect(`/admin/ponuky/${id}?send=1&sendError=${encodeURIComponent(sendError.slice(0, 300))}`);
 }
 
 export async function updatePriceOfferStatusAction(formData: FormData) {

@@ -21,6 +21,18 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           <a className="admin-secondary-link" href="/admin/ponuky">Späť na ponuky</a>
         </div>
       </div>
+      {query.sent ? (
+        <section className="admin-card">
+          <div className="admin-alert is-success">Cenová ponuka bola odoslaná zákazníkovi.</div>
+        </section>
+      ) : null}
+      {query.sendError ? (
+        <section className="admin-card">
+          <div className="admin-alert">
+            Cenovú ponuku sa nepodarilo odoslať. Detail: {query.sendError}
+          </div>
+        </section>
+      ) : null}
       {query.send ? (
         <section className="admin-card">
           <h2>Odoslanie zákazníkovi</h2>

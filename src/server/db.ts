@@ -101,6 +101,15 @@ function now() {
   return new Date().toISOString();
 }
 
+function dateOnly(value: unknown) {
+  if (!value) return '';
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  const text = String(value);
+  if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? text.slice(0, 10) : parsed.toISOString().slice(0, 10);
+}
+
 function toLead(row: Record<string, unknown>): Lead {
   return {
     id: String(row.id),
@@ -167,7 +176,7 @@ function toQuote(row: Record<string, unknown>): Quote {
     leadId: String(row.lead_id),
     quoteNumber: String(row.quote_number),
     status: String(row.status) as Quote['status'],
-    validUntil: String(row.valid_until),
+    validUntil: dateOnly(row.valid_until),
     areaEstimate: Number(row.area_estimate),
     pricePerM2: Number(row.price_per_m2),
     documentationFee: Number(row.documentation_fee),
@@ -534,7 +543,7 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
     number: String(row.number ?? row.cislo ?? ''),
     jobId: row.job_id || row.jobId ? String(row.job_id ?? row.jobId) : '',
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
-    validUntil: String(row.valid_until ?? row.validUntil ?? '').slice(0, 10),
+    validUntil: dateOnly(row.valid_until ?? row.validUntil),
     objectType: String(row.object_type ?? row.objectType ?? ''),
     objectAddress: String(row.object_address ?? row.objectAddress ?? ''),
     municipality: String(row.municipality ?? ''),
@@ -741,7 +750,7 @@ function enrichBusinessJob(
     id: String(row.id),
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
-    demolitionDate: String(row.demolition_date ?? row.demolitionDate ?? '').slice(0, 10),
+    demolitionDate: dateOnly(row.demolition_date ?? row.demolitionDate),
     customerName: String(row.customer_name ?? row.customerName ?? ''),
     customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
     customerEmail: String(row.customer_email ?? row.customerEmail ?? ''),

@@ -56,6 +56,10 @@ function escapeHtml(value: string | number | undefined) {
     .replaceAll('"', '&quot;');
 }
 
+function mailErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Email sa nepodarilo odoslat.';
+}
+
 function normalizePhoneHref(phone: string) {
   const cleaned = phone.replace(/[^\d+]/g, '');
   if (cleaned.startsWith('0')) return `+421${cleaned.slice(1)}`;
@@ -360,7 +364,8 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
     `IČ DPH: ${c.icDph}`,
   ].join('\n');
 
-  await client.sendMail({
+  try {
+    await client.sendMail({
     from: namedFromHeader('ASTANA likvidácia azbestu'),
     to: offer.email,
     cc: c.email,
@@ -368,7 +373,10 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
     subject: `Cenová ponuka č. ${offer.number} — ASTANA likvidácia azbestu`,
     text: body,
     attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],
-  });
+    });
+  } catch (error) {
+    return { sent: false, reason: mailErrorMessage(error) };
+  }
 
   return { sent: true };
 }
