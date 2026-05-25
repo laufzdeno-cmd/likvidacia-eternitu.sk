@@ -33,13 +33,18 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
           <thead><tr><th>Rok</th><th>Skládka</th><th>€/tonu</th><th>Upraviť</th><th></th></tr></thead>
           <tbody>{prices.map((price) => (
             <tr key={price.id}>
-              <form action={saveLandfillPriceAction}>
-                <td><input name="year" type="number" defaultValue={price.year} /></td>
-                <td><select name="landfill" defaultValue={price.landfill}>{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select></td>
-                <td><input name="pricePerTon" type="number" step="0.01" defaultValue={price.pricePerTon} /></td>
-                <td><input type="hidden" name="id" value={price.id} /><button type="submit">Uložiť</button></td>
-              </form>
-              <td><form action={deleteLandfillPriceAction}><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form></td>
+              <td colSpan={5}>
+                <div className="admin-table-inline-actions">
+                  <form action={saveLandfillPriceAction} className="admin-table-inline-form">
+                    <input name="year" type="number" defaultValue={price.year} aria-label="Rok" />
+                    <select name="landfill" defaultValue={price.landfill} aria-label="Skládka">{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select>
+                    <input name="pricePerTon" type="number" step="0.01" defaultValue={price.pricePerTon} aria-label="Cena za tonu" />
+                    <input type="hidden" name="id" value={price.id} />
+                    <button type="submit">Uložiť</button>
+                  </form>
+                  <form action={deleteLandfillPriceAction}><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form>
+                </div>
+              </td>
             </tr>
           ))}</tbody>
         </table>
@@ -51,12 +56,15 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
           <thead><tr><th>Meno</th><th>Sadzba €/m²</th><th>Aktívny</th><th></th></tr></thead>
           <tbody>{workers.map((worker) => (
             <tr key={worker.id}>
-              <form action={saveWorkerAction}>
-                <td><input name="name" defaultValue={worker.name} /></td>
-                <td><input name="ratePerM2" type="number" step="0.01" defaultValue={worker.ratePerM2} /></td>
-                <td><input name="active" type="checkbox" defaultChecked={worker.active} /></td>
-                <td><input type="hidden" name="id" value={worker.id} /><button type="submit">Uložiť</button></td>
-              </form>
+              <td colSpan={4}>
+                <form action={saveWorkerAction} className="admin-table-inline-form admin-table-inline-form-workers">
+                  <input name="name" defaultValue={worker.name} aria-label="Meno pracovníka" />
+                  <input name="ratePerM2" type="number" step="0.01" defaultValue={worker.ratePerM2} aria-label="Sadzba za m2" />
+                  <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked={worker.active} /> Aktívny</label>
+                  <input type="hidden" name="id" value={worker.id} />
+                  <button type="submit">Uložiť</button>
+                </form>
+              </td>
             </tr>
           ))}</tbody>
         </table>

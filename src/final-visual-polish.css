@@ -4502,6 +4502,104 @@ footer {
   background: #f8f0f9 !important;
 }
 
+.admin-quote-form label:not(.admin-checkbox),
+.admin-filter-bar label:not(.admin-checkbox),
+.admin-settings-grid label:not(.admin-checkbox),
+.admin-mini-form label:not(.admin-checkbox),
+.admin-card form label:not(.admin-checkbox) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 4px !important;
+  align-items: start !important;
+  min-width: 0 !important;
+}
+
+.admin-quote-form input,
+.admin-quote-form select,
+.admin-quote-form textarea,
+.admin-filter-bar input,
+.admin-filter-bar select,
+.admin-filter-bar textarea,
+.admin-settings-grid input,
+.admin-settings-grid select,
+.admin-settings-grid textarea,
+.admin-card form input,
+.admin-card form select,
+.admin-card form textarea {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.admin-checkbox,
+.admin-mini-form label.admin-checkbox,
+.admin-card form .admin-checkbox {
+  display: inline-flex !important;
+  grid-template-columns: none !important;
+  gap: 8px !important;
+  align-items: center !important;
+  width: auto !important;
+}
+
+.admin-checkbox input,
+.admin-card form .admin-checkbox input {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.business-chart-placeholder {
+  min-height: 280px;
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(248, 250, 252, 0.9), rgba(248, 240, 249, 0.9), rgba(248, 250, 252, 0.9));
+  background-size: 220% 100%;
+  animation: adminPendingBar 1.2s linear infinite;
+}
+
+.admin-table-inline-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-table-inline-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.admin-table-inline-form-workers {
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 180px) auto auto;
+}
+
+.admin-table-inline-form .admin-checkbox {
+  margin: 0 !important;
+}
+
+.admin-card fieldset {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  padding: 16px 18px !important;
+  background: #f8fafc !important;
+}
+
+.admin-card fieldset legend {
+  padding: 0 8px !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.admin-card fieldset label {
+  display: inline-flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+  margin-right: 18px !important;
+}
+
 /* Admin design system override */
 .admin-shell {
   grid-template-columns: 200px minmax(0, 1fr) !important;

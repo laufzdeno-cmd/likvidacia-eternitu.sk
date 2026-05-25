@@ -1,8 +1,16 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export default function BusinessChart({ data }: { data: Array<{ month: string; revenue: number; costs: number; profit: number }> }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return <div className="business-chart business-chart-placeholder" aria-label="Graf sa načítava" />;
+  }
+
   return (
     <div className="business-chart">
       <ResponsiveContainer width="100%" height={280}>
