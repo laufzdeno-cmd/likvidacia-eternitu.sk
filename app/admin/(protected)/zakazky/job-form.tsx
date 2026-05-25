@@ -76,6 +76,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
           <label>Typ materiálu<input name="materialType" defaultValue={job?.materialType} /></label>
           <label>Typ objektu<input name="objectType" defaultValue={job?.objectType} /></label>
           <label>Termín<input name="term" defaultValue={job?.term} /></label>
+          <label>Preferovaný kontakt<input name="preferredContact" defaultValue={job?.preferredContact} /></label>
           <label>Stav<select name="status" defaultValue={job?.status ?? 'DOPYT'}>{jobStatuses.map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select></label>
         </div>
       </section>

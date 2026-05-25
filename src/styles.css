@@ -2148,6 +2148,39 @@ select:focus-visible,
   resize: vertical;
 }
 
+.contact-preference {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  border: 1px solid rgba(208, 226, 255, 0.95);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #ffffff 0%, #eef6ff 100%);
+}
+
+.contact-preference legend {
+  padding: 0 6px;
+  color: var(--secondary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.contact-preference label {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: #24344d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.contact-preference input {
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  accent-color: #e8541a;
+}
+
 .field-full,
 .consent,
 .form-submit,

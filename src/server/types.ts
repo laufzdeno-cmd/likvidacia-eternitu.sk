@@ -20,6 +20,7 @@ export type LeadInput = {
   objectType: string;
   materialType: string;
   areaEstimate: number;
+  preferredContact?: string;
   roofer?: string;
   term?: string;
   note?: string;
@@ -196,6 +197,7 @@ export type BusinessJobInput = {
   objectType?: string;
   term?: string;
   leadSource?: string;
+  preferredContact?: string;
   m2: number;
   pricePerM2: number;
   paymentType: BusinessPaymentType;
@@ -222,6 +224,7 @@ export type BusinessJob = {
   objectType: string;
   term: string;
   leadSource: string;
+  preferredContact: string;
   m2: number;
   pricePerM2: number;
   totalPrice: number;

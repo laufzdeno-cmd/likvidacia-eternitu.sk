@@ -4,6 +4,10 @@ import type { BusinessJob, Lead, PriceOffer, PriceOfferSettings } from './types'
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
 const fromEmail = () => process.env.FROM_EMAIL || process.env.MAIL_FROM || 'astana@astana.sk';
+const fromHeader = () => {
+  const from = fromEmail();
+  return from.includes('<') ? from : `ASTANA likvidácia azbestu <${from}>`;
+};
 
 function mailConfigured() {
   return Boolean(process.env.SMTP_HOST && fromEmail() && process.env.LEAD_TO_EMAIL);
@@ -42,53 +46,117 @@ function dateSk(value: string) {
   return new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date(value));
 }
 
+function escapeHtml(value: string | number | undefined) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function stripHtml(html: string) {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|h1|h2|h3|li)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function customerLeadEmailHtml(lead: Lead) {
+  return `
+  <div style="margin:0;padding:24px;background:#F8F7F4;font-family:Arial,Helvetica,sans-serif;color:#1C1B19;">
+    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
+      <div style="height:60px;background:#0F1F3D;padding:0 28px;display:flex;align-items:center;">
+        <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.02em;">ASTANA</div>
+      </div>
+      <div style="padding:32px;background:#ffffff;">
+        <p style="margin:0 0 18px;font-size:16px;color:#1C1B19;">Dobrý deň ${escapeHtml(lead.fullName)},</p>
+        <p style="margin:0 0 22px;font-size:15px;color:#4A4845;line-height:1.7;">váš dopyt sme prijali.<br />Cenovú ponuku vám pošleme do 24 hodín.</p>
+        <div style="margin:0 0 24px;padding:20px;background:#F8F7F4;border-radius:8px;">
+          <p style="margin:0 0 14px;font-size:15px;font-weight:700;color:#0F1F3D;">Súhrn vášho dopytu</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#4A4845;">📍 <strong>Lokalita:</strong> ${escapeHtml(lead.city)}</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#4A4845;">📐 <strong>Výmera:</strong> ${escapeHtml(lead.areaEstimate)} m²</p>
+          <p style="margin:0 0 8px;font-size:14px;color:#4A4845;">🏗 <strong>Materiál:</strong> ${escapeHtml(lead.materialType)}</p>
+          <p style="margin:0;font-size:14px;color:#4A4845;">📞 <strong>Kontakt:</strong> ${escapeHtml(lead.preferredContact || 'Zavolajte mi')}</p>
+        </div>
+        <p style="margin:0 0 10px;font-size:14px;color:#8A8880;">V prípade otázok nás kontaktujte:</p>
+        <p style="margin:0;color:#0F1F3D;font-size:16px;font-weight:600;">📞 0905 217 946</p>
+        <p style="margin:4px 0 14px;color:#8A8880;font-size:13px;">Po–Pia 7:00–18:00</p>
+        <p style="margin:0;color:#E8541A;font-size:14px;">✉ astana@astana.sk</p>
+      </div>
+      <div style="padding:20px;background:#0F1F3D;color:rgba(255,255,255,0.6);font-size:12px;line-height:1.6;">
+        <p style="margin:0 0 10px;">ASTANA, s.r.o.<br />Scherffelova 1364/28, Poprad<br />IČO: 46 157 701</p>
+        <p style="margin:0 0 10px;">Tento email bol odoslaný automaticky. Neodpovedajte naňho.</p>
+        <p style="margin:0;">© 2026 ASTANA, s.r.o.<br />likvidacia-eternitu.sk</p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
+  const adminUrl = `${siteUrl()}/admin/zakazky/${businessJobId || lead.id}/`;
+  const rows: Array<[string, string | number]> = [
+    ['Meno', lead.fullName],
+    ['Telefón', lead.phone],
+    ['Email', lead.email],
+    ['Lokalita', lead.city],
+    ['Okres', lead.district || 'neuvedené'],
+    ['Výmera', `${lead.areaEstimate} m²`],
+    ['Materiál', lead.materialType],
+    ['Objekt', lead.objectType],
+    ['Kontakt', lead.preferredContact || 'Zavolajte mi'],
+    ['Termín', lead.term || 'neuvedené'],
+    ['Poznámka', lead.note || 'bez poznámky'],
+  ];
+  return `
+  <div style="margin:0;padding:24px;background:#F8F7F4;font-family:Arial,Helvetica,sans-serif;color:#1C1B19;">
+    <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;">
+      <div style="background:#0F1F3D;padding:20px 24px;color:#ffffff;font-size:20px;font-weight:700;">🔔 Nový dopyt</div>
+      <div style="padding:24px;background:#ffffff;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+          ${rows.map(([label, value]) => `
+            <tr>
+              <td style="padding:8px 10px 8px 0;width:120px;color:#0F1F3D;font-weight:700;font-size:14px;vertical-align:top;">${escapeHtml(label)}:</td>
+              <td style="padding:8px 0;color:#4A4845;font-size:14px;vertical-align:top;">${escapeHtml(value)}</td>
+            </tr>`).join('')}
+        </table>
+        <p style="margin:22px 0 0;">
+          <a href="${adminUrl}" style="display:inline-block;background:#E8541A;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;font-size:15px;">Otvoriť v admin →</a>
+        </p>
+      </div>
+      <div style="padding:16px 24px;background:#0F1F3D;color:rgba(255,255,255,0.65);font-size:12px;">ASTANA admin systém</div>
+    </div>
+  </div>`;
+}
+
 export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobId?: string) {
   const client = transporter();
   if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
-
-  const adminText = [
-    'Prišiel nový dopyt z webu likvidacia-eternitu.sk.',
-    '',
-    `Meno: ${lead.fullName}`,
-    `Telefón: ${lead.phone}`,
-    `Email: ${lead.email}`,
-    `Lokalita: ${lead.city}${lead.district ? `, okres ${lead.district}` : ''}`,
-    `m²: ${lead.areaEstimate}`,
-    `Typ materiálu: ${lead.materialType}`,
-    `Typ objektu: ${lead.objectType}`,
-    `Termín: ${lead.term || 'neuvedené'}`,
-    `Správa: ${lead.note || 'bez správy'}`,
-    `Fotky: ${fileCount}`,
-    '',
-    `Odkaz do adminu: ${siteUrl()}/admin/zakazky/${businessJobId || lead.id}/`,
-    `Pôvodný dopyt: ${siteUrl()}/admin/dopyty/${lead.id}/`,
-  ].join('\n');
+  const adminHtml = adminLeadEmailHtml(lead, businessJobId);
+  const customerHtml = customerLeadEmailHtml(lead);
 
   await client.sendMail({
-    from: fromEmail(),
+    from: fromHeader(),
     to: leadRecipient(),
-    replyTo: lead.email,
-    subject: `🔔 Nový dopyt — ${lead.fullName} ${lead.city} ${lead.areaEstimate}m²`,
-    text: adminText,
+    replyTo: leadRecipient(),
+    subject: `Nový dopyt — ${lead.fullName} ${lead.city} ${lead.areaEstimate}m²`,
+    text: `${stripHtml(adminHtml)}\n\nFotky: ${fileCount}\nPôvodný dopyt: ${siteUrl()}/admin/dopyty/${lead.id}/`,
+    html: adminHtml,
   });
 
   await client.sendMail({
-    from: fromEmail(),
+    from: fromHeader(),
     to: lead.email,
     replyTo: leadRecipient(),
-    subject: 'ASTANA — potvrdenie prijatia dopytu',
-    text: [
-      `Dobrý deň ${lead.fullName},`,
-      '',
-      `váš dopyt sme prijali a ozveme sa vám do 24 hodín na číslo ${lead.phone}.`,
-      '',
-      'Súhrn vášho dopytu:',
-      `Lokalita: ${lead.city} | Výmera: ${lead.areaEstimate}m² | Materiál: ${lead.materialType}`,
-      '',
-      'V prípade otázok volajte: 0905 217 946',
-      '',
-      'S pozdravom, tím ASTANA',
-    ].join('\n'),
+    subject: 'Prijali sme váš dopyt — ASTANA',
+    text: stripHtml(customerHtml),
+    html: customerHtml,
   });
 
   return { sent: true };

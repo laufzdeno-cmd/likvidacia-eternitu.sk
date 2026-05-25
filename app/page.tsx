@@ -566,6 +566,12 @@ export default async function HomePage() {
 
               <div className="form-stage">
                 <p className="form-stage-title">3. Kontakt</p>
+                <fieldset className="field field-full contact-preference">
+                  <legend>Ako vás máme kontaktovať?</legend>
+                  <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /> Zavolajte mi</label>
+                  <label><input type="radio" name="preferredContact" value="Napíšte mi email" /> Napíšte mi email</label>
+                  <label><input type="radio" name="preferredContact" value="WhatsApp / SMS" /> WhatsApp / SMS</label>
+                </fieldset>
                 <div className="field">
                   <label htmlFor="phone">Telefón *</label>
                   <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="Telefón *" required />

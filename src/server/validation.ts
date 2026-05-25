@@ -9,6 +9,7 @@ export const leadSchema = z.object({
   objectType: z.string().trim().min(2, 'Vyberte typ objektu.').max(120),
   materialType: z.string().trim().min(2, 'Vyberte typ materiálu.').max(160),
   areaEstimate: z.coerce.number().positive('Zadajte približnú výmeru.').max(100000),
+  preferredContact: z.string().trim().max(80).optional().or(z.literal('')),
   roofer: z.string().trim().max(160).optional().or(z.literal('')),
   selectedRooferId: z.string().trim().max(80).optional().or(z.literal('')),
   term: z.string().trim().max(160).optional().or(z.literal('')),

@@ -23,6 +23,7 @@ function parseJob(formData: FormData): BusinessJobInput {
     materialType: String(formData.get('materialType') || '').trim(),
     objectType: String(formData.get('objectType') || '').trim(),
     term: String(formData.get('term') || '').trim(),
+    preferredContact: String(formData.get('preferredContact') || '').trim(),
     m2: num(formData.get('m2')),
     pricePerM2: num(formData.get('pricePerM2')),
     paymentType: String(formData.get('paymentType') || 'FAKTURA') as BusinessPaymentType,

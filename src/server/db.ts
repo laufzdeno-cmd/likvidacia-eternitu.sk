@@ -114,6 +114,7 @@ function toLead(row: Record<string, unknown>): Lead {
     objectType: String(row.object_type),
     materialType: String(row.material_type),
     areaEstimate: Number(row.area_estimate),
+    preferredContact: row.preferovany_kontakt ? String(row.preferovany_kontakt) : row.preferredContact ? String(row.preferredContact) : 'Zavolajte mi',
     roofer: row.roofer ? String(row.roofer) : '',
     term: row.term ? String(row.term) : '',
     note: row.note ? String(row.note) : '',
@@ -208,6 +209,7 @@ async function ensureSchema() {
       object_type text NOT NULL,
       material_type text NOT NULL,
       area_estimate numeric(12,2) NOT NULL,
+      preferovany_kontakt text NOT NULL DEFAULT 'Zavolajte mi',
       roofer text,
       term text,
       note text,
@@ -221,6 +223,7 @@ async function ensureSchema() {
 
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS wants_roofer_recommendation boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS selected_roofer_id text NOT NULL DEFAULT '';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT 'Zavolajte mi';
 
     CREATE TABLE IF NOT EXISTS lead_files (
       id uuid PRIMARY KEY,
@@ -424,6 +427,7 @@ async function ensureSchema() {
       object_type text NOT NULL DEFAULT '',
       term text NOT NULL DEFAULT '',
       lead_source text NOT NULL DEFAULT '',
+      preferovany_kontakt text NOT NULL DEFAULT '',
       m2 numeric(12,2) NOT NULL DEFAULT 0,
       price_per_m2 numeric(12,2) NOT NULL DEFAULT 0,
       total_price numeric(12,2) NOT NULL DEFAULT 0,
@@ -440,6 +444,7 @@ async function ensureSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS object_type text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS term text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_source text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT '';
 
     CREATE TABLE IF NOT EXISTS price_offers (
       id uuid PRIMARY KEY,
@@ -737,6 +742,7 @@ function enrichBusinessJob(
     objectType: String(row.object_type ?? row.objectType ?? ''),
     term: String(row.term ?? ''),
     leadSource: String(row.lead_source ?? row.leadSource ?? ''),
+    preferredContact: String(row.preferovany_kontakt ?? row.preferredContact ?? ''),
     m2: Number(row.m2 ?? 0),
     pricePerM2: Number(row.price_per_m2 ?? row.pricePerM2 ?? 0),
     totalPrice,
@@ -816,6 +822,7 @@ export async function createLead(input: LeadInput): Promise<Lead> {
     term: input.term ?? '',
     note: input.note ?? '',
     source: input.source ?? 'web',
+    preferredContact: input.preferredContact ?? 'Zavolajte mi',
     wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
     selectedRooferId: input.selectedRooferId ?? '',
     rawData: input.rawData ?? {},
@@ -835,9 +842,9 @@ export async function createLead(input: LeadInput): Promise<Lead> {
   await db.query(
     `INSERT INTO leads (
       id, created_at, updated_at, status, full_name, phone, email, city, district,
-      object_type, material_type, area_estimate, roofer, term, note, gdpr, source,
+      object_type, material_type, area_estimate, preferovany_kontakt, roofer, term, note, gdpr, source,
       internal_note, raw_data, wants_roofer_recommendation, selected_roofer_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
     [
       lead.id,
       lead.createdAt,
@@ -851,6 +858,7 @@ export async function createLead(input: LeadInput): Promise<Lead> {
       lead.objectType,
       lead.materialType,
       lead.areaEstimate,
+      lead.preferredContact,
       lead.roofer,
       lead.term,
       lead.note,
@@ -1761,6 +1769,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     objectType: input.objectType?.trim() ?? '',
     term: input.term?.trim() ?? '',
     leadSource: input.leadSource?.trim() ?? '',
+    preferredContact: input.preferredContact?.trim() ?? '',
     m2: money(input.m2),
     pricePerM2: money(input.pricePerM2),
     totalPrice,
@@ -1792,13 +1801,13 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     await db.query(
       `INSERT INTO business_jobs (
         id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
-        material_type, object_type, term, lead_source, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+        material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
       ON CONFLICT (id) DO UPDATE SET
         updated_at = $3, demolition_date = $4, customer_name = $5, customer_phone = $6, customer_email = $7,
-        location = $8, district = $9, material_type = $10, object_type = $11, term = $12, lead_source = $13, m2 = $14,
-        price_per_m2 = $15, total_price = $16, payment_type = $17, work_type = $18, waste_kg = $19,
-        landfill = $20, status = $21, note = $22`,
+        location = $8, district = $9, material_type = $10, object_type = $11, term = $12, lead_source = $13,
+        preferovany_kontakt = $14, m2 = $15, price_per_m2 = $16, total_price = $17, payment_type = $18,
+        work_type = $19, waste_kg = $20, landfill = $21, status = $22, note = $23`,
       [
         jobId,
         timestamp,
@@ -1813,6 +1822,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
         baseRow.objectType,
         baseRow.term,
         baseRow.leadSource,
+        baseRow.preferredContact,
         baseRow.m2,
         baseRow.pricePerM2,
         baseRow.totalPrice,
@@ -1867,6 +1877,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
       objectType: lead.objectType,
       term: lead.term,
       leadSource: lead.source || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
+      preferredContact: lead.preferredContact || 'Zavolajte mi',
       m2: lead.areaEstimate,
       pricePerM2: settings.defaultPricePerM2,
       paymentType: 'FAKTURA',
