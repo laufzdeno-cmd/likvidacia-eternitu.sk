@@ -273,7 +273,7 @@ function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
 async function renderHtmlToPdf(html: string) {
   let browser: any = null;
   try {
-    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+    if (process.env.VERCEL) {
       const chromium = (await import('@sparticuz/chromium')).default;
       const puppeteer = await import('puppeteer-core');
       browser = await puppeteer.launch({

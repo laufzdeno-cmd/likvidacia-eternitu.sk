@@ -10218,6 +10218,98 @@ body .admin-main .admin-page .price-offer-layout .admin-card:nth-child(even) {
   }
 }
 
+/* Admin full QA polish: readable navigation groups and denser tables. */
+.admin-nav-group {
+  display: grid;
+  gap: 1px;
+}
+
+.admin-nav-title {
+  display: block;
+  margin: 12px 16px 5px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.admin-sidebar nav .admin-nav-group:first-child .admin-nav-title {
+  margin-top: 0;
+}
+
+.admin-table-wrap {
+  border: 1px solid #dbeaf7;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.admin-table {
+  min-width: 1080px;
+  font-size: 13px;
+}
+
+.admin-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #eef7ff;
+  color: #0f1f3d;
+  white-space: nowrap;
+}
+
+.admin-table td {
+  color: #26364d;
+  line-height: 1.35;
+}
+
+.admin-table td strong,
+.admin-table td a:not(.admin-row-link) {
+  color: #0f1f3d;
+}
+
+.admin-table small {
+  color: #6b7280;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.tag-list {
+  min-width: 150px;
+}
+
+.tag-list span,
+.status-pill,
+.score-pill {
+  white-space: nowrap;
+}
+
+.admin-table td:last-child,
+.admin-table th:last-child {
+  min-width: 92px;
+}
+
+.admin-row-link,
+.admin-table button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: #eaf4ff;
+  color: #185fa5;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-table button:hover,
+.admin-row-link:hover {
+  background: #d8ebff;
+}
+
 .form-status.is-loading {
   position: relative;
   display: grid;

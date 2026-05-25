@@ -1,5 +1,6 @@
 import { requireAdmin } from '@/src/server/auth';
 import AdminNav from './admin-nav';
+import AdminTopbar from './admin-topbar';
 
 export const metadata = {
   robots: { index: false, follow: false },
@@ -21,13 +22,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </form>
       </aside>
       <div className="admin-main">
-        <header className="admin-topbar">
-          <span>ASTANA CRM / Admin</span>
-          <div className="admin-user-chip">
-            <strong>{email}</strong>
-            <span>{initial}</span>
-          </div>
-        </header>
+        <AdminTopbar email={email} initial={initial} />
         {children}
       </div>
       <script
