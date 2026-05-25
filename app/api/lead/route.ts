@@ -90,10 +90,6 @@ export async function POST(request: NextRequest) {
     return failure(request, parsed.error.issues[0]?.message || 'Skontrolujte povinné polia.');
   }
 
-  if (parsed.data.companyWebsite) {
-    return failure(request, 'Dopyt sa nepodarilo odoslať.', 400);
-  }
-
   const uploadedFiles = formData
     .getAll('photos')
     .filter((item): item is File => item instanceof File && item.size > 0);

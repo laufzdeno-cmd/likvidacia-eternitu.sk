@@ -14,7 +14,7 @@ export const leadSchema = z.object({
   term: z.string().trim().max(160).optional().or(z.literal('')),
   note: z.string().trim().max(3000).optional().or(z.literal('')),
   gdpr: z.union([z.literal('on'), z.literal('true'), z.literal(true)]),
-  companyWebsite: z.string().max(0).optional().or(z.literal('')),
+  companyWebsite: z.string().trim().max(1000).optional().or(z.literal('')),
 });
 
 export const quoteSchema = z.object({

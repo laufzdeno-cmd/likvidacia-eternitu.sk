@@ -13,7 +13,7 @@ const testimonialSchema = z.object({
   rating: z.coerce.number().min(1).max(5),
   text: z.string().trim().min(20, 'Referencia musí mať aspoň 20 znakov.').max(1200),
   consentPublication: z.union([z.literal('on'), z.literal('true'), z.literal(true)]),
-  website: z.string().max(0).optional().or(z.literal('')),
+  website: z.string().trim().max(1000).optional().or(z.literal('')),
 });
 
 function clientIp(request: NextRequest) {
@@ -74,10 +74,6 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return failure(parsed.error.issues[0]?.message || 'Skontrolujte polia referencie.');
-  }
-
-  if (parsed.data.website) {
-    return failure('Referenciu sa nepodarilo odoslať.');
   }
 
   await createTestimonial(
