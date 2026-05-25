@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
     }
     await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_error', 'system', mailResult);
 
-    return success(request, 'Dopyt sme prijali. Uložili sme ho do systému a ozveme sa vám s ďalším postupom.');
+    return success(request, 'Ďakujeme! Dopyt sme prijali.');
   } catch (error) {
     console.error('Lead submit failed', error);
     return failure(request, 'Dopyt sa nepodarilo uložiť. Skúste to prosím znova alebo zavolajte.', 500);

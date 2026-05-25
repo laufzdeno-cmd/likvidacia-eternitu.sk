@@ -232,11 +232,20 @@ export default function LandingClient() {
       addFiles(fileInput.files);
     };
 
-    const setStatus = (message: string, type?: 'success' | 'error') => {
+    const setStatus = (message: string, type?: 'success' | 'error', variant?: 'submit') => {
       if (!status) return;
-      status.textContent = message;
+      status.classList.toggle('is-submit-success', type === 'success' && variant === 'submit');
       status.classList.toggle('is-success', type === 'success');
       status.classList.toggle('is-error', type === 'error');
+      if (type === 'success' && variant === 'submit') {
+        status.innerHTML = [
+          '<strong>✓ Ďakujeme! Dopyt sme prijali.</strong>',
+          '<span>Cenovú ponuku vám pošleme do 24 hodín na zadaný email a zavoláme na číslo ktoré ste uviedli.</span>',
+          '<small>V prípade otázok nás môžete kontaktovať na 0905 217 946 (Po–Pia 7:00–18:00)</small>',
+        ].join('');
+        return;
+      }
+      status.textContent = message;
     };
 
     const onSubmit = async (event: SubmitEvent) => {
@@ -261,7 +270,7 @@ export default function LandingClient() {
         updateFileInput();
         if (preview) preview.innerHTML = '';
         trackAnalytics('form_submit_success', { form: 'lead' });
-        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
+        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit');
       } catch (error) {
         setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať.', 'error');
         trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
