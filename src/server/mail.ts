@@ -105,7 +105,7 @@ function customerLeadEmailHtml(lead: Lead) {
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
         <tr>
-          <td style="background:#0F1F3D;padding:28px 32px;">
+          <td style="background:linear-gradient(135deg,#6B2D5E 0%,#4A1D40 100%);padding:28px 32px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
               <tr>
                 <td style="vertical-align:middle;">
@@ -119,12 +119,12 @@ function customerLeadEmailHtml(lead: Lead) {
             </table>
           </td>
         </tr>
-        <tr><td style="background:#E8541A;padding:20px 32px;color:#ffffff;">
+        <tr><td style="background:linear-gradient(135deg,#C0392B 0%,#922B21 100%);padding:20px 32px;color:#ffffff;">
           <div style="font-size:22px;font-weight:700;line-height:1.25;">Cenovú ponuku dostanete</div>
           <div style="margin-top:5px;color:rgba(255,255,255,0.85);font-size:15px;">do 24 hodín na tento email</div>
         </td></tr>
         <tr><td style="background:#ffffff;padding:32px;">
-          <p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#0F1F3D;">Dobrý deň ${escapeHtml(lead.fullName)},</p>
+          <p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#6B2D5E;">Dobrý deň ${escapeHtml(lead.fullName)},</p>
           <p style="margin:0 0 24px;font-size:15px;color:#4A4845;line-height:1.7;">váš dopyt z likvidacia-eternitu.sk sme prijali. Pripravíme vám cenovú ponuku a pošleme ju na tento email do 24 hodín.</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border-left:4px solid #E8541A;border-radius:0 8px 8px 0;background:#F8F7F4;">
             <tr><td style="padding:16px 20px;">
@@ -142,17 +142,17 @@ function customerLeadEmailHtml(lead: Lead) {
             <tr>
               ${['Skontrolujeme dopyt', 'Pripravíme ponuku', 'Pošleme do 24h'].map((step, index) => `
                 <td width="33.33%" style="padding:0 6px;vertical-align:top;">
-                  <div style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#E8541A;color:#ffffff;font-size:15px;font-weight:700;line-height:32px;text-align:center;">${index + 1}</div>
+                  <div style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#6B2D5E;color:#ffffff;font-size:15px;font-weight:700;line-height:32px;text-align:center;">${index + 1}</div>
                   <div style="margin-top:8px;font-size:12px;color:#4A4845;line-height:1.4;">${step}</div>
                 </td>`).join('')}
             </tr>
           </table>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-radius:10px;background:#F8F7F4;border:2px solid #E8E6DF;border-top:3px solid #E8541A;text-align:center;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-radius:10px;background:#FAF7F9;border:2px solid #E8E6DF;border-top:3px solid #6B2D5E;text-align:center;">
             <tr><td style="padding:20px 24px;">
-              <div style="color:#0F1F3D;font-size:13px;font-weight:600;">Máte otázky?</div>
-              <a href="tel:+421905217946" style="display:block;margin:8px 0;color:#E8541A;font-size:22px;font-weight:700;text-decoration:none;">0905 217 946</a>
+              <div style="color:#6B2D5E;font-size:13px;font-weight:600;">Máte otázky?</div>
+              <a href="tel:+421905217946" style="display:block;margin:8px 0;color:#6B2D5E;font-size:22px;font-weight:700;text-decoration:none;">0905 217 946</a>
               <div style="color:#8A8880;font-size:12px;">Po–Pia 7:00–18:00</div>
-              <a href="mailto:astana@astana.sk" style="display:block;margin-top:8px;color:#E8541A;font-size:13px;text-decoration:none;">✉ astana@astana.sk</a>
+              <a href="mailto:astana@astana.sk" style="display:block;margin-top:8px;color:#C0392B;font-size:13px;text-decoration:none;">✉ astana@astana.sk</a>
             </td></tr>
           </table>
           <div style="margin-top:20px;text-align:center;">
@@ -160,10 +160,10 @@ function customerLeadEmailHtml(lead: Lead) {
             <a href="https://likvidacia-eternitu.sk" style="display:block;margin-top:4px;color:#E8541A;font-size:14px;font-weight:600;text-decoration:none;">likvidacia-eternitu.sk</a>
           </div>
         </td></tr>
-        <tr><td style="background:#F8F7F4;border-top:2px solid #E8541A;padding:20px 32px;text-align:center;">
-          <div style="font-size:11px;color:#8A8880;line-height:1.6;">ASTANA, s.r.o. · Scherffelova 1364/28, Poprad 058 01 · IČO: 46 157 701</div>
-          <div style="margin-top:4px;font-size:11px;color:#C0B8B0;">© 2026 ASTANA, s.r.o.</div>
-          <div style="font-size:11px;color:#C0B8B0;">Email odoslaný z likvidacia-eternitu.sk</div>
+        <tr><td style="background:#4A1D40;padding:20px 32px;text-align:center;color:rgba(255,255,255,0.5);">
+          <div style="font-size:11px;color:rgba(255,255,255,0.62);line-height:1.6;">ASTANA, s.r.o. · Scherffelova 1364/28, Poprad 058 01 · IČO: 46 157 701</div>
+          <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.42);">© 2026 ASTANA, s.r.o.</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.42);">Email odoslaný z likvidacia-eternitu.sk</div>
         </td></tr>
       </table>
     </td></tr>
@@ -210,7 +210,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#F8F7F4;font-family:Arial,sans-serif;">
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
-        <tr><td style="background:#0F1F3D;padding:20px 28px;">
+        <tr><td style="background:linear-gradient(135deg,#6B2D5E 0%,#4A1D40 100%);padding:20px 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
             <tr>
               <td style="color:#ffffff;font-size:20px;font-weight:700;">🔔 Nový dopyt</td>
@@ -224,7 +224,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
             ${rows.map(([label, value]) => `
               <tr>
                 <td style="padding:8px 14px 8px 0;width:120px;color:#8A8880;font-size:13px;vertical-align:top;">${escapeHtml(label)}:</td>
-                <td style="padding:8px 0;color:#0F1F3D;font-size:14px;font-weight:600;vertical-align:top;">${value}</td>
+                <td style="padding:8px 0;color:#6B2D5E;font-size:14px;font-weight:600;vertical-align:top;">${value}</td>
               </tr>`).join('')}
           </table>
         </td></tr>
@@ -232,7 +232,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
           <a href="${adminUrl}" style="display:inline-block;background:#E8541A;color:#ffffff;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Otvoriť v admin →</a>
           <div style="margin-top:10px;font-size:11px;color:#8A8880;">alebo prejdi na: ${escapeHtml(siteUrl())}/admin/</div>
         </td></tr>
-        <tr><td style="background:#0F1F3D;padding:16px 28px;text-align:center;color:rgba(255,255,255,0.4);font-size:11px;">ASTANA admin systém · likvidacia-eternitu.sk</td></tr>
+        <tr><td style="background:#4A1D40;padding:16px 28px;text-align:center;color:rgba(255,255,255,0.5);font-size:11px;">ASTANA admin systém · likvidacia-eternitu.sk</td></tr>
       </table>
     </td></tr>
   </table>`;
@@ -342,7 +342,7 @@ function tableRow(label: string, value: string) {
   return `
     <tr>
       <td style="padding:7px 12px 7px 0;color:#8A8880;font-size:13px;vertical-align:top;width:42%;">${label}</td>
-      <td style="padding:7px 0;color:#0F1F3D;font-size:14px;font-weight:700;vertical-align:top;">${value}</td>
+      <td style="padding:7px 0;color:#6B2D5E;font-size:14px;font-weight:700;vertical-align:top;">${value}</td>
     </tr>`;
 }
 
@@ -350,7 +350,7 @@ function calcRow(label: string, value: string, bold = false) {
   return `
     <tr>
       <td style="padding:9px 0;border-bottom:1px solid #F1F0EC;color:#4A4845;font-size:14px;${bold ? 'font-weight:700;' : ''}">${label}</td>
-      <td align="right" style="padding:9px 0;border-bottom:1px solid #F1F0EC;color:#0F1F3D;font-size:14px;font-weight:700;">${value}</td>
+      <td align="right" style="padding:9px 0;border-bottom:1px solid #F1F0EC;color:#6B2D5E;font-size:14px;font-weight:700;">${value}</td>
     </tr>`;
 }
 
@@ -377,19 +377,19 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#F8F7F4;font-family:Arial,sans-serif;">
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
-        <tr><td style="background:#ffffff;border-bottom:3px solid #E8541A;padding:28px 32px;">
+        <tr><td style="background:linear-gradient(135deg,#6B2D5E 0%,#4A1D40 100%);padding:28px 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
-              <div style="color:#0F1F3D;font-size:22px;font-weight:700;letter-spacing:-0.4px;">ASTANA</div>
-              <div style="margin-top:6px;color:#8A8880;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">likvidácia azbestu a eternitu</div>
+              <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.4px;">ASTANA</div>
+              <div style="margin-top:6px;color:rgba(255,255,255,0.75);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">likvidácia azbestu a eternitu</div>
             </td>
             <td align="right" style="vertical-align:middle;">
-              <div style="color:#E8541A;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Cenová ponuka</div>
-              <div style="margin-top:4px;color:#E8541A;font-size:20px;font-weight:700;">č. ${escapeHtml(offer.number)}</div>
+              <div style="color:#C9A84C;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Cenová ponuka</div>
+              <div style="margin-top:4px;color:#ffffff;font-size:20px;font-weight:700;">č. ${escapeHtml(offer.number)}</div>
             </td>
           </tr></table>
         </td></tr>
-        <tr><td style="background:linear-gradient(135deg,#E8541A 0%,#C93F08 100%);padding:24px 32px;">
+        <tr><td style="background:linear-gradient(135deg,#C0392B 0%,#922B21 100%);padding:24px 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
               <div style="color:#ffffff;font-size:20px;font-weight:700;">Vaša cenová ponuka je pripravená</div>
@@ -405,7 +405,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
           📎 Cenovú ponuku nájdete v prílohe tohto emailu ako súbor PDF. Vytlačte ju, podpíšte a pošlite nám späť — alebo nám jednoducho odpovedzte na tento email.
         </td></tr>
         <tr><td style="background:#ffffff;padding:28px 32px;">
-          <p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#0F1F3D;">Dobrý deň p. ${escapeHtml(surname(offer.contactPerson))},</p>
+          <p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#6B2D5E;">Dobrý deň p. ${escapeHtml(surname(offer.contactPerson))},</p>
           <p style="margin:0 0 24px;font-size:15px;color:#4A4845;line-height:1.8;">na základe Vašej požiadavky sme pripravili cenovú ponuku na ekologickú likvidáciu azbestovej krytiny.<br><br>Naša cena je kompletná — zahŕňa dokumentáciu pre RÚVZ a OÚ, demontáž, balenie, odvoz aj všetky správne poplatky. Vy sa o nič nemusíte starať.</p>
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#F8F7F4;border-radius:10px;">
@@ -431,9 +431,9 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
                 ${calcRow('Celkom bez DPH', euro(offer.totalWithoutVat), true)}
                 ${calcRow(`DPH ${settings.vatRate}%`, euro(Math.round((offer.totalWithVat - offer.totalWithoutVat) * 100) / 100))}
               </table>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;background:#FDE8DC;border-radius:6px;"><tr>
-                <td style="padding:10px 14px;color:#0F1F3D;font-size:14px;font-weight:700;">CELKOM S DPH:</td>
-                <td align="right" style="padding:10px 14px;color:#E8541A;font-size:22px;font-weight:700;">${euro(offer.totalWithVat)}</td>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;background:#FAF0F5;border-radius:6px;"><tr>
+                <td style="padding:10px 14px;color:#4A1D40;font-size:14px;font-weight:700;">CELKOM S DPH:</td>
+                <td align="right" style="padding:10px 14px;color:#C0392B;font-size:20px;font-weight:700;">${euro(offer.totalWithVat)}</td>
               </tr></table>
               <div style="margin-top:12px;color:#8A8880;font-size:12px;line-height:1.5;">Presná cena bude upravená podľa skutočného množstva m² azbestu na mieste.</div>
             </td></tr>
@@ -442,7 +442,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#F8F7F4;border-radius:10px;">
             <tr><td style="padding:20px 24px;">
               <div style="margin-bottom:14px;color:#8A8880;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Čo je zahrnuté v cene</div>
-              ${included.map((item) => `<div style="font-size:14px;color:#1C1B19;line-height:1.8;"><span style="color:#E8541A;font-weight:700;">✓</span> ${escapeHtml(item)}</div>`).join('')}
+              ${included.map((item) => `<div style="font-size:14px;color:#1C1B19;line-height:1.8;"><span style="color:#6B2D5E;font-weight:700;">✓</span> ${escapeHtml(item)}</div>`).join('')}
             </td></tr>
           </table>
 
@@ -451,11 +451,11 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
               ['1', 'Potvrďte záujem', 'Odpovedzte na tento email alebo zavolajte'],
               ['2', 'Dohodneme termín', 'Minimálne 30 dní vopred kvôli úradným lehotám'],
               ['3', 'Realizujeme', 'Prídeme, demontujeme, odvezieme a odovzdáme doklady'],
-            ].map(([num, title, text]) => `<td width="33.33%" style="padding:16px 12px;vertical-align:top;"><div style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#E8541A;color:#ffffff;font-weight:700;line-height:32px;">${num}</div><div style="margin-top:10px;color:#0F1F3D;font-size:13px;font-weight:700;">${title}</div><div style="margin-top:5px;color:#4A4845;font-size:12px;line-height:1.5;">${text}</div></td>`).join('')}
+            ].map(([num, title, text]) => `<td width="33.33%" style="padding:16px 12px;vertical-align:top;"><div style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#6B2D5E;color:#ffffff;font-weight:700;line-height:32px;">${num}</div><div style="margin-top:10px;color:#6B2D5E;font-size:13px;font-weight:700;">${title}</div><div style="margin-top:5px;color:#4A4845;font-size:12px;line-height:1.5;">${text}</div></td>`).join('')}
           </tr></table>
 
           <div style="margin:24px 0;text-align:center;">
-            <a href="mailto:astana@astana.sk?subject=${confirmSubject}" style="display:inline-block;background:linear-gradient(135deg,#E8541A,#C93F08);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
+            <a href="mailto:astana@astana.sk?subject=${confirmSubject}" style="display:inline-block;background:linear-gradient(135deg,#E8541A 0%,#C93F08 100%);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
             <div style="margin-top:10px;color:#8A8880;font-size:13px;">alebo zavolajte: 0905 217 946</div>
           </div>
 
@@ -463,15 +463,15 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
         </td></tr>
         <tr><td style="border-top:2px solid #F1F0EC;padding:20px 32px;">
           <div style="font-size:14px;color:#4A4845;">S pozdravom a prianím pekného dňa</div>
-          <div style="margin-top:8px;font-size:16px;font-weight:700;color:#0F1F3D;">${escapeHtml(settings.preparedByName)}</div>
+          <div style="margin-top:8px;font-size:16px;font-weight:700;color:#6B2D5E;">${escapeHtml(settings.preparedByName)}</div>
           <div style="margin-top:4px;color:#E8541A;font-size:14px;">tel.: ${escapeHtml(settings.preparedByPhone)}</div>
           <div style="border-top:1px solid #E8E6DF;margin:16px 0;"></div>
-          <div style="font-weight:600;color:#0F1F3D;font-size:13px;">${escapeHtml(settings.company.name)}</div>
+          <div style="font-weight:600;color:#6B2D5E;font-size:13px;">${escapeHtml(settings.company.name)}</div>
           <div style="font-size:12px;color:#8A8880;line-height:1.6;">${escapeHtml(settings.company.street)}, ${escapeHtml(settings.company.city)} ${escapeHtml(settings.company.postalCode)}<br>Tel.: +421 905 217 946<br>E-mail: ${escapeHtml(settings.company.email)}<br>Web: ${escapeHtml(settings.company.mainWeb)} | likvidacia-eternitu.sk<br>IČO: ${escapeHtml(settings.company.ico)} | DIČ: ${escapeHtml(settings.company.dic)} | IČ DPH: ${escapeHtml(settings.company.icDph)}</div>
         </td></tr>
-        <tr><td style="background:#F8F7F4;border-top:1px solid #E8E6DF;padding:16px 32px;text-align:center;">
-          <div style="color:#8A8880;font-size:12px;">Táto cenová ponuka platí do ${escapeHtml(validUntil)}.</div>
-          <div style="margin-top:4px;color:#8A8880;font-size:11px;">© 2026 ASTANA, s.r.o. · likvidacia-eternitu.sk</div>
+        <tr><td style="background:#4A1D40;padding:16px 32px;text-align:center;color:rgba(255,255,255,0.5);">
+          <div style="color:rgba(255,255,255,0.62);font-size:12px;">Táto cenová ponuka platí do ${escapeHtml(validUntil)}.</div>
+          <div style="margin-top:4px;color:rgba(255,255,255,0.42);font-size:11px;">© 2026 ASTANA, s.r.o. · likvidacia-eternitu.sk</div>
         </td></tr>
       </table>
     </td></tr>
@@ -511,7 +511,7 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
 
   try {
     await client.sendMail({
-      from: namedFromHeader(`${settings.preparedByName} — ASTANA`),
+      from: namedFromHeader('ASTANA s.r.o. - likvidácia azbestu'),
       to: offer.email,
       cc: c.email,
       replyTo: c.email,
