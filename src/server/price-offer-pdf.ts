@@ -1,151 +1,302 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import PDFDocument from 'pdfkit';
 import type { PriceOffer, PriceOfferSettings } from './types';
-import { materialTypeLabels } from './db';
 
-function bundledFontPath() {
-  const candidates = [
-    join(process.cwd(), 'node_modules', 'next', 'dist', 'compiled', '@vercel', 'og', 'Geist-Regular.ttf'),
-    join(process.cwd(), 'node_modules', 'next', 'dist', 'compiled', '@vercel', 'og', 'Geist-Medium.ttf'),
-  ];
-  return candidates.find((path) => existsSync(path));
+const materialTypeLabels: Record<string, string> = {
+  VLNITY_ETERNIT: 'Vlnitý eternit (AZC)',
+  HLADKY_ETERNIT: 'Hladký eternit',
+  AZBESTOVE_RURY: 'Azbestové rúry',
+  PODHLADOVE_DOSKY: 'Podhľadové dosky',
+  BOLETICKY: 'Boletické panely',
+  INE: 'Iný azbestový materiál',
+};
+
+function escapeHtml(value: string | number | undefined | null) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 function moneyPdf(value: number, decimals = 2) {
-  const rounded = Math.round((value || 0) * 100) / 100;
-  const fraction = decimals ? rounded.toFixed(decimals).replace('.', ',') : String(Math.round(rounded));
-  return `${fraction.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`;
+  return new Intl.NumberFormat('sk-SK', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(value || 0);
 }
 
 function dateSk(value: string | Date) {
   return new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(value));
 }
 
-function paragraph(doc: PDFKit.PDFDocument, text: string, options: PDFKit.Mixins.TextOptions = {}) {
-  doc.fontSize(9.2).fillColor('#111111').text(text, { align: 'justify', lineGap: 2, ...options });
-  doc.moveDown(0.45);
+function materialLabel(offer: PriceOffer) {
+  return materialTypeLabels[offer.materialType] || 'Azbestový materiál';
 }
 
-function addFooter(doc: PDFKit.PDFDocument, settings: PriceOfferSettings) {
+function includedItems() {
+  return [
+    'Dokumentácia RÚVZ a OÚ ŽP',
+    'Správne poplatky na úradoch',
+    'Vytvorenie ochranného pásma',
+    'Stabilizácia penetračným postrekom',
+    'Odborná demontáž',
+    'Balenie do PE vriec ADR 9',
+    'Dekontaminácia pracoviska',
+    'Preprava na skládku NO',
+    'Poplatok za skládkovanie',
+    'Záverečná správa a doklady',
+    'Potvrdenie o legálnom zneškodnení',
+  ];
+}
+
+function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   const c = settings.company;
-  const y = 785;
-  doc.fontSize(7).fillColor('#333333').text(
-    `${c.name}, ${c.street} ${c.city} ${c.postalCode}, tel: ${c.phone}, IČO: ${c.ico}, DIČ: ${c.dic}, IČ DPH: ${c.icDph}\n${c.mainWeb}, ${c.email}`,
-    42,
-    y,
-    { width: 500, align: 'center' },
-  );
-  doc.save().rotate(90, { origin: [575, 390] }).fontSize(8).fillColor('#8a1538').text(c.mainWeb, 575, 390).restore();
+  const material = materialLabel(offer);
+  const vatMultiplier = 1 + settings.vatRate / 100;
+  const materialWithVat = offer.materialPriceWithoutVat * vatMultiplier;
+  const documentationWithVat = offer.documentationFeeWithoutVat * vatMultiplier;
+  const vatValue = offer.totalWithVat - offer.totalWithoutVat;
+  const items = includedItems();
+  const leftItems = items.slice(0, 6);
+  const rightItems = items.slice(6);
+
+  return `<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <style>
+    :root {
+      --navy: #0F1F3D;
+      --orange: #E8541A;
+      --gray: #4A4845;
+      --muted: #8A8880;
+      --light: #F8F7F4;
+      --border: #E8E6DF;
+      --white: #FFFFFF;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: var(--gray); background: white; }
+    .page { position: relative; width: 210mm; min-height: 297mm; background: white; overflow: hidden; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .top-header { height: 80px; padding: 0 40px; background: var(--navy); color: white; display: table; width: 100%; }
+    .top-header-cell { display: table-cell; vertical-align: middle; }
+    .brand { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
+    .tagline { margin-top: 7px; color: rgba(255,255,255,0.55); font-size: 11px; letter-spacing: 0.05em; }
+    .header-contact { text-align: right; color: rgba(255,255,255,0.72); font-size: 9px; line-height: 1.6; }
+    .accent { height: 4px; background: var(--orange); }
+    .document-title { padding: 32px 40px 24px; display: table; width: 100%; }
+    .document-title-left, .document-title-right { display: table-cell; vertical-align: top; }
+    .document-title-right { text-align: right; color: var(--muted); font-size: 12px; padding-top: 8px; }
+    h1 { margin: 0; color: var(--navy); font-size: 28px; font-weight: 700; letter-spacing: 0.05em; }
+    .offer-number { margin-top: 4px; color: var(--orange); font-size: 20px; font-weight: 700; }
+    .subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
+    .info-box { margin: 0 40px 24px; padding: 16px 20px; background: var(--light); border-left: 4px solid var(--orange); border-radius: 0 6px 6px 0; display: table; width: calc(100% - 80px); }
+    .info-col { display: table-cell; width: 50%; vertical-align: top; padding-right: 24px; }
+    .field-label { margin: 0 0 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field-value { margin: 0 0 12px; color: var(--navy); font-size: 13px; font-weight: 600; line-height: 1.45; }
+    .field-email { color: var(--orange); font-size: 13px; font-weight: 600; }
+    .body { padding: 0 40px; }
+    .greeting { margin: 0 0 8px; color: var(--navy); font-size: 14px; font-weight: 700; }
+    .copy { margin: 0 0 16px; color: var(--gray); font-size: 13px; line-height: 1.7; }
+    .price-table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 11px; }
+    .price-table th { background: var(--navy); color: white; text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .price-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--gray); }
+    .price-table tbody tr:nth-child(even) td { background: var(--light); }
+    .price-table .right { text-align: right; white-space: nowrap; }
+    .price-table .summary td { background: var(--light); color: var(--navy); font-weight: 700; }
+    .price-table .total td { background: var(--navy); color: white; padding: 12px 16px; font-size: 14px; font-weight: 700; border-bottom: 0; }
+    .price-table .total .amount { color: var(--orange); font-size: 16px; }
+    .included-title { margin: 0 0 8px; color: var(--navy); font-size: 12px; font-weight: 700; }
+    .included { display: table; width: 100%; margin-top: 4px; }
+    .included-col { display: table-cell; width: 50%; vertical-align: top; padding-right: 18px; }
+    .included-item { color: var(--gray); font-size: 11px; line-height: 1.8; }
+    .checkmark { display: inline-block; width: 6px; height: 10px; margin: 0 8px 0 1px; border-right: 2px solid var(--orange); border-bottom: 2px solid var(--orange); transform: rotate(45deg); vertical-align: 1px; }
+    .slim-header { height: 40px; background: var(--navy); color: rgba(255,255,255,0.65); font-size: 10px; padding: 0 40px; line-height: 40px; }
+    .terms { padding: 24px 40px 0; }
+    .section-title { margin: 0 0 12px; color: var(--navy); font-size: 12px; font-weight: 700; }
+    .terms p { margin: 0 0 13px; color: var(--gray); font-size: 11px; line-height: 1.7; }
+    .two-boxes { padding: 8px 40px 0; display: table; width: 100%; border-spacing: 0; }
+    .box-wrap { display: table-cell; width: 50%; vertical-align: top; }
+    .box-wrap:first-child { padding-right: 10px; }
+    .box-wrap:last-child { padding-left: 10px; }
+    .small-box { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; min-height: 104px; }
+    .small-label { margin: 0 0 7px; color: var(--muted); font-size: 11px; }
+    .valid-date { margin: 0 0 8px; color: var(--orange); font-size: 16px; font-weight: 700; }
+    .small-text { margin: 0; color: var(--gray); font-size: 11px; line-height: 1.5; }
+    .prepared-name { margin: 0 0 5px; color: var(--navy); font-size: 13px; font-weight: 700; }
+    .prepared-phone { margin: 0; color: var(--orange); font-size: 12px; font-weight: 700; }
+    .approval { margin: 24px 40px 0; border: 2px solid var(--navy); border-radius: 8px; padding: 20px 24px; background: var(--light); }
+    .approval-main { margin: 0 0 20px; color: var(--gray); font-size: 12px; line-height: 1.6; font-style: italic; }
+    .approval-help { margin: 0 0 24px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+    .signature-row { display: table; width: 100%; margin-top: 12px; }
+    .signature { display: table-cell; width: 50%; padding: 0 18px; text-align: center; }
+    .signature-line { border-top: 2px solid var(--navy); padding-top: 8px; color: var(--muted); font-size: 11px; }
+    .footer { position: absolute; left: 0; right: 0; bottom: 0; background: var(--navy); color: rgba(255,255,255,0.65); font-size: 10px; line-height: 1.5; text-align: center; padding: 16px 40px; }
+    .edge-text { position: absolute; right: -34px; top: 50%; transform: rotate(90deg); color: rgba(0,0,0,0.2); font-size: 9px; letter-spacing: 0.1em; }
+  </style>
+</head>
+<body>
+  <section class="page">
+    <header class="top-header">
+      <div class="top-header-cell">
+        <div class="brand">ASTANA</div>
+        <div class="tagline">likvidácia a odvoz nebezpečného odpadu</div>
+      </div>
+      <div class="top-header-cell header-contact">
+        <strong>${escapeHtml(c.name)}</strong><br>
+        ${escapeHtml(c.street)}, ${escapeHtml(c.city)} ${escapeHtml(c.postalCode)}<br>
+        tel: ${escapeHtml(c.phone)}<br>
+        IČO: ${escapeHtml(c.ico)} | DIČ: ${escapeHtml(c.dic)}<br>
+        IČ DPH: ${escapeHtml(c.icDph)}<br>
+        ${escapeHtml(c.mainWeb)}
+      </div>
+    </header>
+    <div class="accent"></div>
+
+    <div class="document-title">
+      <div class="document-title-left">
+        <h1>CENOVÁ PONUKA</h1>
+        <div class="offer-number">č. ${escapeHtml(offer.number)}</div>
+        <div class="subtitle">na ekologickú likvidáciu AZBESTU</div>
+      </div>
+      <div class="document-title-right">v Poprade ${dateSk(offer.createdAt)}</div>
+    </div>
+
+    <div class="info-box">
+      <div class="info-col">
+        <p class="field-label">Objekt:</p>
+        <p class="field-value">${escapeHtml(offer.objectType)}, ${escapeHtml(offer.objectAddress || offer.municipality)} okres ${escapeHtml(offer.district)}</p>
+        <p class="field-label">Kontakt:</p>
+        <p class="field-value">${escapeHtml(offer.contactPerson)}, tel.: ${escapeHtml(offer.phone)}<br><span class="field-email">${escapeHtml(offer.email)}</span></p>
+      </div>
+      <div class="info-col">
+        <p class="field-label">Termín realizácie:</p>
+        <p class="field-value">${escapeHtml(offer.realizationTerm || 'dohodou')}</p>
+      </div>
+    </div>
+
+    <main class="body">
+      <p class="greeting">Dobrý deň,</p>
+      <p class="copy">na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${escapeHtml(material)}) vo výmere plochy strechy cca ${escapeHtml(offer.areaM2)} m² v súlade s platnými legislatívnymi ustanoveniami.</p>
+      ${offer.offerNote ? `<p class="copy" style="background:#F8F7F4;border-left:3px solid #E8541A;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
+
+      <table class="price-table">
+        <thead>
+          <tr><th>Položka</th><th>Množstvo</th><th class="right">Cena bez DPH</th><th class="right">Cena s DPH</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>${escapeHtml(material)}</td>
+            <td>${escapeHtml(offer.areaM2)} m²</td>
+            <td class="right">${moneyPdf(offer.materialPriceWithoutVat)} €</td>
+            <td class="right">${moneyPdf(materialWithVat)} €</td>
+          </tr>
+          ${offer.includeDocumentation ? `<tr>
+            <td>Dokumentácia RÚVZ a OÚ ŽP</td>
+            <td>1 ks</td>
+            <td class="right">${moneyPdf(offer.documentationFeeWithoutVat)} €</td>
+            <td class="right">${moneyPdf(documentationWithVat)} €</td>
+          </tr>` : ''}
+          <tr class="summary"><td colspan="2">Celkom bez DPH:</td><td colspan="2" class="right">${moneyPdf(offer.totalWithoutVat)} €</td></tr>
+          <tr><td colspan="2">DPH ${settings.vatRate}%:</td><td colspan="2" class="right">${moneyPdf(vatValue)} €</td></tr>
+          <tr class="total"><td colspan="2">CELKOM S DPH:</td><td colspan="2" class="right amount">${moneyPdf(offer.totalWithVat)} €</td></tr>
+        </tbody>
+      </table>
+
+      <p class="included-title">V cene je zahrnuté:</p>
+      <div class="included">
+        <div class="included-col">
+          ${leftItems.map((item) => `<div class="included-item"><span class="checkmark"></span>${escapeHtml(item)}</div>`).join('')}
+        </div>
+        <div class="included-col">
+          ${rightItems.map((item) => `<div class="included-item"><span class="checkmark"></span>${escapeHtml(item)}</div>`).join('')}
+        </div>
+      </div>
+    </main>
+    <div class="edge-text">${escapeHtml(c.mainWeb)}</div>
+  </section>
+
+  <section class="page">
+    <div class="slim-header">ASTANA, s.r.o. — Cenová ponuka č. ${escapeHtml(offer.number)} — ${dateSk(offer.createdAt)}</div>
+    <main class="terms">
+      <h2 class="section-title">Obchodné podmienky</h2>
+      <p>Všetko vybavíme za Vás — cena je kompletná, vrátane demontáže, dopravy, vypracovania potrebných podkladov a všetkých správnych poplatkov. Ak by výmera bola menšia alebo väčšia, cena bude upravená.</p>
+      <p>Sme platcami DPH. Lehota splatnosti faktúry je 14 dní od dodania služby. Všetky podklady (originál SLNO s kópiou vážneho lístka, záverečnú správu, ako aj potvrdenie spoločnosti ASTANA, s.r.o. o zneškodnení odpadu) zasielame až po úhrade faktúry.</p>
+      <p>V prípade záujmu Vás žiadame o potvrdenie cenovej ponuky objednávkou min. 30 dní pred začiatkom realizačných prác, nakoľko RÚVZ a OÚ má zákonnú mesačnú lehotu na vydanie rozhodnutia. V prípade zrušenia objednávky zo strany objednávateľa si spoločnosť ASTANA, s.r.o. vyhradzuje právo zaúčtovania nákladov spojených s vybavením administratívy na úradoch vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.</p>
+      <p>Firma ASTANA, s.r.o. má oprávnenie na likvidáciu a manipuláciu s nebezpečným odpadom č. ${escapeHtml(c.authorization)} udelené Úradom verejného zdravotníctva Slovenskej republiky.</p>
+    </main>
+
+    <div class="two-boxes">
+      <div class="box-wrap">
+        <div class="small-box">
+          <p class="small-label">Táto cenová ponuka platí do:</p>
+          <p class="valid-date">${dateSk(offer.validUntil)}</p>
+          <p class="small-text">Po záväznej objednávke budú práce realizované po dohode.</p>
+        </div>
+      </div>
+      <div class="box-wrap">
+        <div class="small-box">
+          <p class="small-label">Vyhotovil:</p>
+          <p class="prepared-name">${escapeHtml(settings.preparedByName)}</p>
+          <p class="prepared-phone">tel.: ${escapeHtml(settings.preparedByPhone)}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="approval">
+      <p class="approval-main">S cenovou ponukou súhlasíme ako je uvedené vyššie a práce záväzne objednávame podľa ponuky.</p>
+      <p class="approval-help">/v prípade záujmu nám potvrdenú cenovú ponuku obratom doručte na adresu ASTANA, s.r.o., alebo mail: astana@astana.sk/</p>
+      <div class="signature-row">
+        <div class="signature"><div class="signature-line">objednávateľ</div></div>
+        <div class="signature"><div class="signature-line">zhotoviteľ</div></div>
+      </div>
+    </div>
+
+    <footer class="footer">${escapeHtml(c.name)} · ${escapeHtml(c.street)}, ${escapeHtml(c.city)} ${escapeHtml(c.postalCode)} · tel: ${escapeHtml(c.phone)} · IČO: ${escapeHtml(c.ico)} · DIČ: ${escapeHtml(c.dic)} · IČ DPH: ${escapeHtml(c.icDph)} · ${escapeHtml(c.mainWeb)}</footer>
+    <div class="edge-text">${escapeHtml(c.mainWeb)}</div>
+  </section>
+</body>
+</html>`;
+}
+
+async function renderHtmlToPdf(html: string) {
+  let browser: any = null;
+  try {
+    if (process.env.VERCEL || process.env.NODE_ENV === 'production') {
+      const chromium = (await import('@sparticuz/chromium')).default;
+      const puppeteer = await import('puppeteer-core');
+      browser = await puppeteer.launch({
+        args: [...chromium.args, '--font-render-hinting=none'],
+        defaultViewport: { width: 1200, height: 1600 },
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdf = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+      });
+      return Buffer.from(pdf);
+    }
+
+    const { chromium } = await import('playwright');
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    const pdf = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+    });
+    return Buffer.from(pdf);
+  } finally {
+    await browser?.close();
+  }
 }
 
 export async function renderPriceOfferPdf(offer: PriceOffer, settings: PriceOfferSettings) {
-  const doc = new PDFDocument({ size: 'A4', margin: 42, bufferPages: true });
-  const chunks: Buffer[] = [];
-  doc.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
-  const done = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
-  const c = settings.company;
-  const vat = settings.vatRate;
-  const materialLabel = materialTypeLabels[offer.materialType] || 'azbestový materiál';
-  const fontPath = bundledFontPath();
-
-  if (fontPath) {
-    doc.registerFont('AstanaBody', fontPath);
-    doc.font('AstanaBody');
-  } else {
-    doc.font('Helvetica');
-  }
-
-  doc.fillColor('#0F1F3D').fontSize(28).text('ASTANA', 42, 34);
-  doc.fillColor('#8A1538').fontSize(10).text('likvidácia a odvoz nebezpečného odpadu', 42, 66);
-  doc.fillColor('#111111').fontSize(8).text(
-    `${c.name}, ${c.street},\n${c.city} ${c.postalCode}, tel: ${c.phone},\nIČO: ${c.ico}, DIČ: ${c.dic}, IČ DPH: ${c.icDph}\n${c.mainWeb}, ${c.email}`,
-    330,
-    34,
-    { width: 220, align: 'right' },
-  );
-  doc.moveTo(42, 100).lineTo(553, 100).strokeColor('#8A1538').lineWidth(1).stroke();
-
-  doc.fillColor('#111111').fontSize(18).text('CENOVÁ PONUKA', 42, 118, { align: 'center' });
-  doc.fontSize(13).text(`č. ${offer.number}`, { align: 'center' });
-  doc.fontSize(12).text('na ekologickú likvidáciu AZBESTU', { align: 'center' });
-  doc.moveDown(0.7);
-  doc.fontSize(10).text(`v Poprade ${dateSk(offer.createdAt)}`);
-  doc.moveDown(0.7);
-  doc.text(`Objekt: ${offer.objectType}, ${offer.objectAddress || offer.municipality} okres ${offer.district}`);
-  doc.text(`Kontakt: ${offer.contactPerson}, tel.: ${offer.phone}, ${offer.email}`);
-  doc.text(`Termín realizácie: ${offer.realizationTerm}`);
-  doc.moveDown(0.7);
-  doc.text('Dobrý deň,');
-  doc.moveDown(0.35);
-
-  paragraph(
-    doc,
-    `na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${materialLabel}) vo výmere plochy strechy cca ${offer.areaM2} m² v súlade s platnými legislatívnymi ustanoveniami.`,
-  );
-  paragraph(
-    doc,
-    `Cena za m² azbestovej krytiny: ${moneyPdf(offer.pricePerM2WithoutVat)} bez DPH (${moneyPdf(offer.pricePerM2WithoutVat * (1 + vat / 100))} s DPH). Presné množstvo m² azbestu bude spočítané na mieste.`,
-  );
-  if (offer.materialType === 'VLNITY_ETERNIT') {
-    paragraph(
-      doc,
-      'Pri vlnitom eternite je potrebné počítať s rovnakou výmerou m² azbestu ako pri kúpe novej strešnej krytiny. Množstvo sa vypočíta ako výška × šírka jednej tabule vynásobená počtom kusov.',
-    );
-  }
-  if (offer.includeDocumentation) {
-    doc.fontSize(9.2).text(`Vypracovanie dokumentácie na RÚVZ a OÚ: ${moneyPdf(offer.documentationFeeWithoutVat)} bez DPH (${moneyPdf(offer.documentationFeeWithoutVat * (1 + vat / 100))} s DPH)`);
-    doc.moveDown(0.5);
-  }
-
-  doc.fontSize(10).fillColor('#111111').text('V cene je zahrnuté:', { underline: true });
-  doc.moveDown(0.2);
-  const included = [
-    'vypracovanie potrebnej dokumentácie pre RÚVZ k vydaniu povolenia na demontáž a žiadosti na OÚ ŽP k vydaniu povolenia na zneškodnenie nebezpečného odpadu',
-    'správne poplatky na RÚVZ a OÚ',
-    'vytvorenie kontrolovaného pásma a ochranného pásma',
-    'stabilizácia azbestových materiálov penetračným postrekom',
-    'demontáž a likvidácia azbestových materiálov odborne vyškoleným personálom',
-    'zabalenie nebezpečného odpadu na palety alebo do PE vriec s nápisom „ADR 9“',
-    'dekontaminácia pracoviska',
-    'preprava zabaleného a stabilizovaného azbestového odpadu na skládku nebezpečného odpadu šoférmi s platným osvedčením ADR',
-    'uloženie odpadu na skládke nebezpečných odpadov',
-    'poplatok za uskladnenie',
-    'odovzdanie dokumentácie po uhradení faktúry príslušným úradom a objednávateľovi',
-  ];
-  included.forEach((item, index) => doc.fontSize(8.7).text(`${index + 1}. ${item}`, { indent: 8, align: 'justify', lineGap: 1.5 }));
-
-  doc.moveDown(0.5);
-  paragraph(
-    doc,
-    `Predpokladaná cena za dielo cca: ${moneyPdf(offer.totalWithoutVat)} bez DPH (${moneyPdf(offer.totalWithVat)} s DPH). Cena bude upravovaná podľa skutočných m² azbestu.`,
-  );
-  if (offer.offerNote) paragraph(doc, offer.offerNote);
-
-  doc.addPage();
-  paragraph(doc, 'Všetko vybavíme za Vás - cena je kompletná, vrátane demontáže, dopravy, vypracovania potrebných podkladov a všetkých správnych poplatkov. Ak by výmera bola menšia alebo väčšia, cena bude upravená.');
-  paragraph(doc, 'Sme platcami DPH. Lehota splatnosti faktúry je 14 dní od dodania služby. Všetky podklady, originál Sprievodného listu nebezpečných odpadov s kópiou vážneho lístka, záverečnú správu a potvrdenie spoločnosti ASTANA, s.r.o. o zneškodnení odpadu zasielame až po úhrade faktúry.');
-  paragraph(doc, `V prípade záujmu Vás žiadame o potvrdenie cenovej ponuky objednávkou minimálne 30 dní pred začiatkom realizačných prác, nakoľko RÚVZ a OÚ má zákonnú mesačnú lehotu na vydanie rozhodnutia. V prípade zrušenia objednávky zo strany objednávateľa si spoločnosť ASTANA, s.r.o. vyhradzuje právo zaúčtovania nákladov spojených s vybavením administratívy na úradoch vo výške ${moneyPdf(offer.documentationFeeWithoutVat)}.`);
-  paragraph(doc, `Firma ASTANA, s.r.o. má oprávnenie na likvidáciu a manipuláciu s nebezpečným odpadom č. ${c.authorization} udelené Úradom verejného zdravotníctva Slovenskej republiky.`);
-
-  doc.moveDown(0.8);
-  doc.text(`Vyhotovil: ${settings.preparedByName}`, 330, doc.y, { width: 220, align: 'right' });
-  doc.text(`tel.: ${settings.preparedByPhone}`, { width: 220, align: 'right' });
-  doc.moveDown(1);
-  doc.text(`Táto cenová ponuka platí do ${dateSk(offer.validUntil)}.`);
-  doc.text('Po záväznej objednávke budú práce realizované po dohode.');
-  doc.moveDown(1.5);
-  doc.text('S cenovou ponukou súhlasíme ako je uvedené vyššie a práce záväzne objednávame podľa ponuky.');
-  doc.text('/v prípade záujmu nám potvrdenú cenovú ponuku obratom doručte na adresu ASTANA, s.r.o., alebo mail: astana@astana.sk/');
-  doc.moveDown(2);
-  doc.text('_ _ _ _ _ _ _ _ _ _ _ _          _ _ _ _ _ _ _ _ _ _ _ _', { align: 'center' });
-  doc.text('objednávateľ                          zhotoviteľ', { align: 'center' });
-
-  const range = doc.bufferedPageRange();
-  for (let i = range.start; i < range.start + range.count; i += 1) {
-    doc.switchToPage(i);
-    addFooter(doc, settings);
-  }
-  doc.end();
-  return done;
+  return renderHtmlToPdf(pdfHtml(offer, settings));
 }

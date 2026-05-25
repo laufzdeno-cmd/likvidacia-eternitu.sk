@@ -14,11 +14,13 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
+    "@sparticuz/chromium": "^148.0.0",
     "@vercel/blob": "^2.3.3",
     "next": "^16.2.6",
     "nodemailer": "^8.0.7",
     "pdfkit": "^0.18.0",
     "pg": "^8.20.0",
+    "puppeteer-core": "^25.0.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^3.8.1",

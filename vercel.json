@@ -1,6 +1,11 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
+  "functions": {
+    "app/api/admin/ponuka/[id]/pdf/route.ts": {
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  },
   "headers": [
     {
       "source": "/admin/(.*)",

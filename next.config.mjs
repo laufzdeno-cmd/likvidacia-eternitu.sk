@@ -27,7 +27,10 @@ const noIndexHeaders = [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarch
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
-  serverExternalPackages: ['pdfkit'],
+  serverExternalPackages: ['pdfkit', '@sparticuz/chromium', 'puppeteer-core'],
+  outputFileTracingIncludes: {
+    '/*': ['./node_modules/@sparticuz/chromium/bin/**/*'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,

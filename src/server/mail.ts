@@ -147,11 +147,11 @@ function customerLeadEmailHtml(lead: Lead) {
                 </td>`).join('')}
             </tr>
           </table>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-radius:10px;background:#0F1F3D;text-align:center;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-radius:10px;background:#F8F7F4;border:2px solid #E8E6DF;border-top:3px solid #E8541A;text-align:center;">
             <tr><td style="padding:20px 24px;">
-              <div style="color:rgba(255,255,255,0.6);font-size:13px;">Máte otázky?</div>
-              <a href="tel:+421905217946" style="display:block;margin:8px 0;color:#ffffff;font-size:24px;font-weight:700;text-decoration:none;">0905 217 946</a>
-              <div style="color:rgba(255,255,255,0.5);font-size:12px;">Po–Pia 7:00–18:00</div>
+              <div style="color:#0F1F3D;font-size:13px;font-weight:600;">Máte otázky?</div>
+              <a href="tel:+421905217946" style="display:block;margin:8px 0;color:#E8541A;font-size:22px;font-weight:700;text-decoration:none;">0905 217 946</a>
+              <div style="color:#8A8880;font-size:12px;">Po–Pia 7:00–18:00</div>
               <a href="mailto:astana@astana.sk" style="display:block;margin-top:8px;color:#E8541A;font-size:13px;text-decoration:none;">✉ astana@astana.sk</a>
             </td></tr>
           </table>
@@ -377,15 +377,15 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#F8F7F4;font-family:Arial,sans-serif;">
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
-        <tr><td style="background:#0F1F3D;padding:28px 32px;">
+        <tr><td style="background:#ffffff;border-bottom:3px solid #E8541A;padding:28px 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
-              <div style="color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.4px;">ASTANA</div>
-              <div style="margin-top:6px;color:rgba(255,255,255,0.5);font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">likvidácia azbestu a eternitu</div>
+              <div style="color:#0F1F3D;font-size:22px;font-weight:700;letter-spacing:-0.4px;">ASTANA</div>
+              <div style="margin-top:6px;color:#8A8880;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">likvidácia azbestu a eternitu</div>
             </td>
             <td align="right" style="vertical-align:middle;">
               <div style="color:#E8541A;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Cenová ponuka</div>
-              <div style="margin-top:4px;color:#ffffff;font-size:20px;font-weight:700;">č. ${escapeHtml(offer.number)}</div>
+              <div style="margin-top:4px;color:#E8541A;font-size:20px;font-weight:700;">č. ${escapeHtml(offer.number)}</div>
             </td>
           </tr></table>
         </td></tr>
@@ -469,9 +469,9 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
           <div style="font-weight:600;color:#0F1F3D;font-size:13px;">${escapeHtml(settings.company.name)}</div>
           <div style="font-size:12px;color:#8A8880;line-height:1.6;">${escapeHtml(settings.company.street)}, ${escapeHtml(settings.company.city)} ${escapeHtml(settings.company.postalCode)}<br>Tel.: +421 905 217 946<br>E-mail: ${escapeHtml(settings.company.email)}<br>Web: ${escapeHtml(settings.company.mainWeb)} | likvidacia-eternitu.sk<br>IČO: ${escapeHtml(settings.company.ico)} | DIČ: ${escapeHtml(settings.company.dic)} | IČ DPH: ${escapeHtml(settings.company.icDph)}</div>
         </td></tr>
-        <tr><td style="background:#0F1F3D;padding:16px 32px;text-align:center;">
-          <div style="color:rgba(255,255,255,0.6);font-size:12px;">Táto cenová ponuka platí do ${escapeHtml(validUntil)}.</div>
-          <div style="margin-top:4px;color:rgba(255,255,255,0.4);font-size:11px;">© 2026 ASTANA, s.r.o. · likvidacia-eternitu.sk</div>
+        <tr><td style="background:#F8F7F4;border-top:1px solid #E8E6DF;padding:16px 32px;text-align:center;">
+          <div style="color:#8A8880;font-size:12px;">Táto cenová ponuka platí do ${escapeHtml(validUntil)}.</div>
+          <div style="margin-top:4px;color:#8A8880;font-size:11px;">© 2026 ASTANA, s.r.o. · likvidacia-eternitu.sk</div>
         </td></tr>
       </table>
     </td></tr>
