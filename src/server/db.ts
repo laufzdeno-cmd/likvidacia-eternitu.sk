@@ -58,6 +58,7 @@ type LocalDb = {
   roofers: Roofer[];
   siteContent: SiteContentItem[];
   analyticsEvents: AnalyticsEvent[];
+  adminSettings: Record<string, string>;
 };
 
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
@@ -379,6 +380,13 @@ async function ensureSchema() {
       updated_by text
     );
 
+    CREATE TABLE IF NOT EXISTS admin_settings (
+      key text PRIMARY KEY,
+      value text NOT NULL,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      updated_by text
+    );
+
     CREATE TABLE IF NOT EXISTS analytics_events (
       id uuid PRIMARY KEY,
       created_at timestamptz NOT NULL DEFAULT now(),
@@ -568,6 +576,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     roofers: data.roofers ?? [],
     siteContent: data.siteContent ?? [],
     analyticsEvents: data.analyticsEvents ?? [],
+    adminSettings: data.adminSettings ?? {},
   };
 }
 
@@ -797,6 +806,7 @@ async function readLocalDb(): Promise<LocalDb> {
       roofers: [],
       siteContent: [],
       analyticsEvents: [],
+      adminSettings: {},
     };
     await writeFile(localDbPath, JSON.stringify(empty, null, 2), 'utf8');
     return empty;
@@ -2519,6 +2529,45 @@ export async function upsertSiteContentValues(values: Record<string, string>, ac
   }
   await addAuditLog('site_content', siteContentAuditId, 'site_content_updated', actorEmail, { keys: entries.map(([key]) => key) });
   return entries.map(([key]) => key);
+}
+
+export async function getAdminSetting(key: string) {
+  await ensureSchema();
+  const normalizedKey = key.trim();
+  if (!normalizedKey) return null;
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.adminSettings[normalizedKey] ?? null;
+  }
+
+  const { rows } = await db.query('SELECT value FROM admin_settings WHERE key = $1 LIMIT 1', [normalizedKey]);
+  return rows[0]?.value ? String(rows[0].value) : null;
+}
+
+export async function setAdminSetting(key: string, value: string, actorEmail: string) {
+  await ensureSchema();
+  const normalizedKey = key.trim();
+  if (!normalizedKey) return;
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.adminSettings[normalizedKey] = value;
+    await writeLocalDb(local);
+    await addAuditLog('site_content', siteContentAuditId, 'admin_setting_updated', actorEmail, { key: normalizedKey });
+    return;
+  }
+
+  await db.query(
+    `INSERT INTO admin_settings (key, value, updated_at, updated_by)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (key)
+     DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by`,
+    [normalizedKey, value, now(), actorEmail],
+  );
+  await addAuditLog('site_content', siteContentAuditId, 'admin_setting_updated', actorEmail, { key: normalizedKey });
 }
 
 export async function getDashboardStats() {

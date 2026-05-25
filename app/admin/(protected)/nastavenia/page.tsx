@@ -1,10 +1,20 @@
+import { adminEmail } from '@/src/server/auth';
 import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
 import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
-import { deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
+import { changeAdminPasswordAction, deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
 
-export default async function SettingsAdminPage() {
+export default async function SettingsAdminPage({ searchParams }: { searchParams?: Promise<{ heslo?: string }> }) {
   const [workers, prices, settings, offerSettings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings(), getPriceOfferSettings()]);
+  const params = await searchParams;
+  const passwordMessage =
+    params?.heslo === 'ulozene'
+      ? 'Heslo bolo zmenené.'
+      : params?.heslo === 'nespravne'
+        ? 'Aktuálne heslo nesedí.'
+        : params?.heslo === 'neplatne'
+          ? 'Nové heslo musí mať aspoň 8 znakov a obe hodnoty musia byť rovnaké.'
+          : '';
 
   return (
     <main className="admin-page">
@@ -79,6 +89,21 @@ export default async function SettingsAdminPage() {
           <label>Vyhotovil telefón<input name="preparedByPhone" defaultValue={offerSettings.preparedByPhone} /></label>
           <button className="admin-primary-button admin-form-wide" type="submit">Uložiť ceny ponúk</button>
         </form>
+      </section>
+
+      <section className="admin-card">
+        <h2>Prístup do adminu</h2>
+        <p>Prihlasovací email: <strong>{adminEmail() || 'TODO nastaviť ADMIN_EMAIL'}</strong></p>
+        {passwordMessage ? <div className="admin-alert">{passwordMessage}</div> : null}
+        <form className="admin-quote-form" action={changeAdminPasswordAction}>
+          <label>Aktuálne heslo<input name="currentPassword" type="password" autoComplete="current-password" required /></label>
+          <label>Nové heslo<input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+          <label>Zopakovať nové heslo<input name="repeatPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+          <button className="admin-primary-button admin-form-wide" type="submit">Zmeniť heslo</button>
+        </form>
+        <p style={{ marginTop: 12 }}>
+          Ak heslo zabudnete, použite stránku <a href="/admin/reset-password">obnovy hesla</a>. Vyžaduje resetovací token uložený v bezpečných premenných projektu.
+        </p>
       </section>
     </main>
   );

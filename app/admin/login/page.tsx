@@ -6,7 +6,7 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminLoginPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
+export default async function AdminLoginPage({ searchParams }: { searchParams?: Promise<{ error?: string; reset?: string }> }) {
   const email = await currentAdminEmail();
   if (email) redirect('/admin/dopyty');
   const params = await searchParams;
@@ -18,6 +18,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
         <h1>Prihlásenie do adminu</h1>
         <p>Dopyty, fotky a cenové ponuky sú chránené prihlásením.</p>
         {params?.error ? <div className="admin-alert">Nesprávny email alebo heslo.</div> : null}
+        {params?.reset ? <div className="admin-alert">Heslo bolo zmenené. Prihláste sa novým heslom.</div> : null}
         <label>
           Email
           <input name="email" type="text" inputMode="email" autoComplete="username" required />
@@ -29,6 +30,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
         <button className="button button-primary" type="submit">
           Prihlásiť sa
         </button>
+        <p><a href="/admin/reset-password">Zabudli ste heslo?</a></p>
       </form>
     </main>
   );

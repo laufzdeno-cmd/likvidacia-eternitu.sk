@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
+import { getAdminSetting } from './db';
 
 const cookieName = 'astana_admin_session';
 
@@ -78,7 +79,7 @@ function verifyHash(password: string, storedHash: string) {
   return timingSafeEqual(actual, expected);
 }
 
-export function verifyAdminCredentials(email: string, password: string) {
+export async function verifyAdminCredentials(email: string, password: string) {
   const normalizedEmail = email.trim().toLowerCase();
   const tempEmail = process.env.TEMP_ADMIN_EMAIL;
   const tempHash = process.env.TEMP_ADMIN_PASSWORD_HASH;
@@ -88,6 +89,15 @@ export function verifyAdminCredentials(email: string, password: string) {
 
   const configuredEmail = adminEmail();
   if (!configuredEmail || normalizedEmail !== configuredEmail.toLowerCase()) return false;
+
+  try {
+    const storedAdminHash = await getAdminSetting('admin_password_hash');
+    if (storedAdminHash) {
+      return verifyHash(password, storedAdminHash);
+    }
+  } catch (error) {
+    console.error('Admin password override could not be read.', error);
+  }
 
   if (process.env.ADMIN_PASSWORD_HASH) {
     return verifyHash(password, process.env.ADMIN_PASSWORD_HASH);

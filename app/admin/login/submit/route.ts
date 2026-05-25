@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   const email = String(formData.get('email') || '');
   const password = String(formData.get('password') || '');
 
-  if (!verifyAdminCredentials(email, password)) {
+  if (!(await verifyAdminCredentials(email, password))) {
     return NextResponse.redirect(new URL('/admin/login?error=1', request.url), { status: 303 });
   }
 

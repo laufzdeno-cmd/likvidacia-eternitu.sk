@@ -1,8 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
-import { deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
+import { redirect } from 'next/navigation';
+import { adminEmail, hashPassword, requireAdmin, verifyAdminCredentials } from '@/src/server/auth';
+import { deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, setAdminSetting, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
 import type { BusinessLandfill, PriceOfferMaterialType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
@@ -67,4 +68,23 @@ export async function savePriceOfferSettingsAction(formData: FormData) {
   );
   revalidatePath('/admin/nastavenia');
   revalidatePath('/admin/ponuky');
+}
+
+export async function changeAdminPasswordAction(formData: FormData) {
+  const actor = await requireAdmin();
+  const currentPassword = String(formData.get('currentPassword') || '');
+  const newPassword = String(formData.get('newPassword') || '');
+  const repeatPassword = String(formData.get('repeatPassword') || '');
+
+  if (!(await verifyAdminCredentials(adminEmail(), currentPassword))) {
+    redirect('/admin/nastavenia?heslo=nespravne');
+  }
+
+  if (newPassword.length < 8 || newPassword !== repeatPassword) {
+    redirect('/admin/nastavenia?heslo=neplatne');
+  }
+
+  await setAdminSetting('admin_password_hash', hashPassword(newPassword), actor);
+  revalidatePath('/admin/nastavenia');
+  redirect('/admin/nastavenia?heslo=ulozene');
 }
