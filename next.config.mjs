@@ -27,6 +27,7 @@ const noIndexHeaders = [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarch
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
+  serverExternalPackages: ['pdfkit'],
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
