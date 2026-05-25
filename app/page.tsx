@@ -432,6 +432,10 @@ export default async function HomePage() {
               height={1120}
               sizes="(max-width: 760px) 100vw, 34vw"
             />
+            <div className="mobile-hero-overlay" aria-hidden="true">
+              <p className="mobile-hero-eyebrow">{content.heroEyebrow}</p>
+              <h1>{content.heroTitle}</h1>
+            </div>
             <div className="hero-trust-card">
               <div>
                 <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
