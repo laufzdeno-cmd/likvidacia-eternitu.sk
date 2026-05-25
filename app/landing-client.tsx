@@ -235,6 +235,30 @@ export default function LandingClient() {
     const loadingIcon =
       '<svg class="submit-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>';
 
+    const ensureSubmitProgress = () => {
+      if (!form) return;
+      let progress = form.querySelector<HTMLElement>('.submit-progress');
+      if (!progress) {
+        progress = document.createElement('div');
+        progress.className = 'submit-progress';
+        progress.setAttribute('role', 'status');
+        progress.setAttribute('aria-live', 'polite');
+        progress.innerHTML = [
+          '<span class="submit-progress-bar" aria-hidden="true"></span>',
+          '<span class="submit-progress-spinner" aria-hidden="true"></span>',
+          '<strong>Odosielame dopyt</strong>',
+          '<span>Chv&#237;&#318;u po&#269;kajte, nahr&#225;vame &#250;daje a posielame potvrdenie.</span>',
+        ].join('');
+        const submit = form.querySelector<HTMLButtonElement>('.form-submit');
+        submit?.insertAdjacentElement('afterend', progress);
+      }
+      progress.hidden = false;
+    };
+
+    const hideSubmitProgress = () => {
+      form?.querySelector<HTMLElement>('.submit-progress')?.setAttribute('hidden', 'true');
+    };
+
     const setFormSubmitting = (submitting: boolean, button?: HTMLButtonElement | null) => {
       if (!form) return;
       form.classList.toggle('is-submitting', submitting);
@@ -247,8 +271,10 @@ export default function LandingClient() {
         button.classList.toggle('is-submitting', submitting);
         if (submitting) {
           button.innerHTML = `${loadingIcon}<span>Odosielam...</span>`;
+          ensureSubmitProgress();
         } else if (button.dataset.defaultLabel) {
           button.innerHTML = button.dataset.defaultLabel;
+          hideSubmitProgress();
         }
       }
     };
@@ -278,10 +304,16 @@ export default function LandingClient() {
       status.textContent = message;
     };
 
+    const clearStatus = () => {
+      if (!status) return;
+      status.classList.remove('is-submit-success', 'is-success', 'is-error', 'is-loading');
+      status.textContent = '';
+    };
+
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
       event.preventDefault();
-      setStatus('Odosielame dopyt...', 'loading');
+      clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
       const submittedEmail = String(payload.get('email') || '').trim();

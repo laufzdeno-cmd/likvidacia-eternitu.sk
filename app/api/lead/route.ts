@@ -148,6 +148,14 @@ export async function POST(request: NextRequest) {
     }
     await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_error', 'system', mailResult);
 
+    if (mailResult.sent !== true) {
+      return failure(
+        request,
+        'Dopyt sme uložili, ale emailové potvrdenie sa nepodarilo odoslať. Zavolajte nám prosím na 0905 217 946 alebo skúste odoslanie neskôr.',
+        502,
+      );
+    }
+
     return success(request, 'Ďakujeme! Dopyt sme prijali.');
   } catch (error) {
     console.error('Lead submit failed', error);
