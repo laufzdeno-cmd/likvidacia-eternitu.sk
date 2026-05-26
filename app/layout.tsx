@@ -111,6 +111,29 @@ const localBusinessJsonLd = {
   ],
 };
 
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'ASTANA, s.r.o.',
+  url: 'https://likvidacia-eternitu.sk',
+  email: 'astana@astana.sk',
+  telephone: '+421905217946',
+  address: localBusinessJsonLd.address,
+  logo: 'https://likvidacia-eternitu.sk/assets/astana-logo.svg',
+};
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Likvidácia eternitu a azbestu ASTANA',
+  url: 'https://likvidacia-eternitu.sk',
+  inLanguage: 'sk-SK',
+  publisher: {
+    '@type': 'Organization',
+    name: 'ASTANA, s.r.o.',
+  },
+};
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="sk" className={plusJakarta.variable}>
@@ -124,7 +147,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="theme-color" content="#0F1F3D" />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify([localBusinessJsonLd, organizationJsonLd, websiteJsonLd]) }}
         />
       </head>
       <body className={plusJakarta.className}>

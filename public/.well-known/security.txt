@@ -1,0 +1,4 @@
+Contact: mailto:astana@astana.sk
+Preferred-Languages: sk, en
+Canonical: https://likvidacia-eternitu.sk/.well-known/security.txt
+Policy: https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/
