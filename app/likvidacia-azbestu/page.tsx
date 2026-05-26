@@ -5,6 +5,7 @@ export const metadata = { title: 'Likvidácia azbestu | ASTANA', description: 'O
 export default function AsbestosPage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Likvidácia azbestu', path: '/likvidacia-azbestu/' }}
       eyebrow="Služba"
       title="Likvidácia azbestu"
       lead="Zabezpečujeme odborný postup pri materiáloch obsahujúcich azbest: dokumentáciu, stabilizáciu, demontáž, balenie, odvoz a potvrdenie o likvidácii."

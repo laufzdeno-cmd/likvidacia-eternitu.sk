@@ -5,6 +5,7 @@ export const metadata = { title: 'Spolupráca pre strechárov | ASTANA', descrip
 export default function RoofersPage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Pre strechárov', path: '/pre-strecharov/' }}
       eyebrow="Pre strechárov"
       title="Robíte výmenu eternitovej strechy?"
       lead="Ak zákazník potrebuje legálne odstrániť eternit, pošlite nám základné údaje. Demontáž vieme naplánovať tak, aby ste mohli plynulo pokračovať."

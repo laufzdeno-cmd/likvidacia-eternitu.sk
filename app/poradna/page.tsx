@@ -5,6 +5,7 @@ export const metadata = { title: 'Poradňa | ASTANA', description: 'Základné i
 export default function AdvicePage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Poradňa', path: '/poradna/' }}
       eyebrow="Poradňa"
       title="Poradňa k azbestu a eternitu"
       lead="Pripravujeme odborné články. Zatiaľ nájdete najdôležitejšie odpovede vo FAQ na úvodnej stránke."

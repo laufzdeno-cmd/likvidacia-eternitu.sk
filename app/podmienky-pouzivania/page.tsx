@@ -5,6 +5,7 @@ export const metadata = { title: 'Podmienky používania | ASTANA', description:
 export default function TermsPage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Podmienky používania', path: '/podmienky-pouzivania/' }}
       eyebrow="Podmienky"
       title="Podmienky používania"
       lead="Informácie na webe slúžia na predstavenie služby a prijatie dopytu. Cenová ponuka je nezáväzná, kým nie je individuálne potvrdená."

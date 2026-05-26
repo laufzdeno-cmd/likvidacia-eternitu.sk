@@ -5,6 +5,7 @@ export const metadata = { title: 'Likvidácia eternitu | ASTANA', description: '
 export default function EternitPage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Likvidácia eternitu', path: '/likvidacia-eternitu/' }}
       eyebrow="Služba"
       title="Likvidácia eternitu"
       lead="Eternit nezhadzujeme zo strechy. Materiál po stabilizácii ukladáme do určených obalov a riešime aj odvoz a doklady."

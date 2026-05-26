@@ -1,6 +1,8 @@
 import LandingClient from '../landing-client';
+import PublicWidgets from '../public-widgets';
 import { listApprovedTestimonials } from '@/src/server/db';
 import { PublicFooter } from '../public-layout';
+import { BreadcrumbJsonLd } from '../seo-json-ld';
 
 export const metadata = {
   title: 'Hodnotenia zákazníkov ASTANA | Recenzie',
@@ -34,6 +36,7 @@ export default async function ReviewsPage() {
 
   return (
     <>
+      <BreadcrumbJsonLd name="Recenzie" path="/recenzie/" />
       <main className="public-reviews-page">
         <section className="public-reviews-hero">
           <p className="eyebrow">Recenzie</p>
@@ -70,6 +73,7 @@ export default async function ReviewsPage() {
       </main>
       <PublicFooter />
       <LandingClient />
+      <PublicWidgets />
     </>
   );
 }

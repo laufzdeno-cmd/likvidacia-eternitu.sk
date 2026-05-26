@@ -44,7 +44,7 @@ const serviceJsonLd = {
 
 export default function AsbestosPricePage() {
   return (
-    <PublicPageShell>
+    <PublicPageShell breadcrumb={{ name: 'Cena likvidácie azbestu', path: '/cena-likvidacie-azbestu/' }} client="full">
       <main className="seo-page">
         <section className="seo-hero">
           <p className="eyebrow">Cena</p>

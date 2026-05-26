@@ -9429,3 +9429,68 @@ main .caution-grid article:nth-child(even) .caution-card-icon {
 .admin-table tbody tr:hover td {
   background: #f8f0f9 !important;
 }
+/* Final accessibility override: loaded after all legacy visual passes. */
+:root {
+  --burgundy: #b33118;
+  --burgundy-hover: #84200e;
+  --muted: #5f5b52;
+}
+
+main .hero-actions .button-primary,
+.button-primary,
+.form-submit,
+.cookie-banner button:first-child {
+  background: #b33118 !important;
+  border-color: #b33118 !important;
+  color: #ffffff !important;
+}
+
+main .hero-actions .button-primary:hover,
+main .hero-actions .button-primary:focus-visible,
+.button-primary:hover,
+.button-primary:focus-visible,
+.form-submit:hover,
+.form-submit:focus-visible,
+.cookie-banner button:first-child:hover,
+.cookie-banner button:first-child:focus-visible {
+  background: #84200e !important;
+  border-color: #84200e !important;
+  color: #ffffff !important;
+}
+
+.price-materials button.is-active,
+.price-materials button.is-active:hover,
+.realization-filter-pills button.is-active,
+.gallery-filter-pill.is-active {
+  background: #b33118 !important;
+  border-color: #b33118 !important;
+  color: #ffffff !important;
+}
+
+main .hero-counter-item span,
+.hero-counter-item span,
+.hero-trust-card span {
+  color: #5f5b52 !important;
+}
+
+main.seo-page .seo-calculator .eyebrow,
+.hero-real-note,
+.hero-proof-flow span:first-child {
+  color: #f2b44b !important;
+}
+
+.reviews-google-link,
+.price-area-row output {
+  color: #b33118 !important;
+}
+
+@media (max-width: 767px) {
+  main > section:not(.hero),
+  main > article,
+  .site-footer,
+  .public-reviews-list,
+  .realizations-gallery-section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 760px;
+  }
+}

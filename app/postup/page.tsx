@@ -52,7 +52,7 @@ const howToJsonLd = {
 
 export default function ProcessPage() {
   return (
-    <PublicPageShell>
+    <PublicPageShell breadcrumb={{ name: 'Ako prebieha likvidácia azbestu', path: '/postup/' }}>
       <main className="seo-page">
         <section className="seo-hero">
           <p className="eyebrow">Postup</p>

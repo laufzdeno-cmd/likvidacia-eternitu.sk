@@ -1,16 +1,20 @@
-import LandingClient from './landing-client';
+import PublicBaseClient from './public-base-client';
 import { PublicFooter, PublicHeader } from './public-layout';
+import PublicWidgets from './public-widgets';
+import { BreadcrumbJsonLd } from './seo-json-ld';
 
 type SimplePublicPageProps = {
   eyebrow: string;
   title: string;
   lead: string;
   sections: Array<{ title: string; text: string }>;
+  breadcrumb: { name: string; path: string };
 };
 
-export default function SimplePublicPage({ eyebrow, title, lead, sections }: SimplePublicPageProps) {
+export default function SimplePublicPage({ eyebrow, title, lead, sections, breadcrumb }: SimplePublicPageProps) {
   return (
     <>
+      <BreadcrumbJsonLd name={breadcrumb.name} path={breadcrumb.path} />
       <PublicHeader />
       <main className="section simple-page">
         <p className="eyebrow">{eyebrow}</p>
@@ -30,7 +34,8 @@ export default function SimplePublicPage({ eyebrow, title, lead, sections }: Sim
         </div>
       </main>
       <PublicFooter />
-      <LandingClient />
+      <PublicBaseClient />
+      <PublicWidgets />
     </>
   );
 }

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function CookiesPage() {
   return (
-    <PublicPageShell>
+    <PublicPageShell breadcrumb={{ name: 'Zásady cookies', path: '/cookies/' }}>
       <main className="seo-page">
         <section className="seo-hero">
           <p className="eyebrow">Cookies</p>

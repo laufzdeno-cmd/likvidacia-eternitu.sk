@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import LandingClient from '../landing-client';
+import PublicWidgets from '../public-widgets';
 import { PublicFooter } from '../public-layout';
+import { BreadcrumbJsonLd } from '../seo-json-ld';
 
 export const metadata: Metadata = {
   title: 'Spolupráca pre strechárov | ASTANA',
@@ -74,6 +76,7 @@ function OutlineIcon({ name }: { name: (typeof benefits)[number]['icon'] }) {
 export default function RoofersPage() {
   return (
     <>
+      <BreadcrumbJsonLd name="Spolupráca pre strechárov" path="/strechari/" />
       <header className="site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
@@ -232,6 +235,7 @@ export default function RoofersPage() {
 
       <PublicFooter />
       <LandingClient />
+      <PublicWidgets />
     </>
   );
 }

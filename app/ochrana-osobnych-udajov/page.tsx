@@ -8,6 +8,7 @@ export const metadata = {
 export default function PrivacyPage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Ochrana osobných údajov', path: '/ochrana-osobnych-udajov/' }}
       eyebrow="GDPR"
       title="Ochrana osobných údajov"
       lead="Osobné údaje spracúvame bezpečne, primerane a iba na účely súvisiace s dopytom, cenovou ponukou, realizáciou zákazky a zlepšovaním služieb."

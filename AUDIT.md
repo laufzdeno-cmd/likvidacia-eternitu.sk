@@ -3,6 +3,22 @@
 Audit dátum: 2026-05-26  
 Rozsah: `app/`, `src/`, `public/`, admin route, API route, DB/server moduly, konfiguračné súbory a SEO stránky.
 
+## Aktualizácia 2026-05-26
+
+- Doplnený spoločný `BreadcrumbList` JSON-LD komponent a napojený na verejné stránky, ktoré ho nemali.
+- Mobilný Lighthouse audit bol spustený pre `/`, `/cena-likvidacie-azbestu/`, `/postup/` a `/faq/`. JSON reporty sú uložené v `test-results/`.
+- Opravený kontrast CTA, aktívnych filtrov, cookie tlačidla a drobných textov, ktoré Lighthouse označil cez `color-contrast`.
+- Po LCP optimalizácii hero obrázka, vypnutí agresívneho font preloadu a pridaní `content-visibility` pre podprehybové sekcie: úvod `95/100/100/100`, cena `95/100/100/100`, postup `95/100/100/100`, FAQ `97/100/100/100` v poradí Performance / Accessibility / Best Practices / SEO.
+- Zvyšné riziko: mobilné LCP je výrazne lepšie, ale pri opakovaných Lighthouse behoch stále kolíše. Posledný kompletný beh: úvod približne `2.9 s`, cena `2.9 s`, postup `2.9 s`, FAQ `2.3 s`. Najlepší samostatný beh úvodu po vypnutí font preloadu bol približne `2.6 s`. Ďalší výkonový krok má byť rozdelenie historických globálnych CSS/JS vrstiev a odloženie nepotrebnej klient-side logiky mimo prvý render.
+- Rozdelený verejný klientsky JavaScript: jednoduché obsahové stránky používajú ľahký `PublicBaseClient`, cenová stránka a interaktívne stránky ostávajú na plnom `LandingClient`. Verejné widgety boli presunuté z root layoutu do verejných stránok, takže admin login už nenačítava cookie/WhatsApp prvky.
+- Po rozdelení klienta prebehol ďalší mobilný Lighthouse: úvod `88/100/100/100` pri LCP `3.2 s` v opakovanom behu, cena `97/100/100/100` pri LCP `2.1 s`, postup `92/100/100/100` pri LCP `3.0 s`, FAQ `93/100/100/100` pri LCP `3.0 s`. Jednoduché stránky klesli približne na `295 KiB`, úvod ostáva okolo `349 KiB`, lebo stále potrebuje plnú landing interaktivitu.
+- Praktická kontrola v prehliadači potvrdila, že FAQ stránka renderuje verejné widgety a admin login ich už nemá.
+- Homepage klient bol rozdelený samostatne: kritický `HomepageCriticalClient` drží navbar, sticky header, `#dopyt` formulár, uploady, hash scroll, analytiku a hero counter animácie; podfoldový `HomepageBelowFoldClient` sa importuje až pri priblížení k realizáciám a rieši filter realizácií a scroll reveal efekty. Text všetkých sekcií zostal v SSR HTML.
+- Po tomto splite homepage Lighthouse mobile 3x: Performance `96`, `95`, `96`; Accessibility/Best Practices/SEO vždy `100/100/100`; LCP `2.57 s`, `2.79 s`, `2.49 s`, priemer približne `2.62 s`; CLS `0.000`; TBT približne `13 ms`. Cieľ Performance `95+` je splnený, LCP je výrazne lepšie než predchádzajúci `3.2 s`, ale priemer ešte tesne nesplnil cieľ pod `2.5 s`.
+- Po deployi na produkciu vyšiel Lighthouse mobile 3x na `https://likvidacia-eternitu.sk/`: Performance `96`, `98`, `98`, priemer `97.3`; LCP `2.55 s`, `2.35 s`, `2.34 s`, priemer približne `2.42 s`; Accessibility/Best Practices/SEO vždy `100/100/100`. Produkčný cieľ LCP pod `2.5 s` a Performance `95+` je splnený.
+- Skúšané boli aj priority hint úpravy preloadu a odloženie verejných widgetov na homepage. Keďže v meraní zhoršili LCP/Performance alebo nepriniesli zisk, boli vrátené.
+- Poznámka k meraniu: Lighthouse CLI na Windows uložil reporty, ale po každom behu hlásil `EPERM` pri mazaní dočasného Chrome priečinka. Výstupné JSON reporty boli vytvorené a použité na vyhodnotenie.
+
 ## Čo už spĺňa štandardy (ponechať)
 
 - Projekt používa Next.js App Router a server-renderované stránky pre verejný obsah.
@@ -23,7 +39,7 @@ Rozsah: `app/`, `src/`, `public/`, admin route, API route, DB/server moduly, kon
 ## Čo chýba (doplniť samostatne)
 
 - Chýbal `PLANNING.md`; doplnené v tejto zmene.
-- Nie všetky verejné stránky majú vlastný `BreadcrumbList` JSON-LD.
+- `BreadcrumbList` JSON-LD je doplnený na verejné stránky; pri nových URL treba použiť spoločný komponent.
 - Chýbala vlastná 404 stránka; doplnené v tejto zmene.
 - Chýbal verejný bezpečnostný kontakt `/.well-known/security.txt`; doplnené v tejto zmene.
 - Chýba jednotný dizajn-token systém oddelený od historických CSS vrstiev.
@@ -61,7 +77,7 @@ Rozsah: `app/`, `src/`, `public/`, admin route, API route, DB/server moduly, kon
 
 1. Bezpečnostný regresný test admin POST route a CSRF.
 2. Audit upload visibility cez skutočné URL v produkcii.
-3. BreadcrumbList JSON-LD doplniť na všetky verejné stránky.
-4. Lighthouse mobile audit pre hlavnú stránku, cenu, postup a FAQ.
-5. Refaktor CSS do dizajn-token vrstvy, bez zmeny vizuálu.
+3. Optimalizovať LCP na mobile pre úvod, cenu, postup a FAQ.
+4. Refaktor CSS do dizajn-token vrstvy, bez zmeny vizuálu.
+5. Automatizovaný Lighthouse/axe CI gate.
 6. Admin QA test s reálnym browserom po prihlásení.

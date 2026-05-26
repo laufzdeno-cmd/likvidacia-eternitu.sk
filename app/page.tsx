@@ -1,5 +1,6 @@
-import LandingClient from './landing-client';
-import Image from 'next/image';
+import HomepageCriticalClient from './homepage-critical-client';
+import HomepageDeferredClient from './homepage-deferred-client';
+import PublicWidgets from './public-widgets';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
   heroPhoto,
@@ -14,6 +15,18 @@ const heroCounters = [
   { value: 500, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
   { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
 ] as const;
+
+const heroImage = {
+  mobileWebp: '/assets/azbest/hero/azbest-087-mobile-480.webp',
+  mobileWebpSrcSet: '/assets/azbest/hero/azbest-087-mobile-480.webp 480w',
+  mobileJpgSrcSet: '/assets/azbest/hero/azbest-087-mobile-480.jpg 480w',
+  desktopWebp: '/assets/azbest/hero/azbest-087-desktop-900.webp',
+  desktopWebpSrcSet:
+    '/assets/azbest/hero/azbest-087-desktop-900.webp 900w, /assets/azbest/hero/azbest-087-desktop.webp 1100w',
+  desktopJpg: '/assets/azbest/hero/azbest-087-desktop-900.jpg',
+  desktopJpgSrcSet:
+    '/assets/azbest/hero/azbest-087-desktop-900.jpg 900w, /assets/azbest/hero/azbest-087-desktop.jpg 1100w',
+} as const;
 
 const realizationFilters = [
   { value: 'vsetky', label: 'Všetky' },
@@ -353,6 +366,8 @@ export default async function HomePage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <link rel="preload" as="image" href={heroImage.mobileWebp} type="image/webp" media="(max-width: 767px)" />
+      <link rel="preload" as="image" href={heroImage.desktopWebp} type="image/webp" media="(min-width: 768px)" />
       <header className="site-header" id="top">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
@@ -423,15 +438,22 @@ export default async function HomePage() {
           </div>
 
           <div className="hero-photo real-hero-photo" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
-            <Image
-              src={heroPhoto.jpg}
-              alt={heroPhoto.alt}
-              title={heroPhoto.title}
-              priority={true}
-              width={1600}
-              height={1120}
-              sizes="(max-width: 760px) 100vw, 34vw"
-            />
+            <picture>
+              <source media="(max-width: 767px)" srcSet={heroImage.mobileWebpSrcSet} sizes="100vw" type="image/webp" />
+              <source media="(max-width: 767px)" srcSet={heroImage.mobileJpgSrcSet} sizes="100vw" type="image/jpeg" />
+              <source srcSet={heroImage.desktopWebpSrcSet} sizes="34vw" type="image/webp" />
+              <source srcSet={heroImage.desktopJpgSrcSet} sizes="34vw" type="image/jpeg" />
+              <img
+                src={heroImage.desktopJpg}
+                alt={heroPhoto.alt}
+                title={heroPhoto.title}
+                width={720}
+                height={525}
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+              />
+            </picture>
             <div className="mobile-hero-overlay" aria-hidden="true">
               <p className="mobile-hero-eyebrow">{content.heroEyebrow}</p>
               <h1>{content.heroTitle}</h1>
@@ -984,7 +1006,9 @@ export default async function HomePage() {
         <a href="tel:+421905217946">Zavolať</a>
         <a href="#dopyt">Cenová ponuka</a>
       </div>
-      <LandingClient />
+      <HomepageCriticalClient />
+      <HomepageDeferredClient />
+      <PublicWidgets />
     </>
   );
 }

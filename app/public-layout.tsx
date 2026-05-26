@@ -1,4 +1,7 @@
 import LandingClient from './landing-client';
+import PublicBaseClient from './public-base-client';
+import PublicWidgets from './public-widgets';
+import { BreadcrumbJsonLd } from './seo-json-ld';
 
 export function PublicHeader() {
   return (
@@ -74,13 +77,23 @@ export function PublicFooter() {
   );
 }
 
-export function PublicPageShell({ children }: { children: React.ReactNode }) {
+export function PublicPageShell({
+  children,
+  breadcrumb,
+  client = 'base',
+}: {
+  children: React.ReactNode;
+  breadcrumb?: { name: string; path: string };
+  client?: 'base' | 'full';
+}) {
   return (
     <>
+      {breadcrumb ? <BreadcrumbJsonLd name={breadcrumb.name} path={breadcrumb.path} /> : null}
       <PublicHeader />
       {children}
       <PublicFooter />
-      <LandingClient />
+      {client === 'full' ? <LandingClient /> : <PublicBaseClient />}
+      <PublicWidgets />
     </>
   );
 }

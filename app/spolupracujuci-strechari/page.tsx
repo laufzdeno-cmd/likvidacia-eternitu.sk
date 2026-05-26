@@ -5,6 +5,7 @@ export const metadata = { title: 'Spolupracujúci strechári | ASTANA', descript
 export default function PartnerRoofersPage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Spolupracujúci strechári', path: '/spolupracujuci-strechari/' }}
       eyebrow="Strechári"
       title="Potrebujete strechára?"
       lead="Ak strechára nemáte, uveďte kraj a termín v dopyte. Preveríme vhodného spolupracujúceho partnera podľa dostupnosti."

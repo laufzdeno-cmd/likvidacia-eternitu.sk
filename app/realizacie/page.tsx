@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import LandingClient from '../landing-client';
+import PublicWidgets from '../public-widgets';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import { galleryCategories, galleryReferences, realizationHeroStripReferences } from '@/src/data/azbestReferences';
 
@@ -244,6 +245,7 @@ export default function RealizationsPage() {
         <a href="/#dopyt">Cenová ponuka</a>
       </div>
       <LandingClient />
+      <PublicWidgets />
     </>
   );
 }

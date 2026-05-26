@@ -68,7 +68,7 @@ const faqJsonLd = {
 
 export default function FaqPage() {
   return (
-    <PublicPageShell>
+    <PublicPageShell breadcrumb={{ name: 'Časté otázky', path: '/faq/' }}>
       <main className="seo-page">
         <section className="seo-hero">
           <p className="eyebrow">FAQ</p>

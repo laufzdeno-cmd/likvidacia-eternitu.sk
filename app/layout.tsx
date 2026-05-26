@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
-import PublicWidgets from './public-widgets';
 import '../src/styles.css';
 import '../src/premium-overrides.css';
 import '../src/final-visual-polish.css';
@@ -9,6 +8,7 @@ const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'latin-ext'],
   weight: ['400', '500', '600', '700'],
   display: 'swap',
+  preload: false,
   variable: '--font-plus-jakarta',
 });
 
@@ -152,7 +152,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={plusJakarta.className}>
         {children}
-        <PublicWidgets />
       </body>
     </html>
   );

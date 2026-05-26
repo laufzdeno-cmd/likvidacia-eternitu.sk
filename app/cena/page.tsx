@@ -5,6 +5,7 @@ export const metadata = { title: 'Cena likvidácie azbestu a eternitu | ASTANA',
 export default function PricePage() {
   return (
     <SimplePublicPage
+      breadcrumb={{ name: 'Cena likvidácie azbestu a eternitu', path: '/cena/' }}
       eyebrow="Cena"
       title="Cena likvidácie azbestu a eternitu"
       lead="Cena závisí najmä od približnej výmery v m², typu materiálu, výšky objektu, prístupu, lokality, dokumentácie a dopravy. Fotky sú pomocný podklad na spresnenie prístupu a náročnosti."
