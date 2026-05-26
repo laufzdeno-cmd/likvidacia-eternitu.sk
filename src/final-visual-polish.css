@@ -4502,6 +4502,180 @@ footer {
   background: #f8f0f9 !important;
 }
 
+/* Admin premium editable-field clarity. Final imported layer: every writable field must look writable. */
+.admin-page {
+  --admin-edit-bg: #fff8ed;
+  --admin-edit-bg-strong: #fff2dc;
+  --admin-edit-border: #d8a94b;
+  --admin-edit-border-soft: #ead7ab;
+  --admin-edit-focus: #6b2d5e;
+  --admin-edit-ring: rgba(107, 45, 94, 0.14);
+  --admin-readonly-bg: #f8f4fa;
+  --admin-readonly-border: #d8c2dd;
+}
+
+.admin-page input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+.admin-page select,
+.admin-page textarea,
+.admin-login-card input:not([type='hidden']):not([type='checkbox']):not([type='radio']) {
+  width: 100%;
+  border: 1.5px solid var(--admin-edit-border) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.36)),
+    var(--admin-edit-bg) !important;
+  color: #1e293b !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(107, 45, 94, 0.05) !important;
+  font-weight: 600;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.admin-page select {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.4)),
+    var(--admin-edit-bg-strong) !important;
+}
+
+.admin-page textarea {
+  min-height: 86px;
+  line-height: 1.45;
+}
+
+.admin-page input:not([type='hidden']):not([type='checkbox']):not([type='radio'])::placeholder,
+.admin-page textarea::placeholder,
+.admin-login-card input::placeholder {
+  color: #9a7b55 !important;
+  font-weight: 500;
+}
+
+.admin-page input:not([type='hidden']):not([type='checkbox']):not([type='radio']):hover,
+.admin-page select:hover,
+.admin-page textarea:hover,
+.admin-login-card input:hover {
+  border-color: #c9902f !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.48)),
+    #fff4df !important;
+}
+
+.admin-page input:not([type='hidden']):not([type='checkbox']):not([type='radio']):focus,
+.admin-page select:focus,
+.admin-page textarea:focus,
+.admin-login-card input:focus {
+  border-color: var(--admin-edit-focus) !important;
+  background: #ffffff !important;
+  box-shadow:
+    0 0 0 4px var(--admin-edit-ring),
+    0 10px 24px rgba(107, 45, 94, 0.08) !important;
+  outline: none !important;
+}
+
+.admin-page input[readonly],
+.admin-page input:read-only:not([type='checkbox']):not([type='radio']),
+.admin-page textarea[readonly],
+.admin-page select[disabled] {
+  border: 1.5px dashed var(--admin-readonly-border) !important;
+  background: var(--admin-readonly-bg) !important;
+  color: #6b2d5e !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  font-weight: 800 !important;
+}
+
+.admin-page input[type='checkbox'],
+.admin-page input[type='radio'] {
+  width: 18px;
+  height: 18px;
+  accent-color: #6b2d5e;
+  cursor: pointer;
+}
+
+.admin-page .admin-checkbox,
+.admin-page .planner-workers label,
+.admin-page .planner-notifications label {
+  border: 1px solid var(--admin-edit-border-soft) !important;
+  border-radius: 10px !important;
+  background: #fffaf2 !important;
+  padding: 9px 11px !important;
+}
+
+.admin-page .admin-quote-form label,
+.admin-page .admin-mini-form label,
+.admin-page .admin-filter-bar label,
+.admin-page .admin-form-inline label,
+.admin-page .admin-note-form label,
+.admin-page .admin-card label {
+  color: #475569 !important;
+}
+
+.admin-page .admin-card:has(input, select, textarea) {
+  border-color: #e6d5b8 !important;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fffdf8 100%) !important;
+}
+
+.admin-page .admin-card:has(input, select, textarea) h2 {
+  color: #6b2d5e !important;
+}
+
+.admin-page .admin-table td {
+  border-bottom-color: #edf0f5 !important;
+  background: #ffffff;
+}
+
+.admin-page .admin-table tbody tr:nth-child(even) td {
+  background: #fbfcff;
+}
+
+.admin-page .admin-table tbody tr:hover td {
+  background: #fff4df !important;
+}
+
+.admin-page .admin-table td:has(input, select, textarea) {
+  background: #fffaf2 !important;
+  box-shadow: inset 3px 0 0 #d8a94b;
+}
+
+.admin-page .admin-table td input:not([type='hidden']):not([type='checkbox']):not([type='radio']),
+.admin-page .admin-table td select,
+.admin-page .admin-table td textarea {
+  min-width: 120px;
+  background: #ffffff !important;
+}
+
+.admin-page .admin-filter-bar {
+  border: 1px solid #e6d5b8 !important;
+  border-radius: 12px !important;
+  background: linear-gradient(180deg, #ffffff, #fffaf2) !important;
+  padding: 14px !important;
+}
+
+.admin-page .admin-filter-bar input,
+.admin-page .admin-filter-bar select {
+  min-height: 38px;
+}
+
+.admin-page .admin-primary-button,
+.admin-page .admin-primary-link {
+  box-shadow: 0 10px 22px rgba(107, 45, 94, 0.18) !important;
+}
+
+.admin-page.admin-page .admin-card select,
+.admin-page.admin-page .admin-quote-form select,
+.admin-page.admin-page .admin-filter-bar select,
+.admin-page.admin-page .admin-settings-grid select,
+.admin-page.admin-page .planner-page select,
+.admin-page.admin-page form select {
+  border: 1.5px solid var(--admin-edit-border) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78), rgba(255, 255, 255, 0.4)),
+    var(--admin-edit-bg-strong) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 1px 2px rgba(107, 45, 94, 0.05) !important;
+}
+
 .admin-quote-form label:not(.admin-checkbox),
 .admin-filter-bar label:not(.admin-checkbox),
 .admin-settings-grid label:not(.admin-checkbox),
