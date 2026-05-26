@@ -24,8 +24,9 @@ function actionErrorMessage(error: unknown) {
 }
 
 function parseOffer(formData: FormData): PriceOfferInput {
+  const rawJobId = String(formData.get('jobId') || '');
   return {
-    jobId: String(formData.get('jobId') || '') || undefined,
+    jobId: rawJobId && rawJobId !== 'lead-prefill' ? rawJobId : undefined,
     objectType: String(formData.get('objectType') || '').trim(),
     objectAddress: String(formData.get('objectAddress') || '').trim(),
     municipality: String(formData.get('municipality') || '').trim(),

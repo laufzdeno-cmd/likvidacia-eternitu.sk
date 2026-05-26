@@ -35,6 +35,10 @@ export type Lead = LeadInput & {
   id: string;
   status: LeadStatus;
   internalNote: string;
+  followupDate?: string;
+  followupNote?: string;
+  followupNotificationSent?: boolean;
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -152,7 +156,20 @@ export type ReviewRequest = ReviewRequestInput & {
 export type BusinessPaymentType = 'FAKTURA' | 'CASH';
 export type BusinessWorkType = 'DEMONTAZ' | 'ODVOZ' | 'DEMONTAZ_A_ODVOZ';
 export type BusinessLandfill = 'MOCHOVCE' | 'LIVINKE_OPATOVCE' | 'KOSICE' | 'INA';
-export type BusinessJobStatus = 'DOPYT' | 'PONUKA_ODOSLANA' | 'PRIJATA' | 'V_REALIZACII' | 'DOKONCENA' | 'ZRUSENA';
+export type BusinessJobStatus =
+  | 'DOPYT'
+  | 'DOPYT_PRIJATY'
+  | 'PONUKA_ODOSLANA'
+  | 'PRIJATA'
+  | 'PONUKA_POTVRDENA'
+  | 'URADY_PODANE'
+  | 'URADY_SCHVALENE'
+  | 'V_REALIZACII'
+  | 'DEMONT_NAPLANOVANA'
+  | 'DEMONT_DOKONCENA'
+  | 'VYUCTOVANIE'
+  | 'DOKONCENA'
+  | 'ZRUSENA';
 export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
 export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSLANA' | 'PRIJATA' | 'ZRUSENA';
 export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR';

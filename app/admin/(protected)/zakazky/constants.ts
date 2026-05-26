@@ -1,17 +1,45 @@
 import type { BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
+export const workflowStatuses: BusinessJobStatus[] = [
+  'DOPYT_PRIJATY',
+  'PONUKA_ODOSLANA',
+  'PONUKA_POTVRDENA',
+  'URADY_PODANE',
+  'URADY_SCHVALENE',
+  'DEMONT_NAPLANOVANA',
+  'DEMONT_DOKONCENA',
+  'VYUCTOVANIE',
+  'DOKONCENA',
+];
+
 export const jobStatusLabels: Record<BusinessJobStatus, string> = {
-  DOPYT: 'Dopyt',
+  DOPYT: 'Dopyt prijatý',
+  DOPYT_PRIJATY: 'Dopyt prijatý',
   PONUKA_ODOSLANA: 'Ponuka odoslaná',
-  PRIJATA: 'Prijatá',
-  V_REALIZACII: 'V realizácii',
+  PRIJATA: 'Ponuka potvrdená',
+  PONUKA_POTVRDENA: 'Ponuka potvrdená',
+  URADY_PODANE: 'Úrady podané',
+  URADY_SCHVALENE: 'Úrady schválené',
+  V_REALIZACII: 'Demontáž naplánovaná',
+  DEMONT_NAPLANOVANA: 'Demontáž naplánovaná',
+  DEMONT_DOKONCENA: 'Demontáž dokončená',
+  VYUCTOVANIE: 'Vyúčtovanie',
   DOKONCENA: 'Dokončená',
   ZRUSENA: 'Zrušená',
 };
 
+export const jobStatuses: BusinessJobStatus[] = [...workflowStatuses, 'ZRUSENA'];
+
+export function normalizeWorkflowStatus(status: BusinessJobStatus): BusinessJobStatus {
+  if (status === 'DOPYT') return 'DOPYT_PRIJATY';
+  if (status === 'PRIJATA') return 'PONUKA_POTVRDENA';
+  if (status === 'V_REALIZACII') return 'DEMONT_NAPLANOVANA';
+  return status;
+}
+
 export const paymentLabels: Record<BusinessPaymentType, string> = {
   FAKTURA: 'Faktúra',
-  CASH: 'Cash',
+  CASH: 'Hotovosť',
 };
 
 export const workTypeLabels: Record<BusinessWorkType, string> = {
@@ -27,7 +55,6 @@ export const landfillLabels: Record<BusinessLandfill, string> = {
   INA: 'Iná',
 };
 
-export const jobStatuses = Object.keys(jobStatusLabels) as BusinessJobStatus[];
 export const paymentTypes = Object.keys(paymentLabels) as BusinessPaymentType[];
 export const workTypes = Object.keys(workTypeLabels) as BusinessWorkType[];
 export const landfills = Object.keys(landfillLabels) as BusinessLandfill[];

@@ -49,6 +49,7 @@ import type {
   TestimonialStatus,
   Worker,
 } from './types';
+import { cleanSlovakText } from './slovak-text';
 
 type LocalDb = {
   leads: Lead[];
@@ -125,23 +126,27 @@ function toLead(row: Record<string, unknown>): Lead {
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
     status: String(row.status) as LeadStatus,
-    fullName: String(row.full_name),
+    fullName: cleanSlovakText(String(row.full_name)),
     phone: String(row.phone),
     email: String(row.email),
-    city: String(row.city),
-    district: row.district ? String(row.district) : '',
-    objectType: String(row.object_type),
-    materialType: String(row.material_type),
+    city: cleanSlovakText(String(row.city)),
+    district: row.district ? cleanSlovakText(String(row.district)) : '',
+    objectType: cleanSlovakText(String(row.object_type)),
+    materialType: cleanSlovakText(String(row.material_type)),
     areaEstimate: Number(row.area_estimate),
-    preferredContact: row.preferovany_kontakt ? String(row.preferovany_kontakt) : row.preferredContact ? String(row.preferredContact) : 'Zavolajte mi',
-    roofer: row.roofer ? String(row.roofer) : '',
-    term: row.term ? String(row.term) : '',
-    note: row.note ? String(row.note) : '',
+    preferredContact: cleanSlovakText(row.preferovany_kontakt ? String(row.preferovany_kontakt) : row.preferredContact ? String(row.preferredContact) : 'Zavolajte mi'),
+    roofer: row.roofer ? cleanSlovakText(String(row.roofer)) : '',
+    term: row.term ? cleanSlovakText(String(row.term)) : '',
+    note: row.note ? cleanSlovakText(String(row.note)) : '',
     gdpr: Boolean(row.gdpr),
     source: row.source ? String(row.source) : 'web',
     wantsRooferRecommendation: Boolean(row.wants_roofer_recommendation ?? row.wantsRooferRecommendation),
     selectedRooferId: row.selected_roofer_id ? String(row.selected_roofer_id) : row.selectedRooferId ? String(row.selectedRooferId) : '',
-    internalNote: row.internal_note ? String(row.internal_note) : '',
+    internalNote: row.internal_note ? cleanSlovakText(String(row.internal_note)) : '',
+    followupDate: dateOnly(row.followup_date ?? row.followupDate),
+    followupNote: row.followup_note ? cleanSlovakText(String(row.followup_note)) : row.followupNote ? cleanSlovakText(String(row.followupNote)) : '',
+    followupNotificationSent: Boolean(row.followup_notif_odoslana ?? row.followupNotificationSent),
+    deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
     rawData: (row.raw_data as Record<string, unknown>) ?? {},
   };
 }
@@ -202,6 +207,54 @@ function toQuote(row: Record<string, unknown>): Quote {
   };
 }
 
+async function cleanupLegacyData(db: Pool) {
+  await db.query(`
+    UPDATE leads SET
+      material_type = replace(replace(material_type, 'Vlnit? eternit', 'Vlnitý eternit'), 'Hladk? eternit', 'Hladký eternit'),
+      object_type = replace(replace(object_type, 'Rodinn? dom', 'Rodinný dom'), 'Hospod?rska budova', 'Hospodárska budova'),
+      roofer = replace(roofer, 'Nem?m strech?ra', 'Nemám strechára'),
+      term = replace(term, '?o najsk?r', 'Čo najskôr')
+    WHERE material_type LIKE '%?%' OR object_type LIKE '%?%' OR roofer LIKE '%?%' OR term LIKE '%?%'
+  `);
+  await db.query(`
+    UPDATE business_jobs SET
+      material_type = replace(replace(material_type, 'Vlnit? eternit', 'Vlnitý eternit'), 'Hladk? eternit', 'Hladký eternit'),
+      object_type = replace(replace(object_type, 'Rodinn? dom', 'Rodinný dom'), 'Hospod?rska budova', 'Hospodárska budova'),
+      term = replace(term, '?o najsk?r', 'Čo najskôr')
+    WHERE material_type LIKE '%?%' OR object_type LIKE '%?%' OR term LIKE '%?%'
+  `);
+  await db.query(`
+    UPDATE price_offers SET
+      object_type = replace(replace(object_type, 'Rodinn? dom', 'Rodinný dom'), 'Hospod?rska budova', 'Hospodárska budova'),
+      realization_term = replace(realization_term, '?o najsk?r', 'Čo najskôr')
+    WHERE object_type LIKE '%?%' OR realization_term LIKE '%?%'
+  `);
+  await db.query(`
+    UPDATE leads
+    SET deleted_at = COALESCE(deleted_at, now()), updated_at = now()
+    WHERE deleted_at IS NULL AND (
+      full_name ILIKE '%test%' OR full_name = 'debilko' OR email IN ('test@example.com', 'success@example.com')
+      OR (email = 'astana@astana.sk' AND full_name <> 'ASTANA admin')
+    )
+  `);
+  await db.query(`
+    UPDATE business_jobs
+    SET deleted_at = COALESCE(deleted_at, now()), updated_at = now()
+    WHERE deleted_at IS NULL AND (
+      customer_name ILIKE '%test%' OR customer_name = 'debilko' OR customer_email IN ('test@example.com', 'success@example.com')
+      OR (customer_email = 'astana@astana.sk' AND customer_name <> 'ASTANA admin')
+    )
+  `);
+  await db.query(`
+    UPDATE price_offers
+    SET deleted_at = COALESCE(deleted_at, now())
+    WHERE deleted_at IS NULL AND (
+      contact_person ILIKE '%test%' OR contact_person = 'debilko' OR email IN ('test@example.com', 'success@example.com')
+      OR (email = 'astana@astana.sk' AND contact_person <> 'ASTANA admin')
+    )
+  `);
+}
+
 async function ensureSchema() {
   if (schemaReady) return;
   const db = getPool();
@@ -237,12 +290,20 @@ async function ensureSchema() {
       wants_roofer_recommendation boolean NOT NULL DEFAULT false,
       selected_roofer_id text NOT NULL DEFAULT '',
       internal_note text NOT NULL DEFAULT '',
+      followup_date date,
+      followup_note text NOT NULL DEFAULT '',
+      followup_notif_odoslana boolean NOT NULL DEFAULT false,
+      deleted_at timestamptz,
       raw_data jsonb NOT NULL DEFAULT '{}'::jsonb
     );
 
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS wants_roofer_recommendation boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS selected_roofer_id text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT 'Zavolajte mi';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_date date;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_note text NOT NULL DEFAULT '';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_notif_odoslana boolean NOT NULL DEFAULT false;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 
     CREATE TABLE IF NOT EXISTS lead_files (
       id uuid PRIMARY KEY,
@@ -484,6 +545,12 @@ async function ensureSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_source text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS offer_confirmed_date date;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ruvz_submitted_date date;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ouzp_submitted_date date;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ruvz_approved_date date;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ouzp_approved_date date;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS demolition_finished_date date;
 
     CREATE TABLE IF NOT EXISTS price_offers (
       id uuid PRIMARY KEY,
@@ -582,6 +649,7 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS admin_users_email_idx ON admin_users (lower(email));
     CREATE INDEX IF NOT EXISTS planner_actions_date_idx ON planner_actions (datum, stav);
   `);
+  await cleanupLegacyData(db);
   await seedDefaultWorkers();
   await seedDefaultAdminUser();
   schemaReady = true;
@@ -740,7 +808,7 @@ function toReviewRequest(row: Record<string, unknown>): ReviewRequest {
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     status: String(row.status ?? 'sent') as ReviewRequestStatus,
-    customerName: String(row.customer_name ?? row.customerName ?? ''),
+    customerName: cleanSlovakText(String(row.customer_name ?? row.customerName ?? '')),
     phone: String(row.phone ?? ''),
     location: String(row.location ?? ''),
     objectType: String(row.object_type ?? row.objectType ?? ''),
@@ -846,11 +914,11 @@ function enrichBusinessJob(
     customerName: String(row.customer_name ?? row.customerName ?? ''),
     customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
     customerEmail: String(row.customer_email ?? row.customerEmail ?? ''),
-    location: String(row.location ?? ''),
-    district: String(row.district ?? ''),
-    materialType: String(row.material_type ?? row.materialType ?? ''),
-    objectType: String(row.object_type ?? row.objectType ?? ''),
-    term: String(row.term ?? ''),
+    location: cleanSlovakText(String(row.location ?? '')),
+    district: cleanSlovakText(String(row.district ?? '')),
+    materialType: cleanSlovakText(String(row.material_type ?? row.materialType ?? '')),
+    objectType: cleanSlovakText(String(row.object_type ?? row.objectType ?? '')),
+    term: cleanSlovakText(String(row.term ?? '')),
     leadSource: String(row.lead_source ?? row.leadSource ?? ''),
     preferredContact: String(row.preferovany_kontakt ?? row.preferredContact ?? ''),
     m2: Number(row.m2 ?? 0),
@@ -1013,9 +1081,9 @@ export async function listLeads(): Promise<Lead[]> {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    return [...local.leads].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return [...local.leads].filter((lead) => !lead.deletedAt).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
-  const { rows } = await db.query('SELECT * FROM leads ORDER BY created_at DESC LIMIT 300');
+  const { rows } = await db.query('SELECT * FROM leads WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT 300');
   return rows.map(toLead);
 }
 
@@ -1025,6 +1093,7 @@ export async function listLeadSummaries(): Promise<LeadSummary[]> {
   if (!db) {
     const local = await readLocalDb();
     return [...local.leads]
+      .filter((lead) => !lead.deletedAt)
       .map((lead) => ({
         ...lead,
         fileCount: local.leadFiles.filter((file) => file.leadId === lead.id).length,
@@ -1048,6 +1117,7 @@ export async function listLeadSummaries(): Promise<LeadSummary[]> {
       FROM quotes
       GROUP BY lead_id
     ) q ON q.lead_id = l.id
+    WHERE l.deleted_at IS NULL
     ORDER BY l.created_at DESC
     LIMIT 300
   `);
@@ -1059,7 +1129,7 @@ export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id);
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (!lead) return null;
     return {
       ...lead,
@@ -1068,7 +1138,7 @@ export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null
       auditLogs: local.auditLogs.filter((log) => log.entityId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
   }
-  const leadResult = await db.query('SELECT * FROM leads WHERE id = $1 LIMIT 1', [id]);
+  const leadResult = await db.query('SELECT * FROM leads WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
   if (!leadResult.rowCount) return null;
   const [filesResult, quotesResult, auditResult] = await Promise.all([
     db.query('SELECT * FROM lead_files WHERE lead_id = $1 ORDER BY created_at DESC', [id]),
@@ -1115,6 +1185,59 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
   return toLead(rows[0]);
 }
 
+export async function updateLeadWorkflow(
+  id: string,
+  input: { status: LeadStatus; followupDate?: string; followupNote?: string; rejectionReason?: string },
+  actorEmail: string,
+) {
+  await ensureSchema();
+  const followupDate = input.followupDate || null;
+  const followupNote = input.followupNote?.trim() || input.rejectionReason?.trim() || '';
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
+    if (!lead) return null;
+    const previous = lead.status;
+    lead.status = input.status;
+    lead.followupDate = followupDate || '';
+    lead.followupNote = followupNote;
+    lead.followupNotificationSent = false;
+    lead.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('lead', id, 'status_changed', actorEmail, { previous, next: input.status, followupDate, followupNote });
+    return lead;
+  }
+  const previous = await getLeadWithFiles(id);
+  const { rows } = await db.query(
+    `UPDATE leads SET status = $1, followup_date = $2, followup_note = $3, followup_notif_odoslana = false, updated_at = now()
+     WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
+    [input.status, followupDate, followupNote, id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('lead', id, 'status_changed', actorEmail, { previous: previous?.status, next: input.status, followupDate, followupNote });
+  return toLead(rows[0]);
+}
+
+export async function clearLeadFollowup(id: string, actorEmail: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const lead = local.leads.find((item) => item.id === id);
+    if (lead) {
+      lead.followupDate = '';
+      lead.followupNote = '';
+      lead.followupNotificationSent = false;
+      lead.updatedAt = now();
+      await writeLocalDb(local);
+    }
+  } else {
+    await db.query("UPDATE leads SET followup_date = NULL, followup_note = '', followup_notif_odoslana = false, updated_at = now() WHERE id = $1", [id]);
+  }
+  await addAuditLog('lead', id, 'followup_cancelled', actorEmail, {});
+}
+
 export async function updateLeadInternalNote(id: string, internalNote: string, actorEmail: string) {
   await ensureSchema();
   const db = getPool();
@@ -1134,6 +1257,72 @@ export async function updateLeadInternalNote(id: string, internalNote: string, a
   if (!rows[0]) return null;
   await addAuditLog('lead', id, 'internal_note_changed', actorEmail, { previous: previous?.internalNote, next: internalNote });
   return toLead(rows[0]);
+}
+
+export async function deleteLeadFileRecord(fileId: string, actorEmail: string) {
+  await ensureSchema();
+  const file = await getLeadFile(fileId);
+  if (!file) return null;
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.leadFiles = local.leadFiles.filter((item) => item.id !== fileId);
+    await writeLocalDb(local);
+  } else {
+    await db.query('DELETE FROM lead_files WHERE id = $1', [fileId]);
+  }
+  await addAuditLog('lead', file.leadId, 'lead_file_deleted', actorEmail, { fileName: file.originalName, fileId });
+  return file;
+}
+
+export async function listDueFollowups(date = new Date().toISOString().slice(0, 10)) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.leads.filter((lead) => !lead.deletedAt && lead.followupDate === date && !lead.followupNotificationSent);
+  }
+  const { rows } = await db.query(
+    'SELECT * FROM leads WHERE deleted_at IS NULL AND followup_date = $1 AND followup_notif_odoslana = false ORDER BY created_at ASC',
+    [date],
+  );
+  return rows.map(toLead);
+}
+
+export async function markLeadFollowupNotificationSent(id: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const lead = local.leads.find((item) => item.id === id);
+    if (lead) lead.followupNotificationSent = true;
+    await writeLocalDb(local);
+    return;
+  }
+  await db.query('UPDATE leads SET followup_notif_odoslana = true WHERE id = $1', [id]);
+}
+
+export async function exportDatabaseBackup() {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return { exportedAt: now(), driver: 'local', tables: local };
+  }
+  const tableResult = await db.query(`
+    SELECT table_name
+    FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+    ORDER BY table_name
+  `);
+  const tables: Record<string, unknown[]> = {};
+  for (const row of tableResult.rows) {
+    const table = String(row.table_name);
+    if (!/^[a-zA-Z0-9_]+$/.test(table)) continue;
+    const data = await db.query(`SELECT * FROM ${table}`);
+    tables[table] = data.rows;
+  }
+  return { exportedAt: now(), driver: 'postgres', tables };
 }
 
 export async function addAuditLog(

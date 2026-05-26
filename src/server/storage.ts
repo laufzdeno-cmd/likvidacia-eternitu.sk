@@ -1,8 +1,8 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { get, put } from '@vercel/blob';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { del, get, put } from '@vercel/blob';
 import type { LeadFile } from './types';
 
 const localStorageRoot = path.join(process.cwd(), 'storage', 'lead-files');
@@ -131,4 +131,24 @@ export async function readStoredLeadFile(file: LeadFile) {
     throw new Error('Invalid file path.');
   }
   return readFile(fullPath);
+}
+
+export async function deleteStoredLeadFile(file: LeadFile) {
+  if (file.storageDriver === 'vercel_blob') {
+    await del(file.storageKey);
+    return;
+  }
+
+  if (file.storageDriver === 's3') {
+    const s3 = s3Client();
+    if (!s3) throw new Error('S3 storage is not configured.');
+    await s3.client.send(new DeleteObjectCommand({ Bucket: s3.bucket, Key: file.storageKey }));
+    return;
+  }
+
+  const fullPath = path.normalize(path.join(localStorageRoot, file.storageKey));
+  if (!fullPath.startsWith(path.normalize(localStorageRoot))) {
+    throw new Error('Invalid file path.');
+  }
+  await rm(fullPath, { force: true });
 }

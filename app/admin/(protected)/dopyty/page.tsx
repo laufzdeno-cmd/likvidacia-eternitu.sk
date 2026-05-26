@@ -1,36 +1,34 @@
-import { getLeadInsight, statusLabels, tagLabels, type LeadTag } from '@/src/server/lead-insights';
+import { getLeadInsight, statusLabels, type LeadTag } from '@/src/server/lead-insights';
 import { listLeadSummaries } from '@/src/server/db';
+import { cleanSlovakText } from '@/src/server/slovak-text';
 import type { LeadStatus } from '@/src/server/types';
 
 const statusOptions: Array<['', string] | [LeadStatus, string]> = [
-  ['', 'Všetky statusy'],
-  ['novy', 'nový'],
-  ['kontaktovany', 'kontaktovaný'],
-  ['caka_na_doplnenie', 'čaká na doplnenie'],
-  ['naceneny', 'nacenený'],
-  ['cenova_ponuka_odoslana', 'cenová ponuka odoslaná'],
-  ['objednane', 'objednané'],
-  ['v_realizacii', 'v realizácii'],
-  ['dokoncena', 'dokončená'],
-  ['zrusena', 'zrušená'],
-  ['nevyslo', 'nevyšlo'],
-  ['archivovane', 'archivované'],
+  ['', 'Všetky stavy'],
+  ['novy', 'Nový'],
+  ['kontaktovany', 'Kontaktovaný'],
+  ['caka_na_doplnenie', 'Zavolať neskôr'],
+  ['naceneny', 'Nacenený'],
+  ['cenova_ponuka_odoslana', 'Ponuka odoslaná'],
+  ['objednane', 'Prijatý'],
+  ['v_realizacii', 'V realizácii'],
+  ['dokoncena', 'Dokončený'],
+  ['zrusena', 'Zrušený'],
+  ['nevyslo', 'Odmietnutý'],
+  ['archivovane', 'Archivovaný'],
 ];
 
 const tagOptions: Array<['', string] | [LeadTag, string]> = [
   ['', 'Všetky štítky'],
-  ['chyba_fotka', 'chýbajú fotky'],
-  ['potrebuje_strechara', 'potrebuje strechára'],
-  ['urgentne', 'urgentné'],
-  ['nad_100_m2', 'nad 100 m²'],
-  ['pripravene_na_nacenenie', 'pripravené na nacenenie'],
+  ['chyba_fotka', 'Chýbajú fotky'],
+  ['potrebuje_strechara', 'Potrebuje strechára'],
+  ['urgentne', 'Urgentné'],
+  ['nad_100_m2', 'Nad 100 m²'],
+  ['pripravene_na_nacenenie', 'Pripravené na nacenenie'],
 ];
 
 function normalize(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase();
+  return value.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 }
 
 export default async function LeadsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -62,7 +60,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             <input name="q" defaultValue={q} placeholder="meno, telefón, obec, materiál..." />
           </label>
           <label>
-            Status
+            Stav
             <select name="status" defaultValue={status}>
               {statusOptions.map(([value, label]) => <option key={value || 'all'} value={value}>{label}</option>)}
             </select>
@@ -80,18 +78,17 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
 
       <section className="admin-card">
         <div className="admin-table-wrap">
-          <table className="admin-table">
+          <table className="admin-table admin-leads-table">
             <thead>
               <tr>
                 <th>Dátum</th>
-                <th>Zákazník</th>
+                <th>Meno a telefón</th>
                 <th>Lokalita</th>
-                <th>Materiál</th>
-                <th>Výmera</th>
+                <th>Materiál + m²</th>
                 <th>Skóre</th>
-                <th>Štítky</th>
-                <th>Status</th>
-                <th></th>
+                <th>Prílohy</th>
+                <th>Stav</th>
+                <th>Akcie</th>
               </tr>
             </thead>
             <tbody>
@@ -99,24 +96,29 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <tr key={lead.id}>
                   <td>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(lead.createdAt))}</td>
                   <td>
-                    <strong>{lead.fullName}</strong>
+                    <strong>{cleanSlovakText(lead.fullName)}</strong>
                     <br />
-                    <small>{lead.phone} · {lead.email}</small>
+                    <a className="admin-tel-link" href={`tel:${lead.phone}`}>{lead.phone}</a>
+                    {lead.email ? <small> · {lead.email}</small> : null}
                   </td>
-                  <td>{lead.city}{lead.district ? `, ${lead.district}` : ''}</td>
-                  <td>{lead.materialType}</td>
-                  <td>{lead.areaEstimate} m²</td>
-                  <td><span className="score-pill">{insight.qualityScore}/100</span></td>
+                  <td>{cleanSlovakText(lead.city)}{lead.district ? `, ${cleanSlovakText(lead.district)}` : ''}</td>
                   <td>
-                    <div className="tag-list">
-                      {insight.tags.map((item) => <span key={item}>{tagLabels[item]}</span>)}
+                    <strong>{cleanSlovakText(lead.materialType)}</strong>
+                    <br />
+                    <small>{lead.areaEstimate} m² · {cleanSlovakText(lead.objectType)}</small>
+                  </td>
+                  <td><span className="score-pill">{insight.qualityScore}/100</span></td>
+                  <td>{lead.fileCount ? <span className="attachment-pill">📎 {lead.fileCount}</span> : <span className="muted">—</span>}</td>
+                  <td><span className={`status-pill status-${lead.status}`}>{statusLabels[lead.status] || lead.status}</span></td>
+                  <td>
+                    <div className="admin-row-actions">
+                      <a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>
+                      <a className="admin-row-link is-plum" href={`/admin/ponuky/nova?lead=${lead.id}`}>Vytvoriť CP</a>
                     </div>
                   </td>
-                  <td><span className={`status-pill status-${lead.status}`}>{statusLabels[lead.status] || lead.status}</span></td>
-                  <td><a className="admin-row-link" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a></td>
                 </tr>
               ))}
-              {!leads.length ? <tr><td colSpan={9}>Nenašli sa žiadne dopyty pre zvolené filtre.</td></tr> : null}
+              {!leads.length ? <tr><td colSpan={8}>Nenašli sa žiadne dopyty pre zvolené filtre.</td></tr> : null}
             </tbody>
           </table>
         </div>

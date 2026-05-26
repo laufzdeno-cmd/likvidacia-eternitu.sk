@@ -64,6 +64,53 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   const sentOffers = offers.filter((offer) => offer.status === 'ODOSLANA' || offer.status === 'PRIJATA').length;
   const acceptedOffers = offers.filter((offer) => offer.status === 'PRIJATA').length;
   const done = jobs.filter((job) => job.status === 'DOKONCENA').length;
+  if (adminUser.role === 'OPERATOR') {
+    const today = new Date().toISOString().slice(0, 10);
+    const todayLeads = leads.filter((lead) => lead.createdAt.startsWith(today));
+    const waitingForOffer = leads.filter((lead) => ['novy', 'kontaktovany', 'naceneny'].includes(lead.status));
+    const followupsToday = leads.filter((lead) => lead.followupDate === today);
+    return (
+      <main className="admin-page">
+        <div className="admin-heading">
+          <div><p>Operátorský panel</p><h1>Prehľad práce</h1></div>
+        </div>
+        <section className="admin-stat-grid">
+          <article><span>Nové dopyty dnes</span><strong>{todayLeads.length}</strong><a href="/admin/dopyty">Otvoriť dopyty</a></article>
+          <article><span>Čakajú na ponuku</span><strong>{waitingForOffer.length}</strong><a href="/admin/dopyty?status=novy">Spracovať</a></article>
+          <article><span>Follow-up dnes</span><strong>{followupsToday.length}</strong><a href="/admin/dopyty">Zavolať</a></article>
+          <article><span>Naplánované akcie dnes</span><strong>0</strong><a href="/admin/planovac">Plánovač</a></article>
+        </section>
+        <section className="admin-card">
+          <h2>Rýchly prehľad</h2>
+          <table className="admin-table">
+            <thead><tr><th>Meno</th><th>Lokalita</th><th>m²</th><th>Tel.</th><th>Stav</th></tr></thead>
+            <tbody>
+              {leads.slice(0, 10).map((lead) => (
+                <tr key={lead.id}>
+                  <td><a href={`/admin/dopyty/${lead.id}`}>{lead.fullName}</a></td>
+                  <td>{lead.city}</td>
+                  <td>{lead.areaEstimate}</td>
+                  <td><a href={`tel:${lead.phone}`}>{lead.phone}</a></td>
+                  <td>{lead.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+        <section className="admin-card">
+          <h2>Dopyty ktoré nevyšli</h2>
+          <table className="admin-table">
+            <thead><tr><th>Meno</th><th>Lokalita</th><th>Dôvod / follow-up</th><th></th></tr></thead>
+            <tbody>
+              {leads.filter((lead) => lead.status === 'nevyslo').slice(0, 10).map((lead) => (
+                <tr key={lead.id}><td>{lead.fullName}</td><td>{lead.city}</td><td>{lead.followupNote || 'Bez poznámky'}</td><td><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a></td></tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="admin-page">

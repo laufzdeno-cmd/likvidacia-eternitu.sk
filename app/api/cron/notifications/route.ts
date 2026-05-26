@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listPlannerActions, markPlannerNotificationSent } from '@/src/server/db';
+import { listDueFollowups, listPlannerActions, markLeadFollowupNotificationSent, markPlannerNotificationSent } from '@/src/server/db';
 import { sendPlannerNotificationEmail } from '@/src/server/mail';
 import type { PlannerAction } from '@/src/server/types';
 
@@ -128,6 +128,37 @@ export async function GET(request: Request) {
       await markPlannerNotificationSent(action.id, 'notifyCustomerSent');
       sent += 1;
     }
+  }
+
+  const followups = await listDueFollowups(new Date().toISOString().slice(0, 10));
+  for (const lead of followups) {
+    const adminUrl = `${process.env.ADMIN_BASE_URL || new URL(request.url).origin}/admin/dopyty/${lead.id}`;
+    await sendPlannerNotificationEmail({
+      to: adminEmail(),
+      subject: `📞 Dnes zavolať — ${lead.fullName} ${lead.city}`,
+      text: [
+        `Meno: ${lead.fullName}`,
+        `Telefón: ${lead.phone}`,
+        `Lokalita: ${lead.city}`,
+        `Dôvod: ${lead.followupNote || 'follow-up'}`,
+        `Admin: ${adminUrl}`,
+      ].join('\n'),
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#F8F7F4;padding:24px;">
+          <div style="max-width:620px;margin:0 auto;background:white;border:1px solid #E8E6DF;border-radius:10px;overflow:hidden;">
+            <div style="background:#6B2D5E;color:white;padding:18px 22px;font-size:18px;font-weight:700;">📞 Dnes zavolať</div>
+            <div style="padding:22px;color:#1E293B;font-size:14px;line-height:1.7;">
+              <p><strong>Meno:</strong> ${lead.fullName}</p>
+              <p><strong>Telefón:</strong> <a href="tel:${lead.phone}" style="color:#E8541A;font-weight:700;">${lead.phone}</a></p>
+              <p><strong>Lokalita:</strong> ${lead.city}</p>
+              <p><strong>Dôvod:</strong> ${lead.followupNote || 'follow-up'}</p>
+              <p><a href="${adminUrl}" style="display:inline-block;background:#E8541A;color:white;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;">Otvoriť dopyt</a></p>
+            </div>
+          </div>
+        </div>`,
+    });
+    await markLeadFollowupNotificationSent(lead.id);
+    sent += 1;
   }
 
   return NextResponse.json({ ok: true, checked: actions.length, sent });

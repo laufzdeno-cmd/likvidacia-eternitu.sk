@@ -1,4 +1,4 @@
-import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+﻿import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import AdminNav from './admin-nav';
 import AdminTopbar from './admin-topbar';
 
@@ -46,6 +46,13 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
             "document.addEventListener('submit',function(e){var f=e.target;if(!(f instanceof HTMLFormElement))return;if((f.method||'').toLowerCase()!=='post')return;if(f.querySelector('input[name=\"_csrf\"]'))return;var token=document.getElementById('admin-csrf-token');if(!token)return;var input=document.createElement('input');input.type='hidden';input.name='_csrf';input.value=token.getAttribute('data-token')||'';f.appendChild(input);},true)",
         }}
       />
+      <script
+        dangerouslySetInnerHTML={{
+          __html:
+            "document.addEventListener('submit',function(e){var f=e.target;if(!(f instanceof HTMLFormElement))return;var name=f.getAttribute('data-confirm-delete-file');if(name&&!confirm('Naozaj zmazať '+name+'?'))e.preventDefault();},true)",
+        }}
+      />
     </div>
   );
 }
+

@@ -2148,6 +2148,290 @@ select:focus-visible,
   resize: vertical;
 }
 
+.admin-page .status-pill {
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.admin-page .status-novy,
+.admin-page .status-DOPYT,
+.admin-page .status-DOPYT_PRIJATY {
+  background: #3b82f6 !important;
+  color: #fff !important;
+}
+
+.admin-page .status-naceneny,
+.admin-page .status-cenova_ponuka_odoslana,
+.admin-page .status-PONUKA_ODOSLANA {
+  background: #f59e0b !important;
+  color: #fff !important;
+}
+
+.admin-page .status-objednane,
+.admin-page .status-PRIJATA,
+.admin-page .status-PONUKA_POTVRDENA {
+  background: #8b5cf6 !important;
+  color: #fff !important;
+}
+
+.admin-page .status-v_realizacii,
+.admin-page .status-URADY_PODANE,
+.admin-page .status-URADY_SCHVALENE,
+.admin-page .status-DEMONT_NAPLANOVANA,
+.admin-page .status-DEMONT_DOKONCENA,
+.admin-page .status-VYUCTOVANIE {
+  background: #06b6d4 !important;
+  color: #fff !important;
+}
+
+.admin-page .status-dokoncena,
+.admin-page .status-DOKONCENA {
+  background: #10b981 !important;
+  color: #fff !important;
+}
+
+.admin-page .status-zrusena,
+.admin-page .status-nevyslo,
+.admin-page .status-ZRUSENA {
+  background: #ef4444 !important;
+  color: #fff !important;
+}
+
+/* CRM workflow pass */
+.admin-row-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.admin-row-link.is-orange,
+.admin-primary-link,
+.admin-primary-button {
+  background: #e8541a;
+  border: 1px solid #e8541a;
+  color: #fff;
+}
+
+.admin-row-link.is-plum,
+.admin-primary-link.is-plum-full,
+.admin-secondary-link {
+  background: #6b2d5e;
+  border: 1px solid #6b2d5e;
+  color: #fff;
+}
+
+.admin-primary-link.is-plum-full {
+  display: block;
+  margin-top: 14px;
+  text-align: center;
+}
+
+.admin-danger-outline {
+  background: #fff;
+  border: 1px solid #c0392b;
+  border-radius: 6px;
+  color: #c0392b;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.admin-tel-link {
+  color: #e8541a;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.attachment-pill,
+.score-pill {
+  background: #f8f0f9;
+  border: 1px solid #e8e0ec;
+  border-radius: 999px;
+  color: #6b2d5e;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+}
+
+.admin-lead-layout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr);
+}
+
+.admin-lead-main,
+.admin-lead-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.admin-lead-side {
+  position: sticky;
+  top: 64px;
+}
+
+.admin-attachment-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-attachment-card {
+  align-items: center;
+  background: #fafafa;
+  border: 1px solid #e8e0ec;
+  border-radius: 10px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 80px 1fr;
+  padding: 12px;
+}
+
+.admin-attachment-card img,
+.admin-file-icon {
+  background: #f8f0f9;
+  border-radius: 8px;
+  height: 80px;
+  object-fit: cover;
+  width: 80px;
+}
+
+.admin-file-icon {
+  align-items: center;
+  display: flex;
+  font-size: 28px;
+  justify-content: center;
+}
+
+.admin-workflow-stepper {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(9, minmax(90px, 1fr));
+  overflow-x: auto;
+}
+
+.admin-workflow-stepper > div {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  min-height: 76px;
+  padding: 10px;
+  text-align: center;
+}
+
+.admin-workflow-stepper span {
+  align-items: center;
+  background: #cbd5e1;
+  border-radius: 50%;
+  color: #fff;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 800;
+  height: 26px;
+  justify-content: center;
+  margin-bottom: 8px;
+  width: 26px;
+}
+
+.admin-workflow-stepper strong {
+  color: #475569;
+  display: block;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.admin-workflow-stepper .is-active {
+  background: #f8f0f9;
+  border-color: #6b2d5e;
+}
+
+.admin-workflow-stepper .is-active span {
+  background: #6b2d5e;
+}
+
+.admin-workflow-stepper .is-active strong {
+  color: #1e293b;
+}
+
+.admin-workflow-action {
+  background: #fafafa;
+  border-left: 3px solid #6b2d5e;
+  border-radius: 8px;
+  color: #475569;
+  margin-top: 16px;
+  padding: 12px 16px;
+}
+
+.admin-details-modal summary {
+  background: #6b2d5e;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+  margin: 12px 0;
+  padding: 10px 14px;
+}
+
+.status-pill {
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+}
+
+.status-novy,
+.status-DOPYT,
+.status-DOPYT_PRIJATY {
+  background: #3b82f6;
+}
+
+.status-naceneny,
+.status-cenova_ponuka_odoslana,
+.status-PONUKA_ODOSLANA {
+  background: #f59e0b;
+}
+
+.status-objednane,
+.status-PRIJATA,
+.status-PONUKA_POTVRDENA {
+  background: #8b5cf6;
+}
+
+.status-v_realizacii,
+.status-URADY_PODANE,
+.status-URADY_SCHVALENE,
+.status-DEMONT_NAPLANOVANA,
+.status-DEMONT_DOKONCENA,
+.status-VYUCTOVANIE {
+  background: #06b6d4;
+}
+
+.status-dokoncena,
+.status-DOKONCENA {
+  background: #10b981;
+}
+
+.status-zrusena,
+.status-nevyslo,
+.status-ZRUSENA {
+  background: #ef4444;
+}
+
+@media (max-width: 1100px) {
+  .admin-lead-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-lead-side {
+    position: static;
+  }
+}
+
 .contact-preference {
   display: grid;
   gap: 10px;
@@ -10882,3 +11166,29 @@ body .admin-main .admin-page .admin-card,
     width: 100%;
   }
 }
+
+/* Final CRM badge overrides */
+.admin-page .status-pill { color: #fff !important; font-weight: 800 !important; }
+.admin-page .status-novy, .admin-page .status-DOPYT, .admin-page .status-DOPYT_PRIJATY { background: #3b82f6 !important; color: #fff !important; }
+.admin-page .status-naceneny, .admin-page .status-cenova_ponuka_odoslana, .admin-page .status-PONUKA_ODOSLANA { background: #f59e0b !important; color: #fff !important; }
+.admin-page .status-objednane, .admin-page .status-PRIJATA, .admin-page .status-PONUKA_POTVRDENA { background: #8b5cf6 !important; color: #fff !important; }
+.admin-page .status-v_realizacii, .admin-page .status-URADY_PODANE, .admin-page .status-URADY_SCHVALENE, .admin-page .status-DEMONT_NAPLANOVANA, .admin-page .status-DEMONT_DOKONCENA, .admin-page .status-VYUCTOVANIE { background: #06b6d4 !important; color: #fff !important; }
+.admin-page .status-dokoncena, .admin-page .status-DOKONCENA { background: #10b981 !important; color: #fff !important; }
+.admin-page .status-zrusena, .admin-page .status-nevyslo, .admin-page .status-ZRUSENA { background: #ef4444 !important; color: #fff !important; }
+
+/* Login polish */
+.admin-login-card label { display: grid !important; gap: 6px !important; width: 100% !important; }
+.admin-login-card input {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%) !important;
+  border: 1px solid #b8c8e6 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(15,31,61,0.04) !important;
+}
+.admin-login-card input:focus {
+  border-color: #6b2d5e !important;
+  box-shadow: 0 0 0 3px rgba(107,45,94,0.12), 0 10px 24px rgba(15,31,61,0.08) !important;
+  outline: none !important;
+}
+.admin-login-card .button { width: 100% !important; }

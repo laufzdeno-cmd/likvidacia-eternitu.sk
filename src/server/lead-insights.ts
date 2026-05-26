@@ -16,25 +16,25 @@ export type LeadInsight = {
 };
 
 export const tagLabels: Record<LeadTag, string> = {
-  chyba_fotka: 'chýbajú fotky',
-  potrebuje_strechara: 'potrebuje strechára',
-  urgentne: 'urgentné',
-  nad_100_m2: 'nad 100 m²',
-  pripravene_na_nacenenie: 'pripravené na nacenenie',
+  chyba_fotka: 'Chýbajú fotky',
+  potrebuje_strechara: 'Potrebuje strechára',
+  urgentne: 'Urgentné',
+  nad_100_m2: 'Nad 100 m²',
+  pripravene_na_nacenenie: 'Pripravené na nacenenie',
 };
 
 export const statusLabels: Record<LeadStatus, string> = {
-  novy: 'nový',
-  kontaktovany: 'kontaktovaný',
-  caka_na_doplnenie: 'čaká na doplnenie',
-  naceneny: 'nacenený',
-  cenova_ponuka_odoslana: 'cenová ponuka odoslaná',
-  objednane: 'objednané',
-  v_realizacii: 'v realizácii',
-  dokoncena: 'dokončená',
-  zrusena: 'zrušená',
-  nevyslo: 'nevyšlo',
-  archivovane: 'archivované',
+  novy: 'Nový',
+  kontaktovany: 'Kontaktovaný',
+  caka_na_doplnenie: 'Zavolať neskôr',
+  naceneny: 'Nacenený',
+  cenova_ponuka_odoslana: 'Ponuka odoslaná',
+  objednane: 'Prijatý',
+  v_realizacii: 'V realizácii',
+  dokoncena: 'Dokončený',
+  zrusena: 'Zrušený',
+  nevyslo: 'Odmietnutý',
+  archivovane: 'Archivovaný',
 };
 
 function normalized(value?: string) {

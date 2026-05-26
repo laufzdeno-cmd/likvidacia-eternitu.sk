@@ -8,7 +8,7 @@ const navGroups = [
   {
     title: 'HLAVNÉ',
     items: [
-      { href: '/admin/dashboard', label: 'Dashboard', icon: 'chart' },
+      { href: '/admin/dashboard', label: 'Prehľad', icon: 'chart' },
       { href: '/admin/zakazky', label: 'Zákazky', icon: 'list' },
       { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
       { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
@@ -16,7 +16,7 @@ const navGroups = [
     ],
   },
   {
-    title: 'REPORTING',
+    title: 'VÝKAZY',
     items: [
       { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar' },
       { href: '/admin/analytics', label: 'Analytika', icon: 'trend', superOnly: true },
@@ -27,19 +27,14 @@ const navGroups = [
     items: [
       { href: '/admin/reviews', label: 'Recenzie', icon: 'star' },
       { href: '/admin/reviews/request', label: 'Žiadosť o recenziu', icon: 'chat' },
-      { href: '/admin/realizacie', label: 'Realizácie', icon: 'image' },
-      { href: '/admin/referencie', label: 'Referencie', icon: 'badge' },
-      { href: '/admin/strechari', label: 'Strechári', icon: 'users' },
-      { href: '/admin/obsah', label: 'Texty webu', icon: 'edit' },
     ],
   },
   {
     title: 'ADMIN',
     items: [
-      { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
       { href: '/admin/nastavenia', label: 'Nastavenia', icon: 'gear', superOnly: true },
+      { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
       { href: '/admin/users', label: 'Používatelia', icon: 'users', superOnly: true },
-      { href: '/admin/health', label: 'Kontrola systému', icon: 'shield', superOnly: true },
     ],
   },
 ];
@@ -55,13 +50,9 @@ function Icon({ name }: { name: string }) {
     trend: <><path d="M4 17 10 11l4 4 6-8" /><path d="M14 7h6v6" /></>,
     gear: <><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" /><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1" /></>,
     upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 20h14" /></>,
-    chat: <><path d="M21 12a8 8 0 0 1-8 8H5l2-4a8 8 0 1 1 14-4Z" /></>,
+    chat: <path d="M21 12a8 8 0 0 1-8 8H5l2-4a8 8 0 1 1 14-4Z" />,
     mail: <><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></>,
-    image: <><path d="M5 5h14v14H5z" /><path d="m5 15 4-4 3 3 2-2 5 5" /><path d="M14.5 8.5h.01" /></>,
-    badge: <><path d="M12 3 4 7v6c0 5 3.5 7.5 8 8 4.5-.5 8-3 8-8V7z" /><path d="m9 12 2 2 4-5" /></>,
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
-    edit: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></>,
-    shield: <><path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7z" /><path d="m9 12 2 2 4-5" /></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" {...common}>{paths[name]}</svg>;
 }
@@ -82,15 +73,12 @@ export default function AdminNav({ role }: { role: AdminRole }) {
       {groups.map((group) => (
         <div className="admin-nav-group" key={group.title}>
           <span className="admin-nav-title">{group.title}</span>
-          {group.items.map((item) => {
-            const active = activeHref === item.href;
-            return (
-              <a key={item.href} href={item.href} aria-current={active ? 'page' : undefined}>
-                <Icon name={item.icon} />
-                <span>{item.label}</span>
-              </a>
-            );
-          })}
+          {group.items.map((item) => (
+            <a key={item.href} href={item.href} aria-current={activeHref === item.href ? 'page' : undefined}>
+              <Icon name={item.icon} />
+              <span>{item.label}</span>
+            </a>
+          ))}
         </div>
       ))}
     </nav>

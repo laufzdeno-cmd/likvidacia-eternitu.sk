@@ -11,6 +11,18 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
   if (email) redirect('/admin/dopyty');
   const params = await searchParams;
 
+  const fieldStyle = {
+    display: 'grid',
+    gap: '6px',
+    width: '100%',
+  } as const;
+
+  const inputStyle = {
+    display: 'block',
+    width: '100%',
+    boxSizing: 'border-box',
+  } as const;
+
   return (
     <main className="admin-login">
       <form className="admin-login-card" action="/admin/login/submit/" method="post">
@@ -19,18 +31,20 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
         <p>Dopyty, fotky a cenové ponuky sú chránené prihlásením.</p>
         {params?.error ? <div className="admin-alert">Nesprávny email alebo heslo.</div> : null}
         {params?.reset ? <div className="admin-alert">Heslo bolo zmenené. Prihláste sa novým heslom.</div> : null}
-        <label>
+        <label className="admin-field" style={fieldStyle}>
           Email
-          <input name="email" type="text" inputMode="email" autoComplete="username" required />
+          <input name="email" type="text" inputMode="email" autoComplete="username" required style={inputStyle} />
         </label>
-        <label>
+        <label className="admin-field" style={fieldStyle}>
           Heslo
-          <input name="password" type="password" autoComplete="current-password" required />
+          <input name="password" type="password" autoComplete="current-password" required style={inputStyle} />
         </label>
-        <button className="button button-primary" type="submit">
+        <button className="button button-primary" type="submit" style={{ width: '100%' }}>
           Prihlásiť sa
         </button>
-        <p><a href="/admin/reset-password">Zabudli ste heslo?</a></p>
+        <p>
+          <a href="/admin/reset-password">Zabudli ste heslo?</a>
+        </p>
       </form>
     </main>
   );
