@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requireAdmin, requireSuperAdmin } from '@/src/server/auth';
+import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { addBusinessJobNote, deleteBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob } from '@/src/server/db';
 import { sendBusinessQuoteEmail } from '@/src/server/mail';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
@@ -51,6 +51,7 @@ function parseJob(formData: FormData): BusinessJobInput {
 }
 
 export async function saveBusinessJobAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '') || undefined;
   const next = String(formData.get('next') || '');
@@ -65,6 +66,7 @@ export async function saveBusinessJobAction(formData: FormData) {
 }
 
 export async function deleteBusinessJobAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const id = String(formData.get('id') || '');
   if (id) {
@@ -76,6 +78,7 @@ export async function deleteBusinessJobAction(formData: FormData) {
 }
 
 export async function addBusinessJobNoteAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const note = String(formData.get('activityNote') || '');
@@ -86,6 +89,7 @@ export async function addBusinessJobNoteAction(formData: FormData) {
 }
 
 export async function sendBusinessQuoteAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const job = id ? await getBusinessJob(id) : null;

@@ -454,6 +454,7 @@ async function ensureSchema() {
       id uuid PRIMARY KEY,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
+      deleted_at timestamptz,
       demolition_date date NOT NULL,
       customer_name text NOT NULL,
       customer_phone text NOT NULL DEFAULT '',
@@ -482,12 +483,14 @@ async function ensureSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS term text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_source text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 
     CREATE TABLE IF NOT EXISTS price_offers (
       id uuid PRIMARY KEY,
       number text NOT NULL UNIQUE,
       job_id uuid REFERENCES business_jobs(id) ON DELETE SET NULL,
       created_at timestamptz NOT NULL DEFAULT now(),
+      deleted_at timestamptz,
       valid_until date NOT NULL,
       object_type text NOT NULL DEFAULT '',
       object_address text NOT NULL DEFAULT '',
@@ -512,6 +515,7 @@ async function ensureSchema() {
       accepted_at timestamptz,
       source_inquiry text NOT NULL DEFAULT ''
     );
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 
     CREATE TABLE IF NOT EXISTS business_job_workers (
       id uuid PRIMARY KEY,
@@ -589,6 +593,7 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
     number: String(row.number ?? row.cislo ?? ''),
     jobId: row.job_id || row.jobId ? String(row.job_id ?? row.jobId) : '',
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
     validUntil: dateOnly(row.valid_until ?? row.validUntil),
     objectType: String(row.object_type ?? row.objectType ?? ''),
     objectAddress: String(row.object_address ?? row.objectAddress ?? ''),
@@ -836,6 +841,7 @@ function enrichBusinessJob(
     id: String(row.id),
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+    deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
     demolitionDate: dateOnly(row.demolition_date ?? row.demolitionDate),
     customerName: String(row.customer_name ?? row.customerName ?? ''),
     customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
@@ -1757,17 +1763,18 @@ async function hydrateBusinessJobs(rows: Record<string, unknown>[]): Promise<Bus
   return rows.map((row) => enrichBusinessJob(row, workerMap.get(String(row.id)) ?? [], costMap.get(String(row.id))));
 }
 
-export async function listBusinessJobs(filters: { from?: string; to?: string } = {}): Promise<BusinessJob[]> {
+export async function listBusinessJobs(filters: { from?: string; to?: string; includeArchived?: boolean } = {}): Promise<BusinessJob[]> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     return [...local.businessJobs]
-      .filter((job) => (!filters.from || job.demolitionDate >= filters.from) && (!filters.to || job.demolitionDate <= filters.to))
+      .filter((job) => (filters.includeArchived || !job.deletedAt) && (!filters.from || job.demolitionDate >= filters.from) && (!filters.to || job.demolitionDate <= filters.to))
       .sort((a, b) => b.demolitionDate.localeCompare(a.demolitionDate));
   }
   const conditions: string[] = [];
   const values: unknown[] = [];
+  if (!filters.includeArchived) conditions.push('deleted_at IS NULL');
   if (filters.from) {
     values.push(filters.from);
     conditions.push(`demolition_date >= $${values.length}`);
@@ -1785,9 +1792,9 @@ export async function getBusinessJob(id: string): Promise<BusinessJob | null> {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    return local.businessJobs.find((job) => job.id === id) ?? null;
+    return local.businessJobs.find((job) => job.id === id && !job.deletedAt) ?? null;
   }
-  const { rows } = await db.query('SELECT * FROM business_jobs WHERE id = $1 LIMIT 1', [id]);
+  const { rows } = await db.query('SELECT * FROM business_jobs WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
   if (!rows[0]) return null;
   const jobs = await hydrateBusinessJobs(rows);
   return jobs[0] ?? null;
@@ -1814,13 +1821,14 @@ export async function deleteBusinessJob(id: string, actorEmail: string) {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    local.businessJobs = local.businessJobs.filter((job) => job.id !== id);
+    const job = local.businessJobs.find((item) => item.id === id);
+    if (job) job.deletedAt = now();
     await writeLocalDb(local);
-    await addAuditLog('business_job', id, 'business_job_deleted', actorEmail, {});
+    await addAuditLog('business_job', id, 'business_job_archived', actorEmail, {});
     return;
   }
-  await db.query('DELETE FROM business_jobs WHERE id = $1', [id]);
-  await addAuditLog('business_job', id, 'business_job_deleted', actorEmail, {});
+  await db.query('UPDATE business_jobs SET deleted_at = now(), updated_at = now() WHERE id = $1 AND deleted_at IS NULL', [id]);
+  await addAuditLog('business_job', id, 'business_job_archived', actorEmail, {});
 }
 
 export async function addBusinessJobNote(id: string, note: string, actorEmail: string) {
@@ -2138,17 +2146,18 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
   return offer;
 }
 
-export async function listPriceOffers(filters: { status?: PriceOfferStatus | ''; month?: string; jobId?: string } = {}): Promise<PriceOffer[]> {
+export async function listPriceOffers(filters: { status?: PriceOfferStatus | ''; month?: string; jobId?: string; includeArchived?: boolean } = {}): Promise<PriceOffer[]> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     return [...local.priceOffers]
-      .filter((offer) => (!filters.status || offer.status === filters.status) && (!filters.jobId || offer.jobId === filters.jobId) && (!filters.month || offer.createdAt.startsWith(filters.month)))
+      .filter((offer) => (filters.includeArchived || !offer.deletedAt) && (!filters.status || offer.status === filters.status) && (!filters.jobId || offer.jobId === filters.jobId) && (!filters.month || offer.createdAt.startsWith(filters.month)))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
   const conditions: string[] = [];
   const values: unknown[] = [];
+  if (!filters.includeArchived) conditions.push('deleted_at IS NULL');
   if (filters.status) {
     values.push(filters.status);
     conditions.push(`status = $${values.length}`);
@@ -2172,9 +2181,9 @@ export async function getPriceOffer(id: string): Promise<PriceOffer | null> {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    return local.priceOffers.find((offer) => offer.id === id) ?? null;
+    return local.priceOffers.find((offer) => offer.id === id && !offer.deletedAt) ?? null;
   }
-  const { rows } = await db.query('SELECT * FROM price_offers WHERE id = $1 LIMIT 1', [id]);
+  const { rows } = await db.query('SELECT * FROM price_offers WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
   return rows[0] ? toPriceOffer(rows[0]) : null;
 }
 
@@ -2212,12 +2221,13 @@ export async function deletePriceOffer(id: string, actorEmail: string) {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    local.priceOffers = local.priceOffers.filter((item) => item.id !== id);
+    const localOffer = local.priceOffers.find((item) => item.id === id);
+    if (localOffer) localOffer.deletedAt = now();
     await writeLocalDb(local);
   } else {
-    await db.query('DELETE FROM price_offers WHERE id = $1', [id]);
+    await db.query('UPDATE price_offers SET deleted_at = now() WHERE id = $1 AND deleted_at IS NULL', [id]);
   }
-  await addAuditLog('business_job', offer?.jobId || id, 'price_offer_deleted', actorEmail, { number: offer?.number });
+  await addAuditLog('business_job', offer?.jobId || id, 'price_offer_archived', actorEmail, { number: offer?.number });
 }
 
 export async function listRealizations(): Promise<Realization[]> {
@@ -3170,7 +3180,7 @@ export async function getSystemHealth() {
             : 'Lokálne ukladanie do storage/lead-files.',
     },
     smtp: {
-      ok: Boolean(process.env.SMTP_HOST && process.env.MAIL_FROM && process.env.LEAD_TO_EMAIL),
+      ok: Boolean(process.env.SMTP_HOST && (process.env.FROM_EMAIL || process.env.MAIL_FROM) && process.env.LEAD_TO_EMAIL),
       detail: process.env.SMTP_HOST ? 'SMTP host je nastavený.' : 'SMTP_HOST nie je nastavený, emaily sa preskočia.',
     },
     allowedOrigins: process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk,http://localhost:3000,http://localhost:5173',
@@ -3179,7 +3189,29 @@ export async function getSystemHealth() {
     lastLead: null as null | LeadSummary,
     lastEmailSent: null as null | AuditLog,
     lastEmailError: null as null | AuditLog,
+    pendingLeads: 0,
   };
+
+  if (process.env.SMTP_HOST && (process.env.FROM_EMAIL || process.env.MAIL_FROM) && process.env.LEAD_TO_EMAIL) {
+    try {
+      const nodemailer = await import('nodemailer');
+      const transport = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: Number(process.env.SMTP_PORT || 587),
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: process.env.SMTP_USER
+          ? {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS,
+            }
+          : undefined,
+      });
+      await transport.verify();
+      base.smtp = { ok: true, detail: 'SMTP server je dostupný.' };
+    } catch (error) {
+      base.smtp = { ok: false, detail: error instanceof Error ? error.message : 'SMTP server je nedostupný.' };
+    }
+  }
 
   try {
     await ensureSchema();
@@ -3195,6 +3227,7 @@ export async function getSystemHealth() {
       base.lastLead = latestLeads[0] ?? null;
       base.lastEmailSent = latestSent.rows[0] ? toAuditLog(latestSent.rows[0]) : null;
       base.lastEmailError = latestError.rows[0] ? toAuditLog(latestError.rows[0]) : null;
+      base.pendingLeads = latestLeads.filter((lead) => lead.status === 'novy').length;
       return base;
     }
 
@@ -3204,6 +3237,7 @@ export async function getSystemHealth() {
     base.lastLead = latestLeads[0] ?? null;
     base.lastEmailSent = local.auditLogs.find((log) => log.action === 'lead_email_sent') ?? null;
     base.lastEmailError = local.auditLogs.find((log) => log.action === 'lead_email_error' || log.action === 'lead_email_skipped') ?? null;
+    base.pendingLeads = latestLeads.filter((lead) => lead.status === 'novy').length;
     return base;
   } catch (error) {
     base.database = {

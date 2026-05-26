@@ -10,7 +10,8 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
   const status = (params.status || '') as PriceOfferStatus | '';
   const month = params.month || '';
   const jobId = params.jobId || '';
-  const offers = await listPriceOffers({ status, month, jobId });
+  const includeArchived = adminUser.role === 'SUPER_ADMIN' && params.archived === '1';
+  const offers = await listPriceOffers({ status, month, jobId, includeArchived });
   const monthKey = month || new Date().toISOString().slice(0, 7);
   const monthOffers = offers.filter((offer) => offer.createdAt.startsWith(monthKey));
   const sent = monthOffers.filter((offer) => ['ODOSLANA', 'PRIJATA'].includes(offer.status)).length;
@@ -33,6 +34,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
         <form className="admin-filter-bar" action="/admin/ponuky" method="get">
           <label>Stav<select name="status" defaultValue={status}><option value="">Všetky</option>{priceOfferStatuses.map((item) => <option key={item} value={item}>{priceOfferStatusLabels[item]}</option>)}</select></label>
           <label>Obdobie<input name="month" type="month" defaultValue={month} /></label>
+          {adminUser.role === 'SUPER_ADMIN' ? <label className="admin-check-label"><input name="archived" type="checkbox" value="1" defaultChecked={includeArchived} /> Zobraziť archivované</label> : null}
           <button type="submit">Filtrovať</button>
           <a href="/admin/ponuky">Reset</a>
         </form>
@@ -44,7 +46,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
             <tbody>
               {offers.map((offer) => (
                 <tr key={offer.id}>
-                  <td>{offer.number}</td>
+                  <td>{offer.number}{offer.deletedAt ? <small> Archivovaná</small> : null}</td>
                   <td>{new Intl.DateTimeFormat('sk-SK').format(new Date(offer.createdAt))}</td>
                   <td>{offer.contactPerson}</td>
                   <td>{offer.municipality || offer.objectAddress}</td>
@@ -55,10 +57,10 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   <td className="admin-action-row">
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Náhľad</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
-                    <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form>
-                    <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Prijatá</button></form>
-                    {adminUser.role === 'SUPER_ADMIN' ? (
-                      <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Zmazať</button></form>
+                    {!offer.deletedAt ? <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form> : null}
+                    {!offer.deletedAt ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Prijatá</button></form> : null}
+                    {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
+                      <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
                     ) : null}
                   </td>
                 </tr>

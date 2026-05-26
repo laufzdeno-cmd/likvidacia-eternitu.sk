@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireAdmin, requireSuperAdmin } from '@/src/server/auth';
+import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import {
   addAuditLog,
   deletePriceOffer,
@@ -47,6 +47,7 @@ function parseOffer(formData: FormData): PriceOfferInput {
 }
 
 export async function savePriceOfferAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '') || undefined;
   const next = String(formData.get('next') || '');
@@ -59,6 +60,7 @@ export async function savePriceOfferAction(formData: FormData) {
 }
 
 export async function sendPriceOfferAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const offer = await getPriceOffer(id);
@@ -92,6 +94,7 @@ export async function sendPriceOfferAction(formData: FormData) {
 }
 
 export async function updatePriceOfferStatusAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || 'PRIPRAVENA') as PriceOfferStatus;
@@ -100,6 +103,7 @@ export async function updatePriceOfferStatusAction(formData: FormData) {
 }
 
 export async function deletePriceOfferAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const id = String(formData.get('id') || '');
   if (id) await deletePriceOffer(id, actor);

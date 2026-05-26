@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { createRealization, updateRealizationStatus } from '@/src/server/db';
 import type { RealizationStatus } from '@/src/server/types';
 
@@ -16,6 +16,7 @@ function parseImageUrls(value: FormDataEntryValue | null) {
 }
 
 export async function createRealizationAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const status = String(formData.get('status') || 'draft') as RealizationStatus;
   const title = String(formData.get('title') || '').trim();
@@ -44,6 +45,7 @@ export async function createRealizationAction(formData: FormData) {
 }
 
 export async function updateRealizationStatusAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '') as RealizationStatus;

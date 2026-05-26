@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { createTestimonial, updateTestimonialStatus } from '@/src/server/db';
 import type { TestimonialStatus } from '@/src/server/types';
 
@@ -15,6 +15,7 @@ const sourceMap: Record<string, 'admin' | 'public' | 'google' | 'phone' | 'whats
 };
 
 export async function createTestimonialAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const customerName = String(formData.get('customerName') || '').trim();
   const location = String(formData.get('location') || '').trim();
@@ -55,6 +56,7 @@ export async function createTestimonialAction(formData: FormData) {
 }
 
 export async function updateTestimonialStatusAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '') as TestimonialStatus;

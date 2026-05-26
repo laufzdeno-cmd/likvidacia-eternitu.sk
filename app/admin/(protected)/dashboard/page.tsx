@@ -1,4 +1,5 @@
-import { listBusinessJobs, listLeadSummaries, listPriceOffers, listWorkers } from '@/src/server/db';
+import { getSystemHealth, listBusinessJobs, listLeadSummaries, listPriceOffers, listWorkers } from '@/src/server/db';
+import { requireAdminUser } from '@/src/server/auth';
 import { euro, jobStatusLabels, landfillLabels, numberSk } from '../zakazky/constants';
 import BusinessChart from './business-chart';
 
@@ -22,9 +23,10 @@ function pct(part: number, total: number) {
 
 export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
+  const adminUser = await requireAdminUser();
   const period = params.period || 'month';
   const bounds = periodBounds(period, params.from, params.to);
-  const [jobs, allJobs, leads, workers, offers] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true), listPriceOffers()]);
+  const [jobs, allJobs, leads, workers, offers, health] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true), listPriceOffers(), adminUser.role === 'SUPER_ADMIN' ? getSystemHealth() : Promise.resolve(null)]);
   const revenue = jobs.reduce((sum, job) => sum + job.totalPrice, 0);
   const invoice = jobs.filter((job) => job.paymentType === 'FAKTURA').reduce((sum, job) => sum + job.totalPrice, 0);
   const cash = jobs.filter((job) => job.paymentType === 'CASH').reduce((sum, job) => sum + job.totalPrice, 0);
@@ -80,6 +82,20 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
           <button className={period === 'custom' ? 'is-active' : ''} name="period" value="custom" type="submit">Vlastné</button>
         </form>
       </section>
+
+      {adminUser.role === 'SUPER_ADMIN' && health ? (
+        <section className="admin-card no-print">
+          <h2>Stav systému</h2>
+          <div className="admin-system-health">
+            <article className={health.smtp.ok ? 'is-ok' : 'is-error'}><span>{health.smtp.ok ? '✅' : '❌'} SMTP</span><strong>{health.smtp.ok ? 'Funkčný' : 'Nedostupný'}</strong><small>{health.smtp.detail}</small></article>
+            <article className={health.database.ok ? 'is-ok' : 'is-error'}><span>{health.database.ok ? '✅' : '❌'} Databáza</span><strong>{health.database.ok ? 'Online' : 'Offline'}</strong><small>{health.database.detail}</small></article>
+            <article className={health.storage.ok ? 'is-ok' : 'is-error'}><span>{health.storage.ok ? '✅' : '❌'} Storage</span><strong>{health.storage.ok ? 'Dostupné' : 'Nedostupné'}</strong><small>{health.storage.detail}</small></article>
+            <article><span>📨 Posledný dopyt</span><strong>{health.lastLead ? new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastLead.createdAt)) : '—'}</strong><small>{health.lastLead ? `${health.lastLead.fullName} · ${health.lastLead.city}` : 'Zatiaľ bez dopytu'}</small></article>
+            <article><span>📧 Posledný email</span><strong>{health.lastEmailSent ? new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastEmailSent.createdAt)) : '—'}</strong><small>{health.lastEmailError ? `Posledná chyba: ${health.lastEmailError.action}` : 'Bez evidovanej chyby'}</small></article>
+            <article className={health.pendingLeads > 0 ? 'is-warning' : 'is-ok'}><span>⚠️ Nevybavené dopyty</span><strong>{health.pendingLeads}</strong><small>{health.pendingLeads ? 'Čakajú na spracovanie' : 'Všetko spracované'}</small></article>
+          </div>
+        </section>
+      ) : null}
 
       <section className="admin-stat-grid">
         <article><span>Tržby spolu</span><strong>{euro(revenue)}</strong></article>

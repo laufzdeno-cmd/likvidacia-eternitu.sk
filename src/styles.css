@@ -3569,6 +3569,68 @@ select:focus-visible,
   background: #fff7f7 !important;
 }
 
+.admin-system-health {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.admin-system-health article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #ffffff;
+}
+
+.admin-system-health article.is-ok {
+  border-left-color: #2d7a3a;
+  background: #f0fdf4;
+}
+
+.admin-system-health article.is-warning {
+  border-left-color: #c9a84c;
+  background: #fffbeb;
+}
+
+.admin-system-health article.is-error {
+  border-left-color: #c0392b;
+  background: #fef2f2;
+}
+
+.admin-system-health span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-system-health strong {
+  color: #1e293b;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.admin-system-health small {
+  color: #64748b;
+  line-height: 1.35;
+}
+
+@media (max-width: 1100px) {
+  .admin-system-health {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-system-health {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-dl.wide {
   grid-template-columns: minmax(170px, 0.24fr) minmax(0, 1fr);
 }

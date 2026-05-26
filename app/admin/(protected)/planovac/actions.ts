@@ -1,11 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { savePlannerAction } from '@/src/server/db';
 import type { PlannerActionStatus, PlannerActionType } from '@/src/server/types';
 
 export async function savePlannerActionAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const workers = formData.getAll('workers').map(String).filter(Boolean).join(',');
   await savePlannerAction(

@@ -14,7 +14,7 @@ export default function PrivacyPage() {
       sections={[
         {
           title: 'Prevádzkovateľ',
-          text: 'ASTANA, s.r.o., Scherffelova 1364/28, 058 01 Poprad, IČO: 44 167 701, DIČ: 2022353771, IČ DPH: SK2022353771, email: astana@astana.sk.',
+          text: 'ASTANA, s.r.o., Scherffelova 1364/28, Poprad 058 01, IČO: 46 157 701, DIČ: 2023253771, IČ DPH: SK2023253771, email: astana@astana.sk.',
         },
         {
           title: 'Aké údaje zbierame',

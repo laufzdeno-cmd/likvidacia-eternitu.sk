@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { createReviewRequest, getSiteContentMap, updateReviewRequestStatus, upsertSiteContentValues } from '@/src/server/db';
 import type { ReviewRequestStatus } from '@/src/server/types';
 
@@ -15,6 +15,7 @@ function normalizePhone(value: string) {
 }
 
 export async function createReviewRequestAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const customerName = String(formData.get('customerName') || '').trim();
   const phone = String(formData.get('phone') || '').trim();
@@ -42,6 +43,7 @@ export async function createReviewRequestAction(formData: FormData) {
 }
 
 export async function updateReviewRequestStatusAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '') as ReviewRequestStatus;

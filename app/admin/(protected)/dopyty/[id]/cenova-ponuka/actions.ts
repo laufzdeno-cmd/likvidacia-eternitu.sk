@@ -1,11 +1,12 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { createQuote, getRoofer, nextQuoteNumber } from '@/src/server/db';
 import { quoteSchema } from '@/src/server/validation';
 
 export async function createQuoteAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const leadId = String(formData.get('leadId') || '');
   const quoteNumber = String(formData.get('quoteNumber') || '') || (await nextQuoteNumber());

@@ -20,6 +20,18 @@ function sign(value: string) {
   return createHmac('sha256', secret).update(value).digest('base64url');
 }
 
+export function csrfTokenForEmail(email: string) {
+  return sign(`admin-csrf:${email.trim().toLowerCase()}`);
+}
+
+export async function verifyCsrf(formData: FormData) {
+  const email = await currentAdminEmail();
+  const token = String(formData.get('_csrf') || '');
+  if (!email || !token || token !== csrfTokenForEmail(email)) {
+    throw new Error('Neplatný bezpečnostný token. Obnovte stránku a skúste to znova.');
+  }
+}
+
 function encodeSession(email: string) {
   const payload = Buffer.from(JSON.stringify({ email, iat: Date.now() })).toString('base64url');
   return `${payload}.${sign(payload)}`;

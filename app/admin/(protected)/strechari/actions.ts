@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { createRoofer, updateRooferFlags } from '@/src/server/db';
 
 function checkbox(value: FormDataEntryValue | null) {
@@ -40,6 +40,7 @@ function parseImportLine(line: string) {
 }
 
 export async function createRooferAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const name = String(formData.get('name') || '').trim();
   const region = String(formData.get('region') || '').trim();
@@ -74,6 +75,7 @@ export async function createRooferAction(formData: FormData) {
 }
 
 export async function importRoofersAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const raw = String(formData.get('rows') || '').trim();
   if (!raw) redirect('/admin/strechari?chyba=import');
@@ -115,6 +117,7 @@ export async function importRoofersAction(formData: FormData) {
 }
 
 export async function updateRooferFlagsAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   if (!id) redirect('/admin/strechari');

@@ -275,6 +275,7 @@ export type BusinessJob = {
   id: string;
   createdAt: string;
   updatedAt: string;
+  deletedAt?: string;
   demolitionDate: string;
   customerName: string;
   customerPhone: string;
@@ -359,6 +360,7 @@ export type PriceOffer = PriceOfferInput & {
   id: string;
   number: string;
   createdAt: string;
+  deletedAt?: string;
   sentAt?: string;
   acceptedAt?: string;
   materialPriceWithoutVat: number;

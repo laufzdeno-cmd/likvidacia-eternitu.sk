@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { upsertSiteContentValues } from '@/src/server/db';
 
 export async function updateSiteContentAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actorEmail = await requireAdmin();
   const values: Record<string, string> = {};
 

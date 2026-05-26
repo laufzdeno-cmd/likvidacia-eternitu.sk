@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin } from '@/src/server/auth';
+import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { updateLeadInternalNote, updateLeadStatus } from '@/src/server/db';
 import type { LeadStatus } from '@/src/server/types';
 
@@ -20,6 +20,7 @@ const allowedStatuses = new Set<LeadStatus>([
 ]);
 
 export async function saveLeadStatus(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '') as LeadStatus;
@@ -33,6 +34,7 @@ export async function saveLeadStatus(formData: FormData) {
 }
 
 export async function saveInternalNote(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const internalNote = String(formData.get('internalNote') || '').slice(0, 5000);

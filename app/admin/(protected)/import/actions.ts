@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireSuperAdmin } from '@/src/server/auth';
+import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { listWorkers, saveBusinessJob } from '@/src/server/db';
 import type { BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
@@ -25,6 +25,7 @@ function num(value: string) {
 }
 
 export async function importBusinessJobsAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const csv = String(formData.get('csv') || '');
   const workers = await listWorkers(true);

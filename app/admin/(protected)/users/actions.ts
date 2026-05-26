@@ -1,11 +1,12 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { hashPassword, requireSuperAdmin } from '@/src/server/auth';
+import { hashPassword, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { setAdminUserActive, upsertAdminUser } from '@/src/server/db';
 import type { AdminRole } from '@/src/server/types';
 
 export async function saveAdminUserAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireSuperAdmin();
   const password = String(formData.get('password') || '');
   await upsertAdminUser(
@@ -23,6 +24,7 @@ export async function saveAdminUserAction(formData: FormData) {
 }
 
 export async function toggleAdminUserAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = await requireSuperAdmin();
   const id = String(formData.get('id') || '');
   if (id) await setAdminUserActive(id, String(formData.get('active') || '') === 'true', actor.email);

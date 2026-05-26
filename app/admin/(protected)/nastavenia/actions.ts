@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { adminEmail, hashPassword, requireSuperAdmin, verifyAdminCredentials } from '@/src/server/auth';
+import { adminEmail, hashPassword, requireSuperAdmin, verifyAdminCredentials, verifyCsrf } from '@/src/server/auth';
 import { deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, setAdminSetting, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
 import type { BusinessLandfill, PriceOfferMaterialType } from '@/src/server/types';
 
@@ -11,6 +11,7 @@ function num(value: FormDataEntryValue | null) {
 }
 
 export async function saveWorkerAction(formData: FormData) {
+  await verifyCsrf(formData);
   await requireSuperAdmin();
   await upsertWorker({
     id: String(formData.get('id') || '') || undefined,
@@ -22,6 +23,7 @@ export async function saveWorkerAction(formData: FormData) {
 }
 
 export async function saveLandfillPriceAction(formData: FormData) {
+  await verifyCsrf(formData);
   await requireSuperAdmin();
   await upsertLandfillPrice({
     id: String(formData.get('id') || '') || undefined,
@@ -33,6 +35,7 @@ export async function saveLandfillPriceAction(formData: FormData) {
 }
 
 export async function deleteLandfillPriceAction(formData: FormData) {
+  await verifyCsrf(formData);
   await requireSuperAdmin();
   const id = String(formData.get('id') || '');
   if (id) await deleteLandfillPrice(id);
@@ -40,6 +43,7 @@ export async function deleteLandfillPriceAction(formData: FormData) {
 }
 
 export async function saveGeneralSettingsAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   await saveBusinessSettings({
     defaultPricePerM2: num(formData.get('defaultPricePerM2')),
@@ -49,6 +53,7 @@ export async function saveGeneralSettingsAction(formData: FormData) {
 }
 
 export async function savePriceOfferSettingsAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const current = await getPriceOfferSettings();
   const materialPrices = { ...current.materialPrices };
@@ -71,6 +76,7 @@ export async function savePriceOfferSettingsAction(formData: FormData) {
 }
 
 export async function changeAdminPasswordAction(formData: FormData) {
+  await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const currentPassword = String(formData.get('currentPassword') || '');
   const newPassword = String(formData.get('newPassword') || '');

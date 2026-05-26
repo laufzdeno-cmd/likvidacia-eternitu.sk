@@ -26,7 +26,8 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
   const payment = (params.payment || '') as BusinessPaymentType | '';
   const landfill = (params.landfill || '') as BusinessLandfill | '';
   const month = params.month || '';
-  const [jobs, workers, offers] = await Promise.all([listBusinessJobs(monthBounds(month)), listWorkers(true), listPriceOffers()]);
+  const includeArchived = adminUser.role === 'SUPER_ADMIN' && params.archived === '1';
+  const [jobs, workers, offers] = await Promise.all([listBusinessJobs({ ...monthBounds(month), includeArchived }), listWorkers(true), listPriceOffers({ includeArchived })]);
   const offersByJob = new Map<string, number>();
   for (const offer of offers) {
     if (offer.jobId) offersByJob.set(offer.jobId, (offersByJob.get(offer.jobId) ?? 0) + 1);
@@ -46,7 +47,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
     (sum, job) => ({ count: sum.count + 1, m2: sum.m2 + job.m2, revenue: sum.revenue + job.totalPrice, profit: sum.profit + job.grossProfit }),
     { count: 0, m2: 0, revenue: 0, profit: 0 },
   );
-  const exportQuery = new URLSearchParams({ q, status, worker: workerId, payment, landfill, month }).toString();
+  const exportQuery = new URLSearchParams({ q, status, worker: workerId, payment, landfill, month, archived: includeArchived ? '1' : '' }).toString();
 
   return (
     <main className="admin-page">
@@ -71,6 +72,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
           <label>Platba<select name="payment" defaultValue={payment}><option value="">Všetky</option>{paymentTypes.map((item) => <option key={item} value={item}>{paymentLabels[item]}</option>)}</select></label>
           <label>Skládka<select name="landfill" defaultValue={landfill}><option value="">Všetky</option>{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select></label>
           <label>Vyhľadávanie<input name="q" defaultValue={q} placeholder="meno, lokalita" /></label>
+          {adminUser.role === 'SUPER_ADMIN' ? <label className="admin-check-label"><input name="archived" type="checkbox" value="1" defaultChecked={includeArchived} /> Zobraziť archivované</label> : null}
           <button type="submit">Filtrovať</button>
           <a href="/admin/zakazky">Reset</a>
         </form>
@@ -84,7 +86,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
               {filtered.map((job) => (
                 <tr key={job.id}>
                   <td>{new Intl.DateTimeFormat('sk-SK').format(new Date(job.demolitionDate))}</td>
-                  <td><a href={`/admin/zakazky/${job.id}`}>{job.customerName}</a></td>
+                  <td><a href={`/admin/zakazky/${job.id}`}>{job.customerName}</a>{job.deletedAt ? <small> Archivované</small> : null}</td>
                   <td>{job.location}</td>
                   <td>{numberSk(job.m2)}</td>
                   <td>{euro(job.totalPrice)}</td>
@@ -94,10 +96,10 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   <td><a href={`/admin/ponuky?jobId=${job.id}`}>{offersByJob.get(job.id) ?? 0}</a></td>
                   <td>{euro(job.grossProfit)}</td>
                   <td className="no-print">
-                    {adminUser.role === 'SUPER_ADMIN' ? (
+                    {adminUser.role === 'SUPER_ADMIN' && !job.deletedAt ? (
                       <form action={deleteBusinessJobAction}>
                         <input type="hidden" name="id" value={job.id} />
-                        <button type="submit">Zmazať</button>
+                        <button type="submit">Archivovať</button>
                       </form>
                     ) : null}
                   </td>
