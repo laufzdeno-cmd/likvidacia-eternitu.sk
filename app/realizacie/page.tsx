@@ -93,10 +93,10 @@ export default function RealizationsPage() {
         </div>
         <nav className="site-nav" id="site-nav" aria-label="Hlavná navigácia">
           <a href="/#orientacna-cena">Orientačná cena</a>
-          <a href="/#ako-to-prebieha">Ako to prebieha</a>
+          <a href="/postup/">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
           <a href="/realizacie/" aria-current="page">Realizácie</a>
-          <a href="/#faq">FAQ</a>
+          <a href="/faq/">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
           <a className="nav-mobile-phone" href="tel:+421905217946">
             <span className="meta-icon phone" aria-hidden="true"></span>0905 217 946

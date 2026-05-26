@@ -1,5 +1,6 @@
 import LandingClient from '../landing-client';
 import { listApprovedTestimonials } from '@/src/server/db';
+import { PublicFooter } from '../public-layout';
 
 export const metadata = {
   title: 'Hodnotenia zákazníkov ASTANA | Recenzie',
@@ -67,6 +68,7 @@ export default async function ReviewsPage() {
           </div>
         </section>
       </main>
+      <PublicFooter />
       <LandingClient />
     </>
   );

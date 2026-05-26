@@ -1,21 +1,43 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+
 User-agent: Googlebot
 Allow: /
-Disallow: /admin
-Disallow: /api
+Disallow: /admin/
 
 User-agent: Bingbot
 Allow: /
-Disallow: /admin
-Disallow: /api
+Disallow: /admin/
 
-User-agent: OAI-SearchBot
+User-agent: GPTBot
 Allow: /
-Disallow: /admin
-Disallow: /api
+Disallow: /admin/
 
-User-agent: *
+User-agent: Claude-Web
 Allow: /
-Disallow: /admin
-Disallow: /api
+Disallow: /admin/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /admin/
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /admin/
+
+User-agent: Applebot
+Allow: /
+Disallow: /admin/
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
 
 Sitemap: https://likvidacia-eternitu.sk/sitemap.xml

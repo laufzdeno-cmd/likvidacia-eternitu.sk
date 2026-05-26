@@ -1,18 +1,41 @@
-import SimplePublicPage from '../simple-public-page';
+import type { Metadata } from 'next';
+import { PublicPageShell } from '../public-layout';
 
-export const metadata = { title: 'Cookies | ASTANA', description: 'Informácie o používaní cookies na webe likvidacia-eternitu.sk.' };
+export const metadata: Metadata = {
+  title: 'Zásady cookies | ASTANA likvidácia azbestu',
+  description: 'Informácie o používaní cookies na likvidacia-eternitu.sk.',
+  alternates: { canonical: '/cookies/' },
+  robots: { index: true, follow: true },
+};
 
 export default function CookiesPage() {
   return (
-    <SimplePublicPage
-      eyebrow="Cookies"
-      title="Informácie o cookies"
-      lead="Web používa nevyhnutné technické prvky potrebné na fungovanie stránky a spracovanie formulára. Analytické a marketingové nástroje sa majú zapínať až po súhlase používateľa."
-      sections={[
-        { title: 'Nevyhnutné cookies', text: 'Slúžia na bezpečné fungovanie formulára, adminu a základných nastavení stránky.' },
-        { title: 'Analytika', text: 'Ak bude nasadená analytika, musí byť spustená až po udelení súhlasu v cookie lište.' },
-        { title: 'Kontakt', text: 'V otázkach ochrany údajov nás kontaktujte na astana@astana.sk.' },
-      ]}
-    />
+    <PublicPageShell>
+      <main className="seo-page">
+        <section className="seo-hero">
+          <p className="eyebrow">Cookies</p>
+          <h1>Zásady používania cookies</h1>
+          <p>Prehľad toho, aké cookies používame a ako s nimi môžete pracovať.</p>
+        </section>
+        <section className="seo-section seo-grid-2">
+          <article>
+            <h2>Čo sú cookies</h2>
+            <p>Cookies sú malé súbory ukladané v prehliadači. Pomáhajú stránke fungovať správne a zapamätať si základné nastavenia.</p>
+          </article>
+          <article>
+            <h2>Aké cookies používame</h2>
+            <p>Používame funkčné cookies potrebné pre bezpečné fungovanie stránky a formulára. Analytické údaje spracúvame first-party spôsobom bez IP adries.</p>
+          </article>
+          <article>
+            <h2>Ako ich vypnúť</h2>
+            <p>Cookies môžete obmedziť v nastaveniach svojho prehliadača. Niektoré funkcie stránky však potom nemusia fungovať pohodlne.</p>
+          </article>
+          <article>
+            <h2>Kontakt</h2>
+            <p>V otázkach ochrany údajov nás kontaktujte na astana@astana.sk.</p>
+          </article>
+        </section>
+      </main>
+    </PublicPageShell>
   );
 }
