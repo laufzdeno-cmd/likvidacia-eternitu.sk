@@ -49,7 +49,7 @@ function includedItems() {
   ];
 }
 
-function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
+export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   const c = settings.company;
   const material = materialLabel(offer);
   const vatMultiplier = 1 + settings.vatRate / 100;
@@ -68,76 +68,79 @@ function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   <style>
     :root {
       --navy: #6B2D5E;
-      --plum-dark: #4A1D40;
+      --plum-light: #F8F4FA;
       --gold: #C9A84C;
-      --orange: #C0392B;
-      --gray: #4A4845;
-      --muted: #8A8880;
-      --light: #F8F7F4;
-      --border: #E8E6DF;
+      --accent: #C0392B;
+      --gray: #475569;
+      --text: #1E293B;
+      --muted: #94A3B8;
+      --soft: #FAFAFA;
+      --border: #E8E0EC;
       --white: #FFFFFF;
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: var(--gray); background: white; }
     .page { position: relative; width: 210mm; min-height: 297mm; background: white; overflow: hidden; page-break-after: always; }
-    .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); z-index: 0; pointer-events: none; color: rgba(107,45,94,0.04); font-size: 120px; font-weight: 700; letter-spacing: 10px; white-space: nowrap; }
+    .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); z-index: 0; pointer-events: none; color: rgba(107,45,94,0.035); font-size: 130px; font-weight: 800; letter-spacing: 15px; white-space: nowrap; }
     .page-content { position: relative; z-index: 1; min-height: 297mm; }
     .page:last-child { page-break-after: auto; }
-    .top-header { height: 80px; padding: 0 40px; background: linear-gradient(135deg, var(--navy) 0%, var(--plum-dark) 100%); color: white; display: table; width: 100%; }
+    .top-header { min-height: 92px; padding: 24px 40px 20px; background: var(--white); border-bottom: 3px solid var(--navy); color: var(--text); display: table; width: 100%; }
     .top-header-cell { display: table-cell; vertical-align: middle; }
-    .brand { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; line-height: 1; }
-    .tagline { margin-top: 7px; color: rgba(255,255,255,0.55); font-size: 11px; letter-spacing: 0.05em; }
-    .header-contact { text-align: right; color: rgba(255,255,255,0.72); font-size: 9px; line-height: 1.6; }
-    .accent { height: 3px; background: var(--gold); }
-    .document-title { padding: 32px 40px 24px; display: table; width: 100%; }
+    .brand { color: var(--navy); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+    .gold-line { width: 58px; height: 3px; margin: 8px 0 7px; background: var(--gold); }
+    .tagline { color: var(--muted); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .header-contact { text-align: right; color: #64748B; font-size: 9px; line-height: 1.7; }
+    .accent { height: 4px; background: var(--navy); }
+    .document-title { padding: 28px 40px 20px; display: table; width: 100%; }
     .document-title-left, .document-title-right { display: table-cell; vertical-align: top; }
-    .document-title-right { text-align: right; color: var(--muted); font-size: 12px; padding-top: 8px; }
-    h1 { margin: 0; color: var(--navy); font-size: 28px; font-weight: 700; letter-spacing: 0.05em; }
-    .offer-number { margin-top: 4px; color: var(--orange); font-size: 20px; font-weight: 700; }
-    .subtitle { margin-top: 4px; color: var(--muted); font-size: 13px; }
-    .info-box { margin: 0 40px 24px; padding: 16px 20px; background: var(--light); border-left: 4px solid var(--orange); border-radius: 0 6px 6px 0; display: table; width: calc(100% - 80px); }
+    .document-title-right { text-align: right; color: var(--muted); font-size: 11px; padding-top: 7px; }
+    h1 { margin: 0; color: var(--navy); font-size: 24px; font-weight: 800; letter-spacing: 0.02em; }
+    .offer-number { margin-top: 4px; color: var(--accent); font-size: 16px; font-weight: 700; }
+    .subtitle { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .info-box { margin: 0 40px 20px; padding: 14px 18px; background: var(--soft); border-left: 4px solid var(--navy); border-radius: 0 6px 6px 0; display: table; width: calc(100% - 80px); }
     .info-col { display: table-cell; width: 50%; vertical-align: top; padding-right: 24px; }
-    .field-label { margin: 0 0 5px; color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .field-value { margin: 0 0 12px; color: var(--navy); font-size: 13px; font-weight: 600; line-height: 1.45; }
-    .field-email { color: var(--orange); font-size: 13px; font-weight: 600; }
+    .field-label { margin: 0 0 5px; color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field-value { margin: 0 0 11px; color: var(--text); font-size: 12px; font-weight: 600; line-height: 1.45; }
+    .field-email { color: var(--accent); font-size: 12px; font-weight: 600; }
     .body { padding: 0 40px; }
-    .greeting { margin: 0 0 8px; color: var(--navy); font-size: 14px; font-weight: 700; }
-    .copy { margin: 0 0 16px; color: var(--gray); font-size: 13px; line-height: 1.7; }
-    .price-table { width: 100%; border-collapse: collapse; margin: 0 0 16px; font-size: 11px; }
-    .price-table th { background: linear-gradient(135deg, var(--navy) 0%, var(--plum-dark) 100%); color: white; text-align: left; padding: 10px 16px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .price-table td { padding: 10px 16px; border-bottom: 1px solid var(--border); color: var(--gray); }
-    .price-table tbody tr:nth-child(even) td { background: var(--light); }
+    .greeting { margin: 0 0 8px; color: var(--text); font-size: 13px; font-weight: 700; }
+    .copy { margin: 0 0 16px; color: var(--gray); font-size: 12px; line-height: 1.65; }
+    .price-table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 12px; }
+    .price-table th { background: var(--navy); color: white; text-align: left; padding: 9px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .price-table td { padding: 9px 14px; border-bottom: 1px solid #F1F5F9; color: var(--text); }
+    .price-table tbody tr:nth-child(even) td { background: var(--soft); }
     .price-table .right { text-align: right; white-space: nowrap; }
-    .price-table .summary td { background: var(--light); color: var(--navy); font-weight: 700; }
-    .price-table .total td { background: linear-gradient(135deg, var(--navy) 0%, var(--plum-dark) 100%); color: white; padding: 12px 16px; font-size: 14px; font-weight: 700; border-bottom: 0; }
-    .price-table .total .amount { color: var(--gold); font-size: 16px; }
-    .included-title { margin: 0 0 8px; color: var(--navy); font-size: 12px; font-weight: 700; }
+    .price-table .summary td { background: var(--plum-light); color: var(--text); font-weight: 700; border-top: 1px solid var(--border); }
+    .price-table .total td { background: var(--navy); color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; border-bottom: 0; }
+    .price-table .total .amount { color: #FFE08A; font-size: 16px; font-weight: 800; }
+    .included-wrap { background: var(--soft); border-radius: 8px; padding: 16px 20px; margin: 0 0 16px; }
+    .included-title { margin: 0 0 10px; color: var(--navy); font-size: 11px; font-weight: 700; text-transform: uppercase; }
     .included { display: table; width: 100%; margin-top: 4px; }
     .included-col { display: table-cell; width: 50%; vertical-align: top; padding-right: 18px; }
     .included-item { color: var(--gray); font-size: 11px; line-height: 1.8; }
     .checkmark { display: inline-block; width: 6px; height: 10px; margin: 0 8px 0 1px; border-right: 2px solid var(--navy); border-bottom: 2px solid var(--navy); transform: rotate(45deg); vertical-align: 1px; }
-    .slim-header { height: 40px; background: linear-gradient(135deg, var(--navy) 0%, var(--plum-dark) 100%); color: rgba(255,255,255,0.65); font-size: 10px; padding: 0 40px; line-height: 40px; }
+    .slim-header { height: 36px; background: var(--navy); color: rgba(255,255,255,0.65); font-size: 10px; padding: 0 40px; line-height: 36px; }
     .terms { padding: 24px 40px 0; }
-    .section-title { margin: 0 0 12px; color: var(--navy); font-size: 12px; font-weight: 700; }
+    .section-title { margin: 0 0 12px; color: var(--navy); font-size: 13px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid var(--navy); padding-bottom: 6px; }
     .terms p { margin: 0 0 13px; color: var(--gray); font-size: 11px; line-height: 1.7; }
     .two-boxes { padding: 8px 40px 0; display: table; width: 100%; border-spacing: 0; }
     .box-wrap { display: table-cell; width: 50%; vertical-align: top; }
     .box-wrap:first-child { padding-right: 10px; }
     .box-wrap:last-child { padding-left: 10px; }
-    .small-box { border: 1px solid var(--border); border-radius: 6px; padding: 16px 20px; min-height: 104px; }
+    .small-box { border: 1px solid var(--border); border-top: 3px solid var(--navy); border-radius: 6px; background: var(--soft); padding: 14px 18px; min-height: 104px; }
     .small-label { margin: 0 0 7px; color: var(--muted); font-size: 11px; }
-    .valid-date { margin: 0 0 8px; color: var(--orange); font-size: 16px; font-weight: 700; }
+    .valid-date { margin: 0 0 8px; color: var(--accent); font-size: 15px; font-weight: 700; }
     .small-text { margin: 0; color: var(--gray); font-size: 11px; line-height: 1.5; }
-    .prepared-name { margin: 0 0 5px; color: var(--navy); font-size: 13px; font-weight: 700; }
-    .prepared-phone { margin: 0; color: var(--orange); font-size: 12px; font-weight: 700; }
-    .approval { margin: 24px 40px 0; border: 2px solid var(--navy); border-radius: 8px; padding: 20px 24px; background: var(--light); }
+    .prepared-name { margin: 0 0 5px; color: var(--text); font-size: 13px; font-weight: 700; }
+    .prepared-phone { margin: 0; color: var(--navy); font-size: 12px; font-weight: 700; }
+    .approval { margin: 24px 40px 0; border: 1.5px solid var(--navy); border-radius: 8px; padding: 16px 20px; background: var(--soft); }
     .approval-main { margin: 0 0 20px; color: var(--gray); font-size: 12px; line-height: 1.6; font-style: italic; }
     .approval-help { margin: 0 0 24px; color: var(--muted); font-size: 11px; line-height: 1.5; }
     .signature-row { display: table; width: 100%; margin-top: 12px; }
     .signature { display: table-cell; width: 50%; padding: 0 18px; text-align: center; }
-    .signature-line { border-top: 2px solid var(--navy); padding-top: 8px; color: var(--muted); font-size: 11px; }
-    .footer { position: absolute; left: 0; right: 0; bottom: 0; background: linear-gradient(135deg, var(--navy) 0%, var(--plum-dark) 100%); color: rgba(255,255,255,0.65); font-size: 10px; line-height: 1.5; text-align: center; padding: 16px 40px; }
-    .edge-text { position: absolute; right: -34px; top: 50%; transform: rotate(90deg); color: rgba(0,0,0,0.2); font-size: 9px; letter-spacing: 0.1em; }
+    .signature-line { border-top: 1.5px solid var(--navy); padding-top: 8px; color: var(--muted); font-size: 10px; }
+    .footer { position: absolute; left: 0; right: 0; bottom: 0; background: var(--navy); color: rgba(255,255,255,0.62); font-size: 10px; line-height: 1.5; text-align: center; padding: 14px 40px; }
+    .edge-text { position: absolute; right: -34px; top: 50%; transform: rotate(90deg); color: rgba(107,45,94,0.08); font-size: 9px; letter-spacing: 0.1em; }
   </style>
 </head>
 <body>
@@ -147,6 +150,7 @@ function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
     <header class="top-header">
       <div class="top-header-cell">
         <div class="brand">ASTANA</div>
+        <div class="gold-line"></div>
         <div class="tagline">likvidácia a odvoz nebezpečného odpadu</div>
       </div>
       <div class="top-header-cell header-contact">
@@ -185,7 +189,7 @@ function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
     <main class="body">
       <p class="greeting">Dobrý deň,</p>
       <p class="copy">na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${escapeHtml(material)}) vo výmere plochy strechy cca ${escapeHtml(offer.areaM2)} m² v súlade s platnými legislatívnymi ustanoveniami.</p>
-      ${offer.offerNote ? `<p class="copy" style="background:#F8F7F4;border-left:3px solid #C9A84C;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
+      ${offer.offerNote ? `<p class="copy" style="background:#FAFAFA;border-left:3px solid #C9A84C;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
 
       <table class="price-table">
         <thead>
@@ -210,13 +214,15 @@ function pdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
         </tbody>
       </table>
 
-      <p class="included-title">V cene je zahrnuté:</p>
-      <div class="included">
-        <div class="included-col">
-          ${leftItems.map((item) => `<div class="included-item"><span class="checkmark"></span>${escapeHtml(item)}</div>`).join('')}
-        </div>
-        <div class="included-col">
-          ${rightItems.map((item) => `<div class="included-item"><span class="checkmark"></span>${escapeHtml(item)}</div>`).join('')}
+      <div class="included-wrap">
+        <p class="included-title">V cene je zahrnuté</p>
+        <div class="included">
+          <div class="included-col">
+            ${leftItems.map((item) => `<div class="included-item"><span class="checkmark"></span>${escapeHtml(item)}</div>`).join('')}
+          </div>
+          <div class="included-col">
+            ${rightItems.map((item) => `<div class="included-item"><span class="checkmark"></span>${escapeHtml(item)}</div>`).join('')}
+          </div>
         </div>
       </div>
     </main>
@@ -308,5 +314,5 @@ async function renderHtmlToPdf(html: string) {
 }
 
 export async function renderPriceOfferPdf(offer: PriceOffer, settings: PriceOfferSettings) {
-  return renderHtmlToPdf(pdfHtml(offer, settings));
+  return renderHtmlToPdf(renderPriceOfferPdfHtml(offer, settings));
 }
