@@ -2020,6 +2020,30 @@ export async function deleteBusinessJob(id: string, actorEmail: string) {
   await addAuditLog('business_job', id, 'business_job_archived', actorEmail, {});
 }
 
+export async function destroyBusinessJob(id: string, actorEmail: string) {
+  await ensureSchema();
+  const db = getPool();
+  await addAuditLog('business_job', id, 'business_job_deleted', actorEmail, {});
+  if (!db) {
+    const local = await readLocalDb();
+    local.priceOffers = local.priceOffers.map((offer) => (offer.jobId === id ? { ...offer, jobId: undefined } : offer));
+    local.plannerActions = local.plannerActions.map((action) => (action.jobId === id ? { ...action, jobId: '' } : action));
+    local.businessJobs = local.businessJobs.filter((item) => item.id !== id);
+    await writeLocalDb(local);
+    return;
+  }
+  await db.query('BEGIN');
+  try {
+    await db.query('UPDATE price_offers SET job_id = NULL WHERE job_id = $1', [id]);
+    await db.query('UPDATE planner_actions SET zakazka_id = NULL WHERE zakazka_id = $1', [id]);
+    await db.query('DELETE FROM business_jobs WHERE id = $1', [id]);
+    await db.query('COMMIT');
+  } catch (error) {
+    await db.query('ROLLBACK');
+    throw error;
+  }
+}
+
 export async function addBusinessJobNote(id: string, note: string, actorEmail: string) {
   const text = note.trim();
   if (!text) return null;

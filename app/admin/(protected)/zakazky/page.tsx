@@ -2,7 +2,7 @@ import { listBusinessJobs, listPriceOffers, listWorkers } from '@/src/server/db'
 import { requireAdminUser } from '@/src/server/auth';
 import type { BusinessJobStatus, BusinessLandfill, BusinessPaymentType } from '@/src/server/types';
 import { euro, jobStatusLabels, jobStatuses, landfillLabels, landfills, numberSk, paymentLabels, paymentTypes } from './constants';
-import { deleteBusinessJobAction } from './actions';
+import { deleteBusinessJobAction, destroyBusinessJobAction } from './actions';
 
 function monthBounds(month?: string) {
   if (!month) return {};
@@ -27,11 +27,16 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
   const landfill = (params.landfill || '') as BusinessLandfill | '';
   const month = params.month || '';
   const includeArchived = adminUser.role === 'SUPER_ADMIN' && params.archived === '1';
-  const [jobs, workers, offers] = await Promise.all([listBusinessJobs({ ...monthBounds(month), includeArchived }), listWorkers(true), listPriceOffers({ includeArchived })]);
+  const [jobs, workers, offers] = await Promise.all([
+    listBusinessJobs({ ...monthBounds(month), includeArchived }),
+    listWorkers(true),
+    listPriceOffers({ includeArchived }),
+  ]);
   const offersByJob = new Map<string, number>();
   for (const offer of offers) {
     if (offer.jobId) offersByJob.set(offer.jobId, (offersByJob.get(offer.jobId) ?? 0) + 1);
   }
+
   const qn = normalize(q);
   const filtered = jobs.filter((job) => {
     const haystack = normalize([job.customerName, job.location, job.district].join(' '));
@@ -56,11 +61,14 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
         <p>Zoznam zákaziek · generované {new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date())}</p>
       </div>
       <div className="admin-heading">
-        <div><p>Business CRM</p><h1>Zákazky</h1></div>
+        <div>
+          <p>Business CRM</p>
+          <h1>Zákazky</h1>
+        </div>
         <div className="admin-action-row no-print">
           <a className="admin-primary-link" href="/admin/zakazky/nova">Nová zákazka</a>
           <a className="admin-row-link" href={`/admin/zakazky/export?${exportQuery}`}>Export CSV</a>
-          <button className="admin-row-link" type="button" data-print>🖨 Tlačiť / PDF</button>
+          <button className="admin-row-link" type="button" data-print>Tlačiť / PDF</button>
         </div>
       </div>
 
@@ -81,7 +89,21 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
       <section className="admin-card">
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Tržba €</th><th>Platba</th><th>Tím</th><th>Stav</th><th>CP</th><th>Zisk €</th><th className="no-print">Akcie</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Dátum</th>
+                <th>Zákazník</th>
+                <th>Lokalita</th>
+                <th>m²</th>
+                <th>Tržba €</th>
+                <th>Platba</th>
+                <th>Tím</th>
+                <th>Stav</th>
+                <th>CP</th>
+                <th>Zisk €</th>
+                <th className="no-print">Akcie</th>
+              </tr>
+            </thead>
             <tbody>
               {filtered.map((job) => (
                 <tr key={job.id}>
@@ -96,11 +118,19 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   <td><a href={`/admin/ponuky?jobId=${job.id}`}>{offersByJob.get(job.id) ?? 0}</a></td>
                   <td>{euro(job.grossProfit)}</td>
                   <td className="no-print">
-                    {adminUser.role === 'SUPER_ADMIN' && !job.deletedAt ? (
-                      <form action={deleteBusinessJobAction}>
-                        <input type="hidden" name="id" value={job.id} />
-                        <button type="submit">Archivovať</button>
-                      </form>
+                    {adminUser.role === 'SUPER_ADMIN' ? (
+                      <div className="admin-row-actions">
+                        {!job.deletedAt ? (
+                          <form action={deleteBusinessJobAction} data-confirm-submit={`Archivovať zákazku ${job.customerName}?`}>
+                            <input type="hidden" name="id" value={job.id} />
+                            <button className="admin-danger-outline" type="submit">Archivovať</button>
+                          </form>
+                        ) : null}
+                        <form action={destroyBusinessJobAction} data-confirm-submit={`Naozaj natrvalo zmazať zákazku ${job.customerName}? Táto akcia sa nedá vrátiť späť.`}>
+                          <input type="hidden" name="id" value={job.id} />
+                          <button className="admin-danger-outline" type="submit">Zmazať</button>
+                        </form>
+                      </div>
                     ) : null}
                   </td>
                 </tr>
@@ -108,7 +138,13 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
               {!filtered.length ? <tr><td colSpan={11}>Nenašli sa žiadne zákazky.</td></tr> : null}
             </tbody>
             <tfoot>
-              <tr><th colSpan={3}>Súčet</th><th>{numberSk(totals.m2)}</th><th>{euro(totals.revenue)}</th><th colSpan={4}>Zákaziek: {totals.count}</th><th>{euro(totals.profit)}</th></tr>
+              <tr>
+                <th colSpan={3}>Súčet</th>
+                <th>{numberSk(totals.m2)}</th>
+                <th>{euro(totals.revenue)}</th>
+                <th colSpan={4}>Zákaziek: {totals.count}</th>
+                <th>{euro(totals.profit)}</th>
+              </tr>
             </tfoot>
           </table>
         </div>

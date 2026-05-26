@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { addBusinessJobNote, deleteBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob } from '@/src/server/db';
+import { addBusinessJobNote, deleteBusinessJob, destroyBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob } from '@/src/server/db';
 import { sendBusinessQuoteEmail } from '@/src/server/mail';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
@@ -71,6 +71,18 @@ export async function deleteBusinessJobAction(formData: FormData) {
   const id = String(formData.get('id') || '');
   if (id) {
     await deleteBusinessJob(id, actor);
+    revalidatePath('/admin/zakazky');
+    revalidatePath('/admin/dashboard');
+    revalidatePath('/admin/rok');
+  }
+}
+
+export async function destroyBusinessJobAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const id = String(formData.get('id') || '');
+  if (id) {
+    await destroyBusinessJob(id, actor);
     revalidatePath('/admin/zakazky');
     revalidatePath('/admin/dashboard');
     revalidatePath('/admin/rok');

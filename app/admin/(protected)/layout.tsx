@@ -52,6 +52,12 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
             "document.addEventListener('submit',function(e){var f=e.target;if(!(f instanceof HTMLFormElement))return;var name=f.getAttribute('data-confirm-delete-file');if(name&&!confirm('Naozaj zmazať '+name+'?'))e.preventDefault();},true)",
         }}
       />
+      <script
+        dangerouslySetInnerHTML={{
+          __html:
+            "document.addEventListener('submit',function(e){var f=e.target;if(!(f instanceof HTMLFormElement))return;var message=f.getAttribute('data-confirm-submit');if(message&&!confirm(message))e.preventDefault();},true)",
+        }}
+      />
     </div>
   );
 }
