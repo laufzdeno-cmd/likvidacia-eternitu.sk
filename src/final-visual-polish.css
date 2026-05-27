@@ -1765,6 +1765,53 @@ button .unit-m2 {
   flex: 1 1 auto !important;
 }
 
+/* Footer QA: six content blocks must stay in one clean row on desktop. */
+.site-footer {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 1.25fr) repeat(5, minmax(140px, 1fr)) !important;
+  align-items: start !important;
+  gap: clamp(26px, 3vw, 48px) !important;
+  padding-top: clamp(44px, 4.5vw, 68px) !important;
+  padding-bottom: clamp(54px, 5vw, 82px) !important;
+}
+
+.site-footer > div {
+  min-width: 0 !important;
+}
+
+.site-footer h2 {
+  margin: 0 0 16px !important;
+}
+
+.site-footer p {
+  max-width: 320px !important;
+  margin: 20px 0 0 !important;
+}
+
+.site-footer a,
+.site-footer span {
+  margin-bottom: 10px !important;
+}
+
+@media (max-width: 1180px) {
+  .site-footer {
+    grid-template-columns: minmax(260px, 1.35fr) repeat(3, minmax(150px, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-footer {
+    grid-template-columns: 1fr !important;
+    gap: 28px !important;
+    padding-top: 42px !important;
+    padding-bottom: max(112px, calc(96px + env(safe-area-inset-bottom))) !important;
+  }
+
+  .site-footer p {
+    max-width: none !important;
+  }
+}
+
 .quote-kicker,
 .hero-proof-flow span:first-child,
 .area-field label,
