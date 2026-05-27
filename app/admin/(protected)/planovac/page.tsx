@@ -73,7 +73,7 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
 
   return (
     <main className="admin-page planner-page">
-      <div className="print-report-heading"><img src="/assets/astana-logo.svg" alt="ASTANA" /><p>ASTANA — Plán akcií {meta.title}</p></div>
+      <div className="print-report-heading"><img src="/assets/astana-logo.png" alt="ASTANA" /><p>ASTANA — Plán akcií {meta.title}</p></div>
       <div className="admin-heading">
         <div><p>Termíny a terén</p><h1>Plánovač</h1></div>
         <div className="admin-action-row no-print">

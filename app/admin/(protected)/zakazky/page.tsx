@@ -57,7 +57,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
   return (
     <main className="admin-page">
       <div className="print-report-heading">
-        <img src="/assets/astana-logo.svg" alt="ASTANA" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" />
         <p>Zoznam zákaziek · generované {new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date())}</p>
       </div>
       <div className="admin-heading">

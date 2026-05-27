@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Likvidácia Eternitu">
-  <rect width="64" height="64" rx="14" fill="#062D46"/>
-  <path d="M15 45 32 13l17 32h-9l-8-16-8 16z" fill="#00A3D7"/>
-  <path d="M25 45h14l-7-14z" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="ASTANA">
+  <rect width="64" height="64" rx="14" fill="#0f1f3d"/>
+  <path fill="#e1251b" d="M8 27C10 15 23 7 39 8c8 .5 15 3 19 8-11-5-25-6-36-1C13 19 8 26 10 38c-2-3-3-7-2-11Z"/>
+  <path fill="#ffffff" d="M20 50h8l2-7h12l2 7h8L39 16h-8L20 50Zm12-13 4-13 4 13h-8Z"/>
 </svg>

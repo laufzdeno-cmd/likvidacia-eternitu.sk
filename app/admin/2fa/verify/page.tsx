@@ -21,7 +21,7 @@ export default async function TwoFactorVerifyPage({ searchParams }: { searchPara
     <main className="admin-login">
       <form className="admin-login-card" action={verifyTwoFactorLoginAction}>
         <input type="hidden" name="_csrf" value={csrfToken} />
-        <img src="/assets/astana-logo.svg" alt="ASTANA" width="190" height="64" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>Overenie 2FA</h1>
         <p>Zadajte 6-ciferný kód z Google Authenticator alebo jednorazový zálohovací kód.</p>
         {params?.error ? <div className="admin-alert">Kód nie je platný.</div> : null}

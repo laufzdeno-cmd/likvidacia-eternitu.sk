@@ -38,7 +38,7 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
   return (
     <main className="admin-page">
       <div className="print-report-heading">
-        <img src="/assets/astana-logo.svg" alt="ASTANA" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" />
         <p>Detail zákazky · generované {new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date())}</p>
       </div>
       <div className="admin-heading no-print">

@@ -14,7 +14,7 @@ export default async function TwoFactorBackupCodesPage() {
   return (
     <main className="admin-login">
       <section className="admin-login-card">
-        <img src="/assets/astana-logo.svg" alt="ASTANA" width="190" height="64" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>Zálohovacie kódy</h1>
         <p>Tieto kódy sa zobrazia iba raz. Uložte ich mimo telefónu.</p>
         <div className="admin-alert">

@@ -9495,37 +9495,46 @@ main.seo-page .seo-calculator .eyebrow,
   }
 }
 
-/* Brand asset: keep the supplied ASTANA.sk logo in full color. */
-.brand-logo[src$="astana-logo.svg"],
-.admin-brand img[src$="astana-logo.svg"],
-.admin-login-card img[src$="astana-logo.svg"],
-.print-report-heading img[src$="astana-logo.svg"] {
+/* Brand asset variants: original on light surfaces, white lettering on dark surfaces. */
+.brand-logo[src$="astana-logo.png"],
+.admin-brand img[src$="astana-logo.png"],
+.admin-login-card img[src$="astana-logo.png"],
+.print-report-heading img[src$="astana-logo.png"] {
   filter: none !important;
   object-fit: contain !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-.site-header .brand:not(.footer-brand) .brand-logo[src$="astana-logo.svg"] {
-  width: 168px !important;
-  max-width: 168px !important;
-  max-height: 46px !important;
+.site-header .brand:not(.footer-brand) .brand-logo[src$="astana-logo.png"],
+.site-footer .footer-brand .brand-logo[src$="astana-logo.png"],
+.brand.footer-brand .brand-logo[src$="astana-logo.png"],
+.admin-brand img[src$="astana-logo.png"] {
+  content: url('/assets/astana-logo-dark.png') !important;
+}
+
+.site-header .brand:not(.footer-brand) .brand-logo[src$="astana-logo.png"] {
+  width: 176px !important;
+  max-width: 176px !important;
+  max-height: 50px !important;
   filter: none !important;
-  border-radius: 6px !important;
+  border-radius: 0 !important;
 }
 
-.site-footer .footer-brand .brand-logo[src$="astana-logo.svg"],
-.brand.footer-brand .brand-logo[src$="astana-logo.svg"] {
+.site-footer .footer-brand .brand-logo[src$="astana-logo.png"],
+.brand.footer-brand .brand-logo[src$="astana-logo.png"] {
   width: 195px !important;
   max-width: 195px !important;
   max-height: 59px !important;
   border-radius: 6px !important;
 }
 
-.admin-brand img[src$="astana-logo.svg"] {
+.admin-brand img[src$="astana-logo.png"] {
   width: 132px !important;
   max-width: 132px !important;
   max-height: 40px !important;
   filter: none !important;
-  border-radius: 5px !important;
+  border-radius: 0 !important;
 }
 
 .site-header .brand:not(.footer-brand) .brand-logo,

@@ -114,7 +114,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
   return (
     <main className="admin-page">
-      <div className="print-report-heading"><img src="/assets/astana-logo.svg" alt="ASTANA" /><p>ASTANA — Mesačný report · {bounds.label}</p></div>
+      <div className="print-report-heading"><img src="/assets/astana-logo.png" alt="ASTANA" /><p>ASTANA — Mesačný report · {bounds.label}</p></div>
       <div className="admin-heading">
         <div><p>Business dashboard</p><h1>Dashboard</h1></div>
         <button className="admin-primary-link no-print" type="button" data-print>🖨 Tlačiť / PDF</button>

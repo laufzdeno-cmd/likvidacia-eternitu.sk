@@ -28,7 +28,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
     <main className="admin-login">
       <form className="admin-login-card" action="/admin/login/submit/" method="post">
         <input type="hidden" name="_csrf" value={csrfToken} />
-        <img src="/assets/astana-logo.svg" alt="ASTANA" width="190" height="64" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>Prihlásenie do adminu</h1>
         <p>Dopyty, fotky a cenové ponuky sú chránené prihlásením.</p>
         {params?.error ? <div className="admin-alert">{params.error === 'csrf' ? 'Platnosť formulára vypršala. Skúste to znova.' : 'Nesprávny email alebo heslo.'}</div> : null}

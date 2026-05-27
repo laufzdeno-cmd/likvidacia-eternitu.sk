@@ -1,4 +1,4 @@
-﻿import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import AdminNav from './admin-nav';
 import AdminTopbar from './admin-topbar';
 
@@ -16,7 +16,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     <div className="admin-shell">
       <aside className="admin-sidebar">
         <a className="admin-brand" href="/admin/dashboard">
-          <img src="/assets/astana-logo.svg" alt="ASTANA" width="156" height="52" />
+          <img src="/assets/astana-logo.png" alt="ASTANA" width="156" height="52" />
         </a>
         <AdminNav role={user.role} />
         <form action="/admin/logout" method="post">

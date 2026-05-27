@@ -18,7 +18,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
       </div>
       <section className="admin-card quote-preview">
         <div className="quote-preview-header">
-          <img src="/assets/astana-logo.svg" alt="ASTANA" width="180" height="60" />
+          <img src="/assets/astana-logo.png" alt="ASTANA" width="180" height="60" />
           <div>
             <strong>ASTANA, s.r.o.</strong>
             <span>Scherffelova 1364/28, 058 01 Poprad</span>

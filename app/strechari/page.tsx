@@ -80,7 +80,7 @@ export default function RoofersPage() {
       <header className="site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
-            <img className="brand-logo" src="/assets/astana-logo.svg" alt="ASTANA" width="195" height="65" />
+            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <div className="header-meta">

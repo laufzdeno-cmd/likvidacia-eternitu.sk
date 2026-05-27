@@ -24,7 +24,7 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
     <main className="admin-login">
       <form className="admin-login-card" action="/admin/reset-password/submit/" method="post">
         <input type="hidden" name="_csrf" value={csrfToken} />
-        <img src="/assets/astana-logo.svg" alt="ASTANA" width="190" height="64" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>Obnova hesla</h1>
         <p>Zadajte prihlasovací email, resetovací token a nové heslo. Aktuálne heslo sa z bezpečnostných dôvodov nedá zobraziť.</p>
         {error ? <div className="admin-alert">{error}</div> : null}

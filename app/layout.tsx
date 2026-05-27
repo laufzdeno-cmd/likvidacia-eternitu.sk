@@ -119,7 +119,7 @@ const organizationJsonLd = {
   email: 'astana@astana.sk',
   telephone: '+421905217946',
   address: localBusinessJsonLd.address,
-  logo: 'https://likvidacia-eternitu.sk/assets/astana-logo.svg',
+  logo: 'https://likvidacia-eternitu.sk/assets/astana-logo.png',
 };
 
 const websiteJsonLd = {
@@ -141,6 +141,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />

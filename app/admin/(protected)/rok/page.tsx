@@ -46,7 +46,7 @@ export default async function YearPage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="admin-page year-report-page">
-      <div className="print-report-heading"><img src="/assets/astana-logo.svg" alt="ASTANA" /><p>ASTANA — Ročný prehľad {year}</p></div>
+      <div className="print-report-heading"><img src="/assets/astana-logo.png" alt="ASTANA" /><p>ASTANA — Ročný prehľad {year}</p></div>
       <div className="admin-heading">
         <div><p>Ročný report</p><h1>Ročný prehľad</h1></div>
         <button className="admin-primary-link no-print" type="button" data-print>🖨 Tlačiť / PDF</button>

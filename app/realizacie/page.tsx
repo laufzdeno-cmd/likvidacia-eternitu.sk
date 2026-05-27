@@ -80,7 +80,7 @@ export default function RealizationsPage() {
       <header className="site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
-            <img className="brand-logo" src="/assets/astana-logo.svg" alt="ASTANA" width="195" height="65" />
+            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <div className="header-meta">
@@ -211,7 +211,7 @@ export default function RealizationsPage() {
       <footer className="site-footer" id="kontakt">
         <div>
           <a className="brand footer-brand" href="/" aria-label="ASTANA">
-            <img className="brand-logo" src="/assets/astana-logo.svg" alt="ASTANA" width="195" height="65" />
+            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <p>Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.</p>

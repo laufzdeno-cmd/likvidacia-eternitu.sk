@@ -8,7 +8,7 @@ export function PublicHeader() {
     <header className="site-header simple-header">
       <div className="header-main">
         <a className="brand" href="/" aria-label="ASTANA">
-          <img className="brand-logo" src="/assets/astana-logo.svg" alt="ASTANA" width="195" height="65" />
+          <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
           <span><small>Bezpečná likvidácia azbestu</small></span>
         </a>
         <div className="header-meta">
@@ -41,7 +41,7 @@ export function PublicFooter() {
     <footer className="site-footer" id="kontakt">
       <div>
         <a className="footer-brand" href="/" aria-label="ASTANA">
-          <img className="brand-logo" src="/assets/astana-logo.svg" alt="ASTANA" width="195" height="65" />
+          <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
           <span><small>Likvidácia azbestu a eternitu</small></span>
         </a>
         <p>Bezpečná likvidácia azbestu, eternitu a nebezpečného odpadu po celom Slovensku.</p>

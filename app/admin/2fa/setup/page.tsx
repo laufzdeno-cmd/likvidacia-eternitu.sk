@@ -31,7 +31,7 @@ export default async function TwoFactorSetupPage({ searchParams }: { searchParam
     <main className="admin-login">
       <form className="admin-login-card" action={confirmTwoFactorSetupAction}>
         <input type="hidden" name="_csrf" value={csrfToken} />
-        <img src="/assets/astana-logo.svg" alt="ASTANA" width="190" height="64" />
+        <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>{isRequired ? 'Povinné 2FA pre super admina' : 'Zapnutie 2FA'}</h1>
         <p>Naskenujte QR kód v Google Authenticator a zadajte 6-ciferný kód.</p>
         {params?.error ? <div className="admin-alert">Kód nesedí. Skúste nový aktuálny kód.</div> : null}
