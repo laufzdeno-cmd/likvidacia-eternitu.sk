@@ -1737,24 +1737,32 @@ button .unit-m2 {
   text-transform: lowercase !important;
 }
 
+.button .unit-m2,
+a.button .unit-m2,
+button .unit-m2 {
+  display: inline-block !important;
+  margin: 0 0.22em !important;
+  white-space: nowrap !important;
+}
+
 .price-calculator label,
 .seo-calculator label {
   text-transform: none !important;
 }
 
 .seo-step-card {
-  grid-template-columns: 54px minmax(0, 1fr) !important;
-  column-gap: 18px !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 18px !important;
 }
 
 .seo-step-card > span {
-  grid-column: 1 !important;
-  grid-row: 1 / span 2 !important;
+  flex: 0 0 auto !important;
 }
 
-.seo-step-card > h3,
-.seo-step-card > p {
-  grid-column: 2 !important;
+.seo-step-card-content {
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
 }
 
 .quote-kicker,

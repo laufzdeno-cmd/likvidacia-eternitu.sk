@@ -11294,13 +11294,13 @@ body .admin-main .admin-page .admin-card,
 }
 
 .seo-step-card {
-  display: grid;
-  grid-template-columns: 54px 1fr;
+  display: flex;
   align-items: start;
-  column-gap: 18px;
+  gap: 18px;
 }
 
 .seo-step-card span {
+  flex: 0 0 auto;
   display: inline-flex;
   width: 42px;
   height: 42px;
@@ -11310,17 +11310,21 @@ body .admin-main .admin-page .admin-card,
   background: #0f1f3d;
   color: #fff;
   font-weight: 800;
-  grid-row: 1 / span 2;
 }
 
-.seo-step-card h3,
-.seo-step-card p {
-  grid-column: 2;
+.seo-step-card-content {
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
-.seo-step-card p,
+.seo-step-card-content h3 {
+  margin: 0 0 8px;
+}
+
+.seo-step-card-content p,
 .seo-grid-2 p,
 .seo-faq p {
+  margin: 0;
   color: #4a4845;
   line-height: 1.75;
 }
@@ -11549,7 +11553,7 @@ body .admin-main .admin-page .admin-card,
   }
 
   .seo-step-card {
-    grid-template-columns: 44px 1fr;
+    gap: 14px;
   }
 
   .cookie-banner {

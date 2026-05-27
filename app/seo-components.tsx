@@ -127,8 +127,10 @@ export function ProcessSteps({ title = 'Ako prebieha likvidácia' }: { title?: s
         {commonProcessSteps.map(([name, text], index) => (
           <article key={name} className="seo-step-card">
             <span>{index + 1}</span>
-            <h3>{name}</h3>
-            <p>{text}</p>
+            <div className="seo-step-card-content">
+              <h3>{name}</h3>
+              <p>{text}</p>
+            </div>
           </article>
         ))}
       </div>
