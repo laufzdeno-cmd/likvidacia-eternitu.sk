@@ -409,14 +409,14 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
             </td>
           </tr></table>
         </td></tr>
-        <tr><td style="background:#263451;padding:20px 32px;">
+        <tr><td style="background:linear-gradient(135deg,#C86432 0%,#A94722 100%);padding:20px 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
               <div style="color:#ffffff;font-size:17px;font-weight:600;">Vaša cenová ponuka je pripravená</div>
               <div style="margin-top:4px;color:rgba(255,255,255,0.7);font-size:12px;">Platná do: ${escapeHtml(validUntil)}</div>
             </td>
             <td align="right" style="vertical-align:middle;">
-              <div style="color:#FFE08A;font-size:26px;font-weight:700;">${euro(offer.totalWithVat)}</div>
+              <div style="color:#FFF2C4;font-size:26px;font-weight:700;">${euro(offer.totalWithVat)}</div>
               <div style="color:rgba(255,255,255,0.6);font-size:11px;">vrátane DPH ${settings.vatRate}%</div>
             </td>
           </tr></table>

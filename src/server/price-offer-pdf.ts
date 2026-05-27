@@ -106,13 +106,13 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .greeting { margin: 0 0 8px; color: var(--text); font-size: 13px; font-weight: 700; }
     .copy { margin: 0 0 16px; color: var(--gray); font-size: 12px; line-height: 1.65; }
     .price-table { width: 100%; border-collapse: collapse; margin: 0 0 20px; font-size: 12px; }
-    .price-table th { background: var(--navy); color: white; text-align: left; padding: 9px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .price-table th { background: var(--accent); color: white; text-align: left; padding: 9px 14px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
     .price-table td { padding: 9px 14px; border-bottom: 1px solid #F1F5F9; color: var(--text); }
     .price-table tbody tr:nth-child(even) td { background: var(--soft); }
     .price-table .right { text-align: right; white-space: nowrap; }
     .price-table .summary td { background: var(--plum-light); color: var(--text); font-weight: 700; border-top: 1px solid var(--border); }
-    .price-table .total td { background: var(--navy); color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; border-bottom: 0; }
-    .price-table .total .amount { color: #FFE08A; font-size: 16px; font-weight: 800; }
+    .price-table .total td { background: var(--accent); color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; border-bottom: 0; }
+    .price-table .total .amount { color: #FFF2C4; font-size: 16px; font-weight: 800; }
     .included-wrap { background: var(--soft); border-radius: 8px; padding: 16px 20px; margin: 0 0 16px; }
     .included-title { margin: 0 0 10px; color: var(--navy); font-size: 11px; font-weight: 700; text-transform: uppercase; }
     .included { display: table; width: 100%; margin-top: 4px; }
