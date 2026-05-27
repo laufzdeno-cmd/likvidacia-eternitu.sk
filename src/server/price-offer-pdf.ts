@@ -67,15 +67,15 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
   <style>
     :root {
-      --navy: #6B2D5E;
-      --plum-light: #F8F4FA;
-      --gold: #C9A84C;
-      --accent: #C0392B;
+      --navy: #263451;
+      --plum-light: #EEF2F7;
+      --gold: #D4B56A;
+      --accent: #B95A32;
       --gray: #475569;
       --text: #1E293B;
       --muted: #94A3B8;
       --soft: #FAFAFA;
-      --border: #E8E0EC;
+      --border: #D7DDEA;
       --white: #FFFFFF;
     }
     * { box-sizing: border-box; }
@@ -189,7 +189,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     <main class="body">
       <p class="greeting">Dobrý deň,</p>
       <p class="copy">na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${escapeHtml(material)}) vo výmere plochy strechy cca ${escapeHtml(offer.areaM2)} m² v súlade s platnými legislatívnymi ustanoveniami.</p>
-      ${offer.offerNote ? `<p class="copy" style="background:#FAFAFA;border-left:3px solid #C9A84C;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
+      ${offer.offerNote ? `<p class="copy" style="background:#FAFAFA;border-left:3px solid #D4B56A;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
 
       <table class="price-table">
         <thead>
