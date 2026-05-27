@@ -358,8 +358,8 @@ export default async function HomePage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <link rel="preload" as="image" href={heroImage.mobileWebp} type="image/webp" media="(max-width: 767px)" />
-      <link rel="preload" as="image" href={heroImage.desktopWebp} type="image/webp" media="(min-width: 768px)" />
+      <link rel="preload" as="image" href={heroImage.mobileWebp} type="image/webp" media="(max-width: 767px)" fetchPriority="high" />
+      <link rel="preload" as="image" href={heroImage.desktopWebp} type="image/webp" media="(min-width: 768px)" fetchPriority="high" />
       <header className="site-header" id="top">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
