@@ -181,6 +181,9 @@ export type AdminUser = {
   role: AdminRole;
   active: boolean;
   passwordHash: string;
+  twoFactorSecret?: string;
+  twoFactorEnabled: boolean;
+  twoFactorBackupCodeHashes: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -192,6 +195,9 @@ export type AdminUserInput = {
   role: AdminRole;
   active?: boolean;
   passwordHash?: string;
+  twoFactorSecret?: string;
+  twoFactorEnabled?: boolean;
+  twoFactorBackupCodeHashes?: string[];
 };
 
 export type PlannerActionType = 'DEMONTAZ' | 'ODVOZ' | 'DOKUMENTACIA' | 'INE';

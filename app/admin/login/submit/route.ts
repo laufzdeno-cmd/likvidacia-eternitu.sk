@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { setAdminSession, verifyAdminCredentials } from '@/src/server/auth';
+import { adminEmail, setAdminSession, setPendingTwoFactor, verifyAdminCredentials, verifyGuestCsrf } from '@/src/server/auth';
+import { getAdminUserByEmail } from '@/src/server/db';
+import { isTwoFactorRequired } from '@/src/server/two-factor';
+import type { AdminUser } from '@/src/server/types';
 
 const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
 const loginWindowMs = 15 * 60 * 1000;
@@ -35,6 +38,11 @@ export async function POST(request: NextRequest) {
   }
 
   const formData = await request.formData();
+  try {
+    await verifyGuestCsrf(formData);
+  } catch {
+    return NextResponse.redirect(new URL('/admin/login?error=csrf', request.url), { status: 303 });
+  }
   const email = String(formData.get('email') || '');
   const password = String(formData.get('password') || '');
 
@@ -44,6 +52,21 @@ export async function POST(request: NextRequest) {
   }
 
   loginAttempts.delete(ip);
-  await setAdminSession(email.trim().toLowerCase());
+  const normalizedEmail = email.trim().toLowerCase();
+  const dbUser = await getAdminUserByEmail(normalizedEmail);
+  const fallbackUser: Pick<AdminUser, 'email' | 'role' | 'twoFactorEnabled'> | null =
+    !dbUser && normalizedEmail === adminEmail().toLowerCase()
+      ? { email: normalizedEmail, role: 'SUPER_ADMIN', twoFactorEnabled: false }
+      : null;
+  const user = dbUser ?? fallbackUser;
+  if (user && (isTwoFactorRequired(user.role) || user.twoFactorEnabled)) {
+    await setPendingTwoFactor(normalizedEmail);
+    if (!user.twoFactorEnabled) {
+      return NextResponse.redirect(new URL('/admin/2fa/setup', request.url), { status: 303 });
+    }
+    return NextResponse.redirect(new URL('/admin/2fa/verify', request.url), { status: 303 });
+  }
+
+  await setAdminSession(normalizedEmail);
   return NextResponse.redirect(new URL('/admin/dopyty', request.url), { status: 303 });
 }

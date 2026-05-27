@@ -473,9 +473,15 @@ async function ensureSchema() {
       role text NOT NULL DEFAULT 'OPERATOR',
       active boolean NOT NULL DEFAULT true,
       password_hash text NOT NULL DEFAULT '',
+      two_factor_secret text NOT NULL DEFAULT '',
+      two_factor_enabled boolean NOT NULL DEFAULT false,
+      two_factor_backup_code_hashes jsonb NOT NULL DEFAULT '[]'::jsonb,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_factor_secret text NOT NULL DEFAULT '';
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_factor_enabled boolean NOT NULL DEFAULT false;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_factor_backup_code_hashes jsonb NOT NULL DEFAULT '[]'::jsonb;
 
     CREATE TABLE IF NOT EXISTS analytics_events (
       id uuid PRIMARY KEY,
@@ -832,6 +838,12 @@ function toWorker(row: Record<string, unknown>): Worker {
 }
 
 function toAdminUser(row: Record<string, unknown>): AdminUser {
+  const rawBackupHashes = row.two_factor_backup_code_hashes ?? row.twoFactorBackupCodeHashes ?? [];
+  const backupHashes = Array.isArray(rawBackupHashes)
+    ? rawBackupHashes.map(String)
+    : typeof rawBackupHashes === 'string'
+      ? parseStringArray(rawBackupHashes)
+      : [];
   return {
     id: String(row.id),
     email: String(row.email ?? '').trim().toLowerCase(),
@@ -839,6 +851,9 @@ function toAdminUser(row: Record<string, unknown>): AdminUser {
     role: String(row.role ?? 'OPERATOR') as AdminRole,
     active: Boolean(row.active),
     passwordHash: String(row.password_hash ?? row.passwordHash ?? ''),
+    twoFactorSecret: String(row.two_factor_secret ?? row.twoFactorSecret ?? '') || undefined,
+    twoFactorEnabled: Boolean(row.two_factor_enabled ?? row.twoFactorEnabled ?? false),
+    twoFactorBackupCodeHashes: backupHashes,
     createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
   };
@@ -1696,6 +1711,9 @@ async function ensureLocalBusinessDefaults(local: LocalDb) {
       role: 'SUPER_ADMIN',
       active: true,
       passwordHash: '',
+      twoFactorSecret: '',
+      twoFactorEnabled: false,
+      twoFactorBackupCodeHashes: [],
       createdAt: now(),
       updatedAt: now(),
     });
@@ -2899,7 +2917,7 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   if (!db) {
     const local = await readLocalDb();
     await ensureLocalBusinessDefaults(local);
-    return [...local.adminUsers].sort((a, b) => a.email.localeCompare(b.email));
+    return [...local.adminUsers].map((user) => toAdminUser(user as unknown as Record<string, unknown>)).sort((a, b) => a.email.localeCompare(b.email));
   }
   const { rows } = await db.query('SELECT * FROM admin_users ORDER BY email ASC');
   return rows.map(toAdminUser);
@@ -2913,7 +2931,8 @@ export async function getAdminUserByEmail(email: string): Promise<AdminUser | nu
   if (!db) {
     const local = await readLocalDb();
     await ensureLocalBusinessDefaults(local);
-    return local.adminUsers.find((user) => user.email.toLowerCase() === normalized) ?? null;
+    const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
+    return user ? toAdminUser(user as unknown as Record<string, unknown>) : null;
   }
   const { rows } = await db.query('SELECT * FROM admin_users WHERE lower(email) = lower($1) LIMIT 1', [normalized]);
   return rows[0] ? toAdminUser(rows[0]) : null;
@@ -2929,6 +2948,9 @@ export async function upsertAdminUser(input: AdminUserInput, actorEmail: string)
     role: input.role,
     active: input.active ?? true,
     passwordHash: input.passwordHash ?? '',
+    twoFactorSecret: input.twoFactorSecret ?? '',
+    twoFactorEnabled: input.twoFactorEnabled ?? false,
+    twoFactorBackupCodeHashes: input.twoFactorBackupCodeHashes ?? [],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -2945,6 +2967,9 @@ export async function upsertAdminUser(input: AdminUserInput, actorEmail: string)
         role: user.role,
         active: user.active,
         passwordHash: user.passwordHash || existing.passwordHash,
+        twoFactorSecret: user.twoFactorSecret || existing.twoFactorSecret,
+        twoFactorEnabled: input.twoFactorEnabled ?? existing.twoFactorEnabled,
+        twoFactorBackupCodeHashes: input.twoFactorBackupCodeHashes ?? existing.twoFactorBackupCodeHashes ?? [],
         updatedAt: timestamp,
       };
       await writeLocalDb(local);
@@ -2957,17 +2982,31 @@ export async function upsertAdminUser(input: AdminUserInput, actorEmail: string)
     return user;
   }
   const { rows } = await db.query(
-    `INSERT INTO admin_users (id, email, name, role, active, password_hash, created_at, updated_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
+    `INSERT INTO admin_users (id, email, name, role, active, password_hash, two_factor_secret, two_factor_enabled, two_factor_backup_code_hashes, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$10)
      ON CONFLICT (email)
      DO UPDATE SET
        name = EXCLUDED.name,
        role = EXCLUDED.role,
        active = EXCLUDED.active,
        password_hash = CASE WHEN EXCLUDED.password_hash = '' THEN admin_users.password_hash ELSE EXCLUDED.password_hash END,
+       two_factor_secret = CASE WHEN EXCLUDED.two_factor_secret = '' THEN admin_users.two_factor_secret ELSE EXCLUDED.two_factor_secret END,
+       two_factor_enabled = EXCLUDED.two_factor_enabled,
+       two_factor_backup_code_hashes = EXCLUDED.two_factor_backup_code_hashes,
        updated_at = EXCLUDED.updated_at
      RETURNING *`,
-    [user.id, user.email, user.name, user.role, user.active, user.passwordHash, timestamp],
+    [
+      user.id,
+      user.email,
+      user.name,
+      user.role,
+      user.active,
+      user.passwordHash,
+      user.twoFactorSecret || '',
+      user.twoFactorEnabled,
+      JSON.stringify(user.twoFactorBackupCodeHashes),
+      timestamp,
+    ],
   );
   const saved = toAdminUser(rows[0]);
   await addAuditLog('admin_user', saved.id, 'admin_user_upserted', actorEmail, { email: saved.email, role: saved.role, active: saved.active });
@@ -2991,6 +3030,118 @@ export async function setAdminUserActive(id: string, active: boolean, actorEmail
   if (!rows[0]) return null;
   await addAuditLog('admin_user', id, 'admin_user_active_changed', actorEmail, { active });
   return toAdminUser(rows[0]);
+}
+
+export async function setAdminUserTwoFactorSecret(email: string, secret: string, actorEmail: string) {
+  await ensureSchema();
+  const normalized = email.trim().toLowerCase();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
+    if (!user) return null;
+    user.twoFactorSecret = secret;
+    user.twoFactorEnabled = false;
+    user.twoFactorBackupCodeHashes = [];
+    user.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('admin_user', user.id, 'admin_user_2fa_secret_created', actorEmail, { email: user.email });
+    return user;
+  }
+  const { rows } = await db.query(
+    `UPDATE admin_users
+     SET two_factor_secret = $1, two_factor_enabled = false, two_factor_backup_code_hashes = '[]'::jsonb, updated_at = now()
+     WHERE lower(email) = lower($2)
+     RETURNING *`,
+    [secret, normalized],
+  );
+  if (!rows[0]) return null;
+  const user = toAdminUser(rows[0]);
+  await addAuditLog('admin_user', user.id, 'admin_user_2fa_secret_created', actorEmail, { email: user.email });
+  return user;
+}
+
+export async function enableAdminUserTwoFactor(email: string, backupCodeHashes: string[], actorEmail: string) {
+  await ensureSchema();
+  const normalized = email.trim().toLowerCase();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
+    if (!user) return null;
+    user.twoFactorEnabled = true;
+    user.twoFactorBackupCodeHashes = backupCodeHashes;
+    user.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('admin_user', user.id, 'admin_user_2fa_enabled', actorEmail, { email: user.email });
+    return user;
+  }
+  const { rows } = await db.query(
+    `UPDATE admin_users
+     SET two_factor_enabled = true, two_factor_backup_code_hashes = $1::jsonb, updated_at = now()
+     WHERE lower(email) = lower($2)
+     RETURNING *`,
+    [JSON.stringify(backupCodeHashes), normalized],
+  );
+  if (!rows[0]) return null;
+  const user = toAdminUser(rows[0]);
+  await addAuditLog('admin_user', user.id, 'admin_user_2fa_enabled', actorEmail, { email: user.email });
+  return user;
+}
+
+export async function consumeAdminUserBackupCode(email: string, remainingBackupCodeHashes: string[], actorEmail: string) {
+  await ensureSchema();
+  const normalized = email.trim().toLowerCase();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
+    if (!user) return null;
+    user.twoFactorBackupCodeHashes = remainingBackupCodeHashes;
+    user.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('admin_user', user.id, 'admin_user_2fa_backup_code_used', actorEmail, { email: user.email });
+    return user;
+  }
+  const { rows } = await db.query(
+    `UPDATE admin_users
+     SET two_factor_backup_code_hashes = $1::jsonb, updated_at = now()
+     WHERE lower(email) = lower($2)
+     RETURNING *`,
+    [JSON.stringify(remainingBackupCodeHashes), normalized],
+  );
+  if (!rows[0]) return null;
+  const user = toAdminUser(rows[0]);
+  await addAuditLog('admin_user', user.id, 'admin_user_2fa_backup_code_used', actorEmail, { email: user.email });
+  return user;
+}
+
+export async function resetAdminUserTwoFactor(id: string, actorEmail: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const user = local.adminUsers.find((item) => item.id === id);
+    if (!user) return null;
+    user.twoFactorSecret = '';
+    user.twoFactorEnabled = false;
+    user.twoFactorBackupCodeHashes = [];
+    user.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('admin_user', id, 'admin_user_2fa_reset', actorEmail, { email: user.email });
+    return user;
+  }
+  const { rows } = await db.query(
+    `UPDATE admin_users
+     SET two_factor_secret = '', two_factor_enabled = false, two_factor_backup_code_hashes = '[]'::jsonb, updated_at = now()
+     WHERE id = $1
+     RETURNING *`,
+    [id],
+  );
+  if (!rows[0]) return null;
+  const user = toAdminUser(rows[0]);
+  await addAuditLog('admin_user', id, 'admin_user_2fa_reset', actorEmail, { email: user.email });
+  return user;
 }
 
 export async function listPlannerActions(range?: { from?: string; to?: string }): Promise<PlannerAction[]> {

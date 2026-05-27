@@ -5,6 +5,8 @@ import { getAdminSetting, getAdminUserByEmail } from './db';
 import type { AdminRole, AdminUser } from './types';
 
 const cookieName = 'astana_admin_session';
+const pendingTwoFactorCookieName = 'astana_admin_2fa_pending';
+const backupCodesCookieName = 'astana_admin_2fa_backup_codes';
 
 function authSecret() {
   return process.env.AUTH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-auth-secret-change-me');
@@ -22,6 +24,25 @@ function sign(value: string) {
 
 export function csrfTokenForEmail(email: string) {
   return sign(`admin-csrf:${email.trim().toLowerCase()}`);
+}
+
+export async function createGuestCsrfToken() {
+  const payload = Buffer.from(JSON.stringify({ nonce: randomBytes(24).toString('base64url'), iat: Date.now() })).toString('base64url');
+  return `${payload}.${sign(payload)}`;
+}
+
+export async function verifyGuestCsrf(formData: FormData) {
+  const token = String(formData.get('_csrf') || '');
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature || signature !== sign(payload)) {
+    throw new Error('Neplatný bezpečnostný token. Obnovte stránku a skúste to znova.');
+  }
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { iat?: number };
+    if (!decoded.iat || Date.now() - decoded.iat > 1000 * 60 * 30) throw new Error('expired');
+  } catch {
+    throw new Error('Neplatný bezpečnostný token. Obnovte stránku a skúste to znova.');
+  }
 }
 
 export async function verifyCsrf(formData: FormData) {
@@ -60,6 +81,68 @@ export async function requireAdmin() {
   const email = await currentAdminEmail();
   if (!email) redirect('/admin/login');
   return email;
+}
+
+type PendingTwoFactor = { email: string; iat: number };
+
+function encodeSignedJson(value: unknown) {
+  const payload = Buffer.from(JSON.stringify(value)).toString('base64url');
+  return `${payload}.${sign(payload)}`;
+}
+
+function decodeSignedJson<T>(token?: string): T | null {
+  if (!token) return null;
+  const [payload, signature] = token.split('.');
+  if (!payload || !signature || sign(payload) !== signature) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as T;
+  } catch {
+    return null;
+  }
+}
+
+export async function setPendingTwoFactor(email: string) {
+  const cookieStore = await cookies();
+  cookieStore.set(pendingTwoFactorCookieName, encodeSignedJson({ email: email.trim().toLowerCase(), iat: Date.now() }), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 10,
+  });
+}
+
+export async function currentPendingTwoFactorEmail() {
+  const cookieStore = await cookies();
+  const pending = decodeSignedJson<PendingTwoFactor>(cookieStore.get(pendingTwoFactorCookieName)?.value);
+  if (!pending?.email || !pending.iat) return null;
+  if (Date.now() - pending.iat > 1000 * 60 * 10) return null;
+  return pending.email;
+}
+
+export async function clearPendingTwoFactor() {
+  const cookieStore = await cookies();
+  cookieStore.delete(pendingTwoFactorCookieName);
+}
+
+export async function setPendingBackupCodes(codes: string[]) {
+  const cookieStore = await cookies();
+  cookieStore.set(backupCodesCookieName, encodeSignedJson({ codes, iat: Date.now() }), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 10,
+  });
+}
+
+export async function consumePendingBackupCodes() {
+  const cookieStore = await cookies();
+  const pending = decodeSignedJson<{ codes?: string[]; iat?: number }>(cookieStore.get(backupCodesCookieName)?.value);
+  cookieStore.delete(backupCodesCookieName);
+  if (!pending?.codes?.length || !pending.iat) return [];
+  if (Date.now() - pending.iat > 1000 * 60 * 10) return [];
+  return pending.codes;
 }
 
 export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'name' | 'role' | 'active'> | null> {

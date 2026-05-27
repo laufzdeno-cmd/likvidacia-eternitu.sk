@@ -33,6 +33,7 @@ const navGroups = [
     title: 'ADMIN',
     items: [
       { href: '/admin/nastavenia', label: 'Nastavenia', icon: 'gear', superOnly: true },
+      { href: '/admin/profil', label: 'Profil', icon: 'user' },
       { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
       { href: '/admin/users', label: 'Používatelia', icon: 'users', superOnly: true },
     ],
@@ -52,6 +53,7 @@ function Icon({ name }: { name: string }) {
     upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 20h14" /></>,
     chat: <path d="M21 12a8 8 0 0 1-8 8H5l2-4a8 8 0 1 1 14-4Z" />,
     mail: <><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></>,
+    user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" {...common}>{paths[name]}</svg>;

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminEmail, hashPassword } from '@/src/server/auth';
+import { adminEmail, hashPassword, verifyGuestCsrf } from '@/src/server/auth';
 import { setAdminSetting } from '@/src/server/db';
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
+  try {
+    await verifyGuestCsrf(formData);
+  } catch {
+    return NextResponse.redirect(new URL('/admin/reset-password?error=csrf', request.url), { status: 303 });
+  }
   const resetToken = String(formData.get('resetToken') || '').trim();
   const email = String(formData.get('email') || '').trim().toLowerCase();
   const newPassword = String(formData.get('newPassword') || '');
