@@ -9494,3 +9494,41 @@ main.seo-page .seo-calculator .eyebrow,
     contain-intrinsic-size: auto 760px;
   }
 }
+
+/* Brand asset: keep the supplied ASTANA.sk logo in full color. */
+.brand-logo[src$="astana-logo.svg"],
+.admin-brand img[src$="astana-logo.svg"],
+.admin-login-card img[src$="astana-logo.svg"],
+.print-report-heading img[src$="astana-logo.svg"] {
+  filter: none !important;
+  object-fit: contain !important;
+}
+
+.site-header .brand:not(.footer-brand) .brand-logo[src$="astana-logo.svg"] {
+  width: 168px !important;
+  max-width: 168px !important;
+  max-height: 46px !important;
+  filter: none !important;
+  border-radius: 6px !important;
+}
+
+.site-footer .footer-brand .brand-logo[src$="astana-logo.svg"],
+.brand.footer-brand .brand-logo[src$="astana-logo.svg"] {
+  width: 195px !important;
+  max-width: 195px !important;
+  max-height: 59px !important;
+  border-radius: 6px !important;
+}
+
+.admin-brand img[src$="astana-logo.svg"] {
+  width: 132px !important;
+  max-width: 132px !important;
+  max-height: 40px !important;
+  filter: none !important;
+  border-radius: 5px !important;
+}
+
+.site-header .brand:not(.footer-brand) .brand-logo,
+.admin-brand img {
+  filter: none !important;
+}
