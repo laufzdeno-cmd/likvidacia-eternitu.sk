@@ -84,8 +84,8 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
       <section className="admin-card">
         <h2>Rozsah a cena</h2>
         <div className="admin-quote-form">
-          <label>m²<input name="m2" type="number" step="0.01" value={m2 || ''} onChange={(event) => setM2(n(event.target.value))} required /></label>
-          <label>Cena za m²<input name="pricePerM2" type="number" step="0.01" value={pricePerM2 || ''} onChange={(event) => setPricePerM2(n(event.target.value))} required /></label>
+          <label>m2<input name="m2" type="number" step="0.01" value={m2 || ''} onChange={(event) => setM2(n(event.target.value))} required /></label>
+          <label>Cena za m2<input name="pricePerM2" type="number" step="0.01" value={pricePerM2 || ''} onChange={(event) => setPricePerM2(n(event.target.value))} required /></label>
           <label>Celková cena<input readOnly value={euro(totalPrice)} /></label>
           <fieldset><legend>Typ platby</legend>{paymentTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="paymentType" value={type} defaultChecked={(job?.paymentType ?? 'FAKTURA') === type} /> {paymentLabels[type]}</label>)}</fieldset>
           <fieldset><legend>Typ práce</legend>{workTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="workType" value={type} defaultChecked={(job?.workType ?? 'DEMONTAZ_A_ODVOZ') === type} /> {workTypeLabels[type]}</label>)}</fieldset>
@@ -119,7 +119,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
         </div>
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Pracovník</th><th>m²/podiel</th><th>Sadzba</th><th>Odmena</th><th>Upraviť</th></tr></thead>
+            <thead><tr><th>Pracovník</th><th>m2/podiel</th><th>Sadzba</th><th>Odmena</th><th>Upraviť</th></tr></thead>
             <tbody>
               {rewards.map((item) => (
                 <tr key={item.workerId}>

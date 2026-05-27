@@ -23,7 +23,7 @@ const tagOptions: Array<['', string] | [LeadTag, string]> = [
   ['chyba_fotka', 'Chýbajú fotky'],
   ['potrebuje_strechara', 'Potrebuje strechára'],
   ['urgentne', 'Urgentné'],
-  ['nad_100_m2', 'Nad 100 m²'],
+  ['nad_100_m2', 'Nad 100 m2'],
   ['pripravene_na_nacenenie', 'Pripravené na nacenenie'],
 ];
 
@@ -84,7 +84,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <th>Dátum</th>
                 <th>Meno a telefón</th>
                 <th>Lokalita</th>
-                <th>Materiál + m²</th>
+                <th>Materiál + m2</th>
                 <th>Skóre</th>
                 <th>Prílohy</th>
                 <th>Stav</th>
@@ -105,7 +105,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <td>
                     <strong>{cleanSlovakText(lead.materialType)}</strong>
                     <br />
-                    <small>{lead.areaEstimate} m² · {cleanSlovakText(lead.objectType)}</small>
+                    <small>{lead.areaEstimate} m2 · {cleanSlovakText(lead.objectType)}</small>
                   </td>
                   <td><span className="score-pill">{insight.qualityScore}/100</span></td>
                   <td>{lead.fileCount ? <span className="attachment-pill">📎 {lead.fileCount}</span> : <span className="muted">—</span>}</td>

@@ -83,7 +83,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <section className="admin-card">
           <h2>Rýchly prehľad</h2>
           <table className="admin-table">
-            <thead><tr><th>Meno</th><th>Lokalita</th><th>m²</th><th>Tel.</th><th>Stav</th></tr></thead>
+            <thead><tr><th>Meno</th><th>Lokalita</th><th>m2</th><th>Tel.</th><th>Stav</th></tr></thead>
             <tbody>
               {leads.slice(0, 10).map((lead) => (
                 <tr key={lead.id}>
@@ -148,9 +148,9 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <article><span>Tržby spolu</span><strong>{euro(revenue)}</strong></article>
         <article><span>Faktúry</span><strong>{euro(invoice)}</strong><small>{pct(invoice, revenue)}</small></article>
         <article><span>Cash</span><strong>{euro(cash)}</strong><small>{pct(cash, revenue)}</small></article>
-        <article><span>Priem. €/m²</span><strong>{euro(averageM2)}</strong></article>
+        <article><span>Priem. €/m2</span><strong>{euro(averageM2)}</strong></article>
         <article><span>Zákaziek</span><strong>{jobs.length}</strong></article>
-        <article><span>m² spolu</span><strong>{numberSk(m2, ' m²')}</strong></article>
+        <article><span>m2 spolu</span><strong>{numberSk(m2, ' m2')}</strong></article>
         <article><span>Váha odpadu</span><strong>{numberSk(wasteTons, ' t')}</strong></article>
       </section>
 
@@ -201,7 +201,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
       <section className="admin-card">
         <h2>Top zákazky</h2>
-        <table className="admin-table"><thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Suma €</th><th>Zisk €</th></tr></thead><tbody>{jobs.sort((a, b) => b.totalPrice - a.totalPrice).slice(0, 5).map((job) => <tr key={job.id}><td>{job.demolitionDate}</td><td>{job.customerName}</td><td>{job.location}</td><td>{numberSk(job.m2)}</td><td>{euro(job.totalPrice)}</td><td>{euro(job.grossProfit)}</td></tr>)}</tbody></table>
+        <table className="admin-table"><thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m2</th><th>Suma €</th><th>Zisk €</th></tr></thead><tbody>{jobs.sort((a, b) => b.totalPrice - a.totalPrice).slice(0, 5).map((job) => <tr key={job.id}><td>{job.demolitionDate}</td><td>{job.customerName}</td><td>{job.location}</td><td>{numberSk(job.m2)}</td><td>{euro(job.totalPrice)}</td><td>{euro(job.grossProfit)}</td></tr>)}</tbody></table>
       </section>
     </main>
   );

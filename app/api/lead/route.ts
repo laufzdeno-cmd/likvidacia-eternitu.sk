@@ -27,7 +27,7 @@ function rateLimited(ip: string) {
 function originAllowed(request: NextRequest) {
   const origin = request.headers.get('origin');
   if (!origin) return true;
-  const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk,http://localhost:3000,http://localhost:5173')
+  const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk')
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
@@ -89,6 +89,10 @@ export async function POST(request: NextRequest) {
 
   if (!parsed.success) {
     return failure(request, parsed.error.issues[0]?.message || 'Skontrolujte povinné polia.');
+  }
+
+  if (parsed.data.companyWebsite) {
+    return failure(request, 'Dopyt sa nepodarilo odoslať.', 400);
   }
 
   const uploadedFiles = formData

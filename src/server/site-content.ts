@@ -5,12 +5,12 @@ export const homeContentDefaults = {
   heroTitle: 'Bezpečná likvidácia azbestu a eternitu po celom Slovensku',
   heroClaim: 'Vy riešite výmeru. My riešime zvyšok.',
   heroText:
-    'Zadajte približnú výmeru v m², lokalitu a typ materiálu. Pripravíme cenovú ponuku a postaráme sa o dokumentáciu, demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.',
-  quoteKicker: 'm² je základ ceny',
-  quoteTitle: 'Vyplňte m² a získajte cenovú ponuku',
+    'Zadajte približnú výmeru v m2, lokalitu a typ materiálu. Pripravíme cenovú ponuku a postaráme sa o dokumentáciu, demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.',
+  quoteKicker: 'm2 je základ ceny',
+  quoteTitle: 'Vyplňte m2 a získajte cenovú ponuku',
   quoteIntro: 'Uveďte približnú výmeru, lokalitu a typ materiálu. Fotky sú pomocné, pomôžu nám spresniť prístup a náročnosť.',
   quoteHandled: 'Vy riešite výmeru. My riešime zvyšok.',
-  quotePriorityTitle: 'm² je hlavný údaj',
+  quotePriorityTitle: 'm2 je hlavný údaj',
   quotePriorityText: 'Fotky nám pomôžu overiť materiál, prístup a náročnosť práce.',
   formSubmitText: 'Získať cenovú ponuku',
   ctaPrimary: 'Chcem cenovú ponuku',
@@ -59,16 +59,16 @@ export const homeContentDefaults = {
   finalEyebrow: 'Rýchla odpoveď',
   finalTitle: 'Vy riešite výmeru. My riešime zvyšok.',
   finalText:
-    'Zadajte približnú výmeru v m², lokalitu a typ materiálu. O dokumentáciu, demontáž, balenie, odvoz aj potvrdenie sa postaráme my.',
+    'Zadajte približnú výmeru v m2, lokalitu a typ materiálu. O dokumentáciu, demontáž, balenie, odvoz aj potvrdenie sa postaráme my.',
   finalCtaPrimary: 'Získať cenovú ponuku',
   footerText:
     'Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
   trustItems:
-    'Od roku 2011|Skúsenosti s azbestom a eternitom\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\nRÚVZ / OÚŽP ku konkrétnej stavbe|Postup riešime legálne, nie iba všeobecným sľubom\nDoprava nad 100 m² zdarma|Pri väčších zákazkách dopravu neúčtujeme\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade',
+    'Od roku 2011|Skúsenosti s azbestom a eternitom\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\nRÚVZ / OÚŽP ku konkrétnej stavbe|Postup riešime legálne, nie iba všeobecným sľubom\nDoprava nad 100 m2 zdarma|Pri väčších zákazkách dopravu neúčtujeme\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade',
   includedItems:
     'Podklady pre RÚVZ ku konkrétnej stavbe\nPodklady pre OÚŽP / životné prostredie\nDokumentácia k nakladaniu s nebezpečným odpadom\nStabilizácia materiálu\nOdborná demontáž\nDekontaminácia pracovného priestoru\nBalenie do označených vriec\nOdvoz na skládku nebezpečného odpadu\nPotvrdenie / dokumentácia po legálnej likvidácii',
   processSteps:
-    'Zadáte m² a údaje|Uveďte približnú výmeru, lokalitu a typ materiálu.\nPriložíte fotky, ak ich máte|Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.\nPripravíme cenovú ponuku|Na základe m², lokality a typu materiálu pripravíme nezáväznú ponuku.\nPo objednávke vybavíme doklady a termín|Pripravíme potrebný postup, podklady a dohodneme realizáciu.\nZrealizujeme demontáž, odvoz a odovzdáme doklady|Materiál stabilizujeme, odoberáme kontrolovane, zabalíme ho a po ukončení odovzdáme súvisiacu dokumentáciu.',
+    'Zadáte m2 a údaje|Uveďte približnú výmeru, lokalitu a typ materiálu.\nPriložíte fotky, ak ich máte|Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.\nPripravíme cenovú ponuku|Na základe m2, lokality a typu materiálu pripravíme nezáväznú ponuku.\nPo objednávke vybavíme doklady a termín|Pripravíme potrebný postup, podklady a dohodneme realizáciu.\nZrealizujeme demontáž, odvoz a odovzdáme doklady|Materiál stabilizujeme, odoberáme kontrolovane, zabalíme ho a po ukončení odovzdáme súvisiacu dokumentáciu.',
   riskItems:
     'Zdravotné riziko|Pri neodbornej manipulácii môžu vznikať nebezpečné vlákna a prach.\nÚradný postup|Pri azbeste sa rieši postup a dokumentácia podľa konkrétnej zákazky.\nNebezpečný odpad|Azbest nepatrí do bežného odpadu. Musí byť správne zabalený a odovzdaný.\nDoklady|Po legálnej likvidácii získate potrebné potvrdenie alebo dokumentáciu.',
   cautionItems:
@@ -78,7 +78,7 @@ export const homeContentDefaults = {
   practiceItems:
     'Stabilizácia materiálu|Materiál sa pred manipuláciou pripraví tak, aby sa znížilo riziko uvoľňovania prachu.\nOdborná demontáž|Práca prebieha kontrolovane, bez zbytočného lámania a chaosu na stavbe.\nBalenie do označených vriec|Azbestový odpad sa balí do určených obalov a pripraví na bezpečný odvoz.\nOdvoz na skládku nebezpečného odpadu|Materiál sa odvezie na určené miesto podľa typu zákazky a dohodnutého postupu.\nOdovzdanie dokladov|Po ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu.',
   whyItems:
-    'Skúsenosti od roku 2011.\nŠpecializácia na azbest a eternit.\nPôsobíme po celom Slovensku.\nVybavíme dokumentáciu, demontáž, balenie, odvoz aj doklady.\nPomôžeme zladiť termín so strechárom.\nDoprava nad 100 m² zdarma.',
+    'Skúsenosti od roku 2011.\nŠpecializácia na azbest a eternit.\nPôsobíme po celom Slovensku.\nVybavíme dokumentáciu, demontáž, balenie, odvoz aj doklady.\nPomôžeme zladiť termín so strechárom.\nDoprava nad 100 m2 zdarma.',
   faqItems:
-    'Je azbest nebezpečný?|Materiály s obsahom azbestu môžu byť problém najmä pri poškodení, lámaní alebo neodbornej manipulácii. Preto je dôležitý odborný postup, stabilizácia, balenie a správne odovzdanie odpadu.\nMôžem eternit odstrániť svojpomocne?|Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.\nAké doklady si mám vypýtať pred začiatkom prác?|Pýtajte si doklady k vašej konkrétnej stavbe. Podľa typu zákazky môže ísť o podklady alebo posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie.\nStačí, že firma má všeobecné oprávnenie na azbest?|Všeobecné oprávnenie je základ. Pri konkrétnej stavbe je však dôležité aj to, či má firma pripravený postup a dokumentáciu k vašej zákazke.\nČo ak neviem presnú výmeru?|Stačí približná výmera v m². Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti a rozsahu prác.\nPotrebujete fotky?|Fotky sú voliteľné, ale veľmi pomôžu. Podľa nich vieme lepšie posúdiť typ materiálu, prístup, výšku objektu, stav strechy a náročnosť.\nČo dostanem po likvidácii?|Po riadnom ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu a typu zákazky.\nKedy môže začať realizácia?|Termín závisí od rozsahu, lokality, počasia a potrebného postupu pred prácami. Po potvrdení objednávky dohodneme ďalší postup a časový plán.\nPomôžete zladiť likvidáciu so strechárom?|Áno. Termín plánujeme tak, aby mohli strechári čo najplynulejšie pokračovať. Sledujeme počasie a pri výmenách striech sa snažíme prísť skoro ráno podľa dohody.',
+    'Je azbest nebezpečný?|Materiály s obsahom azbestu môžu byť problém najmä pri poškodení, lámaní alebo neodbornej manipulácii. Preto je dôležitý odborný postup, stabilizácia, balenie a správne odovzdanie odpadu.\nMôžem eternit odstrániť svojpomocne?|Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.\nAké doklady si mám vypýtať pred začiatkom prác?|Pýtajte si doklady k vašej konkrétnej stavbe. Podľa typu zákazky môže ísť o podklady alebo posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie.\nStačí, že firma má všeobecné oprávnenie na azbest?|Všeobecné oprávnenie je základ. Pri konkrétnej stavbe je však dôležité aj to, či má firma pripravený postup a dokumentáciu k vašej zákazke.\nČo ak neviem presnú výmeru?|Stačí približná výmera v m2. Ak neviete presne, uveďte odhad. Presné m2 sa overia podľa skutočnosti a rozsahu prác.\nPotrebujete fotky?|Fotky sú voliteľné, ale veľmi pomôžu. Podľa nich vieme lepšie posúdiť typ materiálu, prístup, výšku objektu, stav strechy a náročnosť.\nČo dostanem po likvidácii?|Po riadnom ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu a typu zákazky.\nKedy môže začať realizácia?|Termín závisí od rozsahu, lokality, počasia a potrebného postupu pred prácami. Po potvrdení objednávky dohodneme ďalší postup a časový plán.\nPomôžete zladiť likvidáciu so strechárom?|Áno. Termín plánujeme tak, aby mohli strechári čo najplynulejšie pokračovať. Sledujeme počasie a pri výmenách striech sa snažíme prísť skoro ráno podľa dohody.',
 };

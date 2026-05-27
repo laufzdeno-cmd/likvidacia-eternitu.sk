@@ -112,8 +112,8 @@ export default function RealizationsPage() {
             <p className="eyebrow">Fotodokumentácia z realizácií</p>
             <h1 id="realizations-page-title">Reálne realizácie ASTANA</h1>
             <p>
-              Fotky používame ako dôkaz práce, nie ako dekoráciu. Ukazujú strechy, pracoviská, stabilizáciu materiálu,
-              demontáž, balenie a prípravu na odvoz podľa konkrétnej zákazky.
+              Fotky používame ako dôkaz práce, nie ako dekoráciu. Všetky zábery v galérii sú reálne práce ASTANA. Pri starších
+              fotkách neuvádzame lokality ani výmery, ak si ich nevieme spoľahlivo potvrdiť.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="/#dopyt">Naceniť podobnú realizáciu</a>
@@ -138,7 +138,7 @@ export default function RealizationsPage() {
             </div>
             <p>
               Vyberte typ objektu alebo fázu procesu. Na stránke nezobrazujeme súkromné údaje zákazníkov ani citlivé
-              detaily, ktoré by nemali byť verejné.
+              detaily, ktoré by nemali byť verejné. Lokality a m2 pri fotkách nevymýšľame.
             </p>
           </div>
           <div className="gallery-filters" aria-label="Filtrovanie galérie">
@@ -188,7 +188,7 @@ export default function RealizationsPage() {
             <button type="button" className="gallery-lightbox-close" data-lightbox-close aria-label="Zatvoriť galériu">×</button>
             <button type="button" className="gallery-lightbox-prev" data-lightbox-prev aria-label="Predchádzajúca fotka">‹</button>
             <figure>
-              <img data-lightbox-image src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="" />
+              <img data-lightbox-image src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="" width="960" height="720" />
               <figcaption data-lightbox-caption></figcaption>
             </figure>
             <button type="button" className="gallery-lightbox-next" data-lightbox-next aria-label="Ďalšia fotka">›</button>
@@ -198,7 +198,7 @@ export default function RealizationsPage() {
         <section className="final-cta realizations-final" aria-labelledby="realizations-final-title">
           <div>
             <p className="eyebrow">Máte podobnú strechu?</p>
-            <h2 id="realizations-final-title">Zadajte m² a pripravíme cenovú ponuku.</h2>
+            <h2 id="realizations-final-title">Zadajte m2 a pripravíme cenovú ponuku.</h2>
             <p>Fotky sú pomocné. Základ ceny tvorí približná výmera, lokalita a typ materiálu.</p>
           </div>
           <div className="final-actions">

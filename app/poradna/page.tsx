@@ -1,19 +1,40 @@
-import SimplePublicPage from '../simple-public-page';
+import { articles } from '@/src/content/seo-content';
+import { buildPageMetadata, QuickAnswer, QuoteCTA } from '../seo-components';
+import { PublicPageShell } from '../public-layout';
 
-export const metadata = { title: 'Poradňa | ASTANA', description: 'Základné informácie k likvidácii azbestu a eternitu.' };
+export const metadata = buildPageMetadata({
+  title: 'Poradňa k azbestu a eternitu | ASTANA',
+  description:
+    'Praktické články o eternite, azbeste, cene, dokladoch, meraní strechy, balení, odvoze a bezpečnom postupe.',
+  path: '/poradna/',
+});
 
 export default function AdvicePage() {
   return (
-    <SimplePublicPage
-      breadcrumb={{ name: 'Poradňa', path: '/poradna/' }}
-      eyebrow="Poradňa"
-      title="Poradňa k azbestu a eternitu"
-      lead="Pripravujeme odborné články. Zatiaľ nájdete najdôležitejšie odpovede vo FAQ na úvodnej stránke."
-      sections={[
-        { title: 'Ako zistiť eternit', text: 'Ak si nie ste istí typom materiálu, priložte fotky strechy alebo materiálu. Na cenovú ponuku je kľúčová aj približná výmera v m².' },
-        { title: 'Prečo nezhadzovať zo strechy', text: 'Pri manipulácii je dôležitý odborný postup, stabilizácia materiálu a balenie do určených obalov.' },
-        { title: 'Čo pripraviť', text: 'Kontakt, lokalitu, približnú výmeru v m², typ objektu a fotky ako pomocný podklad.' },
-      ]}
-    />
+    <PublicPageShell breadcrumb={{ name: 'Poradňa', path: '/poradna/' }}>
+      <main className="seo-page">
+        <section className="seo-hero">
+          <p className="eyebrow">Poradňa</p>
+          <h1>Poradňa k azbestu a eternitu</h1>
+          <p>Praktické odpovede pre majiteľov domov, firmy, správcov objektov a strechárov.</p>
+        </section>
+        <QuickAnswer>
+          Poradňa vysvetľuje, čo je eternit, kedy môže obsahovať azbest, prečo je dôležitý odborný postup,
+          čo ovplyvňuje cenu a aké údaje poslať pre cenovú ponuku.
+        </QuickAnswer>
+        <section className="seo-section">
+          <h2>Články</h2>
+          <div className="seo-card-grid">
+            {articles.map((article) => (
+              <article key={article.slug}>
+                <h3><a href={`/poradna/${article.slug}/`}>{article.title}</a></h3>
+                <p>{article.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+        <QuoteCTA title="Potrebujete konkrétnu ponuku?" />
+      </main>
+    </PublicPageShell>
   );
 }

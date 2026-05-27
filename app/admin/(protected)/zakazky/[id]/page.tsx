@@ -72,7 +72,7 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
           {activeStatus === 'URADY_PODANE' ? <p>Žiadosť RÚVZ a OÚ ŽP je podaná. Sledujte rozhodnutia a dátumy zapisujte do poznámky.</p> : null}
           {activeStatus === 'URADY_SCHVALENE' ? <p>Úrady sú schválené. Ďalší krok je plánovanie demontáže v plánovači.</p> : null}
           {activeStatus === 'DEMONT_NAPLANOVANA' ? <p>Demontáž je naplánovaná. Skontrolujte tím, adresu a termín v plánovači.</p> : null}
-          {activeStatus === 'DEMONT_DOKONCENA' ? <p>Demontáž je hotová. Prejdite na vyúčtovanie a doplňte presné m², náklady a odmeny.</p> : null}
+          {activeStatus === 'DEMONT_DOKONCENA' ? <p>Demontáž je hotová. Prejdite na vyúčtovanie a doplňte presné m2, náklady a odmeny.</p> : null}
           {activeStatus === 'VYUCTOVANIE' ? <p>Vyúčtovanie zákazky je v editovateľnom formulári nižšie. Po uložení nastavte stav Dokončená.</p> : null}
           {activeStatus === 'DOKONCENA' ? <p>✅ Zákazka je dokončená. Požiadajte zákazníka o recenziu.</p> : null}
         </div>
@@ -102,7 +102,7 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
         <form className="admin-quote-form admin-pending-form admin-send-offer-form" action={sendBusinessQuoteAction}>
           <input type="hidden" name="id" value={job.id} />
           <label>Platná do<input name="validUntil" type="date" defaultValue={defaultValidUntil} required /></label>
-          <label>Cena za m²<input name="quotePricePerM2" type="number" step="0.01" defaultValue={job.pricePerM2} required /></label>
+          <label>Cena za m2<input name="quotePricePerM2" type="number" step="0.01" defaultValue={job.pricePerM2} required /></label>
           <label>Celková cena<input readOnly value={euro(quoteTotal)} /></label>
           <label className="admin-form-wide">Poznámka k ponuke<textarea name="quoteNote" rows={4} /></label>
           {!job.customerEmail ? <p className="admin-alert">Zákazka nemá email zákazníka. Doplňte ho v základných údajoch.</p> : null}

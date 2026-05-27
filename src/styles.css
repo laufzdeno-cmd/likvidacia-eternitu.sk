@@ -11230,6 +11230,10 @@ body .admin-main .admin-page .admin-card,
   font-size: clamp(26px, 3vw, 40px);
 }
 
+.unit-m2 {
+  text-transform: none;
+}
+
 .seo-lead {
   max-width: 820px;
   color: #4a4845;
@@ -11272,7 +11276,8 @@ body .admin-main .admin-page .admin-card,
 
 .seo-card-grid h3,
 .seo-grid-2 h2,
-.seo-step-card h2 {
+.seo-step-card h2,
+.seo-step-card h3 {
   margin: 0 0 12px;
   color: #0f1f3d;
 }
@@ -11292,6 +11297,7 @@ body .admin-main .admin-page .admin-card,
   display: grid;
   grid-template-columns: 54px 1fr;
   align-items: start;
+  column-gap: 18px;
 }
 
 .seo-step-card span {
@@ -11304,6 +11310,12 @@ body .admin-main .admin-page .admin-card,
   background: #0f1f3d;
   color: #fff;
   font-weight: 800;
+  grid-row: 1 / span 2;
+}
+
+.seo-step-card h3,
+.seo-step-card p {
+  grid-column: 2;
 }
 
 .seo-step-card p,
@@ -11399,13 +11411,15 @@ body .admin-main .admin-page .admin-card,
   margin-top: 24px;
 }
 
-.seo-included-list span {
+.seo-included-list span,
+.seo-included-list a {
   border: 1px solid #e8e6df;
   border-radius: 10px;
   background: #fff;
   padding: 14px 16px;
   color: #1c1b19;
   font-weight: 600;
+  text-decoration: none;
 }
 
 .seo-faq details {

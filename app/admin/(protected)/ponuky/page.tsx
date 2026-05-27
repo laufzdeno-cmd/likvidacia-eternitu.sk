@@ -42,7 +42,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
       <section className="admin-card">
         <div className="admin-table-wrap">
           <table className="admin-table">
-            <thead><tr><th>Číslo CP</th><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Celkom €</th><th>Platná do</th><th>Stav</th><th>Akcie</th></tr></thead>
+            <thead><tr><th>Číslo CP</th><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m2</th><th>Celkom €</th><th>Platná do</th><th>Stav</th><th>Akcie</th></tr></thead>
             <tbody>
               {offers.map((offer) => (
                 <tr key={offer.id}>

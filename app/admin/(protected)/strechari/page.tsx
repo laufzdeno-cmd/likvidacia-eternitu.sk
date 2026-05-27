@@ -198,7 +198,7 @@ export default async function RoofersAdminPage() {
                 <tr key={lead.id}>
                   <td>{lead.fullName}<br /><small>{lead.phone}</small></td>
                   <td>{lead.city}{lead.district ? `, ${lead.district}` : ''}</td>
-                  <td>{lead.areaEstimate} m²</td>
+                  <td>{lead.areaEstimate} m2</td>
                   <td>{lead.status}</td>
                   <td><a href={`/admin/dopyty/${lead.id}`}>Detail</a></td>
                 </tr>

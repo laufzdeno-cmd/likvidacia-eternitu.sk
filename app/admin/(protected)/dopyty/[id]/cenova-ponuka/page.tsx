@@ -44,11 +44,11 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
             <input name="validUntil" type="date" defaultValue={defaultValidUntil()} />
           </label>
           <label>
-            Výmera m²
+            Výmera m2
             <input name="areaEstimate" type="number" step="0.01" defaultValue={lead.areaEstimate} />
           </label>
           <label>
-            Cena za m² bez DPH
+            Cena za m2 bez DPH
             <input name="pricePerM2" type="number" step="0.01" defaultValue="10.50" />
           </label>
           <label>
@@ -87,10 +87,10 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
           <QuoteLivePreview />
           <label className="admin-form-wide">
             Poznámka do ponuky
-            <textarea name="note" rows={5} defaultValue={`Objekt / lokalita: ${lead.city}. Typ materiálu: ${lead.materialType}. Cenová ponuka je predbežná a upraví sa podľa skutočných m².`} />
+            <textarea name="note" rows={5} defaultValue={`Objekt / lokalita: ${lead.city}. Typ materiálu: ${lead.materialType}. Cenová ponuka je predbežná a upraví sa podľa skutočných m2.`} />
           </label>
           <div className="admin-form-wide admin-calculation-hint">
-            Výpočet: výmera × cena za m² + dokumentácia + doprava + príplatky - zľavy. DPH je editovateľná a nie je natvrdo v kóde.
+            Výpočet: výmera × cena za m2 + dokumentácia + doprava + príplatky - zľavy. DPH je editovateľná a nie je natvrdo v kóde.
           </div>
           <button className="admin-primary-button admin-form-wide" type="submit">Vytvoriť cenovú ponuku</button>
         </form>

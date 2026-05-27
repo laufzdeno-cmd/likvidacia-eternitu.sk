@@ -43,6 +43,8 @@ export default function LandingClient() {
     const priceMaterialButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-price-material]'));
     let selectedFiles: File[] = [];
     let activeGallery = galleryCards.slice(0, 12);
+    const escapeHtml = (value: string) =>
+      value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
     let activeGalleryIndex = 0;
     let activePriceMaterial = 'vlnity';
     let isQuoteSectionVisible = false;
@@ -127,7 +129,7 @@ export default function LandingClient() {
       if (!priceArea || !priceAreaOutput || !priceMin || !priceMax) return;
       const area = Number(priceArea.value || 120);
       const rates = priceRates[activePriceMaterial] || priceRates.vlnity;
-      priceAreaOutput.textContent = `${area} m²`;
+      priceAreaOutput.textContent = `${area} m2`;
       priceMin.textContent = formatPrice(area * rates.min);
       priceMax.textContent = formatPrice(area * rates.max);
     };
@@ -293,7 +295,7 @@ export default function LandingClient() {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Cenov&uacute; ponuku v&aacute;m po&scaron;leme do 24 hod&iacute;n na email:<br><b>${email || 'zadan&yacute; email'}</b></span>`,
+          `<span>Cenov&uacute; ponuku v&aacute;m po&scaron;leme do 24 hod&iacute;n na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
           '<div class="success-next"><em>&#268;o sa stane &#271;alej:</em><span>1. Skontrolujeme v&aacute;&scaron; dopyt</span><span>2. Priprav&iacute;me cenov&uacute; ponuku</span><span>3. Po&scaron;leme v&aacute;m ju do 24 hod&iacute;n</span></div>',
           '<small>M&aacute;te ot&aacute;zky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',

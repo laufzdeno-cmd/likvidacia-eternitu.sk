@@ -7,7 +7,7 @@ import { BreadcrumbJsonLd } from '../seo-json-ld';
 export const metadata: Metadata = {
   title: 'Spolupráca pre strechárov | ASTANA',
   description:
-    'Zaregistrujte sa do siete ASTANA. Likvidujeme azbest skoro ráno, aby mohli strechári začať pracovať ešte dopoludnia.',
+    'Spolupráca pre strechárov pri výmene eternitových striech. ASTANA pomáha zladiť demontáž, odvoz a nadväzujúce strechárske práce.',
   alternates: {
     canonical: '/strechari/',
   },
@@ -32,7 +32,7 @@ const benefits = [
   {
     icon: 'document-check',
     title: 'Doklady v poriadku',
-    text: 'Všetky kontroly hygieny dopadli bez problémov. Zákazník dostane kompletnú dokumentáciu. Vy nemáte starosti so zodpovednosťou za azbest.',
+    text: 'Pri zákazke riešime potrebný postup, dokumentáciu a odvoz podľa konkrétneho prípadu. Strechár sa tak nemusí púšťať do manipulácie s azbestom.',
   },
 ] as const;
 

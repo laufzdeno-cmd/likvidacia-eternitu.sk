@@ -59,7 +59,7 @@ export default async function YearPage({ searchParams }: { searchParams: Promise
       </section>
       <section className="admin-card">
         <table className="admin-table">
-          <thead><tr><th>Mesiac</th><th>Zákaziek</th><th>m²</th><th>Tržby €</th><th>Faktúry €</th><th>Cash €</th><th>Náklady</th><th>Odmeny</th><th>Zisk €</th><th>Marža %</th></tr></thead>
+          <thead><tr><th>Mesiac</th><th>Zákaziek</th><th>m2</th><th>Tržby €</th><th>Faktúry €</th><th>Cash €</th><th>Náklady</th><th>Odmeny</th><th>Zisk €</th><th>Marža %</th></tr></thead>
           <tbody>{rows.map((row) => <tr key={row.month}><td><a href={`/admin/zakazky?month=${row.key}`}>{row.month}</a></td><td>{row.count}</td><td>{numberSk(row.m2)}</td><td>{euro(row.revenue)}</td><td>{euro(row.invoice)}</td><td>{euro(row.cash)}</td><td>{euro(row.costs)}</td><td>{euro(row.rewards)}</td><td>{euro(row.profit)}</td><td>{row.revenue ? ((row.profit / row.revenue) * 100).toFixed(1) : '0'} %</td></tr>)}</tbody>
           <tfoot><tr><th>SPOLU</th><th>{total.count}</th><th>{numberSk(total.m2)}</th><th>{euro(total.revenue)}</th><th>{euro(total.invoice)}</th><th>{euro(total.cash)}</th><th>{euro(total.costs)}</th><th>{euro(total.rewards)}</th><th>{euro(total.profit)}</th><th>{total.revenue ? ((total.profit / total.revenue) * 100).toFixed(1) : '0'} %</th></tr></tfoot>
         </table>

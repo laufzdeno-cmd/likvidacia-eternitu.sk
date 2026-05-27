@@ -30,8 +30,8 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
           <dt>Zákazník</dt><dd>{lead?.fullName || 'neuvedené'}</dd>
           <dt>Lokalita</dt><dd>{lead?.city || 'neuvedené'}</dd>
           <dt>Materiál</dt><dd>{lead?.materialType || 'neuvedené'}</dd>
-          <dt>Výmera</dt><dd>{quote.areaEstimate} m²</dd>
-          <dt>Cena za m² bez DPH</dt><dd>{quote.pricePerM2.toLocaleString('sk-SK')} €</dd>
+          <dt>Výmera</dt><dd>{quote.areaEstimate} m2</dd>
+          <dt>Cena za m2 bez DPH</dt><dd>{quote.pricePerM2.toLocaleString('sk-SK')} €</dd>
           <dt>Dokumentácia</dt><dd>{quote.documentationFee.toLocaleString('sk-SK')} € bez DPH</dd>
           <dt>Doprava</dt><dd>{quote.transportFee.toLocaleString('sk-SK')} € bez DPH</dd>
           <dt>DPH</dt><dd>{quote.vatRate} %</dd>
@@ -39,7 +39,7 @@ export default async function QuoteDetailPage({ params }: { params: Promise<{ id
           <dt>Spolu s DPH</dt><dd><strong>{quote.totalWithVat.toLocaleString('sk-SK')} €</strong></dd>
         </dl>
         <p>{quote.note}</p>
-        <p className="quote-warning">Cena je predbežná. Finálna cena sa môže upraviť podľa skutočných m² alebo doplnených informácií.</p>
+        <p className="quote-warning">Cena je predbežná. Finálna cena sa môže upraviť podľa skutočných m2 alebo doplnených informácií.</p>
       </section>
     </main>
   );

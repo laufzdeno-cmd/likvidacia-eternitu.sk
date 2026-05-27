@@ -1,9 +1,11 @@
 import SimplePublicPage from '../simple-public-page';
+import { buildPageMetadata } from '../seo-components';
 
-export const metadata = {
+export const metadata = buildPageMetadata({
   title: 'Ochrana osobných údajov | ASTANA',
   description: 'Informácie o spracovaní osobných údajov pri dopyte na likvidáciu azbestu a eternitu.',
-};
+  path: '/ochrana-osobnych-udajov/',
+});
 
 export default function PrivacyPage() {
   return (

@@ -1,7 +1,5 @@
-import PublicBaseClient from './public-base-client';
-import { PublicFooter, PublicHeader } from './public-layout';
-import PublicWidgets from './public-widgets';
-import { BreadcrumbJsonLd } from './seo-json-ld';
+import type React from 'react';
+import { PublicPageShell } from './public-layout';
 
 type SimplePublicPageProps = {
   eyebrow: string;
@@ -9,13 +7,12 @@ type SimplePublicPageProps = {
   lead: string;
   sections: Array<{ title: string; text: string }>;
   breadcrumb: { name: string; path: string };
+  children?: React.ReactNode;
 };
 
-export default function SimplePublicPage({ eyebrow, title, lead, sections, breadcrumb }: SimplePublicPageProps) {
+export default function SimplePublicPage({ eyebrow, title, lead, sections, breadcrumb, children }: SimplePublicPageProps) {
   return (
-    <>
-      <BreadcrumbJsonLd name={breadcrumb.name} path={breadcrumb.path} />
-      <PublicHeader />
+    <PublicPageShell breadcrumb={breadcrumb}>
       <main className="section simple-page">
         <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
@@ -28,14 +25,12 @@ export default function SimplePublicPage({ eyebrow, title, lead, sections, bread
             </article>
           ))}
         </div>
+        {children}
         <div className="final-actions">
           <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>
           <a className="button button-outline" href="/">Späť na úvod</a>
         </div>
       </main>
-      <PublicFooter />
-      <PublicBaseClient />
-      <PublicWidgets />
-    </>
+    </PublicPageShell>
   );
 }

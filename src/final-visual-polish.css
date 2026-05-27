@@ -1729,7 +1729,34 @@ body {
   }
 }
 
-/* Final typography QA: keep m² lowercase and make text rhythm calmer. */
+/* Final typography QA: keep m2 lowercase and make text rhythm calmer. */
+.unit-m2,
+.button .unit-m2,
+a .unit-m2,
+button .unit-m2 {
+  text-transform: lowercase !important;
+}
+
+.price-calculator label,
+.seo-calculator label {
+  text-transform: none !important;
+}
+
+.seo-step-card {
+  grid-template-columns: 54px minmax(0, 1fr) !important;
+  column-gap: 18px !important;
+}
+
+.seo-step-card > span {
+  grid-column: 1 !important;
+  grid-row: 1 / span 2 !important;
+}
+
+.seo-step-card > h3,
+.seo-step-card > p {
+  grid-column: 2 !important;
+}
+
 .quote-kicker,
 .hero-proof-flow span:first-child,
 .area-field label,
@@ -9091,7 +9118,7 @@ main .caution-grid article:nth-child(even) .caution-card-icon {
     text-transform: uppercase !important;
   }
 
-  main .mobile-hero-overlay h1 {
+  main .mobile-hero-overlay .mobile-hero-title {
     margin: 0 !important;
     color: #ffffff !important;
     font-size: 28px !important;
@@ -9540,4 +9567,697 @@ main.seo-page .seo-calculator .eyebrow,
 .site-header .brand:not(.footer-brand) .brand-logo,
 .admin-brand img {
   filter: none !important;
+}
+
+main .site-footer .footer-brand .brand-logo[src$="astana-logo.png"],
+main .brand.footer-brand .brand-logo[src$="astana-logo.png"],
+.site-footer .footer-brand .brand-logo[src$="astana-logo.png"],
+.brand.footer-brand .brand-logo[src$="astana-logo.png"] {
+  content: url('/assets/astana-logo.png') !important;
+  filter: none !important;
+}
+
+/* Form UX cleanup: compact, softer, faster to complete. */
+main .quote-section .quote-card {
+  padding: 30px 32px 28px !important;
+  border: 1px solid rgba(15, 31, 61, 0.08) !important;
+  background:
+    radial-gradient(circle at 4% 0%, rgba(143, 22, 60, 0.08), transparent 15rem),
+    linear-gradient(135deg, #eef5ff 0%, #f8fbff 46%, #ffffff 100%) !important;
+  box-shadow: 0 22px 54px rgba(15, 31, 61, 0.12) !important;
+}
+
+main .quote-card .lead-form {
+  gap: 14px !important;
+}
+
+main .quote-card .form-stage,
+main .quote-card .form-stage:not(.form-stage-priority),
+main .quote-card .form-stage-priority,
+main .quote-card .form-stage-files,
+main .quote-card .lead-form > .form-stage:nth-of-type(1),
+main .quote-card .lead-form > .form-stage:nth-of-type(2),
+main .quote-card .lead-form > .form-stage:nth-of-type(3),
+main .quote-card .lead-form > .form-stage:nth-of-type(4) {
+  gap: 12px !important;
+  padding: 20px !important;
+  border: 1px solid rgba(15, 31, 61, 0.08) !important;
+  border-radius: 14px !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: 0 12px 30px rgba(15, 31, 61, 0.06) !important;
+}
+
+main .quote-card .form-stage-priority,
+main .quote-card .area-field,
+main .quote-card .lead-form > .form-stage-priority:nth-of-type(1) {
+  background: linear-gradient(180deg, #fffdf9 0%, #f8fafc 100%) !important;
+  border-color: rgba(143, 22, 60, 0.14) !important;
+}
+
+main .quote-card .form-stage-title {
+  margin: 0 !important;
+  color: #263451 !important;
+  font-size: 12px !important;
+  line-height: 1.1 !important;
+  letter-spacing: 0.08em !important;
+}
+
+main .quote-card .field:not(.file-field) {
+  gap: 5px !important;
+}
+
+main .quote-card .field:not(.file-field) > label,
+main .quote-card .file-field > label:first-child,
+main .quote-card .contact-preference legend {
+  color: #3f4858 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  line-height: 1.12 !important;
+}
+
+main .quote-card input:not([type="radio"]):not([type="checkbox"]):not(.file-input),
+main .quote-card select {
+  min-height: 52px !important;
+  height: 52px !important;
+  padding: 12px 15px !important;
+  border: 2px solid rgba(232, 84, 26, 0.45) !important;
+  border-radius: 12px !important;
+  background: #fffdf9 !important;
+  box-shadow: none !important;
+}
+
+main .quote-card textarea {
+  min-height: 76px !important;
+  padding: 12px 15px !important;
+  border: 2px solid rgba(232, 84, 26, 0.45) !important;
+  border-radius: 12px !important;
+  background: #fffdf9 !important;
+  box-shadow: none !important;
+}
+
+main .quote-card input:focus,
+main .quote-card select:focus,
+main .quote-card textarea:focus {
+  border-color: #e8541a !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(232, 84, 26, 0.16) !important;
+}
+
+main .quote-card .area-field {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr) !important;
+  grid-template-rows: auto auto !important;
+  gap: 6px 16px !important;
+  align-items: start !important;
+  padding: 12px 14px !important;
+  border-radius: 13px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.62) !important;
+}
+
+main .quote-card .area-field label {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+  align-self: end !important;
+  margin: 0 !important;
+}
+
+main .quote-card .area-field input {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+  min-height: 52px !important;
+  height: 52px !important;
+  border-color: #e8541a !important;
+  background: #ffffff !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+}
+
+main .quote-card .field-help {
+  margin-top: 0 !important;
+  color: #687284 !important;
+  font-size: 12px !important;
+  line-height: 1.24 !important;
+}
+
+main .quote-card .area-field .field-help {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+  align-self: center !important;
+  padding-top: 0 !important;
+  padding-left: 14px !important;
+  line-height: 1.18 !important;
+}
+
+main .quote-card .contact-preference {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 7px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+main .quote-card .contact-preference legend {
+  grid-column: 1 / -1 !important;
+  margin: 0 0 8px !important;
+  padding: 0 !important;
+}
+
+main .quote-card .contact-preference label {
+  min-height: 38px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 2px solid rgba(232, 84, 26, 0.42) !important;
+  border-radius: 999px !important;
+  background: #fffdf9 !important;
+  color: #263451 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  line-height: 1.15 !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+main .quote-card .contact-preference label span {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  min-height: 38px !important;
+  padding: 8px 12px !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+main .quote-card .contact-preference label:has(input:checked) {
+  border-color: #e8541a !important;
+  background: #e8541a !important;
+  color: #ffffff !important;
+}
+
+main .quote-card .contact-preference label:has(input:checked) span {
+  color: #ffffff !important;
+}
+
+main .quote-card .contact-preference input {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+main .quote-card .file-drop {
+  min-height: 104px !important;
+  padding: 14px 16px !important;
+  border: 2px dashed rgba(232, 84, 26, 0.52) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7f1 100%) !important;
+  gap: 7px !important;
+  box-shadow: none !important;
+}
+
+main .quote-card .file-drop-icon {
+  width: 34px !important;
+  height: 34px !important;
+  margin-bottom: 2px !important;
+  border-radius: 11px !important;
+}
+
+main .quote-card .file-drop strong {
+  color: #263451 !important;
+  font-size: 14px !important;
+  line-height: 1.15 !important;
+}
+
+main .quote-card .file-drop span:last-child {
+  max-width: 520px !important;
+  color: #5f6877 !important;
+  font-size: 12.5px !important;
+  line-height: 1.24 !important;
+}
+
+main .quote-card .file-preview {
+  margin-top: 6px !important;
+}
+
+main .quote-card .consent {
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 10px 12px !important;
+  border: 2px solid rgba(232, 84, 26, 0.28) !important;
+  border-radius: 12px !important;
+  background: #fffdf9 !important;
+  color: #4b5563 !important;
+  font-size: 12.5px !important;
+  line-height: 1.25 !important;
+  box-shadow: none !important;
+}
+
+main .quote-card .consent input[type="checkbox"] {
+  width: 17px !important;
+  height: 17px !important;
+  min-width: 17px !important;
+  margin-top: 0 !important;
+  accent-color: #e8541a !important;
+}
+
+main .quote-card .form-submit {
+  min-height: 52px !important;
+  margin-top: 0 !important;
+  padding: 15px 18px !important;
+  border-color: #e8541a !important;
+  background: #e8541a !important;
+  color: #ffffff !important;
+  box-shadow: 0 14px 24px rgba(232, 84, 26, 0.24) !important;
+}
+
+main .quote-card .form-submit:hover,
+main .quote-card .form-submit:focus-visible {
+  border-color: #c94317 !important;
+  background: #c94317 !important;
+}
+
+main .quote-card .form-security {
+  margin: -4px 0 0 !important;
+  padding: 6px 10px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #687284 !important;
+  font-size: 12px !important;
+  line-height: 1.25 !important;
+  box-shadow: none !important;
+}
+
+main .quote-card .form-status:empty {
+  display: none !important;
+}
+
+@media (max-width: 1120px) {
+  main .quote-card .area-field {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto auto !important;
+  }
+
+  main .quote-card .area-field label,
+  main .quote-card .area-field input,
+  main .quote-card .area-field .field-help {
+    grid-column: 1 !important;
+  }
+
+  main .quote-card .area-field label {
+    grid-row: 1 !important;
+  }
+
+  main .quote-card .area-field input {
+    grid-row: 2 !important;
+  }
+
+  main .quote-card .area-field .field-help {
+    grid-row: 3 !important;
+    padding-left: 0 !important;
+    border-left: 0 !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .whatsapp-btn.is-hidden-over-form {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(8px) scale(0.94) !important;
+  }
+
+  main .quote-section .quote-card {
+    padding: 22px 16px 20px !important;
+    border-radius: 18px !important;
+  }
+
+  main .quote-card .lead-form {
+    gap: 12px !important;
+  }
+
+  main .quote-card .form-stage,
+  main .quote-card .form-stage:not(.form-stage-priority),
+  main .quote-card .form-stage-priority,
+  main .quote-card .form-stage-files {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    border-radius: 14px !important;
+  }
+
+  main .quote-card input:not([type="radio"]):not([type="checkbox"]):not(.file-input),
+  main .quote-card select {
+    min-height: 50px !important;
+    height: 50px !important;
+  }
+
+  main .quote-card .area-field {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto auto auto !important;
+    gap: 6px !important;
+    padding: 12px !important;
+  }
+
+  main .quote-card .area-field label,
+  main .quote-card .area-field input,
+  main .quote-card .area-field .field-help {
+    grid-column: 1 !important;
+  }
+
+  main .quote-card .area-field label {
+    grid-row: 1 !important;
+  }
+
+  main .quote-card .area-field input {
+    grid-row: 2 !important;
+  }
+
+  main .quote-card .area-field .field-help {
+    grid-row: 3 !important;
+    padding-left: 0 !important;
+    border-left: 0 !important;
+  }
+
+  main .quote-card .contact-preference {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 7px !important;
+  }
+
+  main .quote-card .contact-preference label {
+    min-height: 38px !important;
+  }
+
+  main .quote-card .contact-preference label span {
+    justify-content: flex-start !important;
+    min-height: 38px !important;
+    padding: 8px 12px !important;
+  }
+
+  main .quote-card .file-drop {
+    min-height: 96px !important;
+    padding: 13px 14px !important;
+  }
+
+  main .quote-card .file-drop-icon {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  main .quote-card .consent {
+    padding: 9px 10px !important;
+    font-size: 12px !important;
+  }
+
+  main .quote-card .form-submit {
+    min-height: 50px !important;
+  }
+}
+
+/* Brand color unification: ASTANA logo red. */
+:root {
+  --astana-red: #da251d;
+  --astana-red-hover: #b81e18;
+  --astana-red-soft: #fff5f3;
+}
+
+.site-header .header-phone .meta-icon.phone::before,
+.site-nav .nav-mobile-phone .meta-icon.phone::before,
+.mobile-sticky-cta .meta-icon.phone::before {
+  border-color: var(--astana-red) !important;
+  border-top-color: transparent !important;
+  border-left-color: transparent !important;
+}
+
+.button-primary,
+.form-submit,
+.site-header .button-primary,
+.site-header .header-button,
+.site-header .site-nav .nav-mobile-cta,
+main .hero-actions .button-primary,
+main .quote-card .form-submit,
+.final-cta .button-primary,
+.roofer-final .button-primary,
+.admin-primary-link,
+.admin-primary-button,
+.admin-page .admin-primary-link,
+.admin-page .admin-primary-button,
+.admin-heading .admin-primary-link,
+.admin-action-row .admin-primary-link,
+.price-offer-actions .admin-primary-button,
+.admin-page:has(.price-offer-heading) .admin-primary-link,
+.admin-page:has(.price-offer-layout) .admin-primary-button,
+.cookie-banner button:first-child {
+  border-color: var(--astana-red) !important;
+  background: var(--astana-red) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 22px rgba(218, 37, 29, 0.22) !important;
+}
+
+.button-primary:hover,
+.button-primary:focus-visible,
+.form-submit:hover,
+.form-submit:focus-visible,
+.site-header .button-primary:hover,
+.site-header .button-primary:focus-visible,
+.site-header .header-button:hover,
+.site-header .header-button:focus-visible,
+.site-header .site-nav .nav-mobile-cta:hover,
+.site-header .site-nav .nav-mobile-cta:focus-visible,
+main .hero-actions .button-primary:hover,
+main .hero-actions .button-primary:focus-visible,
+main .quote-card .form-submit:hover,
+main .quote-card .form-submit:focus-visible,
+.final-cta .button-primary:hover,
+.final-cta .button-primary:focus-visible,
+.roofer-final .button-primary:hover,
+.roofer-final .button-primary:focus-visible,
+.admin-primary-link:hover,
+.admin-primary-link:focus-visible,
+.admin-primary-button:hover,
+.admin-primary-button:focus-visible,
+.admin-page .admin-primary-link:hover,
+.admin-page .admin-primary-button:hover,
+.price-offer-actions .admin-primary-button:hover,
+.cookie-banner button:first-child:hover,
+.cookie-banner button:first-child:focus-visible {
+  border-color: var(--astana-red-hover) !important;
+  background: var(--astana-red-hover) !important;
+  color: #ffffff !important;
+}
+
+main .quote-card input:not([type="radio"]):not([type="checkbox"]):not(.file-input),
+main .quote-card select,
+main .quote-card textarea {
+  border-color: rgba(218, 37, 29, 0.5) !important;
+  background: var(--astana-red-soft) !important;
+  box-shadow: none !important;
+}
+
+main .quote-card input:focus,
+main .quote-card select:focus,
+main .quote-card textarea:focus {
+  border-color: var(--astana-red) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(218, 37, 29, 0.16) !important;
+}
+
+main .quote-card .area-field input {
+  border-color: var(--astana-red) !important;
+  background: #ffffff !important;
+}
+
+main .quote-card .contact-preference label {
+  border-color: rgba(218, 37, 29, 0.48) !important;
+  background: var(--astana-red-soft) !important;
+  box-shadow: none !important;
+}
+
+main .quote-card .contact-preference label:has(input:checked) {
+  border-color: var(--astana-red) !important;
+  background: var(--astana-red) !important;
+}
+
+main .quote-card .file-drop {
+  border-color: rgba(218, 37, 29, 0.58) !important;
+  background: linear-gradient(180deg, #ffffff 0%, var(--astana-red-soft) 100%) !important;
+  box-shadow: none !important;
+}
+
+main .quote-card .consent {
+  border-color: rgba(218, 37, 29, 0.34) !important;
+  background: var(--astana-red-soft) !important;
+}
+
+main .quote-card .consent input[type="checkbox"] {
+  accent-color: var(--astana-red) !important;
+}
+
+main .quote-card .area-field .field-help {
+  grid-row: 2 !important;
+  align-self: center !important;
+}
+
+.nav-mobile-cta,
+.mobile-sticky-cta a:last-child,
+.price-materials button.is-active,
+.price-materials button.is-active:hover,
+.realization-filter-pills button.is-active,
+.realization-filter-pills button.is-active:hover,
+.gallery-filters button.is-active,
+.gallery-filters button:hover,
+.gallery-filter-pill.is-active,
+.gallery-filter-pill:hover,
+.price-offer-actions .admin-primary-button,
+.admin-primary-link.is-plum-full {
+  border-color: var(--astana-red) !important;
+  background: var(--astana-red) !important;
+  color: #ffffff !important;
+  box-shadow: 0 12px 22px rgba(218, 37, 29, 0.2) !important;
+}
+
+.nav-mobile-cta:hover,
+.nav-mobile-cta:focus-visible,
+.mobile-sticky-cta a:last-child:hover,
+.mobile-sticky-cta a:last-child:focus-visible,
+.price-materials button.is-active:hover,
+.realization-filter-pills button.is-active:hover,
+.gallery-filters button.is-active:hover,
+.gallery-filter-pill.is-active:hover,
+.admin-primary-link.is-plum-full:hover {
+  border-color: var(--astana-red-hover) !important;
+  background: var(--astana-red-hover) !important;
+  color: #ffffff !important;
+}
+
+.price-result strong,
+.price-display strong,
+.seo-calculator strong,
+.admin-page a:not(.admin-secondary-link):not(.admin-text-link):hover {
+  color: var(--astana-red) !important;
+}
+
+.price-result,
+.seo-calculator .price-result {
+  border-color: rgba(218, 37, 29, 0.24) !important;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(218, 37, 29, 0.1), transparent 13rem),
+    #fffaf8 !important;
+}
+
+.price-materials button,
+.realization-filter-pills button,
+.gallery-filters button,
+.gallery-filter-pill {
+  border-color: rgba(218, 37, 29, 0.26) !important;
+}
+
+.admin-row-link.is-orange,
+.admin-row-link.is-plum,
+.admin-primary-link.is-plum-full,
+.admin-sidebar form button,
+.admin-inline-filter button,
+.admin-filter-bar button,
+.admin-form-inline button,
+.admin-note-form button,
+.admin-action-row button:not(.admin-secondary-link):not(.admin-danger-outline),
+.admin-submit-wrap .admin-primary-button,
+.admin-page button.admin-primary-link,
+.admin-status-badge {
+  border-color: var(--astana-red) !important;
+  background: var(--astana-red) !important;
+  color: #ffffff !important;
+}
+
+.admin-row-link.is-orange:hover,
+.admin-row-link.is-plum:hover,
+.admin-sidebar form button:hover,
+.admin-inline-filter button:hover,
+.admin-filter-bar button:hover,
+.admin-form-inline button:hover,
+.admin-note-form button:hover,
+.admin-action-row button:not(.admin-secondary-link):not(.admin-danger-outline):hover {
+  border-color: var(--astana-red-hover) !important;
+  background: var(--astana-red-hover) !important;
+  color: #ffffff !important;
+}
+
+.admin-submit-busy::before,
+.submit-progress-bar {
+  background: linear-gradient(90deg, var(--astana-red) 0%, var(--astana-red-hover) 50%, var(--astana-red) 100%) !important;
+}
+
+.admin-button-spinner,
+.submit-progress-spinner {
+  border-right-color: var(--astana-red) !important;
+}
+
+.admin-pending-toast,
+.submit-progress {
+  border-left-color: var(--astana-red) !important;
+}
+
+.admin-page input[type='checkbox'],
+.admin-page input[type='radio'] {
+  accent-color: var(--astana-red) !important;
+}
+
+.admin-page input:not([type='hidden']):not([type='checkbox']):not([type='radio']):focus,
+.admin-page select:focus,
+.admin-page textarea:focus {
+  border-color: var(--astana-red) !important;
+  box-shadow: 0 0 0 3px rgba(218, 37, 29, 0.14) !important;
+}
+
+/* Form background palette: sky card, orange sections, cappuccino inputs. */
+main .quote-section .quote-card {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(210, 232, 255, 0.8), transparent 18rem),
+    linear-gradient(135deg, #eef7ff 0%, #f8fcff 52%, #ffffff 100%) !important;
+}
+
+main .quote-card .form-stage,
+main .quote-card .form-stage:not(.form-stage-priority),
+main .quote-card .form-stage-priority,
+main .quote-card .form-stage-files,
+main .quote-card .lead-form > .form-stage:nth-of-type(1),
+main .quote-card .lead-form > .form-stage:nth-of-type(2),
+main .quote-card .lead-form > .form-stage:nth-of-type(3),
+main .quote-card .lead-form > .form-stage:nth-of-type(4),
+main .quote-card .area-field {
+  background:
+    radial-gradient(circle at 98% 0%, rgba(255, 219, 190, 0.48), transparent 12rem),
+    linear-gradient(135deg, #fffaf5 0%, #ffffff 62%, #fff4ec 100%) !important;
+  border-color: rgba(218, 37, 29, 0.16) !important;
+}
+
+main .quote-card input:not([type="radio"]):not([type="checkbox"]):not(.file-input),
+main .quote-card select,
+main .quote-card textarea,
+main .quote-card .contact-preference label,
+main .quote-card .consent {
+  background: #fffdf5 !important;
+}
+
+main .quote-card .area-field input {
+  background: #fffdf5 !important;
+}
+
+main .quote-card .file-drop {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.9), transparent 9rem),
+    linear-gradient(180deg, #fffdf5 0%, #fffaf0 100%) !important;
+}
+
+main .quote-card .contact-preference label:has(input:checked),
+main .quote-card .form-submit {
+  background: var(--astana-red) !important;
+}
+
+@media (max-width: 1120px) {
+  main .quote-card .area-field .field-help {
+    grid-row: 3 !important;
+    align-self: start !important;
+    padding-left: 0 !important;
+    border-left: 0 !important;
+  }
 }

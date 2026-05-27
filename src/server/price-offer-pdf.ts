@@ -188,7 +188,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
 
     <main class="body">
       <p class="greeting">Dobrý deň,</p>
-      <p class="copy">na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${escapeHtml(material)}) vo výmere plochy strechy cca ${escapeHtml(offer.areaM2)} m² v súlade s platnými legislatívnymi ustanoveniami.</p>
+      <p class="copy">na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${escapeHtml(material)}) vo výmere plochy strechy cca ${escapeHtml(offer.areaM2)} m2 v súlade s platnými legislatívnymi ustanoveniami.</p>
       ${offer.offerNote ? `<p class="copy" style="background:#FAFAFA;border-left:3px solid #D4B56A;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
 
       <table class="price-table">
@@ -198,7 +198,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
         <tbody>
           <tr>
             <td>${escapeHtml(material)}</td>
-            <td>${escapeHtml(offer.areaM2)} m²</td>
+            <td>${escapeHtml(offer.areaM2)} m2</td>
             <td class="right">${moneyPdf(offer.materialPriceWithoutVat)} €</td>
             <td class="right">${moneyPdf(materialWithVat)} €</td>
           </tr>

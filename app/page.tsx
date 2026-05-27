@@ -1,17 +1,19 @@
 import HomepageCriticalClient from './homepage-critical-client';
 import HomepageDeferredClient from './homepage-deferred-client';
 import PublicWidgets from './public-widgets';
+import { TrustComplianceSection } from './seo-components';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
   heroPhoto,
   realizationHighlights,
 } from '@/src/data/azbestReferences';
-import { getSiteContentMap, listApprovedTestimonials } from '@/src/server/db';
+import { getSiteContentMap } from '@/src/server/db';
+import { cleanSlovakText } from '@/src/server/slovak-text';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 
 
 const heroCounters = [
-  { value: 80000, suffix: '+', label: 'm² zlikvidovaných', start: 0, format: 'locale' },
+  { value: 80000, suffix: '+', label: 'm2 zlikvidovaných', start: 0, format: 'locale' },
   { value: 500, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
   { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
 ] as const;
@@ -35,18 +37,6 @@ const realizationFilters = [
   { value: 'garaz', label: 'Garáž' },
   { value: 'priemyselny-objekt', label: 'Priemyselný objekt' },
 ] as const;
-
-const getReviewInitials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-
-const formatReviewDate = (value?: string) =>
-  value ? new Intl.DateTimeFormat('sk-SK', { month: 'long', year: 'numeric' }).format(new Date(value)) : '';
 
 const formatHeroCounterValue = (counter: (typeof heroCounters)[number]) =>
   `${counter.value === 2011 ? counter.value.toString() : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
@@ -116,14 +106,14 @@ const defaultTrustItems = [
   ['Od roku 2011', 'Skúsenosti s azbestom a eternitom'],
   ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
   ['RÚVZ / OÚŽP ku konkrétnej stavbe', 'Postup riešime legálne, nie iba všeobecným sľubom'],
-  ['Doprava nad 100 m² zdarma', 'Pri väčších zákazkách dopravu neúčtujeme'],
+  ['Doprava nad 100 m2 zdarma', 'Pri väčších zákazkách dopravu neúčtujeme'],
   ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
 ] satisfies [string, string][];
 
 const defaultProcessSteps = [
-  ['Zadáte m² a údaje', 'Uveďte približnú výmeru, lokalitu a typ materiálu.'],
+  ['Zadáte m2 a údaje', 'Uveďte približnú výmeru, lokalitu a typ materiálu.'],
   ['Priložíte fotky, ak ich máte', 'Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.'],
-  ['Pripravíme cenovú ponuku', 'Na základe m² a údajov pripravíme nezáväznú cenovú ponuku.'],
+  ['Pripravíme cenovú ponuku', 'Na základe m2 a údajov pripravíme nezáväznú cenovú ponuku.'],
   ['Po objednávke vybavíme dokumentáciu a termín', 'Pripravíme potrebný postup, doklady a dohodneme realizáciu.'],
   ['Zrealizujeme demontáž, odvoz a odovzdáme doklady', 'Materiál stabilizujeme, zabalíme, odvezieme a po ukončení odovzdáme dokumentáciu.'],
 ] satisfies [string, string][];
@@ -177,7 +167,7 @@ const defaultWhyItems = [
   'Pôsobíme po celom Slovensku.',
   'Vybavíme dokumentáciu, demontáž, balenie, odvoz aj doklady.',
   'Pomôžeme zladiť termín so strechárom.',
-  'Doprava nad 100 m² zdarma.',
+  'Doprava nad 100 m2 zdarma.',
 ];
 
 const defaultFaq = [
@@ -199,7 +189,7 @@ const defaultFaq = [
   ],
   [
     'Čo ak neviem presnú výmeru?',
-    'Stačí približná výmera v m². Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti a rozsahu prác.',
+    'Stačí približná výmera v m2. Ak neviete presne, uveďte odhad. Presné m2 sa overia podľa skutočnosti a rozsahu prác.',
   ],
   [
     'Potrebujete fotky?',
@@ -253,6 +243,8 @@ function buildJsonLd(faq: [string, string][]) {
         telephone: '+421905217946',
         email: 'astana@astana.sk',
         foundingDate: '2011',
+        taxID: '46 157 701',
+        vatID: 'SK2023253771',
         address: {
           '@type': 'PostalAddress',
           streetAddress: 'Scherffelova 1364/28',
@@ -269,6 +261,8 @@ function buildJsonLd(faq: [string, string][]) {
         url: 'https://likvidacia-eternitu.sk/',
         telephone: '+421905217946',
         email: 'astana@astana.sk',
+        taxID: '46 157 701',
+        vatID: 'SK2023253771',
         areaServed: { '@type': 'Country', name: 'Slovensko' },
         address: {
           '@type': 'PostalAddress',
@@ -315,22 +309,20 @@ function buildJsonLd(faq: [string, string][]) {
 
 export const revalidate = 300;
 
-async function getHomepageTestimonials() {
-  try {
-    return await listApprovedTestimonials(6);
-  } catch {
-    return [];
-  }
-}
-
 export default async function HomePage() {
-  const [testimonials, rawContent] = await Promise.all([
-    getHomepageTestimonials(),
-    getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion }),
-  ]);
+  const rawContent = await getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion });
+  const normalizedContent = Object.fromEntries(
+    Object.entries(rawContent).map(([key, value]) => [key, cleanSlovakText(value)]),
+  ) as Record<keyof typeof homeContentDefaults, string>;
   const content: typeof homeContentDefaults = {
     ...homeContentDefaults,
-    ...rawContent,
+    ...normalizedContent,
+    heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
+    heroClaim: 'ASTANA, s.r.o. - odborný postup, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
+    heroText:
+      'ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
+    ctaPrimary: 'Chcem cenovú ponuku',
+    ctaPhone: 'Zavolať 0905 217 946',
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
   };
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
@@ -456,7 +448,7 @@ export default async function HomePage() {
             </picture>
             <div className="mobile-hero-overlay" aria-hidden="true">
               <p className="mobile-hero-eyebrow">{content.heroEyebrow}</p>
-              <h1>{content.heroTitle}</h1>
+              <p className="mobile-hero-title">{content.heroTitle}</p>
             </div>
             <div className="hero-trust-card">
               <div>
@@ -482,7 +474,7 @@ export default async function HomePage() {
               <p className="eyebrow">Rýchle nacenenie</p>
               <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
               <p>
-                Formulár zostáva krátky. Najdôležitejšia je približná výmera v m², lokalita a kontakt, aby sme vedeli pripraviť reálnu ponuku.
+                Formulár zostáva krátky. Najdôležitejšia je približná výmera v m2, lokalita a kontakt, aby sme vedeli pripraviť reálnu ponuku.
               </p>
               <ul>
                 <li><VisualIcon name="check" className="quote-panel-icon" />Bez záväzku a bez automatickej objednávky</li>
@@ -490,15 +482,6 @@ export default async function HomePage() {
                 <li><VisualIcon name="check" className="quote-panel-icon" />Cenová ponuka odíde až po kontrole</li>
               </ul>
               <a className="quote-panel-phone" href="tel:+421905217946">0905 217 946</a>
-              </div>
-              <div className="quote-panel-testimonial" aria-label="Hodnotenie zákazníka">
-                <img src="/assets/azbest/jpg/azbest-054.jpg" alt="" loading="lazy" />
-                <div className="quote-panel-testimonial-overlay" aria-hidden="true"></div>
-                <div className="quote-panel-testimonial-content">
-                  <span className="quote-panel-testimonial-stars">★★★★★</span>
-                  <p>"Prišli o šiestej ráno, strecha bola hotová do obeda. Odporúčam."</p>
-                  <span className="quote-panel-testimonial-author">— M. Fojtík, Košice · Rodinný dom</span>
-                </div>
               </div>
             </div>
 
@@ -522,9 +505,9 @@ export default async function HomePage() {
               <div className="form-stage form-stage-priority">
                 <p className="form-stage-title">1. Výmera a lokalita</p>
                 <div className="field area-field">
-                  <label htmlFor="areaEstimate">Približná výmera v m² *</label>
+                  <label htmlFor="areaEstimate">Približná výmera v m2 *</label>
                   <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
-                  <p className="field-help">Ak neviete presne, uveďte odhad. Presné m² sa overia podľa skutočnosti.</p>
+                  <p className="field-help">Ak neviete presne, uveďte odhad. Presné m2 sa overia podľa skutočnosti.</p>
                 </div>
                 <div className="field">
                   <label htmlFor="city">Obec / mesto *</label>
@@ -590,9 +573,9 @@ export default async function HomePage() {
                 <p className="form-stage-title">3. Kontakt</p>
                 <fieldset className="field field-full contact-preference">
                   <legend>Ako vás máme kontaktovať?</legend>
-                  <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /> Zavolajte mi</label>
-                  <label><input type="radio" name="preferredContact" value="Napíšte mi email" /> Napíšte mi email</label>
-                  <label><input type="radio" name="preferredContact" value="WhatsApp / SMS" /> WhatsApp / SMS</label>
+                  <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /><span>Zavolať</span></label>
+                  <label><input type="radio" name="preferredContact" value="Napíšte mi email" /><span>Email</span></label>
+                  <label><input type="radio" name="preferredContact" value="WhatsApp / SMS" /><span>WhatsApp / SMS</span></label>
                 </fieldset>
                 <div className="field">
                   <label htmlFor="phone">Telefón *</label>
@@ -661,7 +644,7 @@ export default async function HomePage() {
             <p className="eyebrow">Orientačná cena</p>
             <h2 id="price-calculator-title">Koľko môže stáť likvidácia?</h2>
             <p>
-              Najrýchlejšie sa orientujeme podľa približnej výmery v m². Zadajte plochu a typ materiálu, uvidíte pracovný
+              Najrýchlejšie sa orientujeme podľa približnej výmery v m2. Zadajte plochu a typ materiálu, uvidíte pracovný
               rozsah ceny. Záväznú ponuku pripravíme po overení detailov.
             </p>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginTop: '12px' }}>
@@ -672,7 +655,7 @@ export default async function HomePage() {
           <div className="price-calculator-card" data-price-calculator>
             <div className="price-area-row">
               <label htmlFor="price-area">Približná výmera</label>
-              <output htmlFor="price-area" data-price-area-output>120 m²</output>
+              <output htmlFor="price-area" data-price-area-output>120 m2</output>
             </div>
             <input
               id="price-area"
@@ -774,8 +757,10 @@ export default async function HomePage() {
 
         <section className="transport-banner" aria-label="Doprava zdarma nad 100 metrov štvorcových">
           <span className="transport-icon"><VisualIcon name="truck" /></span>
-          <strong>Dopravu pri zákazkách nad 100 m² neúčtujeme!</strong>
+          <strong>Dopravu pri zákazkách nad 100 m2 neúčtujeme!</strong>
         </section>
+
+        <TrustComplianceSection />
 
         <section className="section process-section" id="ako-to-prebieha" aria-labelledby="process-title">
           <div className="section-heading">
@@ -844,32 +829,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="section reviews-section" id="recenzie" aria-labelledby="reviews-title">
-          <div className="reviews-heading">
-            <h2 id="reviews-title">Čo hovoria naši zákazníci</h2>
-            <p>Hodnotenia zákazníkov</p>
-          </div>
-          <div className="reviews-grid">
-            {testimonials.slice(0, 3).map((review) => (
-              <article className="review-card" key={review.id}>
-                <div className="review-stars" aria-label={`${review.rating} z 5`}>{'★'.repeat(review.rating)}</div>
-                <p className="review-text">{review.text}</p>
-                <footer className="review-author">
-                  <span className="review-avatar" aria-hidden="true">{getReviewInitials(review.customerName)}</span>
-                  <div>
-                    <strong>{review.customerName}</strong>
-                    <span>{[review.location, review.objectType, formatReviewDate(review.realizationDate)].filter(Boolean).join(' · ')}</span>
-                  </div>
-                </footer>
-              </article>
-            ))}
-            {!testimonials.length ? <p>Recenzie pripravujeme na zverejnenie po schválení v administrácii.</p> : null}
-          </div>
-          <a className="reviews-google-link" href="/recenzie/">
-            Zobraziť všetky hodnotenia →
-          </a>
-        </section>
-
         <section className="section roofers-section" id="strechari" aria-labelledby="roofers-title">
           <div className="section-heading split">
             <div>
@@ -912,31 +871,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {testimonials.length ? (
-          <section className="section testimonial-section" id="referencie" aria-labelledby="testimonial-title">
-            <div className="section-heading split">
-              <div>
-                <p className="eyebrow">{content.testimonialsEyebrow}</p>
-                <h2 id="testimonial-title">{content.testimonialsTitle}</h2>
-              </div>
-              <p>{content.testimonialsText}</p>
-            </div>
-            <div className="testimonial-layout">
-              <div className="testimonial-grid">
-                {testimonials.map((testimonial) => (
-                  <article key={testimonial.id} className="testimonial-card">
-                    <div className="testimonial-stars" aria-label={`${testimonial.rating} z 5`}>
-                      {'★'.repeat(testimonial.rating)}
-                    </div>
-                    <p>{testimonial.text}</p>
-                    <strong>{testimonial.customerName}</strong>
-                    {testimonial.location ? <span>{testimonial.location}</span> : null}
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
-        ) : null}
         <section className="section faq-section" id="faq" aria-labelledby="faq-title">
           <div className="section-heading split">
             <div>
@@ -992,9 +926,28 @@ export default async function HomePage() {
         </div>
         <div>
           <h2>Užitočné</h2>
+          <a href="/likvidacia-azbestu/">Likvidácia azbestu</a>
+          <a href="/likvidacia-eternitu/">Likvidácia eternitu</a>
+          <a href="/cena-likvidacie-azbestu/">Cena likvidácie</a>
+          <a href="/postup/">Postup</a>
+          <a href="/faq/">FAQ</a>
           <a href="/realizacie/">Realizácie</a>
-          <a href={testimonials.length ? '#referencie' : '#realizacie-astana'}>{testimonials.length ? 'Referencie' : 'Prax'}</a>
-          <a href="/strechari/">Strechári</a>
+          <a href="/recenzie/">Recenzie</a>
+          <a href="/o-firme/">O firme</a>
+          <a href="/kontakt/">Kontakt</a>
+          <a href="/poradna/">Poradňa</a>
+          <a href="/strechari/">Pre strechárov</a>
+        </div>
+        <div>
+          <h2>Lokality</h2>
+          <a href="/likvidacia-azbestu-poprad/">Poprad</a>
+          <a href="/likvidacia-azbestu-kosice/">Košice</a>
+          <a href="/likvidacia-azbestu-presov/">Prešov</a>
+          <a href="/likvidacia-azbestu-zilina/">Žilina</a>
+          <a href="/likvidacia-azbestu-bratislava/">Bratislava</a>
+        </div>
+        <div>
+          <h2>Právne</h2>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>
           <a href="/podmienky-pouzivania/">Podmienky používania</a>

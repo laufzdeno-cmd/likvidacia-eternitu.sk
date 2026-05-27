@@ -3547,7 +3547,7 @@ export async function getSystemHealth() {
       ok: Boolean(process.env.SMTP_HOST && (process.env.FROM_EMAIL || process.env.MAIL_FROM) && process.env.LEAD_TO_EMAIL),
       detail: process.env.SMTP_HOST ? 'SMTP host je nastavený.' : 'SMTP_HOST nie je nastavený, emaily sa preskočia.',
     },
-    allowedOrigins: process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk,http://localhost:3000,http://localhost:5173',
+    allowedOrigins: process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk',
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk',
     buildCommit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'lokálne / nezistené',
     lastLead: null as null | LeadSummary,

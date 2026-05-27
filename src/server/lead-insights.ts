@@ -19,7 +19,7 @@ export const tagLabels: Record<LeadTag, string> = {
   chyba_fotka: 'Chýbajú fotky',
   potrebuje_strechara: 'Potrebuje strechára',
   urgentne: 'Urgentné',
-  nad_100_m2: 'Nad 100 m²',
+  nad_100_m2: 'Nad 100 m2',
   pripravene_na_nacenenie: 'Pripravené na nacenenie',
 };
 

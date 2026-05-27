@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const month = request.nextUrl.searchParams.get('month') || '';
   const bounds = month ? { from: `${month}-01`, to: new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toISOString().slice(0, 10) } : {};
   const jobs = await listBusinessJobs(bounds);
-  const header = ['dátum', 'meno', 'lokalita', 'm²', 'cena/m²', 'celkom €', 'platba', 'typ práce', 'váha kg', 'skládka', 'tím', 'odmeny', 'náklady', 'zisk €', 'stav'];
+  const header = ['dátum', 'meno', 'lokalita', 'm2', 'cena/m2', 'celkom €', 'platba', 'typ práce', 'váha kg', 'skládka', 'tím', 'odmeny', 'náklady', 'zisk €', 'stav'];
   const lines = [
     header.join(';'),
     ...jobs.map((job) =>

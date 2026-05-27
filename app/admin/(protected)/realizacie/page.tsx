@@ -37,7 +37,7 @@ export default async function RealizationsPage() {
             <input name="materialType" placeholder="napr. vlnitý eternit" />
           </label>
           <label>
-            Výmera v m²
+            Výmera v m2
             <input name="areaEstimate" type="number" step="0.01" placeholder="napr. 180" />
           </label>
           <label>
@@ -95,7 +95,7 @@ export default async function RealizationsPage() {
                   <td>
                     {realization.location || 'bez lokality'}
                     <br />
-                    <small>{realization.materialType || 'materiál neuvedený'}{realization.areaEstimate ? ` · ${realization.areaEstimate} m²` : ''}</small>
+                    <small>{realization.materialType || 'materiál neuvedený'}{realization.areaEstimate ? ` · ${realization.areaEstimate} m2` : ''}</small>
                   </td>
                   <td>{realization.imageUrls.length}</td>
                   <td><span className="status-pill">{statusLabels[realization.status]}</span></td>

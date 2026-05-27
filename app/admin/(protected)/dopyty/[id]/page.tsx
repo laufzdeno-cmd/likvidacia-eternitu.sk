@@ -64,7 +64,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <h2>Dopyt</h2>
             <dl className="admin-dl">
               <dt>Materiál</dt><dd>{cleanSlovakText(lead.materialType)}</dd>
-              <dt>Výmera</dt><dd>{lead.areaEstimate} m²</dd>
+              <dt>Výmera</dt><dd>{lead.areaEstimate} m2</dd>
               <dt>Typ objektu</dt><dd>{cleanSlovakText(lead.objectType)}</dd>
               <dt>Termín</dt><dd>{cleanSlovakText(lead.term) || 'Neuvedené'}</dd>
               <dt>Preferovaný kontakt</dt><dd>{cleanSlovakText(lead.preferredContact)}</dd>

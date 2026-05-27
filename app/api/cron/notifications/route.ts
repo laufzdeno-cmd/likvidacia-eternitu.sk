@@ -27,6 +27,16 @@ function typeLabel(type: PlannerAction['type']) {
   }[type];
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char] || char);
+}
+
 async function weatherText(action: PlannerAction) {
   try {
     const geoRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(`${action.address}, Slovensko`)}`, {
@@ -51,18 +61,19 @@ async function weatherText(action: PlannerAction) {
 }
 
 function adminHtml(action: PlannerAction, title: string, weather: string) {
+  const safeCustomerPhone = action.customerPhone ? `· ${escapeHtml(action.customerPhone)}` : '';
   return `
     <div style="font-family:Arial,sans-serif;background:#F8F7F4;padding:24px;">
       <div style="max-width:620px;margin:0 auto;background:white;border:1px solid #E8E6DF;border-radius:10px;overflow:hidden;">
-        <div style="background:#1E1E2E;color:white;padding:18px 22px;font-size:18px;font-weight:700;">${title}</div>
+        <div style="background:#1E1E2E;color:white;padding:18px 22px;font-size:18px;font-weight:700;">${escapeHtml(title)}</div>
         <div style="padding:22px;color:#1E293B;font-size:14px;line-height:1.7;">
-          <p><strong>Dátum:</strong> ${action.date} · ${action.timeFrom} – ${action.timeTo}</p>
-          <p><strong>Typ:</strong> ${typeLabel(action.type)}</p>
-          <p><strong>Adresa:</strong> ${action.address}</p>
-          <p><strong>Tím:</strong> ${action.workers || '—'}</p>
-          <p><strong>Zákazník:</strong> ${action.customerName || '—'} ${action.customerPhone ? `· ${action.customerPhone}` : ''}</p>
-          <p><strong>Poznámka:</strong> ${action.note || '—'}</p>
-          <p style="margin-top:16px;padding:12px 14px;background:#F8FAFC;border-left:4px solid #6B2D5E;">${weather}</p>
+          <p><strong>Dátum:</strong> ${escapeHtml(action.date)} · ${escapeHtml(action.timeFrom)} – ${escapeHtml(action.timeTo)}</p>
+          <p><strong>Typ:</strong> ${escapeHtml(typeLabel(action.type))}</p>
+          <p><strong>Adresa:</strong> ${escapeHtml(action.address)}</p>
+          <p><strong>Tím:</strong> ${escapeHtml(action.workers || '—')}</p>
+          <p><strong>Zákazník:</strong> ${escapeHtml(action.customerName || '—')} ${safeCustomerPhone}</p>
+          <p><strong>Poznámka:</strong> ${escapeHtml(action.note || '—')}</p>
+          <p style="margin-top:16px;padding:12px 14px;background:#F8FAFC;border-left:4px solid #6B2D5E;">${escapeHtml(weather)}</p>
         </div>
       </div>
     </div>`;
@@ -74,9 +85,9 @@ function customerHtml(action: PlannerAction) {
       <div style="max-width:600px;margin:0 auto;background:white;border:1px solid #E8E6DF;border-radius:10px;overflow:hidden;">
         <div style="background:#1E1E2E;color:white;padding:22px 28px;font-size:20px;font-weight:700;">ASTANA</div>
         <div style="padding:28px;color:#1E293B;font-size:15px;line-height:1.7;">
-          <p>Dobrý deň${action.customerName ? `, ${action.customerName}` : ''},</p>
-          <p>pripomíname termín demontáže/realizácie naplánovaný na <strong>${action.date}</strong> v čase <strong>${action.timeFrom} – ${action.timeTo}</strong>.</p>
-          <p><strong>Adresa:</strong> ${action.address}</p>
+          <p>Dobrý deň${action.customerName ? `, ${escapeHtml(action.customerName)}` : ''},</p>
+          <p>pripomíname termín demontáže/realizácie naplánovaný na <strong>${escapeHtml(action.date)}</strong> v čase <strong>${escapeHtml(action.timeFrom)} – ${escapeHtml(action.timeTo)}</strong>.</p>
+          <p><strong>Adresa:</strong> ${escapeHtml(action.address)}</p>
           <p>Prosíme, pripravte prístup k streche/objektu a zabezpečte voľný priestor pre pracovníkov ASTANA.</p>
           <p style="margin-top:18px;padding:14px;background:#F8FAFC;border-radius:8px;">V prípade otázok volajte <strong>0905 217 946</strong>.</p>
         </div>
@@ -133,6 +144,7 @@ export async function GET(request: Request) {
   const followups = await listDueFollowups(new Date().toISOString().slice(0, 10));
   for (const lead of followups) {
     const adminUrl = `${process.env.ADMIN_BASE_URL || new URL(request.url).origin}/admin/dopyty/${lead.id}`;
+    const phoneHref = String(lead.phone || '').replace(/[^\d+]/g, '');
     await sendPlannerNotificationEmail({
       to: adminEmail(),
       subject: `📞 Dnes zavolať — ${lead.fullName} ${lead.city}`,
@@ -148,11 +160,11 @@ export async function GET(request: Request) {
           <div style="max-width:620px;margin:0 auto;background:white;border:1px solid #E8E6DF;border-radius:10px;overflow:hidden;">
             <div style="background:#6B2D5E;color:white;padding:18px 22px;font-size:18px;font-weight:700;">📞 Dnes zavolať</div>
             <div style="padding:22px;color:#1E293B;font-size:14px;line-height:1.7;">
-              <p><strong>Meno:</strong> ${lead.fullName}</p>
-              <p><strong>Telefón:</strong> <a href="tel:${lead.phone}" style="color:#E8541A;font-weight:700;">${lead.phone}</a></p>
-              <p><strong>Lokalita:</strong> ${lead.city}</p>
-              <p><strong>Dôvod:</strong> ${lead.followupNote || 'follow-up'}</p>
-              <p><a href="${adminUrl}" style="display:inline-block;background:#E8541A;color:white;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;">Otvoriť dopyt</a></p>
+              <p><strong>Meno:</strong> ${escapeHtml(lead.fullName)}</p>
+              <p><strong>Telefón:</strong> <a href="tel:${escapeHtml(phoneHref)}" style="color:#E8541A;font-weight:700;">${escapeHtml(lead.phone)}</a></p>
+              <p><strong>Lokalita:</strong> ${escapeHtml(lead.city)}</p>
+              <p><strong>Dôvod:</strong> ${escapeHtml(lead.followupNote || 'follow-up')}</p>
+              <p><a href="${escapeHtml(adminUrl)}" style="display:inline-block;background:#E8541A;color:white;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:700;">Otvoriť dopyt</a></p>
             </div>
           </div>
         </div>`,

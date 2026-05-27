@@ -56,7 +56,7 @@ export default function QuoteLivePreview() {
         <small>{totals.marginPercent.toFixed(1)} %</small>
       </article>
       <article>
-        <span>Zisk na m²</span>
+        <span>Zisk na m2</span>
         <strong>{eur(totals.profitPerM2)}</strong>
       </article>
     </div>

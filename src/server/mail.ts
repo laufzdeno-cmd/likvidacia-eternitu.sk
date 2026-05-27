@@ -131,7 +131,7 @@ function customerLeadEmailHtml(lead: Lead) {
               <div style="margin-bottom:12px;font-size:11px;font-weight:700;color:#687284;text-transform:uppercase;letter-spacing:0.08em;">Súhrn vášho dopytu</div>
               <div style="font-size:14px;color:#1C1B19;line-height:1.8;">
                 📍 <strong>Lokalita:</strong> ${escapeHtml(lead.city)}<br />
-                📐 <strong>Výmera:</strong> ${escapeHtml(lead.areaEstimate)} m²<br />
+                📐 <strong>Výmera:</strong> ${escapeHtml(lead.areaEstimate)} m2<br />
                 🏗 <strong>Materiál:</strong> ${escapeHtml(lead.materialType)}<br />
                 🏠 <strong>Objekt:</strong> ${escapeHtml(lead.objectType)}<br />
                 📞 <strong>Kontakt:</strong> ${escapeHtml(lead.preferredContact || 'Zavolajte mi')}
@@ -179,7 +179,7 @@ function customerLeadEmailText(lead: Lead) {
     '',
     'Súhrn vášho dopytu:',
     `Lokalita: ${lead.city}`,
-    `Výmera: ${lead.areaEstimate} m²`,
+    `Výmera: ${lead.areaEstimate} m2`,
     `Materiál: ${lead.materialType}`,
     `Typ objektu: ${lead.objectType}`,
     `Kontakt: ${lead.preferredContact || 'Zavolajte mi'}`,
@@ -199,7 +199,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
     ['Email', `<a href="mailto:${escapeHtml(lead.email)}" style="color:#185FA5;text-decoration:none;">${escapeHtml(lead.email)}</a>`],
     ['Lokalita', escapeHtml(lead.city)],
     ['Okres', escapeHtml(lead.district || '—')],
-    ['Výmera', `${escapeHtml(lead.areaEstimate)} m²`],
+    ['Výmera', `${escapeHtml(lead.areaEstimate)} m2`],
     ['Materiál', escapeHtml(lead.materialType)],
     ['Objekt', escapeHtml(lead.objectType)],
     ['Kontakt', `<span style="display:inline-block;background:${contact.bg};color:${contact.color};border:1px solid ${contact.border};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;">${contact.label}</span>`],
@@ -247,7 +247,7 @@ function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
     `Email: ${lead.email}`,
     `Lokalita: ${lead.city}`,
     `Okres: ${lead.district || '—'}`,
-    `Výmera: ${lead.areaEstimate} m²`,
+    `Výmera: ${lead.areaEstimate} m2`,
     `Materiál: ${lead.materialType}`,
     `Objekt: ${lead.objectType}`,
     `Kontakt: ${lead.preferredContact || 'Zavolajte mi'}`,
@@ -269,7 +269,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobI
     from: namedFromHeader('ASTANA systém'),
     to: leadRecipient(),
     replyTo: leadRecipient(),
-    subject: `🔔 ${lead.city} | ${lead.areaEstimate}m² | ${lead.fullName} | likvidacia-eternitu.sk`,
+    subject: `🔔 ${lead.city} | ${lead.areaEstimate}m2 | ${lead.fullName} | likvidacia-eternitu.sk`,
     text: adminLeadEmailText(lead, businessJobId, fileCount),
     html: adminHtml,
   });
@@ -302,8 +302,8 @@ export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUnt
       'na základe vášho dopytu sme pripravili cenovú ponuku:',
       '',
       `Lokalita: ${job.location}`,
-      `Výmera: ${job.m2} m²`,
-      `Cena za m²: ${euro(input.pricePerM2)}`,
+      `Výmera: ${job.m2} m2`,
+      `Cena za m2: ${euro(input.pricePerM2)}`,
       `Celková cena: ${euro(input.totalPrice)}`,
       `Platnosť ponuky do: ${dateSk(input.validUntil)}`,
       '',
@@ -436,7 +436,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 ${tableRow('📍 Lokalita', escapeHtml(location))}
                 ${tableRow('🏠 Typ objektu', escapeHtml(offer.objectType))}
-                ${tableRow('📐 Výmera', `${escapeHtml(offer.areaM2)} m²`)}
+                ${tableRow('📐 Výmera', `${escapeHtml(offer.areaM2)} m2`)}
                 ${tableRow('🏗 Materiál', escapeHtml(material))}
                 ${tableRow('📋 Dokumentácia', offer.includeDocumentation ? 'Áno — RÚVZ a OÚ ŽP' : 'Nie')}
                 ${tableRow('📅 Termín', escapeHtml(offer.realizationTerm || 'dohodou'))}
@@ -448,7 +448,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
             <tr><td style="padding:16px 20px;">
               <div style="margin-bottom:12px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Cenová kalkulácia</div>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                ${calcRow(`Materiál (${offer.areaM2} m² × ${euro(offer.pricePerM2WithoutVat)}/m²)`, `${euro(offer.materialPriceWithoutVat)} bez DPH`)}
+                ${calcRow(`Materiál (${offer.areaM2} m2 × ${euro(offer.pricePerM2WithoutVat)}/m2)`, `${euro(offer.materialPriceWithoutVat)} bez DPH`)}
                 ${offer.includeDocumentation ? calcRow('Dokumentácia RÚVZ + OÚ', `${euro(offer.documentationFeeWithoutVat)} bez DPH`) : ''}
                 ${calcRow('Celkom bez DPH', euro(offer.totalWithoutVat), true)}
                 ${calcRow(`DPH ${settings.vatRate}%`, euro(Math.round((offer.totalWithVat - offer.totalWithoutVat) * 100) / 100))}
@@ -457,7 +457,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
                 <td style="padding:10px 16px;color:#ffffff;font-size:14px;font-weight:700;">CELKOM S DPH:</td>
                 <td align="right" style="padding:10px 16px;color:#FFE08A;font-size:20px;font-weight:700;">${euro(offer.totalWithVat)}</td>
               </tr></table>
-              <div style="margin-top:12px;color:#64748B;font-size:12px;line-height:1.5;">Presná cena bude upravená podľa skutočného množstva m² azbestu na mieste.</div>
+              <div style="margin-top:12px;color:#64748B;font-size:12px;line-height:1.5;">Presná cena bude upravená podľa skutočného množstva m2 azbestu na mieste.</div>
             </td></tr>
           </table>
 
@@ -511,7 +511,7 @@ function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings) {
     '',
     `Lokalita: ${location}`,
     `Typ objektu: ${offer.objectType}`,
-    `Výmera: ${offer.areaM2} m²`,
+    `Výmera: ${offer.areaM2} m2`,
     `Materiál: ${material}`,
     `Celkom s DPH: ${euro(offer.totalWithVat)}`,
     `Platná do: ${dateSk(offer.validUntil)}`,

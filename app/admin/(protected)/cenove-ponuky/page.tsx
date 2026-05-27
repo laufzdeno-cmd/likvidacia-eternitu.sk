@@ -21,7 +21,7 @@ export default async function QuotesPage() {
                 <tr key={quote.id}>
                   <td>{quote.quoteNumber}</td>
                   <td>{quote.validUntil}</td>
-                  <td>{quote.areaEstimate} m²</td>
+                  <td>{quote.areaEstimate} m2</td>
                   <td>{quote.totalWithoutVat.toLocaleString('sk-SK')} €</td>
                   <td>{quote.totalWithVat.toLocaleString('sk-SK')} €</td>
                   <td><span className="status-pill">{quote.status}</span></td>

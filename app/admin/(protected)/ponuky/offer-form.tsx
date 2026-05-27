@@ -58,7 +58,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
               Prepojenie na zákazku
               <select name="jobId" defaultValue={offer?.jobId || selectedJobId || ''}>
                 <option value="">Bez prepojenia</option>
-                {jobs.map((job) => <option key={job.id} value={job.id}>{job.customerName} · {job.location} · {job.m2} m²</option>)}
+                {jobs.map((job) => <option key={job.id} value={job.id}>{job.customerName} · {job.location} · {job.m2} m2</option>)}
               </select>
             </label>
           </div>
@@ -95,8 +95,8 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
                 {Object.entries(priceOfferMaterialLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
             </label>
-            <label>Výmera m²<input name="areaM2" type="number" step="0.01" value={area || ''} onChange={(event) => setArea(n(event.target.value))} required /></label>
-            <label>Cena za m² bez DPH<input name="pricePerM2WithoutVat" type="number" step="0.01" value={price || ''} onChange={(event) => setPrice(n(event.target.value))} required /></label>
+            <label>Výmera m2<input name="areaM2" type="number" step="0.01" value={area || ''} onChange={(event) => setArea(n(event.target.value))} required /></label>
+            <label>Cena za m2 bez DPH<input name="pricePerM2WithoutVat" type="number" step="0.01" value={price || ''} onChange={(event) => setPrice(n(event.target.value))} required /></label>
             <label className="admin-checkbox"><input name="includeDocumentation" type="checkbox" checked={includeDocumentation} onChange={(event) => setIncludeDocumentation(event.target.checked)} /> Zahrnúť dokumentáciu</label>
             <label>Cena dokumentácia bez DPH<input name="documentationFeeWithoutVat" type="number" step="0.01" value={documentation || ''} onChange={(event) => setDocumentation(n(event.target.value))} /></label>
           </div>
@@ -123,7 +123,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
         <h2>{offer?.number ? `CP ${offer.number}` : 'Nová ponuka'}</h2>
         <dl>
           <dt>Materiál</dt>
-          <dd>{area} m² × {euro(price)} = {euro(totals.material)}</dd>
+          <dd>{area} m2 × {euro(price)} = {euro(totals.material)}</dd>
           <dt>Dokumentácia</dt>
           <dd>{euro(totals.docs)}</dd>
           <dt>Bez DPH</dt>

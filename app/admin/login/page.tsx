@@ -35,7 +35,7 @@ export default async function AdminLoginPage({ searchParams }: { searchParams?: 
         {params?.reset ? <div className="admin-alert">Heslo bolo zmenené. Prihláste sa novým heslom.</div> : null}
         <label className="admin-field" style={fieldStyle}>
           Email
-          <input name="email" type="text" inputMode="email" autoComplete="username" required style={inputStyle} />
+          <input name="email" type="email" inputMode="email" autoComplete="username" required style={inputStyle} />
         </label>
         <label className="admin-field" style={fieldStyle}>
           Heslo

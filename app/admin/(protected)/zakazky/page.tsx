@@ -94,7 +94,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                 <th>Dátum</th>
                 <th>Zákazník</th>
                 <th>Lokalita</th>
-                <th>m²</th>
+                <th>m2</th>
                 <th>Tržba €</th>
                 <th>Platba</th>
                 <th>Tím</th>

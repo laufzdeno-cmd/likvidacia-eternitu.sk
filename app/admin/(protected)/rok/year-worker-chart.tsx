@@ -3,7 +3,7 @@
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 export default function YearWorkerChart({ data, workers }: { data: Array<Record<string, number | string>>; workers: string[] }) {
-  const colors = ['#185fa5', '#e8541a', '#2d7a3a', '#8a5cf6', '#b7791f'];
+  const colors = ['#185fa5', '#da251d', '#2d7a3a', '#8a5cf6', '#b7791f'];
   return (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data}>

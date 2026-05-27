@@ -53,7 +53,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
       <section className="admin-card">
         <h2>Pracovníci</h2>
         <table className="admin-table">
-          <thead><tr><th>Meno</th><th>Sadzba €/m²</th><th>Aktívny</th><th></th></tr></thead>
+          <thead><tr><th>Meno</th><th>Sadzba €/m2</th><th>Aktívny</th><th></th></tr></thead>
           <tbody>{workers.map((worker) => (
             <tr key={worker.id}>
               <td colSpan={4}>
@@ -79,11 +79,11 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
       <section className="admin-card">
         <h2>Predvolené hodnoty</h2>
         <form className="admin-quote-form" action={saveGeneralSettingsAction}>
-          <label>Základná cena za m²<input name="defaultPricePerM2" type="number" step="0.01" defaultValue={settings.defaultPricePerM2} /></label>
+          <label>Základná cena za m2<input name="defaultPricePerM2" type="number" step="0.01" defaultValue={settings.defaultPricePerM2} /></label>
           <label className="admin-form-wide">Google review link<input name="googleReviewLink" defaultValue={settings.googleReviewLink} /></label>
           <button className="admin-primary-button" type="submit">Uložiť nastavenia</button>
         </form>
-        <p>Aktuálna základná cena: {euro(settings.defaultPricePerM2)} / m²</p>
+        <p>Aktuálna základná cena: {euro(settings.defaultPricePerM2)} / m2</p>
       </section>
 
       <section className="admin-card">

@@ -1,5 +1,5 @@
 {
-  "brand": "ASTANA - likvidacia azbestu a eternitu",
+  "brand": "ASTANA",
   "legal_name": "ASTANA, s.r.o.",
   "domain": "https://likvidacia-eternitu.sk",
   "phone": "+421905217946",
@@ -17,34 +17,63 @@
     "ic_dph": "SK2023253771"
   },
   "founded_year": 2011,
+  "areas_served": ["Slovensko"],
+  "same_as": ["https://astana.sk"],
+  "google_business_profile": {
+    "status": "zalozeny",
+    "url": "TODO: doplnit verejnu URL Google Business Profile po potvrdeni majitelom"
+  },
+  "authorizations": {
+    "asbestos_removal_scope": ["exterier", "interier"],
+    "public_verification": "ASTANA, s.r.o. je verejne overitelna v zozname UVZ SR medzi opravnenymi spolocnostami na odstranovanie azbestu a materialov obsahujucich azbest zo stavieb.",
+    "public_verification_url": "https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf",
+    "internal_documents_public": false,
+    "note": "Opravnenia a PDF dokumenty sa z bezpecnostnych a obchodnych dovodov nezverejnuju na stiahnutie."
+  },
   "services": [
     "Likvidacia azbestu",
     "Likvidacia eternitu",
     "Odstranenie azbestu",
     "Demontaz eternitu",
     "Stabilizacia azbestoveho materialu",
-    "Balenie do oznacenych obalov",
+    "Balenie ako nebezpecny odpad",
     "Odvoz nebezpecneho odpadu",
     "Dokumentacia a potvrdenie o legalnej likvidacii"
   ],
-  "areas_served": ["Slovensko"],
-  "key_claims": [
-    "Cenova ponuka do 24 hodin pocas pracovnych dni",
-    "Doprava nad 100 m² zdarma",
-    "Dokumentacia, demontaz, balenie, odvoz aj potvrdenie",
-    "Firma posobi od roku 2011",
-    "Pomoc so zladenim so strecharom",
-    "Pri vymene strechy moznost uviest kraj a preverit vhodny kontakt na strechara"
+  "trust_notes": [
+    "Recenzie sa doteraz systematicky nezbierali, preto web nepouziva Review ani AggregateRating schema.",
+    "Nezverejnujeme anonymne ani dodatocne vytvorene hodnotenia.",
+    "Interne opravnenia/PDF sa z bezpecnostnych a obchodnych dovodov nezverejnuju na stiahnutie.",
+    "Firma ma opravnenie pre exterier aj interier; verejna overitelnost je cez zoznam UVZ SR.",
+    "Realizacie nemaju obsahovat vymyslene mesta, mena ani m2."
   ],
-  "same_as": ["https://astana.sk"],
+  "gallery_policy": {
+    "photos_are_real_astana_work": true,
+    "locations_and_area": "Lokality a vymery sa neuvadzaju, ak nie su spolahlivo potvrdene."
+  },
   "public_pages": [
     "https://likvidacia-eternitu.sk/",
-    "https://likvidacia-eternitu.sk/likvidacia-eternitu/",
     "https://likvidacia-eternitu.sk/likvidacia-azbestu/",
-    "https://likvidacia-eternitu.sk/cena/",
+    "https://likvidacia-eternitu.sk/likvidacia-eternitu/",
+    "https://likvidacia-eternitu.sk/cena-likvidacie-azbestu/",
+    "https://likvidacia-eternitu.sk/postup/",
+    "https://likvidacia-eternitu.sk/faq/",
+    "https://likvidacia-eternitu.sk/realizacie/",
+    "https://likvidacia-eternitu.sk/recenzie/",
+    "https://likvidacia-eternitu.sk/o-firme/",
+    "https://likvidacia-eternitu.sk/kontakt/",
+    "https://likvidacia-eternitu.sk/poradna/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-poprad/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-kosice/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-presov/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-zilina/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-banska-bystrica/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-bratislava/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-nitra/",
+    "https://likvidacia-eternitu.sk/likvidacia-azbestu-trnava/",
     "https://likvidacia-eternitu.sk/pre-strecharov/",
     "https://likvidacia-eternitu.sk/strechari/",
-    "https://likvidacia-eternitu.sk/realizacie/",
+    "https://likvidacia-eternitu.sk/spolupracujuci-strechari/",
     "https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/",
     "https://likvidacia-eternitu.sk/cookies/",
     "https://likvidacia-eternitu.sk/podmienky-pouzivania/",

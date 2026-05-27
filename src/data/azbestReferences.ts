@@ -26,11 +26,20 @@ const asset = (
   priority = false,
 ): AzbestReference => {
   const id = `azbest-${String(number).padStart(3, '0')}`;
+  const neutralAltByCategory: Record<AzbestCategory, string> = {
+    'rodinne-domy': 'Reálna realizácia ASTANA – demontáž eternitovej krytiny',
+    'hospodarske-budovy': 'Reálna realizácia ASTANA – demontáž eternitovej krytiny',
+    priemysel: 'Reálna realizácia ASTANA – príprava azbestového odpadu na odvoz',
+    interier: 'Reálna realizácia ASTANA – balenie materiálu s obsahom azbestu',
+    'balenie-odvoz': 'Reálna realizácia ASTANA – príprava azbestového odpadu na odvoz',
+    strechari: 'Reálna realizácia ASTANA – práca na streche s eternitovou krytinou',
+  };
+
   return {
     id,
     webp: `/assets/azbest/webp/${id}.webp`,
     jpg: `/assets/azbest/jpg/${id}.jpg`,
-    alt,
+    alt: neutralAltByCategory[category] || alt,
     title,
     category,
     recommendedUse,

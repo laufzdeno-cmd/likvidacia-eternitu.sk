@@ -1,26 +1,6 @@
 # ASTANA - likvidacia azbestu a eternitu
 
-Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre likvidaciu azbestu a eternitu po celom Slovensku. Firma posobi od roku 2011.
-
-Hlavne sluzby:
-- likvidacia azbestu,
-- likvidacia eternitu,
-- odstranenie azbestu,
-- demontaz eternitu,
-- stabilizacia azbestoveho materialu,
-- balenie do oznacenych obalov,
-- odvoz nebezpecneho odpadu,
-- dokumentacia a potvrdenie o legalnej likvidacii.
-
-Posobnost:
-- cele Slovensko.
-
-Hlavne vyhody:
-- cenova ponuka do 24 hodin pocas pracovnych dni,
-- doprava nad 100 m² zdarma,
-- vybavenie dokumentacie, demontaze, balenia, odvozu a potvrdenia,
-- pomoc so zladenim so strecharom.
-- pri vymene strechy moznost uviest kraj a preverit vhodny kontakt na strechara.
+Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre odbornu likvidaciu azbestu a eternitu po celom Slovensku.
 
 Kontakt:
 - ASTANA, s.r.o.
@@ -32,17 +12,53 @@ Kontakt:
 - email: astana@astana.sk
 - web: https://likvidacia-eternitu.sk/
 
+Hlavne sluzby:
+- likvidacia azbestu,
+- likvidacia eternitu,
+- odstranenie azbestu,
+- demontaz eternitu,
+- stabilizacia azbestoveho materialu,
+- balenie ako nebezpecny odpad,
+- odvoz nebezpecneho odpadu,
+- dokumentacia a potvrdenie o legalnej likvidacii.
+
+Doveryhodnost:
+- Google Business Profile je zalozeny; verejnu URL doplnit neskor ako TODO,
+- firma ma opravnenie na odstranovanie azbestu v exterieri aj interieri,
+- opravnenie je verejne overitelne v zozname UVZ SR:
+  https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf
+- interne opravnenia/PDF sa z bezpecnostnych a obchodnych dovodov nezverejnuju na stiahnutie,
+- recenzie sa doteraz systematicky nezbierali,
+- web nepouziva Review ani AggregateRating schema bez verejnych overenych recenzii,
+- firma nezverejnuje anonymne ani dodatocne vytvorene hodnotenia,
+- nevytvarat fake ratingy ani fake realizacie,
+- fotky v galerii su realne prace ASTANA,
+- mesta, mena a m2 pri realizaciach uvadzat iba ak su potvrdene.
+
 Hlavne stranky:
 - https://likvidacia-eternitu.sk/
-- https://likvidacia-eternitu.sk/likvidacia-eternitu/
 - https://likvidacia-eternitu.sk/likvidacia-azbestu/
-- https://likvidacia-eternitu.sk/cena/
-- https://likvidacia-eternitu.sk/pre-strecharov/
-- https://likvidacia-eternitu.sk/strechari/
+- https://likvidacia-eternitu.sk/likvidacia-eternitu/
+- https://likvidacia-eternitu.sk/cena-likvidacie-azbestu/
+- https://likvidacia-eternitu.sk/postup/
+- https://likvidacia-eternitu.sk/faq/
 - https://likvidacia-eternitu.sk/realizacie/
-- https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/
-- https://likvidacia-eternitu.sk/cookies/
-- https://likvidacia-eternitu.sk/podmienky-pouzivania/
+- https://likvidacia-eternitu.sk/recenzie/
+- https://likvidacia-eternitu.sk/o-firme/
+- https://likvidacia-eternitu.sk/kontakt/
+- https://likvidacia-eternitu.sk/poradna/
+- https://likvidacia-eternitu.sk/strechari/
+- https://likvidacia-eternitu.sk/spolupracujuci-strechari/
 - https://likvidacia-eternitu.sk/data/company.json
+
+Lokality:
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-poprad/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-kosice/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-presov/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-zilina/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-banska-bystrica/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-bratislava/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-nitra/
+- https://likvidacia-eternitu.sk/likvidacia-azbestu-trnava/
 
 Tento subor je strucny strojovo citatelny suhrn. Uplny obsah je na verejnych strankach webu.

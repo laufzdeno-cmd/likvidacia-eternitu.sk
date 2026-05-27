@@ -1,98 +1,65 @@
-import type { Metadata } from 'next';
+import { coreFaqs } from '@/src/content/seo-content';
+import { buildPageMetadata, ExpertProcedure, FaqSection, ProcessSteps, QuoteCTA, QuickAnswer, SummaryBox, TrustComplianceSection } from '../seo-components';
+import { JsonLd, buildFaqJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 
-export const metadata: Metadata = {
-  title: 'Ako prebieha likvidácia azbestu | 5 krokov | ASTANA',
+export const metadata = buildPageMetadata({
+  title: 'Ako prebieha likvidácia azbestu a eternitu | Postup ASTANA',
   description:
-    'Kompletný postup likvidácie azbestu: dokumentácia RÚVZ a OÚ ŽP, stabilizácia penetračným postrekom, demontáž, balenie ADR, odvoz na skládku, záverečné doklady.',
-  keywords: 'postup likvidácia azbestu, ako odstrániť azbest, demontáž eternitu, RÚVZ povolenie azbest',
-  alternates: { canonical: '/postup/' },
-  openGraph: {
-    title: 'Ako prebieha likvidácia azbestu | ASTANA',
-    description: 'Bezpečný postup likvidácie azbestu v 5 krokoch vrátane dokumentácie, demontáže, odvozu a dokladov.',
-    images: ['/og/postup.jpg'],
-  },
-};
-
-const steps = [
-  {
-    name: 'Zadáte výmeru a základné údaje',
-    text: 'Na začiatku nám pošlete približnú výmeru v m², lokalitu a typ materiálu. Ak máte fotky strechy alebo odpadu, priložíte ich k dopytu. Podľa týchto údajov vieme rýchlo posúdiť rozsah a pripraviť ďalší postup.',
-  },
-  {
-    name: 'Pripravíme cenovú ponuku',
-    text: 'Každú zákazku naceníme individuálne podľa konkrétnej situácie. Zohľadňujeme typ materiálu, prístupnosť, výšku objektu, lokalitu a potrebnú dokumentáciu. Ponuku vám pošleme na email a v prípade potreby si detaily telefonicky potvrdíme.',
-  },
-  {
-    name: 'Vybavíme dokumentáciu',
-    text: 'Pri azbeste nejde iba o demontáž. Pripravujú sa podklady pre RÚVZ a OÚ ŽP a postup nakladania s nebezpečným odpadom. Dokumentácia chráni zákazníka aj realizáciu pred problémami pri kontrole.',
-  },
-  {
-    name: 'Bezpečne demontujeme a zabalíme materiál',
-    text: 'Materiál sa pred manipuláciou stabilizuje vhodným postupom, aby sa minimalizovalo riziko prachu. Demontáž robí odborný personál a odpad sa balí do označených vriec alebo na palety podľa situácie. Na stavbe udržiavame poriadok a postupujeme kontrolovane.',
-  },
-  {
-    name: 'Odvezieme odpad a odovzdáme doklady',
-    text: 'Azbestový odpad odvážame na určené miesto pre nebezpečný odpad. Po ukončení zákazky pripravíme záverečnú správu, potvrdenia a súvisiace doklady podľa rozsahu prác. Zákazník tak má preukázateľný doklad o legálnej likvidácii.',
-  },
-];
-
-const howToJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'HowTo',
-  name: 'Ako prebieha bezpečná likvidácia azbestu',
-  description: 'Postup likvidácie azbestu od prvého dopytu až po odovzdanie dokladov.',
-  step: steps.map((step, index) => ({
-    '@type': 'HowToStep',
-    position: index + 1,
-    name: step.name,
-    text: step.text,
-  })),
-};
+    'Postup likvidácie azbestu krok za krokom: výmera, cenová ponuka, dokumentácia, stabilizácia, demontáž, balenie, odvoz a potvrdenie.',
+  path: '/postup/',
+  image: '/og/postup.jpg',
+});
 
 export default function ProcessPage() {
   return (
-    <PublicPageShell breadcrumb={{ name: 'Ako prebieha likvidácia azbestu', path: '/postup/' }}>
+    <PublicPageShell breadcrumb={{ name: 'Postup likvidácie', path: '/postup/' }}>
       <main className="seo-page">
+        <JsonLd data={buildFaqJsonLd(coreFaqs.slice(0, 5))} />
         <section className="seo-hero">
           <p className="eyebrow">Postup</p>
-          <h1>Ako prebieha bezpečná likvidácia azbestu</h1>
+          <h1>Ako prebieha likvidácia azbestu a eternitu</h1>
+          <p>Proces držíme jednoduchý pre zákazníka a kontrolovaný pre stavbu: od prvého odhadu po odvoz a doklady.</p>
+        </section>
+        <QuickAnswer>
+          Likvidácia azbestu prebieha od odoslania výmery a fotiek cez cenovú ponuku, prípravu podkladov, stabilizáciu,
+          kontrolovanú demontáž, balenie odpadu, odvoz a odovzdanie potvrdenia alebo dokumentácie po legálnej likvidácii.
+        </QuickAnswer>
+        <ProcessSteps title="Postup krok za krokom" />
+        <section className="seo-section">
+          <h2>Čo má mať seriózna firma vyriešené pred demontážou</h2>
+          <ul className="seo-check-list">
+            <li>oprávnenie na odstraňovanie azbestu,</li>
+            <li>rozhodnutie príslušného RÚVZ ku konkrétnej stavbe,</li>
+            <li>postup bezpečnej demontáže a stabilizácie materiálu,</li>
+            <li>zákonný spôsob balenia, odvozu a nakladania s nebezpečným odpadom,</li>
+            <li>potvrdenie alebo doklad o legálnej likvidácii.</li>
+          </ul>
           <p>
-            Od prvého dopytu až po doklady. Proces držíme pod kontrolou, aby bola demontáž legálna,
-            bezpečná a zladená s ďalšími prácami na streche.
+            Tento prehľad je vecná orientácia pre zákazníka, nie právne poradenstvo. Konkrétny postup sa nastavuje podľa stavby,
+            rozsahu prác a rozhodnutia príslušných úradov.
           </p>
         </section>
-
         <section className="seo-section">
-          <div className="seo-step-list">
-            {steps.map((step, index) => (
-              <article key={step.name} className="seo-step-card">
-                <span>{index + 1}</span>
-                <h2>{step.name}</h2>
-                <p>{step.text}</p>
-              </article>
-            ))}
-          </div>
+          <h2>Aké doklady dostanete</h2>
+          <p className="seo-lead">
+            Po ukončení zákazky dostanete potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu prác. Doklad je dôležitý,
+            aby bolo preukázateľné, že materiál bol riešený legálne a neskončil ako bežný odpad.
+          </p>
         </section>
-
-        <section className="seo-section seo-grid-2">
-          <article>
-            <h2>Čo potrebujete pripraviť</h2>
-            <p>Pomôže približná výmera, fotky strechy alebo odpadu a základný popis prístupu na pozemok. Ak je to možné, uvoľnite priestor okolo objektu a pod strechou, aby sa dalo bezpečne manipulovať s materiálom.</p>
-          </article>
-          <article>
-            <h2>Dokumentácia po ukončení</h2>
-            <p>Po legálnej likvidácii dostanete súvisiace doklady podľa rozsahu zákazky: záverečnú správu, potvrdenie o zneškodnení odpadu a dokumentáciu potrebnú pre prípadnú kontrolu.</p>
-          </article>
-        </section>
-
-        <section className="seo-cta">
-          <h2>Chcete vedieť, čo bude treba pri vašej streche?</h2>
-          <p>Pošlite výmeru a fotky. Ozveme sa s ďalším postupom a cenovou ponukou.</p>
-          <a className="button button-primary" href="/#dopyt">Získať cenovú ponuku</a>
-        </section>
+        <SummaryBox
+          items={[
+            ['Čo robí zákazník', 'pošle m2, lokalitu, fotky a potvrdí rozsah objednávky'],
+            ['Čo robí ASTANA', 'navrhne cenu, postup, dokumentáciu, termín a realizáciu'],
+            ['Čo sa deje na stavbe', 'stabilizácia, demontáž, balenie a odvoz odpadu'],
+            ['Výsledok', 'čistý preukázateľný postup a doklad po likvidácii'],
+          ]}
+        />
+        <ExpertProcedure />
+        <TrustComplianceSection />
+        <FaqSection faqs={coreFaqs.slice(0, 5)} />
+        <QuoteCTA />
       </main>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
     </PublicPageShell>
   );
 }

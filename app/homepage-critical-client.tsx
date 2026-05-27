@@ -15,6 +15,7 @@ export default function HomepageCriticalClient() {
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
+    const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     const quoteSection = document.getElementById('dopyt');
     const heroCounterRoot = document.querySelector<HTMLElement>('[data-hero-counters]');
     const heroCounters = Array.from(document.querySelectorAll<HTMLElement>('[data-hero-counter]'));
@@ -23,6 +24,8 @@ export default function HomepageCriticalClient() {
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
+    const escapeHtml = (value: string) =>
+      value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
 
     const analyticsSessionId = (() => {
       const key = 'astana_analytics_session';
@@ -119,7 +122,7 @@ export default function HomepageCriticalClient() {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Cenovú ponuku vám pošleme do 24 hodín na email:<br><b>${email || 'zadaný email'}</b></span>`,
+          `<span>Cenovú ponuku vám pošleme do 24 hodín na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
           '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Pripravíme cenovú ponuku</span><span>3. Pošleme vám ju do 24 hodín</span></div>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
@@ -310,8 +313,9 @@ export default function HomepageCriticalClient() {
 
     const onScroll = () => {
       header?.classList.toggle('is-compact', window.scrollY > 28);
-      if (!stickyCta) return;
       const isMobile = window.innerWidth <= 760;
+      whatsappButton?.classList.toggle('is-hidden-over-form', isMobile && isQuoteSectionVisible);
+      if (!stickyCta) return;
       const shouldShow = form
         ? isMobile && !isQuoteSectionVisible && form.getBoundingClientRect().bottom < 120
         : isMobile && window.scrollY > 280;

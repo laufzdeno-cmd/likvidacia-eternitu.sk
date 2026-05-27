@@ -1,6 +1,7 @@
 import LandingClient from './landing-client';
 import PublicBaseClient from './public-base-client';
 import PublicWidgets from './public-widgets';
+import { companyAddressLine, emailLink, phoneLink, site } from '@/src/content/site';
 import { BreadcrumbJsonLd } from './seo-json-ld';
 
 export function PublicHeader() {
@@ -12,9 +13,9 @@ export function PublicHeader() {
           <span><small>Bezpečná likvidácia azbestu</small></span>
         </a>
         <div className="header-meta">
-          <a className="header-phone" href="tel:+421905217946">
+          <a className="header-phone" href={phoneLink}>
             <span className="meta-icon phone" aria-hidden="true"></span>
-            <strong>0905 217 946</strong>
+            <strong>{site.phone}</strong>
           </a>
           <a className="button button-primary header-button" href="/#dopyt">Získať cenovú ponuku</a>
         </div>
@@ -22,13 +23,14 @@ export function PublicHeader() {
       </div>
       <nav className="site-nav" id="site-nav" aria-label="Hlavná navigácia">
         <a href="/#orientacna-cena">Orientačná cena</a>
-        <a href="/postup/">Ako to prebieha</a>
-        <a href="/strechari/">Strechári</a>
+        <a href="/likvidacia-azbestu/">Azbest</a>
+        <a href="/likvidacia-eternitu/">Eternit</a>
+        <a href="/postup/">Postup</a>
         <a href="/realizacie/">Realizácie</a>
         <a href="/faq/">FAQ</a>
-        <a href="/#kontakt">Kontakt</a>
-        <a className="nav-mobile-phone" href="tel:+421905217946">
-          <span className="meta-icon phone" aria-hidden="true"></span>0905 217 946
+        <a href="/kontakt/">Kontakt</a>
+        <a className="nav-mobile-phone" href={phoneLink}>
+          <span className="meta-icon phone" aria-hidden="true"></span>{site.phone}
         </a>
         <a className="nav-mobile-cta" href="/#dopyt">Získať cenovú ponuku</a>
       </nav>
@@ -44,34 +46,49 @@ export function PublicFooter() {
           <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
           <span><small>Likvidácia azbestu a eternitu</small></span>
         </a>
-        <p>Bezpečná likvidácia azbestu, eternitu a nebezpečného odpadu po celom Slovensku.</p>
+        <p>Odborná likvidácia azbestu, eternitu a nebezpečného odpadu po celom Slovensku.</p>
       </div>
       <div>
         <h2>Kontakt</h2>
-        <a href="tel:+421905217946">0905 217 946</a>
-        <a href="mailto:astana@astana.sk">astana@astana.sk</a>
-        <span>Po-Pia 7:00-18:00</span>
+        <span>{site.legalName}</span>
+        <span>{companyAddressLine}</span>
+        <a href={phoneLink}>{site.phone}</a>
+        <a href={emailLink}>{site.email}</a>
+        <span>{site.openingHours}</span>
       </div>
       <div>
         <h2>Služby</h2>
         <a href="/likvidacia-azbestu/">Likvidácia azbestu</a>
         <a href="/likvidacia-eternitu/">Likvidácia eternitu</a>
-        <a href="/postup/">Ako to prebieha</a>
         <a href="/cena-likvidacie-azbestu/">Cena likvidácie</a>
-      </div>
-      <div>
-        <h2>Užitočné linky</h2>
+        <a href="/postup/">Ako to prebieha</a>
         <a href="/faq/">Časté otázky</a>
-        <a href="/realizacie/">Realizácie</a>
-        <a href="/recenzie/">Recenzie</a>
-        <a href="/cookies/">Cookies</a>
       </div>
       <div>
         <h2>Firma</h2>
-        <span>ASTANA, s.r.o.</span>
-        <span>Scherffelova 1364/28</span>
-        <span>058 01 Poprad</span>
+        <a href="/o-firme/">O firme</a>
+        <a href="/kontakt/">Kontakt</a>
+        <a href="/realizacie/">Realizácie</a>
+        <a href="/recenzie/">Recenzie</a>
+        <a href="/strechari/">Pre strechárov</a>
+        <a href="/spolupracujuci-strechari/">Spolupracujúci strechári</a>
+        <a href="/poradna/">Poradňa</a>
+        <span>IČO: {site.ico}</span>
+      </div>
+      <div>
+        <h2>Lokality</h2>
+        <a href="/likvidacia-azbestu-poprad/">Poprad</a>
+        <a href="/likvidacia-azbestu-kosice/">Košice</a>
+        <a href="/likvidacia-azbestu-presov/">Prešov</a>
+        <a href="/likvidacia-azbestu-zilina/">Žilina</a>
+        <a href="/likvidacia-azbestu-bratislava/">Bratislava</a>
+      </div>
+      <div>
+        <h2>Právne</h2>
         <a href="/ochrana-osobnych-udajov/">Ochrana osobných údajov</a>
+        <a href="/cookies/">Cookies</a>
+        <a href="/podmienky-pouzivania/">Podmienky používania</a>
+        <a href="/sitemap.xml">Sitemap</a>
       </div>
     </footer>
   );

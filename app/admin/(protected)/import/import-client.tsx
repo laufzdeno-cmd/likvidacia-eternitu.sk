@@ -17,7 +17,7 @@ export default function ImportClient() {
       if (!cols[0]) errors.push('chýba dátum');
       if (!cols[1]) errors.push('chýba meno');
       if (!cols[2]) errors.push('chýba lokalita');
-      if (!Number(String(cols[3] || '').replace(',', '.'))) errors.push('chýba m²');
+      if (!Number(String(cols[3] || '').replace(',', '.'))) errors.push('chýba m2');
       return { index: index + 1, cols, errors };
     });
   }, [csv]);
@@ -40,7 +40,7 @@ export default function ImportClient() {
       <h2>Preview pred importom</h2>
       <div className="admin-table-wrap">
         <table className="admin-table">
-          <thead><tr><th>Riadok</th><th>Dátum</th><th>Meno</th><th>Lokalita</th><th>m²</th><th>Chyby</th></tr></thead>
+          <thead><tr><th>Riadok</th><th>Dátum</th><th>Meno</th><th>Lokalita</th><th>m2</th><th>Chyby</th></tr></thead>
           <tbody>{rows.map((row) => <tr key={row.index} className={row.errors.length ? 'is-error-row' : ''}><td>{row.index}</td><td>{row.cols[0]}</td><td>{row.cols[1]}</td><td>{row.cols[2]}</td><td>{row.cols[3]}</td><td>{row.errors.join(', ') || 'OK'}</td></tr>)}</tbody>
         </table>
       </div>

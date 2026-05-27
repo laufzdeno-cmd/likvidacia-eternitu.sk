@@ -63,7 +63,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
       ) : null}
 
       <section className="admin-stat-grid">
-        <article><span>m²</span><strong>{offer.areaM2}</strong></article>
+        <article><span>m2</span><strong>{offer.areaM2}</strong></article>
         <article><span>Bez DPH</span><strong>{euro(offer.totalWithoutVat)}</strong></article>
         <article className="is-highlight"><span>S DPH</span><strong>{euro(offer.totalWithVat)}</strong></article>
         <article className={isExpired(offer.validUntil) ? 'is-expired' : ''}><span>Platná do</span><strong>{dateSk(offer.validUntil)}</strong></article>

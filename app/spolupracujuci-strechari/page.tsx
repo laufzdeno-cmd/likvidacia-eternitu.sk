@@ -1,6 +1,11 @@
 import SimplePublicPage from '../simple-public-page';
+import { buildPageMetadata } from '../seo-components';
 
-export const metadata = { title: 'Spolupracujúci strechári | ASTANA', description: 'Informácie o zladení likvidácie eternitu so strechármi.' };
+export const metadata = buildPageMetadata({
+  title: 'Spolupracujúci strechári a výmena strechy | ASTANA',
+  description: 'Ako ASTANA zlaďuje likvidáciu eternitu so strechármi a čo uviesť v dopyte, ak ešte nemáte strechára.',
+  path: '/spolupracujuci-strechari/',
+});
 
 export default function PartnerRoofersPage() {
   return (
