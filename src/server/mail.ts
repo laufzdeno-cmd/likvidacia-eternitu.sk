@@ -119,9 +119,9 @@ function customerLeadEmailHtml(lead: Lead) {
             </table>
           </td>
         </tr>
-        <tr><td style="background:linear-gradient(135deg,#B95A32 0%,#8F3F24 100%);padding:20px 32px;color:#ffffff;">
+        <tr><td style="background:linear-gradient(135deg,#314768 0%,#263451 100%);border-top:4px solid #C86432;padding:20px 32px;color:#ffffff;">
           <div style="font-size:22px;font-weight:700;line-height:1.25;">Cenovú ponuku dostanete</div>
-          <div style="margin-top:5px;color:rgba(255,255,255,0.85);font-size:15px;">do 24 hodín na tento email</div>
+          <div style="margin-top:5px;color:#C9D5E8;font-size:15px;">do 24 hodín na tento email</div>
         </td></tr>
         <tr><td style="background:#ffffff;padding:32px;">
           <p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#263451;">Dobrý deň ${escapeHtml(lead.fullName)},</p>
