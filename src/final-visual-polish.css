@@ -10444,3 +10444,64 @@ main .quote-card .form-submit {
     color: #0f1f3d !important;
   }
 }
+
+/* Mobile QA polish: light navigation drawer and compact cookie consent. */
+@media (max-width: 820px) {
+  .site-header .site-nav.is-open {
+    border-top: 1px solid rgba(15, 31, 61, 0.08) !important;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(210, 232, 255, 0.82), transparent 16rem),
+      linear-gradient(180deg, #ffffff 0%, #f8fcff 100%) !important;
+    box-shadow: 0 18px 42px rgba(15, 31, 61, 0.14) !important;
+  }
+
+  .site-header .site-nav.is-open a {
+    color: #0f1f3d !important;
+  }
+
+  .site-header .site-nav.is-open .nav-mobile-phone {
+    border: 1px solid rgba(15, 31, 61, 0.12) !important;
+    background: #ffffff !important;
+    color: #0f1f3d !important;
+  }
+
+  .site-header .site-nav.is-open .nav-mobile-cta {
+    background: var(--astana-red) !important;
+    color: #ffffff !important;
+  }
+
+  .cookie-banner {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .cookie-banner p {
+    margin: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.35 !important;
+  }
+
+  .cookie-banner div {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin: 0 !important;
+  }
+
+  .cookie-banner button {
+    min-height: 42px !important;
+    padding: 0 10px !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    line-height: 1.1 !important;
+    white-space: normal !important;
+  }
+
+  .cookie-banner button:not(:first-child) {
+    border-color: rgba(15, 31, 61, 0.18) !important;
+    background: #ffffff !important;
+    color: #0f1f3d !important;
+  }
+}
