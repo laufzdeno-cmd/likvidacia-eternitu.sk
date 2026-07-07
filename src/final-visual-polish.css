@@ -10574,19 +10574,22 @@ main .quote-card .form-submit {
 /* Admin light sidebar: keep CRM premium and consistent with the light admin workspace. */
 .admin-sidebar {
   background:
-    radial-gradient(circle at 0% 0%, rgba(210, 232, 255, 0.76), transparent 15rem),
-    linear-gradient(180deg, #ffffff 0%, #f8fcff 100%) !important;
-  border-right: 1px solid rgba(15, 31, 61, 0.1) !important;
-  box-shadow: 10px 0 28px rgba(15, 31, 61, 0.06) !important;
+    radial-gradient(circle at 0% 0%, rgba(196, 225, 255, 0.96), transparent 14rem),
+    linear-gradient(180deg, #f2f9ff 0%, #ffffff 42%, #eef7ff 100%) !important;
+  border-right: 1px solid rgba(0, 106, 166, 0.14) !important;
+  box-shadow: 12px 0 32px rgba(15, 31, 61, 0.07) !important;
 }
 
 .admin-brand {
   border-bottom: 1px solid rgba(15, 31, 61, 0.08) !important;
-  background: transparent !important;
+  background: rgba(255, 255, 255, 0.72) !important;
 }
 
-.admin-brand img {
+.admin-brand img,
+.admin-brand img[src$="astana-logo.png"] {
+  content: url('/assets/astana-logo.png') !important;
   filter: none !important;
+  opacity: 1 !important;
 }
 
 .admin-nav-title {
@@ -10604,7 +10607,8 @@ main .quote-card .form-submit {
 }
 
 .admin-sidebar nav a[aria-current='page'] {
-  background: rgba(218, 37, 29, 0.12) !important;
+  background:
+    linear-gradient(90deg, rgba(218, 37, 29, 0.12) 0%, rgba(226, 242, 255, 0.9) 42%, rgba(255, 255, 255, 0.96) 100%) !important;
   color: #0f1f3d !important;
   box-shadow: inset 3px 0 0 var(--astana-red) !important;
 }
