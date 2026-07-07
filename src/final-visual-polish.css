@@ -10570,3 +10570,52 @@ main .quote-card .form-submit {
     color: var(--astana-red) !important;
   }
 }
+
+/* Admin light sidebar: keep CRM premium and consistent with the light admin workspace. */
+.admin-sidebar {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(210, 232, 255, 0.76), transparent 15rem),
+    linear-gradient(180deg, #ffffff 0%, #f8fcff 100%) !important;
+  border-right: 1px solid rgba(15, 31, 61, 0.1) !important;
+  box-shadow: 10px 0 28px rgba(15, 31, 61, 0.06) !important;
+}
+
+.admin-brand {
+  border-bottom: 1px solid rgba(15, 31, 61, 0.08) !important;
+  background: transparent !important;
+}
+
+.admin-brand img {
+  filter: none !important;
+}
+
+.admin-nav-title {
+  color: #7a8699 !important;
+}
+
+.admin-sidebar nav a,
+.admin-sidebar form button {
+  color: #25324a !important;
+}
+
+.admin-sidebar nav a:hover {
+  background: rgba(218, 37, 29, 0.07) !important;
+  color: #0f1f3d !important;
+}
+
+.admin-sidebar nav a[aria-current='page'] {
+  background: rgba(218, 37, 29, 0.12) !important;
+  color: #0f1f3d !important;
+  box-shadow: inset 3px 0 0 var(--astana-red) !important;
+}
+
+.admin-sidebar form button {
+  border: 1px solid rgba(218, 37, 29, 0.18) !important;
+  background: #ffffff !important;
+  color: var(--astana-red) !important;
+}
+
+.admin-sidebar form button:hover {
+  background: var(--astana-red) !important;
+  color: #ffffff !important;
+}
