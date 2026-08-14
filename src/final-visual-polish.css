@@ -10623,3 +10623,39 @@ main .quote-card .form-submit {
   background: var(--astana-red) !important;
   color: #ffffff !important;
 }
+
+/* Final cookie contrast fix: light, readable consent bar on every viewport. */
+.cookie-banner {
+  border: 1px solid rgba(15, 31, 61, 0.12) !important;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(210, 232, 255, 0.82), transparent 18rem),
+    linear-gradient(135deg, #ffffff 0%, #f8fcff 100%) !important;
+  color: #0f1f3d !important;
+  box-shadow: 0 18px 54px rgba(15, 31, 61, 0.18) !important;
+}
+
+.cookie-banner,
+.cookie-banner *,
+.cookie-banner p,
+.cookie-banner strong,
+.cookie-banner h2,
+.cookie-banner h3,
+.cookie-banner a {
+  color: #0f1f3d !important;
+}
+
+.cookie-banner a {
+  text-decoration-color: rgba(15, 31, 61, 0.42) !important;
+}
+
+.cookie-banner button:first-child {
+  border-color: var(--astana-red) !important;
+  background: var(--astana-red) !important;
+  color: #ffffff !important;
+}
+
+.cookie-banner button:not(:first-child) {
+  border-color: rgba(15, 31, 61, 0.16) !important;
+  background: #ffffff !important;
+  color: #0f1f3d !important;
+}
