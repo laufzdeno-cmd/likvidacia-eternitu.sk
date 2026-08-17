@@ -334,12 +334,15 @@ export default function LandingClient() {
       let lastError: Error | null = null;
 
       for (const endpoint of endpoints) {
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 4000);
         try {
           const response = await fetch(endpoint, {
             method: 'POST',
             body: payload,
             headers: { Accept: 'application/json' },
             cache: 'no-store',
+            signal: controller.signal,
           });
           const contentType = response.headers.get('content-type') || '';
           const result = contentType.includes('application/json')
@@ -351,6 +354,8 @@ export default function LandingClient() {
           return result;
         } catch (error) {
           lastError = error instanceof Error ? error : new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
+        } finally {
+          window.clearTimeout(timeoutId);
         }
       }
 
