@@ -364,11 +364,17 @@ export default function LandingClient() {
 
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
-      event.preventDefault();
       if (!form.checkValidity()) {
+        event.preventDefault();
         form.reportValidity();
         return;
       }
+      if (/OPR\//i.test(navigator.userAgent)) {
+        form.dataset.nativeSubmit = 'true';
+        HTMLFormElement.prototype.submit.call(form);
+        return;
+      }
+      event.preventDefault();
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
