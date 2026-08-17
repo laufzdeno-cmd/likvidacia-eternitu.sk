@@ -330,7 +330,7 @@ export default function LandingClient() {
     };
 
     const submitLeadForm = async (payload: FormData) => {
-      const endpoints = ['/api/dopyt/', '/api/lead/'];
+      const endpoints = ['/api/dopyt/'];
       let lastError: Error | null = null;
 
       for (const endpoint of endpoints) {
