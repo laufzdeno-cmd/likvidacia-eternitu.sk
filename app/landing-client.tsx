@@ -365,6 +365,10 @@ export default function LandingClient() {
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
       event.preventDefault();
+      if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+      }
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
