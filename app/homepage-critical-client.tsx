@@ -133,6 +133,23 @@ export default function HomepageCriticalClient() {
       status.textContent = message;
     };
 
+    const applyNativeSubmitResult = () => {
+      if (!form) return;
+      const url = new URL(window.location.href);
+      const submitted = url.searchParams.get('odoslane') === '1';
+      const errorMessage = url.searchParams.get('chyba');
+      if (!submitted && !errorMessage) return;
+      if (submitted) {
+        form.classList.add('is-submitted');
+        setStatus('Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
+      } else if (errorMessage) {
+        setStatus(errorMessage, 'error');
+      }
+      url.searchParams.delete('odoslane');
+      url.searchParams.delete('chyba');
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    };
+
     const renderFiles = () => {
       if (!fileInput || !preview) return;
       preview.innerHTML = '';
@@ -349,6 +366,7 @@ export default function HomepageCriticalClient() {
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     applyRooferSelectionFromUrl();
+    applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
       event.preventDefault();
