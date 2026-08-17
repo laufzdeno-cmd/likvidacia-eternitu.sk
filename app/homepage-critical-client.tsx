@@ -280,9 +280,11 @@ export default function HomepageCriticalClient() {
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.', 'error');
-        trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
+        // Keep native POST available for Opera privacy/VPN filters that block fetch.
         setFormSubmitting(false, button);
+        form.dataset.nativeSubmit = 'true';
+        HTMLFormElement.prototype.submit.call(form);
+        return;
       } finally {
         if (form.classList.contains('is-submitted')) button?.setAttribute('disabled', 'true');
       }
