@@ -8,6 +8,8 @@ import { leadSchema, maxLeadFiles } from '@/src/server/validation';
 export const runtime = 'nodejs';
 
 const buckets = new Map<string, { count: number; resetAt: number }>();
+const rateLimitWindowMs = 10 * 60_000;
+const maxSubmissionsPerWindow = 30;
 
 function clientIp(request: NextRequest) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
@@ -17,11 +19,11 @@ function rateLimited(ip: string) {
   const now = Date.now();
   const bucket = buckets.get(ip);
   if (!bucket || bucket.resetAt < now) {
-    buckets.set(ip, { count: 1, resetAt: now + 60_000 });
+    buckets.set(ip, { count: 1, resetAt: now + rateLimitWindowMs });
     return false;
   }
   bucket.count += 1;
-  return bucket.count > 5;
+  return bucket.count > maxSubmissionsPerWindow;
 }
 
 function originAllowed(request: NextRequest) {
@@ -57,11 +59,6 @@ export async function POST(request: NextRequest) {
     return failure(request, 'Neplatný pôvod požiadavky.', 403);
   }
 
-  const ip = clientIp(request);
-  if (rateLimited(ip)) {
-    return failure(request, 'Skúste to prosím znova o chvíľu.', 429);
-  }
-
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -93,6 +90,11 @@ export async function POST(request: NextRequest) {
 
   if (parsed.data.companyWebsite) {
     return failure(request, 'Dopyt sa nepodarilo odoslať.', 400);
+  }
+
+  const ip = clientIp(request);
+  if (rateLimited(ip)) {
+    return failure(request, 'Formulár bol odoslaný viackrát za sebou. Skúste to prosím o pár minút alebo zavolajte 0905 217 946.', 429);
   }
 
   const uploadedFiles = formData
