@@ -312,6 +312,23 @@ export default function LandingClient() {
       status.textContent = '';
     };
 
+    const submitLeadForm = async (payload: FormData) => {
+      const response = await fetch('/api/lead/', {
+        method: 'POST',
+        body: payload,
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      const contentType = response.headers.get('content-type') || '';
+      const result = contentType.includes('application/json')
+        ? ((await response.json()) as { ok?: boolean; message?: string })
+        : { ok: false, message: (await response.text()).trim().slice(0, 180) };
+      if (!response.ok || !result.ok) {
+        throw new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
+      }
+      return result;
+    };
+
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
       event.preventDefault();
@@ -323,15 +340,7 @@ export default function LandingClient() {
       setFormSubmitting(true, button);
 
       try {
-        const response = await fetch(form.action, {
-          method: 'POST',
-          body: payload,
-          headers: { Accept: 'application/json' },
-        });
-        const result = (await response.json()) as { ok?: boolean; message?: string };
-        if (!response.ok || !result.ok) {
-          throw new Error(result.message || 'Dopyt sa nepodarilo odosla\u0165.');
-        }
+        const result = await submitLeadForm(payload);
         form.reset();
         selectedFiles = [];
         updateFileInput();
@@ -340,7 +349,7 @@ export default function LandingClient() {
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa v\u00e1m s \u010fal\u0161\u00edm postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odosla\u0165.', 'error');
+        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.', 'error');
         trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
         setFormSubmitting(false, button);
       } finally {
