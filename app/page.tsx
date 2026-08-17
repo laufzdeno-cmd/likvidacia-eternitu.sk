@@ -499,7 +499,7 @@ export default async function HomePage() {
               <span></span>
               <span></span>
             </div>
-            <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
+            <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
               <div className="form-stage form-stage-priority">
