@@ -19,8 +19,8 @@ export const site = {
   brandColor: '#DA251D',
   claimedStats: {
     foundedOrActiveSince: { value: '2011', confirmed: true },
-    disposedArea: { value: '80 000+ m2', confirmed: true },
-    customers: { value: '500+', confirmed: true },
+    disposedArea: { value: '300 000+ m2', confirmed: true },
+    customers: { value: '2 000+', confirmed: true },
   },
   sameAs: ['https://astana.sk'],
   documents: {
@@ -67,7 +67,7 @@ export const serviceOffer = [
 ] as const;
 
 export const ownerTodos = [
-  'Potvrdiť verejné používanie štatistík 2011, 80 000+ m2 a 500+ zákazníkov.',
+  'Priebežne archivovať podklady k verejne používaným štatistikám 2011, 300 000+ m2 a 2 000+ zákazníkov.',
   'Doplniť verejnú URL Google Business Profile, keď bude potvrdená.',
   'Doplniť reálne schválené recenzie so súhlasom zákazníkov.',
   'Doplniť popisy realizácií: okres, typ objektu, materiál a výmera iba tam, kde sú údaje potvrdené.',

@@ -10,12 +10,15 @@ import {
 import { getSiteContentMap } from '@/src/server/db';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
+import { site } from '@/src/content/site';
 
+
+const statNumber = (value: string) => Number(value.replace(/m2.*$/i, '').replace(/\D/g, ''));
 
 const heroCounters = [
-  { value: 80000, suffix: '+', label: 'm2 zlikvidovaných', start: 0, format: 'locale' },
-  { value: 500, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
-  { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
+  { value: statNumber(site.claimedStats.disposedArea.value), suffix: '+', label: 'm2 zlikvidovaných', start: 0, format: 'locale' },
+  { value: statNumber(site.claimedStats.customers.value), suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
+  { value: statNumber(site.claimedStats.foundedOrActiveSince.value), suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
 ] as const;
 
 const heroImage = {
