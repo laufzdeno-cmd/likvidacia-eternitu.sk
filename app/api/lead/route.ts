@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLead } from '@/src/server/db';
+import { after, NextRequest, NextResponse } from 'next/server';
+import { randomUUID } from 'node:crypto';
+import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLeadWithMetaCapiOutbox } from '@/src/server/db';
 import { validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
+import { dispatchMetaCapiOutbox, isMetaCapiConfigured, metaMaterialFromLeadValue } from '@/src/server/meta-conversions-api';
 import { storeLeadFile } from '@/src/server/storage';
 import { leadSchema, maxLeadFiles } from '@/src/server/validation';
+import { marketingConsentCookieName, marketingConsentSubjectCookieName } from '@/src/lib/marketing-consent';
+import { site } from '@/src/content/site';
 
 export const runtime = 'nodejs';
 
@@ -11,8 +15,27 @@ const buckets = new Map<string, { count: number; resetAt: number }>();
 const rateLimitWindowMs = 10 * 60_000;
 const maxSubmissionsPerWindow = 30;
 
+type MetaLeadResponse = {
+  eventId: string;
+  material: ReturnType<typeof metaMaterialFromLeadValue>;
+};
+
 function clientIp(request: NextRequest) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
+}
+
+function hasMetaMarketingConsent(request: NextRequest) {
+  return request.cookies.get(marketingConsentCookieName)?.value === 'granted';
+}
+
+function metaMarketingConsentSubject(request: NextRequest) {
+  const value = request.cookies.get(marketingConsentSubjectCookieName)?.value || '';
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : '';
+}
+
+function submissionId(value: FormDataEntryValue | null) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw) ? raw : randomUUID();
 }
 
 function rateLimited(ip: string) {
@@ -47,11 +70,16 @@ function failure(request: NextRequest, message: string, status = 400) {
   return NextResponse.json({ ok: false, message }, { status });
 }
 
-function success(request: NextRequest, message: string) {
+function success(request: NextRequest, message: string, metaLead?: MetaLeadResponse) {
   if (wantsHtml(request)) {
-    return NextResponse.redirect(new URL('/?odoslane=1#dopyt', request.url), { status: 303 });
+    const url = new URL('/?odoslane=1#dopyt', request.url);
+    if (metaLead) {
+      url.searchParams.set('meta_lead', metaLead.eventId);
+      url.searchParams.set('meta_material', metaLead.material);
+    }
+    return NextResponse.redirect(url, { status: 303 });
   }
-  return NextResponse.json({ ok: true, message });
+  return NextResponse.json({ ok: true, message, metaLead });
 }
 
 export async function POST(request: NextRequest) {
@@ -83,7 +111,6 @@ export async function POST(request: NextRequest) {
     gdpr: formData.get('gdpr'),
     companyWebsite: formData.get('companyWebsite') || '',
   });
-
   if (!parsed.success) {
     return failure(request, parsed.error.issues[0]?.message || 'Skontrolujte povinné polia.');
   }
@@ -114,7 +141,10 @@ export async function POST(request: NextRequest) {
     const rooferValue = parsed.data.roofer || '';
     const wantsRooferRecommendation = rooferValue === 'Chcem odporučiť strechára podľa regiónu';
     const selectedRooferId = parsed.data.selectedRooferId || '';
-    const lead = await createLead({
+    const metaConsentSubject = metaMarketingConsentSubject(request);
+    const marketingConsentGranted = hasMetaMarketingConsent(request) && Boolean(metaConsentSubject) && isMetaCapiConfigured();
+    const metaMaterial = metaMaterialFromLeadValue(parsed.data.materialType);
+    const savedLead = await createLeadWithMetaCapiOutbox({
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       email: parsed.data.email,
@@ -132,20 +162,44 @@ export async function POST(request: NextRequest) {
       wantsRooferRecommendation,
       selectedRooferId,
       rawData: { userAgent: request.headers.get('user-agent') || undefined, wantsRooferRecommendation, selectedRooferId },
-    });
+    }, submissionId(formData.get('submissionId')), marketingConsentGranted ? {
+      consentSubject: metaConsentSubject,
+      material: metaMaterial,
+      eventSourceUrl: `${site.website}/#dopyt`,
+      clientIp: ip,
+      clientUserAgent: request.headers.get('user-agent') || undefined,
+      fbp: request.cookies.get('_fbp')?.value,
+      fbc: request.cookies.get('_fbc')?.value,
+    } : undefined);
+    const lead = savedLead.lead;
 
-    const businessJob = await createBusinessJobFromLead(lead);
+    const businessJob = savedLead.created ? await createBusinessJobFromLead(lead) : null;
+
+    const metaLead: MetaLeadResponse = {
+      eventId: lead.id,
+      material: metaMaterial,
+    };
+
+    if (savedLead.outboxQueued) {
+      after(async () => {
+        await dispatchMetaCapiOutbox({ limit: 1 }).catch(() => undefined);
+      });
+    }
 
     const stored = [];
-    for (const file of uploadedFiles) {
-      stored.push(await storeLeadFile(lead.id, file));
+    if (savedLead.created) {
+      for (const file of uploadedFiles) {
+        stored.push(await storeLeadFile(lead.id, file));
+      }
     }
     const fileRows = await addLeadFiles(stored);
-    await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: fileRows.length });
+    if (savedLead.created) await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: fileRows.length });
 
     let mailResult: Record<string, unknown>;
     try {
-      mailResult = await sendLeadEmails(lead, fileRows.length, businessJob.id);
+      mailResult = savedLead.created && businessJob
+        ? await sendLeadEmails(lead, fileRows.length, businessJob.id)
+        : { sent: true, duplicate: true };
     } catch (error) {
       mailResult = {
         sent: false,
@@ -154,7 +208,7 @@ export async function POST(request: NextRequest) {
     }
     await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_error', 'system', mailResult);
 
-    return success(request, 'Ďakujeme! Dopyt sme prijali.');
+    return success(request, 'Ďakujeme! Dopyt sme prijali.', marketingConsentGranted ? metaLead : undefined);
   } catch (error) {
     console.error('Lead submit failed', error);
     return failure(request, 'Dopyt sa nepodarilo uložiť. Skúste to prosím znova alebo zavolajte.', 500);
