@@ -13,8 +13,8 @@ import { homeContentDefaults, homeContentVersion } from '@/src/server/site-conte
 
 
 const heroCounters = [
-  { value: 80000, suffix: '+', label: 'm2 zlikvidovaných', start: 0, format: 'locale' },
-  { value: 500, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
+  { value: 300000, suffix: '+', label: 'm² zlikvidovaných', start: 0, format: 'locale' },
+  { value: 2000, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
   { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
 ] as const;
 
