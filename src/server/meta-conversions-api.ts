@@ -29,6 +29,14 @@ type MetaConfig = {
   testEventCode?: string;
 };
 
+type MetaCapiDeliveryResult = {
+  attempted: boolean;
+  sent: boolean;
+  status: number;
+  metaErrorCode?: number;
+  metaErrorSubcode?: number;
+};
+
 type MetaUserData = {
   client_ip_address?: string;
   client_user_agent?: string;
@@ -78,7 +86,7 @@ export function metaMaterialFromLeadValue(value: string) {
   return normalizedMaterial(value);
 }
 
-export async function sendMetaLeadEvent(input: MetaLeadEventInput) {
+export async function sendMetaLeadEvent(input: MetaLeadEventInput): Promise<MetaCapiDeliveryResult> {
   const settings = config();
   if (!settings) return { attempted: false, sent: false, status: 0 };
 
@@ -127,22 +135,22 @@ export async function sendMetaLeadEvent(input: MetaLeadEventInput) {
         signal: controller.signal,
       },
     );
+    let errorCode: number | undefined;
+    let errorSubcode: number | undefined;
     if (!response.ok) {
-      let errorCode: number | null = null;
-      let errorSubcode: number | null = null;
       try {
         const body = await response.json() as {
           error?: { code?: unknown; error_subcode?: unknown };
         };
-        errorCode = typeof body.error?.code === 'number' ? body.error.code : null;
-        errorSubcode = typeof body.error?.error_subcode === 'number' ? body.error.error_subcode : null;
+        errorCode = typeof body.error?.code === 'number' ? body.error.code : undefined;
+        errorSubcode = typeof body.error?.error_subcode === 'number' ? body.error.error_subcode : undefined;
       } catch {
         // Meta did not return a JSON error body. Status is still sufficient for the outbox retry policy.
       }
       // Safe operational metadata only: never log the access token, event payload, or customer data.
-      console.warn('Meta CAPI delivery rejected', { status: response.status, errorCode, errorSubcode });
+      console.warn('Meta CAPI delivery rejected', { status: response.status, errorCode: errorCode ?? null, errorSubcode: errorSubcode ?? null });
     }
-    return { attempted: true, sent: response.ok, status: response.status };
+    return { attempted: true, sent: response.ok, status: response.status, metaErrorCode: errorCode, metaErrorSubcode: errorSubcode };
   } catch {
     return { attempted: true, sent: false, status: 0 };
   } finally {
@@ -172,7 +180,7 @@ function outboxItemToEvent(item: MetaCapiOutboxDispatchItem): MetaLeadEventInput
 export async function dispatchMetaCapiOutbox(options: {
   limit?: number;
   at?: Date;
-  sender?: (input: MetaLeadEventInput) => Promise<{ attempted: boolean; sent: boolean; status: number }>;
+  sender?: (input: MetaLeadEventInput) => Promise<MetaCapiDeliveryResult>;
 } = {}) {
   if (!isMetaCapiConfigured()) return { configured: false, claimed: 0, sent: 0, retrying: 0, permanentlyFailed: 0 };
   const claimed = await claimMetaCapiOutboxEvents({ limit: options.limit, at: options.at });
@@ -187,6 +195,8 @@ export async function dispatchMetaCapiOutbox(options: {
       sent: result.sent,
       status: result.status,
       permanent: !result.attempted || isPermanentMetaDeliveryFailure(result.status),
+      metaErrorCode: result.metaErrorCode,
+      metaErrorSubcode: result.metaErrorSubcode,
       at: options.at,
     });
     if (state?.state === 'sent') sent += 1;

@@ -1454,10 +1454,25 @@ function metaCapiRetryAt(at: Date, attemptCount: number) {
   return new Date(at.getTime() + cappedDelay).toISOString();
 }
 
+function metaCapiDeliveryErrorCode(errorCode: number | undefined, errorSubcode: number | undefined, fallback: string) {
+  const safeErrorCode = Number.isSafeInteger(errorCode) && Number(errorCode) >= 0 ? Number(errorCode) : null;
+  const safeErrorSubcode = Number.isSafeInteger(errorSubcode) && Number(errorSubcode) >= 0 ? Number(errorSubcode) : null;
+  if (safeErrorCode === null) return fallback;
+  if (safeErrorSubcode === null) return `meta_${safeErrorCode}`;
+  return `meta_${safeErrorCode}_${safeErrorSubcode}`;
+}
+
 export async function settleMetaCapiOutboxEvent(
   eventId: string,
   leaseToken: string,
-  result: { sent: boolean; status: number; permanent?: boolean; at?: Date },
+  result: {
+    sent: boolean;
+    status: number;
+    permanent?: boolean;
+    at?: Date;
+    metaErrorCode?: number;
+    metaErrorSubcode?: number;
+  },
 ): Promise<MetaCapiOutboxStatus | null> {
   await ensureSchema();
   const at = result.at ?? new Date();
@@ -1479,11 +1494,13 @@ export async function settleMetaCapiOutboxEvent(
         record.lastErrorCode = undefined;
       } else if (result.permanent || record.attemptCount >= record.maxAttempts) {
         record.state = 'permanently_failed';
-        record.lastErrorCode = result.permanent ? 'permanent_delivery_error' : 'retry_limit_reached';
+        record.lastErrorCode = result.permanent
+          ? metaCapiDeliveryErrorCode(result.metaErrorCode, result.metaErrorSubcode, 'permanent_delivery_error')
+          : 'retry_limit_reached';
       } else {
         record.state = 'retrying';
         record.nextAttemptAt = metaCapiRetryAt(at, record.attemptCount);
-        record.lastErrorCode = 'temporary_delivery_error';
+        record.lastErrorCode = metaCapiDeliveryErrorCode(result.metaErrorCode, result.metaErrorSubcode, 'temporary_delivery_error');
       }
       await writeLocalDb(local);
       return toMetaCapiOutboxStatus(record);
@@ -1500,7 +1517,13 @@ export async function settleMetaCapiOutboxEvent(
   const permanent = !result.sent && (Boolean(result.permanent) || attemptCount >= maxAttempts);
   const retryAt = result.sent || permanent ? null : metaCapiRetryAt(at, attemptCount);
   const nextState: MetaCapiOutboxState = result.sent ? 'sent' : permanent ? 'permanently_failed' : 'retrying';
-  const lastErrorCode = result.sent ? null : permanent ? (result.permanent ? 'permanent_delivery_error' : 'retry_limit_reached') : 'temporary_delivery_error';
+  const lastErrorCode = result.sent
+    ? null
+    : permanent
+      ? (result.permanent
+        ? metaCapiDeliveryErrorCode(result.metaErrorCode, result.metaErrorSubcode, 'permanent_delivery_error')
+        : 'retry_limit_reached')
+      : metaCapiDeliveryErrorCode(result.metaErrorCode, result.metaErrorSubcode, 'temporary_delivery_error');
   const { rows } = await db.query(
     `UPDATE meta_capi_delivery_outbox
      SET state = $3,
