@@ -2,8 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-
-const cookieKey = 'astana-cookies-v1';
+import MetaPixel from './meta-pixel';
+import {
+  cookieConsentStorageKey,
+  ensureMarketingConsentSubject,
+  marketingConsent,
+  revokePendingMetaCapiOutbox,
+  saveMarketingConsent,
+} from '@/src/lib/marketing-consent';
 
 export default function PublicWidgets() {
   const pathname = usePathname();
@@ -13,7 +19,8 @@ export default function PublicWidgets() {
   useEffect(() => {
     if (isAdmin) return;
     try {
-      setShowCookieBanner(!window.localStorage.getItem(cookieKey));
+      setShowCookieBanner(!window.localStorage.getItem(cookieConsentStorageKey));
+      if (marketingConsent() === 'granted') ensureMarketingConsentSubject();
     } catch {
       setShowCookieBanner(false);
     }
@@ -21,17 +28,15 @@ export default function PublicWidgets() {
 
   if (isAdmin) return null;
 
-  const acceptCookies = (value: 'all' | 'necessary') => {
-    try {
-      window.localStorage.setItem(cookieKey, value);
-    } catch {
-      // localStorage may be unavailable in strict privacy modes.
-    }
+  const acceptCookies = (value: 'marketing' | 'necessary') => {
+    saveMarketingConsent(value === 'marketing' ? 'granted' : 'denied');
+    if (value === 'necessary') revokePendingMetaCapiOutbox();
     setShowCookieBanner(false);
   };
 
   return (
     <>
+      <MetaPixel />
       <a
         href="https://wa.me/421905217946"
         target="_blank"
@@ -47,11 +52,11 @@ export default function PublicWidgets() {
       {showCookieBanner ? (
         <div className="cookie-banner" role="region" aria-label="Cookies">
           <p>
-            Táto stránka používa cookies na zlepšenie vášho zážitku. Viac info v{' '}
+            Používame nevyhnutné cookies. So súhlasom môžeme merať návštevnosť a odoslané dopyty cez Meta, aby sme vedeli vyhodnocovať reklamu. Viac v{' '}
             <a href="/cookies/">Zásadách cookies</a>.
           </p>
           <div>
-            <button type="button" onClick={() => acceptCookies('all')}>Prijať všetky</button>
+            <button type="button" onClick={() => acceptCookies('marketing')}>Súhlasím s meraním</button>
             <button type="button" onClick={() => acceptCookies('necessary')}>Len nevyhnutné</button>
           </div>
         </div>

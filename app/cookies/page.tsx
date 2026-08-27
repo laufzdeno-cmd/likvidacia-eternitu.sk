@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { PublicPageShell } from '../public-layout';
+import { CookieConsentControls } from '../cookie-consent-controls';
 
 export const metadata: Metadata = {
   title: 'Zásady cookies | ASTANA likvidácia azbestu',
@@ -24,11 +25,12 @@ export default function CookiesPage() {
           </article>
           <article>
             <h2>Aké cookies používame</h2>
-            <p>Používame funkčné cookies potrebné pre bezpečné fungovanie stránky a formulára. Analytické údaje spracúvame first-party spôsobom bez IP adries.</p>
+            <p>Používame funkčné cookies potrebné pre bezpečné fungovanie stránky a formulára. Po samostatnom súhlase môžeme používať Meta Pixel a Conversions API na meranie návštevnosti a odoslaných dopytov z reklamy.</p>
           </article>
           <article>
             <h2>Ako ich vypnúť</h2>
-            <p>Cookies môžete obmedziť v nastaveniach svojho prehliadača. Niektoré funkcie stránky však potom nemusia fungovať pohodlne.</p>
+            <p>V lište cookies môžete zvoliť iba nevyhnutné cookies. Súhlas s marketingovým meraním môžete kedykoľvek odvolať priamo tu.</p>
+            <CookieConsentControls />
           </article>
           <article>
             <h2>Kontakt</h2>

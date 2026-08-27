@@ -504,6 +504,7 @@ export default async function HomePage() {
             </div>
             <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data" noValidate>
               <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <input id="submissionId" type="hidden" name="submissionId" value="" />
               <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
               <div className="form-stage form-stage-priority">
                 <p className="form-stage-title">1. Výmera a lokalita</p>

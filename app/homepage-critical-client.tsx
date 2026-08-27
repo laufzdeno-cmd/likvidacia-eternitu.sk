@@ -1,6 +1,15 @@
 'use client';
 
 import { useEffect } from 'react';
+import {
+  hasMarketingConsent,
+  rememberPendingMetaLead,
+  takePendingMetaLead,
+  type PendingMetaLead,
+} from '@/src/lib/marketing-consent';
+
+const metaLeadEventName = 'astana:meta-lead';
+const hasMetaPixelId = Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim());
 
 export default function HomepageCriticalClient() {
   useEffect(() => {
@@ -9,6 +18,7 @@ export default function HomepageCriticalClient() {
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
+    const submissionIdInput = document.querySelector<HTMLInputElement>('#submissionId');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
     const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
     const fileDrop = document.querySelector<HTMLElement>('.file-drop');
@@ -26,6 +36,18 @@ export default function HomepageCriticalClient() {
     let quoteSectionTracked = false;
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
+    const dispatchMetaLead = (event: PendingMetaLead) => {
+      if (!hasMetaPixelId || !hasMarketingConsent()) return;
+      rememberPendingMetaLead(event);
+      window.dispatchEvent(new CustomEvent(metaLeadEventName, { detail: event }));
+    };
+
+    const ensureSubmissionId = () => {
+      if (!submissionIdInput) return;
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionIdInput.value)) return;
+      const id = window.crypto?.randomUUID?.();
+      if (id) submissionIdInput.value = id;
+    };
 
     const analyticsSessionId = (() => {
       const key = 'astana_analytics_session';
@@ -142,11 +164,19 @@ export default function HomepageCriticalClient() {
       if (submitted) {
         form.classList.add('is-submitted');
         setStatus('Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
+        const eventId = url.searchParams.get('meta_lead') || '';
+        const material = url.searchParams.get('meta_material');
+        if (/^[A-Za-z0-9._:-]{16,128}$/.test(eventId) && material && ['vlnity', 'plocha', 'iny', 'neviem'].includes(material)) {
+          dispatchMetaLead({ eventId, material: material as PendingMetaLead['material'] });
+        }
       } else if (errorMessage) {
         setStatus(errorMessage, 'error');
+        takePendingMetaLead();
       }
       url.searchParams.delete('odoslane');
       url.searchParams.delete('chyba');
+      url.searchParams.delete('meta_lead');
+      url.searchParams.delete('meta_material');
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     };
 
@@ -266,7 +296,7 @@ export default function HomepageCriticalClient() {
           });
           const contentType = response.headers.get('content-type') || '';
           const result = contentType.includes('application/json')
-            ? ((await response.json()) as { ok?: boolean; message?: string })
+            ? ((await response.json()) as { ok?: boolean; message?: string; metaLead?: PendingMetaLead })
             : { ok: false, message: (await response.text()).trim().slice(0, 180) };
           if (!response.ok || !result.ok) {
             throw new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
@@ -289,6 +319,7 @@ export default function HomepageCriticalClient() {
         form.reportValidity();
         return;
       }
+      ensureSubmissionId();
       if (/OPR\//i.test(navigator.userAgent)) {
         form.dataset.nativeSubmit = 'true';
         HTMLFormElement.prototype.submit.call(form);
@@ -309,6 +340,7 @@ export default function HomepageCriticalClient() {
         updateFileInput();
         if (preview) preview.innerHTML = '';
         trackAnalytics('form_submit_success', { form: 'lead' });
+        if (result.metaLead) dispatchMetaLead(result.metaLead);
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {

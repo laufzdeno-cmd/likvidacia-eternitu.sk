@@ -53,6 +53,7 @@ import { cleanSlovakText } from './slovak-text';
 
 type LocalDb = {
   leads: Lead[];
+  metaCapiOutbox: MetaCapiOutboxRecord[];
   leadFiles: LeadFile[];
   auditLogs: AuditLog[];
   quotes: Quote[];
@@ -71,15 +72,76 @@ type LocalDb = {
   adminSettings: Record<string, string>;
 };
 
+export type MetaCapiOutboxState = 'pending' | 'sending' | 'sent' | 'retrying' | 'permanently_failed';
+
+export type MetaCapiOutboxInput = {
+  consentSubject: string;
+  material: 'vlnity' | 'plocha' | 'iny' | 'neviem';
+  eventSourceUrl: string;
+  clientIp?: string;
+  clientUserAgent?: string;
+  fbp?: string;
+  fbc?: string;
+};
+
+type MetaCapiOutboxRecord = MetaCapiOutboxInput & {
+  eventId: string;
+  leadId: string;
+  eventTime: string;
+  createdAt: string;
+  updatedAt: string;
+  state: MetaCapiOutboxState;
+  attemptCount: number;
+  maxAttempts: number;
+  nextAttemptAt: string;
+  leaseToken?: string;
+  leaseExpiresAt?: string;
+  lastAttemptAt?: string;
+  sentAt?: string;
+  lastStatus?: number;
+  lastErrorCode?: string;
+};
+
+export type MetaCapiOutboxDispatchItem = MetaCapiOutboxRecord & {
+  email: string;
+  phone: string;
+};
+
+export type MetaCapiOutboxStatus = Pick<
+  MetaCapiOutboxRecord,
+  'eventId' | 'leadId' | 'eventTime' | 'state' | 'attemptCount' | 'maxAttempts' | 'nextAttemptAt' | 'sentAt' | 'lastStatus' | 'lastErrorCode'
+>;
+
+export type LeadWithMetaCapiOutbox = {
+  lead: Lead;
+  created: boolean;
+  outboxQueued: boolean;
+};
+
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
 type BusinessJobWithActivity = BusinessJob & { activityLogs: AuditLog[] };
 
 const databaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
-const localDbPath = path.join(process.cwd(), '.data', 'local-db.json');
+const localDbPath = process.env.ASTANA_LOCAL_DB_PATH || path.join(process.cwd(), '.data', 'local-db.json');
 const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
 
 let pool: Pool | undefined;
 let schemaReady = false;
+let localOutboxLock: Promise<void> = Promise.resolve();
+
+async function withLocalOutboxLock<T>(operation: () => Promise<T>) {
+  const previous = localOutboxLock;
+  let release: (() => void) | undefined;
+  localOutboxLock = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release?.();
+  }
+}
 
 function normalizeDatabaseUrl(value?: string) {
   if (!value || value.includes('localhost') || value.includes('127.0.0.1')) return value;
@@ -148,6 +210,50 @@ function toLead(row: Record<string, unknown>): Lead {
     followupNotificationSent: Boolean(row.followup_notif_odoslana ?? row.followupNotificationSent),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
     rawData: (row.raw_data as Record<string, unknown>) ?? {},
+  };
+}
+
+function toMetaCapiOutboxRecord(row: Record<string, unknown>): MetaCapiOutboxRecord {
+  return {
+    eventId: String(row.event_id ?? row.eventId),
+    leadId: String(row.lead_id ?? row.leadId ?? row.event_id ?? row.eventId),
+    consentSubject: String(row.consent_subject ?? row.consentSubject),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    eventTime: new Date(String(row.event_time ?? row.eventTime)).toISOString(),
+    material: String(row.material) as MetaCapiOutboxInput['material'],
+    eventSourceUrl: String(row.event_source_url ?? row.eventSourceUrl),
+    clientIp: row.client_ip ?? row.clientIp ? String(row.client_ip ?? row.clientIp) : undefined,
+    clientUserAgent: row.client_user_agent ?? row.clientUserAgent ? String(row.client_user_agent ?? row.clientUserAgent) : undefined,
+    fbp: row.fbp ? String(row.fbp) : undefined,
+    fbc: row.fbc ? String(row.fbc) : undefined,
+    state: String(row.state) as MetaCapiOutboxState,
+    attemptCount: Number(row.attempt_count ?? row.attemptCount ?? 0),
+    maxAttempts: Number(row.max_attempts ?? row.maxAttempts ?? 5),
+    nextAttemptAt: new Date(String(row.next_attempt_at ?? row.nextAttemptAt)).toISOString(),
+    leaseToken: row.lease_token ?? row.leaseToken ? String(row.lease_token ?? row.leaseToken) : undefined,
+    leaseExpiresAt: row.lease_expires_at ?? row.leaseExpiresAt ? new Date(String(row.lease_expires_at ?? row.leaseExpiresAt)).toISOString() : undefined,
+    lastAttemptAt: row.last_attempt_at ?? row.lastAttemptAt ? new Date(String(row.last_attempt_at ?? row.lastAttemptAt)).toISOString() : undefined,
+    sentAt: row.sent_at ?? row.sentAt ? new Date(String(row.sent_at ?? row.sentAt)).toISOString() : undefined,
+    lastStatus: row.last_status === undefined || row.last_status === null
+      ? (row.lastStatus === undefined || row.lastStatus === null ? undefined : Number(row.lastStatus))
+      : Number(row.last_status),
+    lastErrorCode: row.last_error_code ?? row.lastErrorCode ? String(row.last_error_code ?? row.lastErrorCode) : undefined,
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+  };
+}
+
+function toMetaCapiOutboxStatus(row: MetaCapiOutboxRecord): MetaCapiOutboxStatus {
+  return {
+    eventId: row.eventId,
+    leadId: row.leadId,
+    eventTime: row.eventTime,
+    state: row.state,
+    attemptCount: row.attemptCount,
+    maxAttempts: row.maxAttempts,
+    nextAttemptAt: row.nextAttemptAt,
+    sentAt: row.sentAt,
+    lastStatus: row.lastStatus,
+    lastErrorCode: row.lastErrorCode,
   };
 }
 
@@ -304,6 +410,7 @@ async function ensureSchema() {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_note text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_notif_odoslana boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS submission_id uuid;
 
     CREATE TABLE IF NOT EXISTS lead_files (
       id uuid PRIMARY KEY,
@@ -498,6 +605,30 @@ async function ensureSchema() {
       metadata jsonb NOT NULL DEFAULT '{}'::jsonb
     );
 
+    CREATE TABLE IF NOT EXISTS meta_capi_delivery_outbox (
+      event_id uuid PRIMARY KEY REFERENCES leads(id) ON DELETE CASCADE,
+      consent_subject uuid NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      event_time timestamptz NOT NULL,
+      material text NOT NULL,
+      event_source_url text NOT NULL,
+      client_ip text,
+      client_user_agent text,
+      fbp text,
+      fbc text,
+      state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'sending', 'sent', 'retrying', 'permanently_failed')),
+      attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+      max_attempts integer NOT NULL DEFAULT 5 CHECK (max_attempts > 0),
+      next_attempt_at timestamptz NOT NULL DEFAULT now(),
+      lease_token uuid,
+      lease_expires_at timestamptz,
+      last_attempt_at timestamptz,
+      sent_at timestamptz,
+      last_status integer,
+      last_error_code text,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+
     CREATE TABLE IF NOT EXISTS workers (
       id uuid PRIMARY KEY,
       name text NOT NULL,
@@ -637,6 +768,7 @@ async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS leads_submission_id_unique ON leads (submission_id);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
@@ -648,6 +780,8 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS roofer_events_roofer_created_idx ON roofer_events (roofer_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS meta_capi_delivery_outbox_dispatch_idx ON meta_capi_delivery_outbox (state, next_attempt_at, lease_expires_at);
+    CREATE INDEX IF NOT EXISTS meta_capi_delivery_outbox_consent_subject_idx ON meta_capi_delivery_outbox (consent_subject, state);
     CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
     CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
     CREATE INDEX IF NOT EXISTS price_offers_created_status_idx ON price_offers (created_at DESC, status);
@@ -697,6 +831,7 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
 function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
   return {
     leads: data.leads ?? [],
+    metaCapiOutbox: data.metaCapiOutbox ?? [],
     leadFiles: data.leadFiles ?? [],
     auditLogs: data.auditLogs ?? [],
     quotes: data.quotes ?? [],
@@ -977,6 +1112,7 @@ async function readLocalDb(): Promise<LocalDb> {
   } catch {
     const empty: LocalDb = {
       leads: [],
+      metaCapiOutbox: [],
       leadFiles: [],
       auditLogs: [],
       quotes: [],
@@ -1068,6 +1204,362 @@ export async function createLead(input: LeadInput): Promise<Lead> {
   );
   await addAuditLog('lead', id, 'lead_created', 'system', { status: 'novy' });
   return lead;
+}
+
+const metaCapiOutboxMaxAttempts = 5;
+const metaCapiLeaseMs = 2 * 60_000;
+
+function validMetaCapiConsentSubject(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function buildMetaCapiOutboxRecord(lead: Lead, input: MetaCapiOutboxInput): MetaCapiOutboxRecord {
+  const timestamp = now();
+  return {
+    eventId: lead.id,
+    leadId: lead.id,
+    consentSubject: input.consentSubject,
+    createdAt: timestamp,
+    eventTime: lead.createdAt,
+    material: input.material,
+    eventSourceUrl: input.eventSourceUrl,
+    clientIp: input.clientIp,
+    clientUserAgent: input.clientUserAgent,
+    fbp: input.fbp,
+    fbc: input.fbc,
+    state: 'pending',
+    attemptCount: 0,
+    maxAttempts: metaCapiOutboxMaxAttempts,
+    nextAttemptAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+export async function createLeadWithMetaCapiOutbox(
+  input: LeadInput,
+  submissionId: string,
+  outboxInput?: MetaCapiOutboxInput,
+): Promise<LeadWithMetaCapiOutbox> {
+  await ensureSchema();
+  const id = randomUUID();
+  const timestamp = now();
+  const lead: Lead = {
+    ...input,
+    id,
+    status: 'novy',
+    internalNote: '',
+    district: input.district ?? '',
+    roofer: input.roofer ?? '',
+    term: input.term ?? '',
+    note: input.note ?? '',
+    source: input.source ?? 'web',
+    preferredContact: input.preferredContact ?? 'Zavolajte mi',
+    wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
+    selectedRooferId: input.selectedRooferId ?? '',
+    rawData: input.rawData ?? {},
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+  const safeOutboxInput = outboxInput && validMetaCapiConsentSubject(outboxInput.consentSubject) ? outboxInput : undefined;
+  const db = getPool();
+
+  if (!db) {
+    return withLocalOutboxLock(async () => {
+      const local = await readLocalDb();
+      const duplicate = local.leads.find((item) => item.rawData?.metaSubmissionId === submissionId);
+      if (duplicate) return { lead: duplicate, created: false, outboxQueued: Boolean(safeOutboxInput) };
+
+      const localLead: Lead = { ...lead, rawData: { ...lead.rawData, metaSubmissionId: submissionId } };
+      local.leads.unshift(localLead);
+      if (safeOutboxInput) local.metaCapiOutbox.unshift(buildMetaCapiOutboxRecord(localLead, safeOutboxInput));
+      local.auditLogs.unshift({
+        id: randomUUID(),
+        entityType: 'lead',
+        entityId: localLead.id,
+        action: 'lead_created',
+        actorEmail: 'system',
+        changes: { status: 'novy' },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return { lead: localLead, created: true, outboxQueued: Boolean(safeOutboxInput) };
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `INSERT INTO leads (
+        id, created_at, updated_at, status, full_name, phone, email, city, district,
+        object_type, material_type, area_estimate, preferovany_kontakt, roofer, term, note, gdpr, source,
+        internal_note, raw_data, wants_roofer_recommendation, selected_roofer_id, submission_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      ON CONFLICT (submission_id) DO NOTHING
+      RETURNING *`,
+      [
+        lead.id,
+        lead.createdAt,
+        lead.updatedAt,
+        lead.status,
+        lead.fullName,
+        lead.phone,
+        lead.email,
+        lead.city,
+        lead.district,
+        lead.objectType,
+        lead.materialType,
+        lead.areaEstimate,
+        lead.preferredContact,
+        lead.roofer,
+        lead.term,
+        lead.note,
+        lead.gdpr,
+        lead.source,
+        lead.internalNote,
+        lead.rawData,
+        lead.wantsRooferRecommendation,
+        lead.selectedRooferId,
+        submissionId,
+      ],
+    );
+
+    if (!inserted.rows[0]) {
+      const existing = await client.query('SELECT * FROM leads WHERE submission_id = $1 LIMIT 1', [submissionId]);
+      await client.query('COMMIT');
+      if (!existing.rows[0]) throw new Error('Nepodarilo sa načítať pôvodný dopyt.');
+      return { lead: toLead(existing.rows[0]), created: false, outboxQueued: Boolean(safeOutboxInput) };
+    }
+
+    const savedLead = toLead(inserted.rows[0]);
+    if (safeOutboxInput) {
+      await client.query(
+        `INSERT INTO meta_capi_delivery_outbox (
+          event_id, consent_subject, created_at, event_time, material, event_source_url,
+          client_ip, client_user_agent, fbp, fbc, state, attempt_count, max_attempts, next_attempt_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'pending',0,$11,$3,$3)`,
+        [
+          savedLead.id,
+          safeOutboxInput.consentSubject,
+          timestamp,
+          savedLead.createdAt,
+          safeOutboxInput.material,
+          safeOutboxInput.eventSourceUrl,
+          safeOutboxInput.clientIp ?? null,
+          safeOutboxInput.clientUserAgent ?? null,
+          safeOutboxInput.fbp ?? null,
+          safeOutboxInput.fbc ?? null,
+          metaCapiOutboxMaxAttempts,
+        ],
+      );
+    }
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'lead',$2,'lead_created','system',$3,$4)`,
+      [randomUUID(), savedLead.id, { status: 'novy' }, timestamp],
+    );
+    await client.query('COMMIT');
+    return { lead: savedLead, created: true, outboxQueued: Boolean(safeOutboxInput) };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+function isMetaCapiOutboxReady(record: MetaCapiOutboxRecord, timestamp: number) {
+  const expiredLease = record.leaseExpiresAt ? new Date(record.leaseExpiresAt).getTime() <= timestamp : false;
+  return (
+    (record.state === 'pending' || record.state === 'retrying') && new Date(record.nextAttemptAt).getTime() <= timestamp
+  ) || (record.state === 'sending' && expiredLease);
+}
+
+export async function claimMetaCapiOutboxEvents(options: { limit?: number; at?: Date } = {}): Promise<MetaCapiOutboxDispatchItem[]> {
+  await ensureSchema();
+  const limit = Math.min(Math.max(options.limit ?? 10, 1), 50);
+  const at = options.at ?? new Date();
+  const timestamp = at.toISOString();
+  const leaseToken = randomUUID();
+  const leaseExpiresAt = new Date(at.getTime() + metaCapiLeaseMs).toISOString();
+  const db = getPool();
+
+  if (!db) {
+    return withLocalOutboxLock(async () => {
+      const local = await readLocalDb();
+      const claimed = local.metaCapiOutbox
+        .filter((record) => isMetaCapiOutboxReady(record, at.getTime()))
+        .sort((a, b) => a.nextAttemptAt.localeCompare(b.nextAttemptAt) || a.eventId.localeCompare(b.eventId))
+        .slice(0, limit);
+      for (const record of claimed) {
+        record.state = 'sending';
+        record.attemptCount += 1;
+        record.leaseToken = leaseToken;
+        record.leaseExpiresAt = leaseExpiresAt;
+        record.lastAttemptAt = timestamp;
+        record.updatedAt = timestamp;
+      }
+      await writeLocalDb(local);
+      return claimed.flatMap((record) => {
+        const lead = local.leads.find((item) => item.id === record.leadId);
+        return lead ? [{ ...record, email: lead.email, phone: lead.phone }] : [];
+      });
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `WITH candidates AS (
+        SELECT event_id
+        FROM meta_capi_delivery_outbox
+        WHERE (
+          (state IN ('pending', 'retrying') AND next_attempt_at <= $1::timestamptz)
+          OR (state = 'sending' AND lease_expires_at <= $1::timestamptz)
+        )
+        ORDER BY next_attempt_at ASC, event_id ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT $2
+      ), claimed AS (
+        UPDATE meta_capi_delivery_outbox outbox
+        SET state = 'sending',
+            attempt_count = outbox.attempt_count + 1,
+            lease_token = $3,
+            lease_expires_at = $4,
+            last_attempt_at = $1,
+            updated_at = $1
+        FROM candidates
+        WHERE outbox.event_id = candidates.event_id
+        RETURNING outbox.*
+      )
+      SELECT claimed.*, leads.email, leads.phone
+      FROM claimed
+      INNER JOIN leads ON leads.id = claimed.event_id`,
+      [timestamp, limit, leaseToken, leaseExpiresAt],
+    );
+    await client.query('COMMIT');
+    return rows.map((row) => ({ ...toMetaCapiOutboxRecord(row), email: String(row.email), phone: String(row.phone) }));
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+function metaCapiRetryAt(at: Date, attemptCount: number) {
+  const baseDelay = 30_000;
+  const cappedDelay = Math.min(baseDelay * 2 ** Math.max(attemptCount - 1, 0), 60 * 60_000);
+  return new Date(at.getTime() + cappedDelay).toISOString();
+}
+
+export async function settleMetaCapiOutboxEvent(
+  eventId: string,
+  leaseToken: string,
+  result: { sent: boolean; status: number; permanent?: boolean; at?: Date },
+): Promise<MetaCapiOutboxStatus | null> {
+  await ensureSchema();
+  const at = result.at ?? new Date();
+  const timestamp = at.toISOString();
+  const db = getPool();
+
+  if (!db) {
+    return withLocalOutboxLock(async () => {
+      const local = await readLocalDb();
+      const record = local.metaCapiOutbox.find((item) => item.eventId === eventId && item.state === 'sending' && item.leaseToken === leaseToken);
+      if (!record) return null;
+      record.lastStatus = result.status || undefined;
+      record.leaseToken = undefined;
+      record.leaseExpiresAt = undefined;
+      record.updatedAt = timestamp;
+      if (result.sent) {
+        record.state = 'sent';
+        record.sentAt = timestamp;
+        record.lastErrorCode = undefined;
+      } else if (result.permanent || record.attemptCount >= record.maxAttempts) {
+        record.state = 'permanently_failed';
+        record.lastErrorCode = result.permanent ? 'permanent_delivery_error' : 'retry_limit_reached';
+      } else {
+        record.state = 'retrying';
+        record.nextAttemptAt = metaCapiRetryAt(at, record.attemptCount);
+        record.lastErrorCode = 'temporary_delivery_error';
+      }
+      await writeLocalDb(local);
+      return toMetaCapiOutboxStatus(record);
+    });
+  }
+
+  const existing = await db.query(
+    'SELECT attempt_count, max_attempts FROM meta_capi_delivery_outbox WHERE event_id = $1 AND state = \'sending\' AND lease_token = $2 LIMIT 1',
+    [eventId, leaseToken],
+  );
+  if (!existing.rows[0]) return null;
+  const attemptCount = Number(existing.rows[0].attempt_count);
+  const maxAttempts = Number(existing.rows[0].max_attempts);
+  const permanent = !result.sent && (Boolean(result.permanent) || attemptCount >= maxAttempts);
+  const retryAt = result.sent || permanent ? null : metaCapiRetryAt(at, attemptCount);
+  const nextState: MetaCapiOutboxState = result.sent ? 'sent' : permanent ? 'permanently_failed' : 'retrying';
+  const lastErrorCode = result.sent ? null : permanent ? (result.permanent ? 'permanent_delivery_error' : 'retry_limit_reached') : 'temporary_delivery_error';
+  const { rows } = await db.query(
+    `UPDATE meta_capi_delivery_outbox
+     SET state = $3,
+         lease_token = NULL,
+         lease_expires_at = NULL,
+         next_attempt_at = COALESCE($4::timestamptz, next_attempt_at),
+         sent_at = CASE WHEN $3 = 'sent' THEN $5::timestamptz ELSE sent_at END,
+         last_status = NULLIF($6, 0),
+         last_error_code = $7,
+         updated_at = $5
+     WHERE event_id = $1 AND state = 'sending' AND lease_token = $2
+     RETURNING *`,
+    [eventId, leaseToken, nextState, retryAt, timestamp, result.status, lastErrorCode],
+  );
+  return rows[0] ? toMetaCapiOutboxStatus(toMetaCapiOutboxRecord(rows[0])) : null;
+}
+
+export async function revokeMetaCapiOutboxForConsentSubject(consentSubject: string, at = new Date()) {
+  if (!validMetaCapiConsentSubject(consentSubject)) return 0;
+  await ensureSchema();
+  const timestamp = at.toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalOutboxLock(async () => {
+      const local = await readLocalDb();
+      let revoked = 0;
+      for (const record of local.metaCapiOutbox) {
+        if (record.consentSubject !== consentSubject || record.state === 'sent' || record.state === 'permanently_failed') continue;
+        record.state = 'permanently_failed';
+        record.leaseToken = undefined;
+        record.leaseExpiresAt = undefined;
+        record.lastErrorCode = 'consent_revoked';
+        record.updatedAt = timestamp;
+        revoked += 1;
+      }
+      if (revoked) await writeLocalDb(local);
+      return revoked;
+    });
+  }
+  const { rowCount } = await db.query(
+    `UPDATE meta_capi_delivery_outbox
+     SET state = 'permanently_failed', lease_token = NULL, lease_expires_at = NULL,
+         last_error_code = 'consent_revoked', updated_at = $2
+     WHERE consent_subject = $1 AND state NOT IN ('sent', 'permanently_failed')`,
+    [consentSubject, timestamp],
+  );
+  return rowCount ?? 0;
+}
+
+export async function getMetaCapiOutboxStatus(eventId: string): Promise<MetaCapiOutboxStatus | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const record = local.metaCapiOutbox.find((item) => item.eventId === eventId);
+    return record ? toMetaCapiOutboxStatus(record) : null;
+  }
+  const { rows } = await db.query('SELECT * FROM meta_capi_delivery_outbox WHERE event_id = $1 LIMIT 1', [eventId]);
+  return rows[0] ? toMetaCapiOutboxStatus(toMetaCapiOutboxRecord(rows[0])) : null;
 }
 
 export async function addLeadFiles(files: Omit<LeadFile, 'id' | 'createdAt'>[]) {
