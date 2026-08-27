@@ -127,6 +127,21 @@ export async function sendMetaLeadEvent(input: MetaLeadEventInput) {
         signal: controller.signal,
       },
     );
+    if (!response.ok) {
+      let errorCode: number | null = null;
+      let errorSubcode: number | null = null;
+      try {
+        const body = await response.json() as {
+          error?: { code?: unknown; error_subcode?: unknown };
+        };
+        errorCode = typeof body.error?.code === 'number' ? body.error.code : null;
+        errorSubcode = typeof body.error?.error_subcode === 'number' ? body.error.error_subcode : null;
+      } catch {
+        // Meta did not return a JSON error body. Status is still sufficient for the outbox retry policy.
+      }
+      // Safe operational metadata only: never log the access token, event payload, or customer data.
+      console.warn('Meta CAPI delivery rejected', { status: response.status, errorCode, errorSubcode });
+    }
     return { attempted: true, sent: response.ok, status: response.status };
   } catch {
     return { attempted: true, sent: false, status: 0 };
