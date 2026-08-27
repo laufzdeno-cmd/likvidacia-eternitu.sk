@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { articles, commonProcessSteps, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
 import { companyAddressLine, emailLink, phoneLink, serviceOffer, site } from '@/src/content/site';
 import { PublicPageShell } from './public-layout';
-import { JsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd, buildServiceJsonLd } from './seo-json-ld';
+import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from './seo-json-ld';
 
 export function buildPageMetadata({
   title,
@@ -107,13 +107,12 @@ export function TrustComplianceSection() {
         Pri legálnej likvidácii azbestu nestačí, že firma príde, rozoberie strechu a odvezie dosky. Odborný postup začína ešte pred príchodom na stavbu.
       </p>
       <p>
-        ASTANA, s.r.o. je vedená v zozname ÚVZ SR medzi oprávnenými spoločnosťami na odstraňovanie azbestu a materiálov obsahujúcich azbest zo stavieb pre exteriér aj interiér. Pri konkrétnej zákazke sa rieši rozhodnutie príslušného RÚVZ k danej stavbe a zákonný postup nakladania s odpadom s obsahom azbestu.
+        Oficiálne správy RÚVZ z rokov 2021 až 2023 uvádzajú ASTANA, s.r.o. pri činnostiach súvisiacich s odstraňovaním azbestu. ASTANA uvádza oprávnenie pre exteriér aj interiér. Pri konkrétnej zákazke sa rieši príslušný úradný postup a nakladanie s odpadom.
       </p>
+      <p>Archívne dokumenty samy osebe nie sú potvrdením aktuálneho stavu oprávnenia v roku 2026.</p>
       <p>Bez potrebného úradného postupu sa do demontáže nepúšťame.</p>
       <p>
-        <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">
-          Overiť zoznam oprávnených spoločností na ÚVZ SR
-        </a>
+        <a href="/overene-informacie/">Pozrieť verejné zdroje a hranice overenia</a>
       </p>
     </section>
   );
@@ -247,7 +246,7 @@ export function ServicePage({ page }: { page: ServicePageContent }) {
   return (
     <PublicPageShell breadcrumb={{ name: page.h1, path: page.slug }}>
       <main className="seo-page">
-        <JsonLd data={[buildBreadcrumbJsonLd([{ name: 'Úvod', path: '/' }, { name: page.h1, path: page.slug }]), buildServiceJsonLd(page.h1, page.quickAnswer, page.slug), buildFaqJsonLd(page.faqs)]} />
+        <JsonLd data={[buildServiceJsonLd(page.h1, page.quickAnswer, page.slug), buildFaqJsonLd(page.faqs)]} />
         <section className="seo-hero">
           <p className="eyebrow">{page.eyebrow}</p>
           <h1>{page.h1}</h1>
@@ -312,7 +311,7 @@ export function LocationPage({
   return (
     <PublicPageShell breadcrumb={{ name: h1, path }}>
       <main className="seo-page">
-        <JsonLd data={[buildBreadcrumbJsonLd([{ name: 'Úvod', path: '/' }, { name: h1, path }]), buildServiceJsonLd(h1, quickAnswer, path), buildFaqJsonLd(faqs)]} />
+        <JsonLd data={[buildServiceJsonLd(h1, quickAnswer, path), buildFaqJsonLd(faqs)]} />
         <section className="seo-hero">
           <p className="eyebrow">Lokálna služba</p>
           <h1>{h1}</h1>
@@ -362,7 +361,7 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
   return (
     <PublicPageShell breadcrumb={{ name: article.title, path }}>
       <main className="seo-page">
-        <JsonLd data={[buildBreadcrumbJsonLd([{ name: 'Úvod', path: '/' }, { name: 'Poradňa', path: '/poradna/' }, { name: article.title, path }]), buildFaqJsonLd(faqs)]} />
+        <JsonLd data={buildFaqJsonLd(faqs)} />
         <section className="seo-hero">
           <p className="eyebrow">Poradňa</p>
           <h1>{article.title}</h1>

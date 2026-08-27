@@ -26,14 +26,14 @@ export const site = {
   documents: {
     public: [] as Array<{ name: string; url: string }>,
     publicVerificationUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
-    note: 'Interné oprávnenia a PDF dokumenty sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie. Verejná overiteľnosť je cez zoznam ÚVZ SR.',
+    note: 'Interné oprávnenia a PDF dokumenty sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie. Verejné archívne zdroje dokumentujú konkrétne roky, nie aktuálny stav oprávnenia v roku 2026.',
   },
   compliance: {
     uvzAuthorizedCompaniesUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
     asbestosRemovalAuthorization: {
       exterior: true,
       interior: true,
-      publicVerification: 'ASTANA, s.r.o. je verejne overiteľná v zozname ÚVZ SR medzi oprávnenými spoločnosťami na odstraňovanie azbestu a materiálov obsahujúcich azbest zo stavieb.',
+      publicVerification: 'ASTANA uvádza oprávnenie pre exteriér aj interiér. Verejné archívne dokumenty RÚVZ/ÚVZ uvádzajú činnosť firmy v konkrétnych rokoch, ale samy osebe nepotvrdzujú aktuálny stav oprávnenia v roku 2026.',
       internalDocumentsPublic: false,
     },
     googleBusinessProfile: {
