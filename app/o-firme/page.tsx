@@ -34,15 +34,22 @@ export default function AboutPage() {
         <section className="seo-section">
           <h2>Dokumenty a oprávnenia</h2>
           <p className="seo-lead">
-            ASTANA, s.r.o. má oprávnenie na odstraňovanie azbestu v exteriéri aj interiéri a je verejne overiteľná v zozname
-            ÚVZ SR. Interné oprávnenia, PDF dokumenty ani čísla dokumentov nezverejňujeme na stiahnutie z bezpečnostných
-            a obchodných dôvodov.
+            ASTANA uvádza oprávnenie na odstraňovanie azbestu v exteriéri aj interiéri. Historické správy RÚVZ z rokov
+            2021 až 2023 dokumentujú činnosť firmy pri odstraňovaní azbestu. Archívne dokumenty samy osebe nie sú
+            potvrdením aktuálneho stavu oprávnenia v roku 2026. Interné oprávnenia, PDF dokumenty ani čísla dokumentov
+            nezverejňujeme na stiahnutie z bezpečnostných a obchodných dôvodov.
           </p>
           <p>
-            <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">
-              Overiť zoznam oprávnených spoločností na ÚVZ SR
-            </a>
+            <a href="/overene-informacie/">Pozrieť verejné zdroje a hranice overenia</a>
           </p>
+        </section>
+        <section className="seo-section">
+          <h2>Overené informácie na jednom mieste</h2>
+          <p className="seo-lead">
+            Zverejnili sme aj samostatný prehľad firemných údajov, postupu, reálnych fotografií a hraníc tvrdení,
+            ktoré nepoužívame bez dôkazu.
+          </p>
+          <p><a href="/overene-informacie/">Pozrieť overené informácie o ASTANA</a></p>
         </section>
         <ContactStrip />
         <QuoteCTA />

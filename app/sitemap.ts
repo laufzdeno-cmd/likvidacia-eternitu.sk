@@ -3,10 +3,8 @@ import { articles, locationPages } from '@/src/content/seo-content';
 import { site } from '@/src/content/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
   const page = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] = 'monthly') => ({
     url: `${site.website}${path}`,
-    lastModified,
     changeFrequency,
     priority,
   });
@@ -21,6 +19,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/realizacie/', 0.8),
     page('/recenzie/', 0.55),
     page('/o-firme/', 0.75),
+    page('/overene-informacie/', 0.7),
     page('/kontakt/', 0.85),
     page('/poradna/', 0.75),
     page('/strechari/', 0.55),

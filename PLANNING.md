@@ -91,3 +91,27 @@ Long-tail témy:
 - Ktoré sociálne profily alebo Google Business Profile URL použiť v `sameAs`.
 - Či pridať externý tracking typu Google Analytics, alebo zostať iba pri first-party analytike.
 - Či nasadiť plnú 2FA politiku pre všetkých admin používateľov.
+
+## GEO dôkazový model (2026-08-25)
+
+### Zámer
+
+Pre odpovede AI aj rozhodovanie zákazníkov nestačí samostatná stránka určená iba pre modely. Potrebný je verejný dôkazový profil, ktorý je užitočný pre človeka, citovateľný v HTML a konzistentný so strojovo čitateľnými údajmi.
+
+### Implementované jadro
+
+- Stránka Overené informácie zhŕňa právnu identitu, pôsobnosť, verejnú overiteľnosť oprávnenia, reálny postup, pravidlá pre recenzie a realizácie a porovnávací checklist.
+- Zdroj firemných údajov zostáva v src/content/site.ts; súbor src/content/verified-company-facts.ts z neho vytvára verejné výstupy pre stránku, dáta o spoločnosti a strojový súhrn.
+- Web neoznačuje ASTANA za najlepšiu ani najlacnejšiu. Takéto odporúčanie môže vzniknúť iba z nezávislých verejných dôkazov, nie zo samo-tvrdenia.
+- Firemné štatistiky sú v dátach označené ako údaje uvádzané firmou, nie ako nezávisle overené.
+- Súbor llms.txt je doplnkový verejný súhrn pre systémy, ktoré ho používajú; Google Search ho nepoužíva ako ranking faktor.
+- Robots výslovne povoľuje verejný obsah pre OAI-SearchBot, ChatGPT-User, GPTBot, Claude-SearchBot, Claude-User, ClaudeBot, PerplexityBot, Perplexity-User, Applebot, Google-Extended a CCBot. Administrácia a API zostávajú mimo crawlovania.
+- Verejné výstupy pomenúvajú zdroj, dátum kontroly a hranice tvrdení. Nie sú to stránky na vynútenie odporúčania, ale na rýchle overenie faktov.
+
+### Ďalšie dôkazy na doplnenie majiteľom
+
+- Verejná URL Google Business Profile.
+- Reálne schválené recenzie so súhlasom autora.
+- Potvrdené metadata pri realizáciách: typ objektu, materiál, okres, výmera a fáza práce.
+- Verejné prípadové štúdie a externé zmienky o firme, ak existujú.
+- Pravidelne obsahovo preveriť dátumy článkov v poradni; dátum aktualizácie sa nesmie meniť iba kvôli čerstvejšiemu vzhľadu.

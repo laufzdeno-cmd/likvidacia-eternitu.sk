@@ -55,6 +55,26 @@ export function buildServiceJsonLd(name: string, description: string, path: stri
   };
 }
 
+export function buildAboutPageJsonLd(
+  name: string,
+  description: string,
+  path: string,
+  lastReviewed?: string,
+) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'AboutPage',
+    '@id': absoluteUrl(path) + '#webpage',
+    name,
+    description,
+    url: absoluteUrl(path),
+    inLanguage: 'sk-SK',
+    ...(lastReviewed ? { dateModified: lastReviewed } : {}),
+    about: { '@id': SITE_URL + '/#organization' },
+    mainEntity: { '@id': SITE_URL + '/#organization' },
+  };
+}
+
 export function buildOrganizationJsonLd() {
   const address = {
     '@type': 'PostalAddress',
@@ -62,6 +82,20 @@ export function buildOrganizationJsonLd() {
     postalCode: site.address.postalCode,
     addressLocality: site.address.locality,
     addressCountry: site.address.country,
+  };
+
+  const customerServiceContact = {
+    '@type': 'ContactPoint',
+    telephone: site.phoneHref,
+    contactType: 'customer service',
+    areaServed: { '@type': 'Country', name: site.areaServed },
+    availableLanguage: ['sk'],
+    hoursAvailable: {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+      opens: '07:00',
+      closes: '18:00',
+    },
   };
 
   return {
@@ -80,6 +114,7 @@ export function buildOrganizationJsonLd() {
         taxID: site.ico,
         vatID: site.icDph,
         sameAs: site.sameAs,
+        contactPoint: [customerServiceContact],
       },
       {
         '@type': 'ProfessionalService',
@@ -93,6 +128,7 @@ export function buildOrganizationJsonLd() {
         taxID: site.ico,
         vatID: site.icDph,
         areaServed: { '@type': 'Country', name: site.areaServed },
+        contactPoint: [customerServiceContact],
         openingHoursSpecification: [
           {
             '@type': 'OpeningHoursSpecification',

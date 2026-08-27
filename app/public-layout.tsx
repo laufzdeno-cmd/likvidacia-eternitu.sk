@@ -70,6 +70,7 @@ export function PublicFooter() {
         <a href="/kontakt/">Kontakt</a>
         <a href="/realizacie/">Realizácie</a>
         <a href="/recenzie/">Recenzie</a>
+        <a href="/overene-informacie/">Overené informácie</a>
         <a href="/strechari/">Pre strechárov</a>
         <a href="/spolupracujuci-strechari/">Spolupracujúci strechári</a>
         <a href="/poradna/">Poradňa</a>
