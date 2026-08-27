@@ -1,7 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
 const FORWARDED_QUERY_KEYS = new Set(['fbclid']);
 const UTM_KEY_PATTERN = /^utm_[a-z0-9_]{1,64}$/i;
+
+export const runtime = 'nodejs';
 
 /**
  * Meta Page CTAs reject URL fragments in their saved destination. This fixed,
@@ -9,9 +11,10 @@ const UTM_KEY_PATTERN = /^utm_[a-z0-9_]{1,64}$/i;
  * visitors to the only allowed target: the homepage quote form.
  */
 function redirectToQuoteForm(request: NextRequest) {
-  const destination = new URL('/', request.nextUrl.origin);
+  const source = new URL(request.url);
+  const destination = new URL('/', source);
 
-  for (const [key, value] of request.nextUrl.searchParams) {
+  for (const [key, value] of source.searchParams) {
     if (UTM_KEY_PATTERN.test(key) || FORWARDED_QUERY_KEYS.has(key)) {
       destination.searchParams.append(key, value);
     }
@@ -19,10 +22,14 @@ function redirectToQuoteForm(request: NextRequest) {
 
   destination.hash = 'dopyt';
 
-  const response = NextResponse.redirect(destination, 307);
-  response.headers.set('Cache-Control', 'no-store, max-age=0');
-  response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
-  return response;
+  return new Response(null, {
+    status: 307,
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+      Location: destination.toString(),
+      'X-Robots-Tag': 'noindex, nofollow, noarchive',
+    },
+  });
 }
 
 export function GET(request: NextRequest) {
