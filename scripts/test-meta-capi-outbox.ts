@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 
+async function main() {
 const testDirectory = await mkdtemp(path.join(os.tmpdir(), 'astana-meta-outbox-'));
 process.env.ASTANA_LOCAL_DB_PATH = path.join(testDirectory, 'local-db.json');
 process.env.DATABASE_URL = '';
@@ -135,3 +136,9 @@ try {
 } finally {
   await rm(testDirectory, { recursive: true, force: true });
 }
+}
+
+void main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
