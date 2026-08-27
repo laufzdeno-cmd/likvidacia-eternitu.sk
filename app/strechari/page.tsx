@@ -160,7 +160,7 @@ export default function RoofersPage() {
               <p>Vyplňte krátky formulár. Ozveme sa do 48 hodín.</p>
             </div>
             <form className="roofer-registration-form" action="/api/roofer-registration/" method="post" noValidate>
-              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="new-password" aria-hidden="true" data-submit-disabled="true" disabled />
               <div className="roofer-form-grid">
                 <label>
                   Meno a priezvisko *

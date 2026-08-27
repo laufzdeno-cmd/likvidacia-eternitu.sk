@@ -500,7 +500,7 @@ export default async function HomePage() {
               <span></span>
             </div>
             <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data" noValidate>
-              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="new-password" aria-hidden="true" data-submit-disabled="true" disabled />
               <input id="submissionId" type="hidden" name="submissionId" value="" />
               <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
               <div className="form-stage form-stage-priority">

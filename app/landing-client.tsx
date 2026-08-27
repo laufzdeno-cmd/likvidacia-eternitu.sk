@@ -266,7 +266,7 @@ export default function LandingClient() {
       form.classList.toggle('is-submitting', submitting);
       Array.from(form.elements).forEach((element) => {
         const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
-        control.disabled = submitting;
+        control.disabled = submitting || control.hasAttribute('data-submit-disabled');
       });
       if (button) {
         button.disabled = submitting;
@@ -329,13 +329,27 @@ export default function LandingClient() {
       status.textContent = '';
     };
 
+    const ensureSubmissionId = () => {
+      if (!form) return;
+      let input = form.querySelector<HTMLInputElement>('input[name="submissionId"]');
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'submissionId';
+        form.appendChild(input);
+      }
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.value)) return;
+      const id = window.crypto?.randomUUID?.();
+      if (id) input.value = id;
+    };
+
     const submitLeadForm = async (payload: FormData) => {
       const endpoints = ['/api/dopyt/'];
       let lastError: Error | null = null;
 
       for (const endpoint of endpoints) {
         const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 4000);
+        const timeoutId = window.setTimeout(() => controller.abort(), 30000);
         try {
           const response = await fetch(endpoint, {
             method: 'POST',
@@ -349,10 +363,13 @@ export default function LandingClient() {
             ? ((await response.json()) as { ok?: boolean; message?: string })
             : { ok: false, message: (await response.text()).trim().slice(0, 180) };
           if (!response.ok || !result.ok) {
-            throw new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
+            const responseError = new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.') as Error & { responseReceived?: boolean };
+            responseError.responseReceived = true;
+            throw responseError;
           }
           return result;
         } catch (error) {
+          if (error instanceof Error && 'responseReceived' in error) throw error;
           lastError = error instanceof Error ? error : new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
         } finally {
           window.clearTimeout(timeoutId);
@@ -364,16 +381,16 @@ export default function LandingClient() {
 
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
+      if (form.classList.contains('is-submitting')) {
+        event.preventDefault();
+        return;
+      }
       if (!form.checkValidity()) {
         event.preventDefault();
         form.reportValidity();
         return;
       }
-      if (/OPR\//i.test(navigator.userAgent)) {
-        form.dataset.nativeSubmit = 'true';
-        HTMLFormElement.prototype.submit.call(form);
-        return;
-      }
+      ensureSubmissionId();
       event.preventDefault();
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
@@ -392,10 +409,15 @@ export default function LandingClient() {
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa v\u00e1m s \u010fal\u0161\u00edm postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        // Keep native POST available for Opera privacy/VPN filters that block fetch.
         setFormSubmitting(false, button);
-        form.dataset.nativeSubmit = 'true';
-        HTMLFormElement.prototype.submit.call(form);
+        setStatus(
+          error instanceof Error && error.name === 'AbortError'
+            ? 'Server neodpovedal včas. Formulár zostal vyplnený, skúste to prosím znova alebo zavolajte 0905 217 946.'
+            : error instanceof Error
+              ? error.message
+              : 'Dopyt sa nepodarilo odoslať. Skontrolujte pripojenie a skúste to znova alebo zavolajte 0905 217 946.',
+          'error',
+        );
         return;
       } finally {
         if (form.classList.contains('is-submitted')) {

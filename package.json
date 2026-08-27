@@ -8,6 +8,7 @@
     "preview": "next start",
     "typecheck": "tsc --noEmit",
     "test:meta-capi-outbox": "tsx scripts/test-meta-capi-outbox.ts",
+    "test:lead-form": "node scripts/test-lead-form-guardrails.mjs",
     "lighthouse:ci": "ts-node scripts/lighthouse-ci.ts",
     "db:init": "tsx scripts/init-db.ts",
     "admin:hash": "node scripts/hash-password.mjs"
