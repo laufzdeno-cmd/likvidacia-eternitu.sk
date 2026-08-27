@@ -26,7 +26,6 @@ type MetaConfig = {
   pixelId: string;
   accessToken: string;
   apiVersion: string;
-  testEventCode?: string;
 };
 
 type MetaCapiDeliveryResult = {
@@ -55,7 +54,6 @@ function config(): MetaConfig | null {
     pixelId,
     accessToken,
     apiVersion,
-    testEventCode: process.env.META_CAPI_TEST_EVENT_CODE?.trim() || undefined,
   };
 }
 
@@ -120,7 +118,6 @@ export async function sendMetaLeadEvent(input: MetaLeadEventInput): Promise<Meta
     ],
     access_token: settings.accessToken,
   };
-  if (settings.testEventCode) payload.test_event_code = settings.testEventCode;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2_500);
