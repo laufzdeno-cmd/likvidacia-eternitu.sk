@@ -83,6 +83,7 @@ out
 dist
 .output
 .data/
+test-results/
 storage/
 tmp-*.png
 crop*.png
