@@ -1,4 +1,6 @@
 :root {
+  /* Keep Android browser Auto Dark from recoloring the approved light UI. */
+  color-scheme: only light;
   --primary: #006aa6;
   --secondary: #062d46;
   --bright: #00a3d7;
