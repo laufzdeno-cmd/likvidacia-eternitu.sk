@@ -13,6 +13,7 @@ export default function LandingClient() {
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
     const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
+    const materialSelect = document.querySelector<HTMLSelectElement>('#materialType');
     const fileDrop = document.querySelector<HTMLElement>('.file-drop');
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
@@ -184,6 +185,19 @@ export default function LandingClient() {
       }
       if (selectedRooferId || wantsRoofer) {
         rooferSelect.value = 'Chcem odporučiť strechára podľa regiónu';
+      }
+    };
+
+    const applyMaterialFromUrl = () => {
+      if (!form || !materialSelect) return;
+      const material = new URLSearchParams(window.location.search).get('material');
+      const materialValues: Record<string, string> = {
+        vlnity: 'Vlnitý eternit',
+        plocha: 'Hladký / štvorcový eternit',
+      };
+      const selectedValue = material ? materialValues[material] : undefined;
+      if (selectedValue && Array.from(materialSelect.options).some((option) => option.value === selectedValue)) {
+        materialSelect.value = selectedValue;
       }
     };
 
@@ -688,6 +702,7 @@ export default function LandingClient() {
 
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
+    applyMaterialFromUrl();
     applyRooferSelectionFromUrl();
     applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);

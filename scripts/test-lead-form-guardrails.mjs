@@ -24,6 +24,9 @@ for (const client of ['app/homepage-critical-client.tsx', 'app/landing-client.ts
   assert(source.includes("control.hasAttribute('data-submit-disabled')"), `${client}: vypnutý honeypot sa nesmie znova aktivovať.`);
   assert(source.includes('responseReceived'), `${client}: odpoveď servera sa nesmie potichu opakovať.`);
   assert(source.includes('ensureSubmissionId'), `${client}: chýba stabilné id odoslania.`);
+  assert(source.includes('applyMaterialFromUrl'), `${client}: reklama musí zachovať message-match typu azbestu.`);
+  assert(source.includes("vlnity: 'Vlnitý eternit'"), `${client}: chýba mapovanie material=vlnity.`);
+  assert(source.includes("plocha: 'Hladký / štvorcový eternit'"), `${client}: chýba mapovanie material=plocha.`);
 }
 
 const endpoint = read('app/api/dopyt/route.ts');

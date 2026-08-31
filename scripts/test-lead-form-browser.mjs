@@ -181,7 +181,17 @@ async function main() {
       await route.continue();
     });
 
-    await page.goto(`${baseUrl}/#dopyt`, { waitUntil: 'networkidle' });
+    for (const [material, expectedValue] of [
+      ['vlnity', 'Vlnitý eternit'],
+      ['plocha', 'Hladký / štvorcový eternit'],
+    ]) {
+      await page.goto(`${baseUrl}/?material=${material}&utm_source=facebook&utm_medium=paid_social&utm_campaign=astana_meta_2026_08#dopyt`, { waitUntil: 'networkidle' });
+      assert.equal(await page.locator('#materialType').inputValue(), expectedValue, `material=${material} musí predvyplniť zodpovedajúci typ azbestu.`);
+      assert.match(page.url(), new RegExp(`material=${material}`), `material=${material} musí zostať v URL.`);
+      assert.match(page.url(), /utm_source=facebook/, 'UTM parametre musia zostať v URL.');
+    }
+
+    await page.goto(`${baseUrl}/?material=vlnity#dopyt`, { waitUntil: 'networkidle' });
     await page.locator('.lead-form').scrollIntoViewIfNeeded();
     await page.locator('#areaEstimate').fill('120');
     await page.locator('#city').fill('Testovacia obec');
