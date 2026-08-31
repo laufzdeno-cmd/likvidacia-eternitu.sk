@@ -29,6 +29,12 @@ for (const client of ['app/homepage-critical-client.tsx', 'app/landing-client.ts
 const endpoint = read('app/api/dopyt/route.ts');
 assert(endpoint.includes("export { POST } from '../lead/route';"), '/api/dopyt/ musí delegovať na chránený lead endpoint.');
 
+const leadRoute = read('app/api/lead/route.ts');
+assert(!leadRoute.includes("import { randomUUID } from 'node:crypto';"), 'Lead route nesmie generovať náhradný submissionId na serveri.');
+assert(leadRoute.includes('? raw : null;'), 'Neplatný submissionId musí byť odmietnutý, nie nahradený novým UUID.');
+assert(leadRoute.includes('const validatedSubmissionId = submissionId(formData.get(\'submissionId\'));'), 'Lead route musí validovať submissionId pred zápisom.');
+assert(leadRoute.includes('if (!validatedSubmissionId)'), 'Chýbajúci alebo neplatný submissionId musí skončiť validačnou chybou.');
+
 const database = read('src/server/db.ts');
 assert(database.includes('ON CONFLICT (submission_id) DO NOTHING'), 'Serverová idempotencia leadu chýba.');
 assert(database.includes('SELECT * FROM leads WHERE submission_id = $1 LIMIT 1'), 'Pri duplicitnom odoslaní sa musí vrátiť pôvodný lead.');

@@ -96,7 +96,13 @@ async function main() {
       channel: process.env.P1A_BROWSER_CHANNEL || 'chrome',
       headless: true,
     });
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1100 } });
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 1100 },
+      // Klient už nemá Opera špeciálnu odosielaciu cestu. Tento UA test overuje,
+      // že pri Opera označení zostáva rovnaký bezpečný AJAX tok.
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0 Safari/537.36 OPR/115.0',
+    });
+    const page = await context.newPage();
     await page.addInitScript(() => {
       const analyticsPath = '/api/analytics/';
       const writeMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -129,6 +135,7 @@ async function main() {
     });
     const externalRequests = [];
     const unexpectedApiWrites = [];
+    const leadPostBodies = [];
     let mockedAnalyticsWrites = [];
     let postCount = 0;
     const requestId = randomUUID();
@@ -151,6 +158,7 @@ async function main() {
 
       if ((parsedUrl.pathname === '/api/dopyt/' || parsedUrl.pathname === '/api/dopyt') && request.method() === 'POST') {
         postCount += 1;
+        leadPostBodies.push(request.postData() || '');
         await sleep(DELAY_MS);
         await route.fulfill({
           status: 200,
@@ -193,6 +201,11 @@ async function main() {
 
     await page.locator('.lead-form.is-submitted').waitFor({ state: 'attached', timeout: DELAY_MS + 5_000 });
     assert.equal(postCount, 1, 'Po úspešnej oneskorenej odpovedi musí celkovo existovať presne jeden POST /api/dopyt/.');
+    assert.match(
+      leadPostBodies[0] || '',
+      /name="submissionId"\r?\n\r?\n[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+      'Opera UA odoslanie musí niesť platný stabilný submissionId.',
+    );
     assert.match(await page.locator('.form-status').innerText(), /Dopyt sme prijali/i, 'Používateľ musí vidieť úspešné potvrdenie.');
     mockedAnalyticsWrites = await page.evaluate(() => window.__p1aMockedAnalyticsWrites || []);
     assert.deepEqual(externalRequests, [], `Browser test nesmie volať externé ani produkčné URL: ${externalRequests.join(', ')}`);
@@ -200,6 +213,7 @@ async function main() {
     assert.ok(mockedAnalyticsWrites.every((entry) => entry === 'POST /api/analytics/'), `Povolený je iba explicitne mockovaný analytický zápis: ${mockedAnalyticsWrites.join(', ')}`);
 
     console.log(`PASS: 1 klik -> 1 mockovaný POST /api/dopyt/ po ${DELAY_MS / 1000} s bez DB, SMTP alebo produkčného requestu.`);
+    await context.close();
   } finally {
     await browser?.close();
     stopProcess(server);

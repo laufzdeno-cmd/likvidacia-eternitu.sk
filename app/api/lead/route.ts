@@ -1,5 +1,4 @@
 import { after, NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'node:crypto';
 import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLeadWithMetaCapiOutbox } from '@/src/server/db';
 import { validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
@@ -36,7 +35,7 @@ function metaMarketingConsentSubject(request: NextRequest) {
 
 function submissionId(value: FormDataEntryValue | null) {
   const raw = typeof value === 'string' ? value.trim() : '';
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw) ? raw : randomUUID();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(raw) ? raw : null;
 }
 
 function rateLimited(ip: string) {
@@ -93,6 +92,11 @@ export async function POST(request: NextRequest) {
     formData = await request.formData();
   } catch {
     return failure(request, 'Formulár sa nepodarilo spracovať.');
+  }
+
+  const validatedSubmissionId = submissionId(formData.get('submissionId'));
+  if (!validatedSubmissionId) {
+    return failure(request, 'Formulár sa nepodarilo bezpečne identifikovať. Obnovte stránku a skúste ho odoslať znova.');
   }
 
   const parsed = leadSchema.safeParse({
@@ -172,7 +176,7 @@ export async function POST(request: NextRequest) {
         selectedRooferId,
         areaEstimateStatus: areaUnknown ? leadAreaUnknownCode : 'known',
       },
-    }, submissionId(formData.get('submissionId')), marketingConsentGranted ? {
+    }, validatedSubmissionId, marketingConsentGranted ? {
       consentSubject: metaConsentSubject,
       material: metaMaterial,
       eventSourceUrl: `${site.website}/#dopyt`,
