@@ -186,7 +186,7 @@ async function main() {
     await page.locator('#areaEstimate').fill('120');
     await page.locator('#city').fill('Testovacia obec');
     await page.locator('#district').fill('Poprad');
-    await page.locator('#materialType').selectOption({ label: 'Vlnitý eternit' });
+    await page.locator('#materialType').selectOption({ label: 'Vlnitý azbest / eternit' });
     await page.locator('#objectType').selectOption({ label: 'Rodinný dom' });
     await page.locator('#phone').fill('0905000000');
     await page.locator('#fullName').fill('QA Browser – nekontaktovať');
