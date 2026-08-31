@@ -16,7 +16,7 @@ async function main() {
   const { createLeadWithMetaCapiOutbox } = await import('../src/server/db');
   const { leadSchema } = await import('../src/server/validation');
 
-  const submit = async (areaEstimateStatus: 'known' | 'lead_area_unknown', areaEstimate?: number) => {
+  const submit = async (areaEstimate: number) => {
     const values = {
       fullName: 'Lokálny V5 test',
       phone: '0905000000',
@@ -26,12 +26,11 @@ async function main() {
       materialType: 'Vlnitý eternit',
       preferredContact: 'Zavolajte mi',
       gdpr: 'on',
-      areaEstimateStatus,
+      areaEstimateStatus: 'known',
     };
-    const parsed = leadSchema.safeParse({ ...values, areaEstimate: areaEstimate ?? '' });
+    const parsed = leadSchema.safeParse({ ...values, areaEstimate });
     assert.equal(parsed.success, true);
     if (!parsed.success) return;
-    const unknown = parsed.data.areaEstimateStatus === 'lead_area_unknown';
     const saved = await createLeadWithMetaCapiOutbox({
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
@@ -40,31 +39,30 @@ async function main() {
       district: parsed.data.district,
       objectType: parsed.data.objectType,
       materialType: parsed.data.materialType,
-      areaEstimate: unknown ? 0 : parsed.data.areaEstimate!,
+      areaEstimate: parsed.data.areaEstimate!,
       preferredContact: parsed.data.preferredContact,
       roofer: parsed.data.roofer,
       term: parsed.data.term,
       note: parsed.data.note,
       gdpr: true,
-      rawData: { areaEstimateStatus: unknown ? 'lead_area_unknown' : 'known' },
+      rawData: { areaEstimateStatus: 'known' },
       source: 'test',
     }, randomUUID());
     assert.equal(saved.created, true);
   };
 
   try {
-    await submit('known', 120);
-    await submit('lead_area_unknown');
+    await submit(120);
 
     const db = JSON.parse(await readFile(process.env.ASTANA_LOCAL_DB_PATH, 'utf8')) as {
       leads: Array<{ areaEstimate: number; rawData?: { areaEstimateStatus?: string } }>;
       metaCapiOutbox: unknown[];
     };
-    assert.equal(db.leads.length, 2);
-    const unknown = db.leads.find((lead) => lead.rawData?.areaEstimateStatus === 'lead_area_unknown');
-    assert.equal(unknown?.areaEstimate, 0);
+    assert.equal(db.leads.length, 1);
+    assert.equal(db.leads[0]?.areaEstimate, 120);
+    assert.equal(db.leads[0]?.rawData?.areaEstimateStatus, 'known');
     assert.equal(db.metaCapiOutbox.length, 0);
-    console.log('PASS: known + lead_area_unknown; no-consent CAPI outbox = 0');
+    console.log('PASS: required known area estimate; no-consent CAPI outbox = 0');
   } finally {
     await rm(testDirectory, { recursive: true, force: true });
   }

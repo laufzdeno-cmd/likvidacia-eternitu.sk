@@ -17,8 +17,6 @@ export default function HomepageCriticalClient() {
     const nav = document.querySelector<HTMLElement>('#site-nav');
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
-    const areaEstimateInput = document.querySelector<HTMLInputElement>('#areaEstimate');
-    const areaEstimateStatusInput = document.querySelector<HTMLInputElement>('#areaEstimateStatus');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const submissionIdInput = document.querySelector<HTMLInputElement>('#submissionId');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
@@ -39,15 +37,6 @@ export default function HomepageCriticalClient() {
     let quoteSectionTracked = false;
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
-    const syncAreaEstimateState = () => {
-      if (!areaEstimateInput || !areaEstimateStatusInput) return;
-      const unknown = areaEstimateStatusInput.checked;
-      areaEstimateInput.required = !unknown;
-      areaEstimateInput.disabled = unknown;
-      areaEstimateInput.setAttribute('aria-disabled', String(unknown));
-      if (unknown) areaEstimateInput.value = '';
-      form?.classList.toggle('is-area-unknown', unknown);
-    };
     const dispatchMetaLead = (event: PendingMetaLead) => {
       if (!hasMetaPixelId || !hasMarketingConsent()) return;
       rememberPendingMetaLead(event);
@@ -283,7 +272,7 @@ export default function HomepageCriticalClient() {
       form.classList.toggle('is-submitting', submitting);
       Array.from(form.elements).forEach((element) => {
         const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
-        control.disabled = submitting || control.hasAttribute('data-submit-disabled') || (control === areaEstimateInput && Boolean(areaEstimateStatusInput?.checked));
+        control.disabled = submitting || control.hasAttribute('data-submit-disabled');
       });
       if (button) {
         button.disabled = submitting;
@@ -446,8 +435,6 @@ export default function HomepageCriticalClient() {
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     applyMaterialFromUrl();
     applyRooferSelectionFromUrl();
-    syncAreaEstimateState();
-    areaEstimateStatusInput?.addEventListener('change', syncAreaEstimateState);
     applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
@@ -571,7 +558,6 @@ export default function HomepageCriticalClient() {
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
-      areaEstimateStatusInput?.removeEventListener('change', syncAreaEstimateState);
       fileInput?.removeEventListener('change', onFilesChange);
       fileDrop?.removeEventListener('dragover', onFileDragOver);
       fileDrop?.removeEventListener('dragleave', onFileDragLeave);

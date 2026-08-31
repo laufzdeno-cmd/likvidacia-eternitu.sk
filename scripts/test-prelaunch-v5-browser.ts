@@ -22,17 +22,15 @@ async function main() {
     assert.equal(await page.getByText('Odpovieme do 24h', { exact: true }).count(), 0);
     assert.equal(await page.getByText('Vlnitý azbest / eternit', { exact: true }).count() > 0, true);
     assert.equal(await page.getByText('Plochý azbest / eternitové kosoštvorce', { exact: true }).count() > 0, true);
+    assert.equal(await page.getByText('Neviem približnú výmeru', { exact: true }).count(), 0);
 
     const areaInput = page.locator('#areaEstimate');
-    const unknownToggle = page.locator('#areaEstimateStatus');
     assert.equal(await areaInput.getAttribute('required'), '');
     assert.equal(await areaInput.isDisabled(), false);
-    await unknownToggle.check();
-    assert.equal(await areaInput.getAttribute('required'), null);
-    assert.equal(await areaInput.isDisabled(), true);
-    assert.equal(await unknownToggle.isChecked(), true);
+    assert.equal(await page.locator('#areaEstimateStatus').count(), 0);
+    assert.equal(await page.getByText('Stačí približná výmera v m². Nemusí byť presná.', { exact: true }).count(), 1);
     assert.deepEqual(errors, []);
-    console.log('PASS: mobile render, V5 copy, no error overlay, and lead_area_unknown interaction');
+    console.log('PASS: mobile render, V5 copy, required area estimate, and no error overlay');
   } finally {
     await browser.close();
   }

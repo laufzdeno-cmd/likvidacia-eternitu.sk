@@ -193,6 +193,9 @@ async function main() {
 
     await page.goto(`${baseUrl}/?material=vlnity#dopyt`, { waitUntil: 'networkidle' });
     await page.locator('.lead-form').scrollIntoViewIfNeeded();
+    assert.equal(await page.locator('#areaEstimateStatus').count(), 0, 'Verejný formulár nesmie obsahovať zrušenú voľbu neznámej výmery.');
+    assert.equal(await page.locator('#areaEstimate').getAttribute('required'), '', 'Približná výmera musí zostať povinná.');
+    assert.equal(await page.getByText('Stačí približná výmera v m². Nemusí byť presná.', { exact: true }).count(), 1, 'Pri výmere musí zostať ľudská pomocná informácia.');
     await page.locator('#areaEstimate').fill('120');
     await page.locator('#city').fill('Testovacia obec');
     await page.locator('#district').fill('Poprad');

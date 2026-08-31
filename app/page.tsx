@@ -366,7 +366,7 @@ export default async function HomePage() {
   const whyItems = parseLines(content.whyItems, defaultWhyItems).filter((item) => !legacyPublicTransportClaim.test(item));
   const faq = parsePairs(content.faqItems, defaultFaq).map(([question, answer]) => {
     if (/^čo ak neviem (presnú|približnú) výmeru\?$/i.test(question.trim())) {
-      return ['Čo ak neviem približnú výmeru?', 'Vyberte možnosť „Neviem približnú výmeru“. Ozveme sa vám a výmeru doplníme pred nacenením.'] as [string, string];
+      return ['Ako presná musí byť výmera?', 'Stačí váš najlepší odhad v m². Nemusí byť presný.'] as [string, string];
     }
     return [question, answer] as [string, string];
   });
@@ -523,13 +523,9 @@ export default async function HomePage() {
               <div className="form-stage form-stage-priority">
                 <p className="form-stage-title">1. Výmera a lokalita</p>
                 <div className="field area-field">
-                  <label htmlFor="areaEstimate">Približná výmera v m2 *</label>
+                  <label htmlFor="areaEstimate">Približná výmera v m² *</label>
                   <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required aria-describedby="areaEstimateHelp" />
-                  <label className="area-unknown-choice" htmlFor="areaEstimateStatus">
-                    <input id="areaEstimateStatus" name="areaEstimateStatus" type="checkbox" value="lead_area_unknown" />
-                    <span>Neviem približnú výmeru</span>
-                  </label>
-                  <p className="field-help" id="areaEstimateHelp">Ak zvolíte túto možnosť, ozveme sa a výmeru doplníme pred nacenením.</p>
+                  <p className="field-help" id="areaEstimateHelp">Stačí približná výmera v m². Nemusí byť presná.</p>
                 </div>
                 <div className="field">
                   <label htmlFor="city">Obec / mesto *</label>

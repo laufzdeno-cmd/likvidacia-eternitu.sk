@@ -29,6 +29,15 @@ for (const client of ['app/homepage-critical-client.tsx', 'app/landing-client.ts
   assert(source.includes("plocha: 'Hladký / štvorcový eternit'"), `${client}: chýba mapovanie material=plocha.`);
 }
 
+const publicHomepage = read('app/page.tsx');
+assert(!publicHomepage.includes('areaEstimateStatus'), 'Verejný formulár nesmie ponúkať stav neznámej výmery.');
+assert(!publicHomepage.includes('Neviem približnú výmeru'), 'Verejný formulár ani FAQ nesmú odkazovať na zrušenú voľbu výmery.');
+assert(publicHomepage.includes('Stačí približná výmera v m². Nemusí byť presná.'), 'Pri výmere musí zostať ľudské vysvetlenie.');
+assert(/name="areaEstimate"[^>]*\brequired\b/.test(publicHomepage), 'Približná výmera musí zostať povinná.');
+
+const homepageClient = read('app/homepage-critical-client.tsx');
+assert(!homepageClient.includes('areaEstimateStatus'), 'Klient formulára nesmie udržiavať zrušenú UI vetvu výmery.');
+
 const endpoint = read('app/api/dopyt/route.ts');
 assert(endpoint.includes("export { POST } from '../lead/route';"), '/api/dopyt/ musí delegovať na chránený lead endpoint.');
 
