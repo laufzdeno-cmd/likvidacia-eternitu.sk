@@ -4,16 +4,16 @@ import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 
 export const metadata = buildPageMetadata({
-  title: 'Cena likvidácie azbestu a eternitu | Čo ovplyvňuje cenu | ASTANA',
+  title: 'Cena likvidácie azbestu (eternitu) | Čo ovplyvňuje cenu | ASTANA',
   description:
-    'Cena likvidácie azbestu a eternitu závisí od výmery, prístupu, typu materiálu, lokality, dokumentácie a objemu odpadu. Pošlite m2 a fotky, pripravíme ponuku.',
+    'Cena likvidácie azbestu (eternitu) závisí od výmery, prístupu, typu azbestu, lokality, dokumentácie a objemu odpadu. Pošlite údaje a fotky, pripravíme ponuku.',
   path: '/cena-likvidacie-azbestu/',
   image: '/og/cena.jpg',
 });
 
 const priceFactors = [
-  ['Výmera v m2', 'Najdôležitejší údaj pre prvé nacenenie. Ak presnú výmeru neviete, uveďte odhad.'],
-  ['Typ materiálu', 'Vlnitý eternit, šablóny, dosky alebo už zložený odpad môžu mať rozdielnu náročnosť.'],
+  ['Výmera v m2', 'Najdôležitejší údaj pre prvé nacenenie. Ak ju neviete ani približne, zvoľte túto možnosť vo formulári.'],
+  ['Typ azbestu', 'Vlnitý azbest / eternit, plochý azbest / eternitové kosoštvorce alebo už zložený odpad môžu mať rozdielnu náročnosť.'],
   ['Výška a prístup', 'Cenu ovplyvňuje výška objektu, sklon strechy, lešenie, prístup techniky a miesto nakládky.'],
   ['Lokalita', 'Pri väčšej vzdialenosti alebo horšej dostupnosti sa mení logistika a plánovanie odvozu.'],
   ['Dokumentácia', 'Rozsah potrebných podkladov závisí od typu zákazky a konkrétneho prípadu.'],
@@ -24,15 +24,15 @@ export default function AsbestosPricePage() {
   return (
     <PublicPageShell breadcrumb={{ name: 'Cena likvidácie azbestu', path: '/cena-likvidacie-azbestu/' }} client="full">
       <main className="seo-page">
-        <JsonLd data={[buildServiceJsonLd('Cena likvidácie azbestu a eternitu', 'Cena závisí od výmery, typu materiálu, prístupu, lokality, dokumentácie a objemu odpadu.', '/cena-likvidacie-azbestu/'), buildFaqJsonLd(coreFaqs.slice(3, 7))]} />
+        <JsonLd data={[buildServiceJsonLd('Cena likvidácie azbestu (eternitu)', 'Cena závisí od výmery, typu azbestu, prístupu, lokality, dokumentácie a objemu odpadu.', '/cena-likvidacie-azbestu/'), buildFaqJsonLd(coreFaqs.slice(3, 7))]} />
         <section className="seo-hero">
           <p className="eyebrow">Cena</p>
-          <h1>Cena likvidácie azbestu a eternitu</h1>
+          <h1>Cena likvidácie azbestu (eternitu)</h1>
           <p>Cena je individuálna. Pošlite približnú výmeru, lokalitu a fotky, aby ponuka vychádzala z reálnej situácie a nie z vymysleného cenníka.</p>
         </section>
         <QuickAnswer>
-          Cena likvidácie azbestu a eternitu sa nedá zodpovedne určiť jednou sumou bez údajov o zákazke. Závisí od m2,
-          typu materiálu, výšky objektu, prístupu, lokality, dokumentácie a objemu odpadu.
+          Cena likvidácie azbestu (eternitu) sa nedá zodpovedne určiť jednou sumou bez údajov o zákazke. Závisí od m2,
+          typu azbestu, výšky objektu, prístupu, lokality, dokumentácie a objemu odpadu.
         </QuickAnswer>
         <section className="seo-section">
           <h2>Čo ovplyvňuje cenu</h2>
@@ -50,7 +50,7 @@ export default function AsbestosPricePage() {
             ['Čo poslať', 'm2, lokalitu, fotky, typ objektu a informáciu o prístupe'],
             ['Čo nerobíme', 'neuvádzame vymyslený univerzálny cenník bez znalosti zákazky'],
             ['Čo dostanete', 'konkrétnu cenovú ponuku a návrh ďalšieho postupu'],
-            ['Prečo fotky pomôžu', 'spresnia typ materiálu, výšku, prístup a náročnosť'],
+            ['Prečo fotky pomôžu', 'spresnia typ azbestu, výšku, prístup a náročnosť'],
           ]}
         />
         <section className="seo-calculator" id="orientacna-cena">
@@ -67,10 +67,10 @@ export default function AsbestosPricePage() {
               <span>Orientačná cena:</span>
               <strong><span data-price-min>960 €</span> - <span data-price-max>1 680 €</span></strong>
             </div>
-            <div className="price-materials" aria-label="Typ materiálu">
-              <button type="button" data-price-material="vlnity" className="is-active">Vlnitý eternit</button>
-              <button type="button" data-price-material="hladky">Hladký eternit</button>
-              <button type="button" data-price-material="boleticky">Panely</button>
+            <div className="price-materials" aria-label="Typ azbestu">
+              <button type="button" data-price-material="vlnity" className="is-active">Vlnitý azbest / eternit</button>
+              <button type="button" data-price-material="hladky">Plochý azbest / eternitové kosoštvorce</button>
+              <button type="button" data-price-material="boleticky">Iný azbestový materiál</button>
               <button type="button" data-price-material="neviem">Neviem</button>
             </div>
           </div>

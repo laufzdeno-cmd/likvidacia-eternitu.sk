@@ -50,6 +50,7 @@ import type {
   Worker,
 } from './types';
 import { cleanSlovakText } from './slovak-text';
+import { isLeadAreaUnknown } from './lead-area';
 
 type LocalDb = {
   leads: Lead[];
@@ -2773,7 +2774,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
       wasteKg: 0,
       landfill: 'INA',
       status: 'DOPYT',
-      note: lead.note,
+      note: [isLeadAreaUnknown(lead) ? 'Výmera neznáma — doplniť pred nacenením.' : '', lead.note].filter(Boolean).join('\n'),
       workers: [],
       costs: { fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0 },
     },

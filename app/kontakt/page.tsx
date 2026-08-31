@@ -3,7 +3,7 @@ import { PublicPageShell } from '../public-layout';
 import { companyAddressLine, emailLink, phoneLink, site } from '@/src/content/site';
 
 export const metadata = buildPageMetadata({
-  title: 'Kontakt | ASTANA likvidácia azbestu a eternitu',
+  title: 'Kontakt | ASTANA likvidácia azbestu (eternitu)',
   description:
     'Kontakt na ASTANA, s.r.o. Telefón, email, adresa, prevádzkové hodiny a čo poslať pre rýchlu cenovú ponuku na likvidáciu azbestu.',
   path: '/kontakt/',

@@ -1,7 +1,7 @@
 {
   "name": "ASTANA - Likvidácia azbestu",
   "short_name": "ASTANA",
-  "description": "Bezpečná likvidácia azbestu a eternitu po celom Slovensku",
+  "description": "Bezpečná likvidácia azbestu (eternitu) po celom Slovensku",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

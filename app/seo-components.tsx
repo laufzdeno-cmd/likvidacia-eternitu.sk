@@ -23,7 +23,7 @@ export function buildPageMetadata({
       title,
       description,
       url: path,
-      siteName: `${site.brandName} - likvidácia azbestu a eternitu`,
+      siteName: `${site.brandName} - likvidácia azbestu (eternitu)`,
       locale: 'sk_SK',
       type: 'website',
       images: [image],
@@ -300,7 +300,7 @@ export function LocationPage({
   };
 }) {
   const path = `/likvidacia-azbestu-${location.slug}/`;
-  const h1 = `Likvidácia azbestu a eternitu - ${location.name}`;
+  const h1 = `Likvidácia azbestu (eternitu) - ${location.name}`;
   const quickAnswer = `ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu v lokalite ${location.area} vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o likvidácii.`;
   const faqs: FaqItem[] = [
     { question: `Riešite likvidáciu azbestu v lokalite ${location.name}?`, answer: `Áno, ${site.legalName} pôsobí po celom Slovensku vrátane lokality ${location.area}.` },
@@ -340,7 +340,7 @@ export function LocationPage({
         <ProcessSteps title="Ako prebieha objednávka" />
         <section className="seo-section">
           <h2>Čo ovplyvňuje cenu v danej lokalite</h2>
-          <p className="seo-lead">Cenu ovplyvňuje výmera, typ materiálu, prístup k objektu, výška strechy, objem odpadu, logistika v regióne a rozsah dokumentácie.</p>
+          <p className="seo-lead">Cenu ovplyvňuje výmera, typ azbestu, prístup k objektu, výška strechy, objem odpadu, logistika v regióne a rozsah dokumentácie.</p>
         </section>
         <ContactStrip />
         <InternalLinks context="location" />

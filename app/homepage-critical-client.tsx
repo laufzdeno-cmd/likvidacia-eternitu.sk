@@ -17,6 +17,8 @@ export default function HomepageCriticalClient() {
     const nav = document.querySelector<HTMLElement>('#site-nav');
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
+    const areaEstimateInput = document.querySelector<HTMLInputElement>('#areaEstimate');
+    const areaEstimateStatusInput = document.querySelector<HTMLInputElement>('#areaEstimateStatus');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const submissionIdInput = document.querySelector<HTMLInputElement>('#submissionId');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
@@ -36,6 +38,15 @@ export default function HomepageCriticalClient() {
     let quoteSectionTracked = false;
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
+    const syncAreaEstimateState = () => {
+      if (!areaEstimateInput || !areaEstimateStatusInput) return;
+      const unknown = areaEstimateStatusInput.checked;
+      areaEstimateInput.required = !unknown;
+      areaEstimateInput.disabled = unknown;
+      areaEstimateInput.setAttribute('aria-disabled', String(unknown));
+      if (unknown) areaEstimateInput.value = '';
+      form?.classList.toggle('is-area-unknown', unknown);
+    };
     const dispatchMetaLead = (event: PendingMetaLead) => {
       if (!hasMetaPixelId || !hasMarketingConsent()) return;
       rememberPendingMetaLead(event);
@@ -144,8 +155,8 @@ export default function HomepageCriticalClient() {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Cenovú ponuku vám pošleme do 24 hodín na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
-          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Pripravíme cenovú ponuku</span><span>3. Pošleme vám ju do 24 hodín</span></div>',
+          `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
+          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Overíme chýbajúce údaje</span><span>3. Ozveme sa vám s ďalším postupom</span></div>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
           '<small>Po-Pia 7:00-18:00</small>',
@@ -258,7 +269,7 @@ export default function HomepageCriticalClient() {
       form.classList.toggle('is-submitting', submitting);
       Array.from(form.elements).forEach((element) => {
         const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
-        control.disabled = submitting || control.hasAttribute('data-submit-disabled');
+        control.disabled = submitting || control.hasAttribute('data-submit-disabled') || (control === areaEstimateInput && Boolean(areaEstimateStatusInput?.checked));
       });
       if (button) {
         button.disabled = submitting;
@@ -420,6 +431,8 @@ export default function HomepageCriticalClient() {
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     applyRooferSelectionFromUrl();
+    syncAreaEstimateState();
+    areaEstimateStatusInput?.addEventListener('change', syncAreaEstimateState);
     applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
@@ -543,6 +556,7 @@ export default function HomepageCriticalClient() {
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
+      areaEstimateStatusInput?.removeEventListener('change', syncAreaEstimateState);
       fileInput?.removeEventListener('change', onFilesChange);
       fileDrop?.removeEventListener('dragover', onFileDragOver);
       fileDrop?.removeEventListener('dragleave', onFileDragLeave);

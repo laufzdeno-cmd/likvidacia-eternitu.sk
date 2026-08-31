@@ -79,7 +79,7 @@ export default function RealizationsPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(realizationsJsonLd) }} />
       <header className="site-header">
         <div className="header-main">
-          <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
+          <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu (eternitu)">
             <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
@@ -199,7 +199,7 @@ export default function RealizationsPage() {
           <div>
             <p className="eyebrow">Máte podobnú strechu?</p>
             <h2 id="realizations-final-title">Zadajte m2 a pripravíme cenovú ponuku.</h2>
-            <p>Fotky sú pomocné. Základ ceny tvorí približná výmera, lokalita a typ materiálu.</p>
+            <p>Fotky sú pomocné. Základ ceny tvorí približná výmera, lokalita a typ azbestu.</p>
           </div>
           <div className="final-actions">
             <a className="button button-primary" href="/#dopyt">Získať cenovú ponuku</a>
@@ -214,7 +214,7 @@ export default function RealizationsPage() {
             <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
-          <p>Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.</p>
+          <p>Likvidácia azbestu (eternitu) po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.</p>
         </div>
         <div>
           <h2>Kontakt</h2>

@@ -1,6 +1,7 @@
 import { getLeadInsight, statusLabels, type LeadTag } from '@/src/server/lead-insights';
 import { listLeadSummaries } from '@/src/server/db';
 import { cleanSlovakText } from '@/src/server/slovak-text';
+import { formatLeadAreaCompact } from '@/src/server/lead-area';
 import type { LeadStatus } from '@/src/server/types';
 
 const statusOptions: Array<['', string] | [LeadStatus, string]> = [
@@ -105,7 +106,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <td>
                     <strong>{cleanSlovakText(lead.materialType)}</strong>
                     <br />
-                    <small>{lead.areaEstimate} m2 · {cleanSlovakText(lead.objectType)}</small>
+                    <small>{formatLeadAreaCompact(lead)} · {cleanSlovakText(lead.objectType)}</small>
                   </td>
                   <td><span className="score-pill">{insight.qualityScore}/100</span></td>
                   <td>{lead.fileCount ? <span className="attachment-pill">📎 {lead.fileCount}</span> : <span className="muted">—</span>}</td>

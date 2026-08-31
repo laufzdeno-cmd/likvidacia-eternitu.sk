@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getLeadWithFiles, getRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
+import { isLeadAreaUnknown } from '@/src/server/lead-area';
 import { createQuoteAction } from './actions';
 import QuoteLivePreview from './quote-live-preview';
 
@@ -21,7 +22,8 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
   const roofersForSelect = selectedRoofer && !matchingRoofers.some((roofer) => roofer.id === selectedRoofer.id)
     ? [selectedRoofer, ...matchingRoofers]
     : matchingRoofers;
-  const transport = lead.areaEstimate >= 100 ? 0 : 80;
+  const areaUnknown = isLeadAreaUnknown(lead);
+  const transport = !areaUnknown && lead.areaEstimate >= 100 ? 0 : 80;
 
   return (
     <main className="admin-page">
@@ -45,8 +47,9 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
           </label>
           <label>
             Výmera m2
-            <input name="areaEstimate" type="number" step="0.01" defaultValue={lead.areaEstimate} />
+            <input name="areaEstimate" type="number" step="0.01" min="0.01" required defaultValue={areaUnknown ? undefined : lead.areaEstimate} />
           </label>
+          {areaUnknown ? <p className="admin-form-wide admin-calculation-hint">Zákazník výmeru neuviedol. Doplňte ju pred vytvorením cenovej ponuky.</p> : null}
           <label>
             Cena za m2 bez DPH
             <input name="pricePerM2" type="number" step="0.01" defaultValue="10.50" />
@@ -87,7 +90,7 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
           <QuoteLivePreview />
           <label className="admin-form-wide">
             Poznámka do ponuky
-            <textarea name="note" rows={5} defaultValue={`Objekt / lokalita: ${lead.city}. Typ materiálu: ${lead.materialType}. Cenová ponuka je predbežná a upraví sa podľa skutočných m2.`} />
+            <textarea name="note" rows={5} defaultValue={`Objekt / lokalita: ${lead.city}. Typ azbestu: ${lead.materialType}. Cenová ponuka je predbežná a upraví sa podľa skutočných m2.`} />
           </label>
           <div className="admin-form-wide admin-calculation-hint">
             Výpočet: výmera × cena za m2 + dokumentácia + doprava + príplatky - zľavy. DPH je editovateľná a nie je natvrdo v kóde.

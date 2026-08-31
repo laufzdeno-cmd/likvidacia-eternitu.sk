@@ -48,7 +48,7 @@ export function buildServiceJsonLd(name: string, description: string, path: stri
     '@id': `${absoluteUrl(path)}#service`,
     name,
     description,
-    serviceType: 'Likvidácia azbestu a eternitu',
+    serviceType: 'Likvidácia azbestu (eternitu)',
     provider: { '@id': `${SITE_URL}/#organization` },
     areaServed: { '@type': 'Country', name: 'Slovensko' },
     url: absoluteUrl(path),
@@ -119,7 +119,7 @@ export function buildOrganizationJsonLd() {
       {
         '@type': 'ProfessionalService',
         '@id': `${SITE_URL}/#business`,
-        name: `${site.brandName} - likvidácia azbestu a eternitu`,
+        name: `${site.brandName} - likvidácia azbestu (eternitu)`,
         legalName: site.legalName,
         url: SITE_URL,
         telephone: site.phoneHref,
@@ -141,7 +141,7 @@ export function buildOrganizationJsonLd() {
       {
         '@type': 'WebSite',
         '@id': `${SITE_URL}/#website`,
-        name: 'Likvidácia azbestu a eternitu ASTANA',
+        name: 'Likvidácia azbestu (eternitu) ASTANA',
         url: SITE_URL,
         inLanguage: 'sk-SK',
         publisher: { '@id': `${SITE_URL}/#organization` },

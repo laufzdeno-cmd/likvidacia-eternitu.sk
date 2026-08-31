@@ -16,9 +16,9 @@ const plusJakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.website),
-  title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
+  title: 'Likvidácia azbestu (eternitu) po celom Slovensku | ASTANA',
   description:
-    'Odborná likvidácia azbestu a eternitu vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
+    'Odborná likvidácia azbestu (eternitu) vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
   keywords: 'likvidácia azbestu, likvidácia eternitu, odstránenie azbestu, cena likvidácie azbestu, nebezpečný odpad',
   authors: [{ name: site.legalName }],
   alternates: {
@@ -28,16 +28,16 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'sk_SK',
     url: '/',
-    siteName: 'Likvidácia azbestu a eternitu ASTANA',
-    title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
+    siteName: 'Likvidácia azbestu (eternitu) ASTANA',
+    title: 'Likvidácia azbestu (eternitu) po celom Slovensku | ASTANA',
     description:
       'ASTANA zabezpečuje dokumentáciu, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii.',
     images: ['/og/homepage.jpg'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
-    description: 'Cenová ponuka podľa výmery, lokality a typu materiálu. Dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
+    title: 'Likvidácia azbestu (eternitu) po celom Slovensku | ASTANA',
+    description: 'Cenová ponuka podľa výmery, lokality a typu azbestu. Dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
     images: ['/og/homepage.jpg'],
   },
   robots: {

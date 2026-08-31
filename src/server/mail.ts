@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { formatLeadAreaCompact } from './lead-area';
 import { cleanSlovakText } from './slovak-text';
 import type { BusinessJob, Lead, PriceOffer, PriceOfferSettings } from './types';
 
@@ -126,17 +127,17 @@ function customerLeadEmailHtml(lead: Lead) {
         </tr>
         <tr><td style="background:linear-gradient(135deg,#314768 0%,#263451 100%);border-top:4px solid #C86432;padding:20px 32px;color:#ffffff;">
           <div style="font-size:22px;font-weight:700;line-height:1.25;">Cenovú ponuku dostanete</div>
-          <div style="margin-top:5px;color:#C9D5E8;font-size:15px;">do 24 hodín na tento email</div>
+          <div style="margin-top:5px;color:#C9D5E8;font-size:15px;">po kontrole údajov na tento email</div>
         </td></tr>
         <tr><td style="background:#ffffff;padding:32px;">
           <p style="margin:0 0 12px;font-size:17px;font-weight:600;color:#263451;">Dobrý deň ${escapeHtml(lead.fullName)},</p>
-          <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.7;">váš dopyt z likvidacia-eternitu.sk sme prijali. Pripravíme vám cenovú ponuku a pošleme ju na tento email do 24 hodín.</p>
+          <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.7;">váš dopyt z likvidacia-eternitu.sk sme prijali. Po kontrole údajov sa vám ozveme s ďalším postupom.</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;border-left:4px solid #C86432;border-radius:0 8px 8px 0;background:#F7F4EE;">
             <tr><td style="padding:16px 20px;">
               <div style="margin-bottom:12px;font-size:11px;font-weight:700;color:#687284;text-transform:uppercase;letter-spacing:0.08em;">Súhrn vášho dopytu</div>
               <div style="font-size:14px;color:#1C1B19;line-height:1.8;">
                 📍 <strong>Lokalita:</strong> ${escapeHtml(lead.city)}<br />
-                📐 <strong>Výmera:</strong> ${escapeHtml(lead.areaEstimate)} m2<br />
+                📐 <strong>Výmera:</strong> ${escapeHtml(formatLeadAreaCompact(lead))}<br />
                 🏗 <strong>Materiál:</strong> ${escapeHtml(lead.materialType)}<br />
                 🏠 <strong>Objekt:</strong> ${escapeHtml(lead.objectType)}<br />
                 📞 <strong>Kontakt:</strong> ${escapeHtml(lead.preferredContact || 'Zavolajte mi')}
@@ -145,7 +146,7 @@ function customerLeadEmailHtml(lead: Lead) {
           </table>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;text-align:center;">
             <tr>
-              ${['Skontrolujeme dopyt', 'Pripravíme ponuku', 'Pošleme do 24h'].map((step, index) => `
+              ${['Skontrolujeme dopyt', 'Overíme chýbajúce údaje', 'Ozveme sa s ďalším postupom'].map((step, index) => `
                 <td width="33.33%" style="padding:0 6px;vertical-align:top;">
                   <div style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#263451;color:#ffffff;font-size:15px;font-weight:700;line-height:32px;text-align:center;">${index + 1}</div>
                   <div style="margin-top:8px;font-size:12px;color:#374151;line-height:1.4;">${step}</div>
@@ -180,11 +181,11 @@ function customerLeadEmailText(lead: Lead) {
     `Dobrý deň ${plainText(lead.fullName)},`,
     '',
     'váš dopyt z likvidacia-eternitu.sk sme prijali.',
-    'Cenovú ponuku vám pošleme do 24 hodín na tento email.',
+    'Po kontrole údajov sa vám ozveme s ďalším postupom.',
     '',
     'Súhrn vášho dopytu:',
     `Lokalita: ${plainText(lead.city)}`,
-    `Výmera: ${plainText(lead.areaEstimate)} m2`,
+    `Výmera: ${plainText(formatLeadAreaCompact(lead))}`,
     `Materiál: ${plainText(lead.materialType)}`,
     `Typ objektu: ${plainText(lead.objectType)}`,
     `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
@@ -204,7 +205,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
     ['Email', `<a href="mailto:${escapeHtml(lead.email)}" style="color:#185FA5;text-decoration:none;">${escapeHtml(lead.email)}</a>`],
     ['Lokalita', escapeHtml(lead.city)],
     ['Okres', escapeHtml(lead.district || '—')],
-    ['Výmera', `${escapeHtml(lead.areaEstimate)} m2`],
+    ['Výmera', escapeHtml(formatLeadAreaCompact(lead))],
     ['Materiál', escapeHtml(lead.materialType)],
     ['Objekt', escapeHtml(lead.objectType)],
     ['Kontakt', `<span style="display:inline-block;background:${contact.bg};color:${contact.color};border:1px solid ${contact.border};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;">${contact.label}</span>`],
@@ -252,7 +253,7 @@ function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
     `Email: ${plainText(lead.email)}`,
     `Lokalita: ${plainText(lead.city)}`,
     `Okres: ${plainText(lead.district || '—')}`,
-    `Výmera: ${plainText(lead.areaEstimate)} m2`,
+    `Výmera: ${plainText(formatLeadAreaCompact(lead))}`,
     `Materiál: ${plainText(lead.materialType)}`,
     `Objekt: ${plainText(lead.objectType)}`,
     `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
@@ -274,7 +275,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobI
     from: namedFromHeader('ASTANA systém'),
     to: leadRecipient(),
     replyTo: leadRecipient(),
-    subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
+    subject: `🔔 ${plainText(lead.city)} | ${plainText(formatLeadAreaCompact(lead))} | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
     text: adminLeadEmailText(lead, businessJobId, fileCount),
     html: adminHtml,
   });

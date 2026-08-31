@@ -4,7 +4,7 @@ import { JsonLd, buildFaqJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 
 export const metadata = buildPageMetadata({
-  title: 'Ako prebieha likvidácia azbestu a eternitu | Postup ASTANA',
+  title: 'Ako prebieha likvidácia azbestu (eternitu) | Postup ASTANA',
   description:
     'Postup likvidácie azbestu krok za krokom: výmera, cenová ponuka, dokumentácia, stabilizácia, demontáž, balenie, odvoz a potvrdenie.',
   path: '/postup/',
@@ -18,7 +18,7 @@ export default function ProcessPage() {
         <JsonLd data={buildFaqJsonLd(coreFaqs.slice(0, 5))} />
         <section className="seo-hero">
           <p className="eyebrow">Postup</p>
-          <h1>Ako prebieha likvidácia azbestu a eternitu</h1>
+          <h1>Ako prebieha likvidácia azbestu (eternitu)</h1>
           <p>Proces držíme jednoduchý pre zákazníka a kontrolovaný pre stavbu: od prvého odhadu po odvoz a doklady.</p>
         </section>
         <QuickAnswer>

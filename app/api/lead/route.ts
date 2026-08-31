@@ -8,6 +8,7 @@ import { storeLeadFile } from '@/src/server/storage';
 import { leadSchema, maxLeadFiles } from '@/src/server/validation';
 import { marketingConsentCookieName, marketingConsentSubjectCookieName } from '@/src/lib/marketing-consent';
 import { site } from '@/src/content/site';
+import { leadAreaUnknownCode } from '@/src/server/lead-area';
 
 export const runtime = 'nodejs';
 
@@ -103,6 +104,7 @@ export async function POST(request: NextRequest) {
     objectType: formData.get('objectType'),
     materialType: formData.get('materialType'),
     areaEstimate: formData.get('areaEstimate') || formData.get('area'),
+    areaEstimateStatus: formData.get('areaEstimateStatus') || 'known',
     preferredContact: formData.get('preferredContact') || 'Zavolajte mi',
     roofer: formData.get('roofer') || '',
     selectedRooferId: formData.get('selectedRooferId') || '',
@@ -139,6 +141,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const rooferValue = parsed.data.roofer || '';
+    const areaUnknown = parsed.data.areaEstimateStatus === leadAreaUnknownCode;
+    const areaEstimate = areaUnknown ? 0 : parsed.data.areaEstimate;
+    if (areaEstimate === undefined) return failure(request, 'Zadajte približnú výmeru.');
     const wantsRooferRecommendation = rooferValue === 'Chcem odporučiť strechára podľa regiónu';
     const selectedRooferId = parsed.data.selectedRooferId || '';
     const metaConsentSubject = metaMarketingConsentSubject(request);
@@ -152,7 +157,7 @@ export async function POST(request: NextRequest) {
       district: parsed.data.district || '',
       objectType: parsed.data.objectType,
       materialType: parsed.data.materialType,
-      areaEstimate: parsed.data.areaEstimate,
+      areaEstimate,
       preferredContact: parsed.data.preferredContact || 'Zavolajte mi',
       roofer: rooferValue,
       term: parsed.data.term || '',
@@ -161,7 +166,12 @@ export async function POST(request: NextRequest) {
       source: 'web',
       wantsRooferRecommendation,
       selectedRooferId,
-      rawData: { userAgent: request.headers.get('user-agent') || undefined, wantsRooferRecommendation, selectedRooferId },
+      rawData: {
+        userAgent: request.headers.get('user-agent') || undefined,
+        wantsRooferRecommendation,
+        selectedRooferId,
+        areaEstimateStatus: areaUnknown ? leadAreaUnknownCode : 'known',
+      },
     }, submissionId(formData.get('submissionId')), marketingConsentGranted ? {
       consentSubject: metaConsentSubject,
       material: metaMaterial,

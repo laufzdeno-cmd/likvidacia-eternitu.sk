@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         },
         {
           title: 'Aké údaje zbierame',
-          text: 'Meno, telefón a email z formulára dopytu. Výmeru, lokalitu, typ materiálu, typ objektu a termín z formulára. Fotky strechy sú voliteľné. Analytické dáta spracúvame anonymne, bez ukladania IP adries.',
+          text: 'Meno, telefón a email z formulára dopytu. Výmeru, lokalitu, typ azbestu, typ objektu a termín z formulára. Fotky strechy sú voliteľné. Analytické dáta spracúvame anonymne, bez ukladania IP adries.',
         },
         {
           title: 'Prečo ich zbierame',

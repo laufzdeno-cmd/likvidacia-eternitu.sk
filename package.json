@@ -8,6 +8,8 @@
     "preview": "next start",
     "typecheck": "tsc --noEmit",
     "test:meta-capi-outbox": "tsx scripts/test-meta-capi-outbox.ts",
+    "test:prelaunch-v5-lead": "tsx scripts/test-prelaunch-v5-lead.ts",
+    "test:prelaunch-v5-browser": "tsx scripts/test-prelaunch-v5-browser.ts",
     "test:lead-form": "node scripts/test-lead-form-guardrails.mjs",
     "test:lead-form:browser": "node scripts/test-lead-form-browser.mjs",
     "release:guard": "node scripts/check-release-guardrails.mjs",

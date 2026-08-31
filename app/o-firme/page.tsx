@@ -3,7 +3,7 @@ import { PublicPageShell } from '../public-layout';
 import { serviceOffer, site } from '@/src/content/site';
 
 export const metadata = buildPageMetadata({
-  title: 'O firme ASTANA | Likvidácia azbestu a eternitu',
+  title: 'O firme ASTANA | Likvidácia azbestu (eternitu)',
   description:
     'ASTANA, s.r.o. zabezpečuje odbornú likvidáciu azbestu, eternitu a nebezpečného odpadu po celom Slovensku. Kontaktné a firemné údaje.',
   path: '/o-firme/',

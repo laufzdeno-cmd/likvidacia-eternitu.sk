@@ -44,7 +44,7 @@ export function PublicFooter() {
       <div>
         <a className="footer-brand" href="/" aria-label="ASTANA">
           <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
-          <span><small>Likvidácia azbestu a eternitu</small></span>
+          <span><small>Likvidácia azbestu (eternitu)</small></span>
         </a>
         <p>Odborná likvidácia azbestu, eternitu a nebezpečného odpadu po celom Slovensku.</p>
       </div>

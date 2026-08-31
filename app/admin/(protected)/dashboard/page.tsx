@@ -1,5 +1,6 @@
 import { getSystemHealth, listBusinessJobs, listLeadSummaries, listPriceOffers, listWorkers } from '@/src/server/db';
 import { requireAdminUser } from '@/src/server/auth';
+import { formatLeadAreaCompact } from '@/src/server/lead-area';
 import { euro, jobStatusLabels, landfillLabels, numberSk } from '../zakazky/constants';
 import BusinessChart from './business-chart';
 
@@ -89,7 +90,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                 <tr key={lead.id}>
                   <td><a href={`/admin/dopyty/${lead.id}`}>{lead.fullName}</a></td>
                   <td>{lead.city}</td>
-                  <td>{lead.areaEstimate}</td>
+                  <td>{formatLeadAreaCompact(lead)}</td>
                   <td><a href={`tel:${lead.phone}`}>{lead.phone}</a></td>
                   <td>{lead.status}</td>
                 </tr>

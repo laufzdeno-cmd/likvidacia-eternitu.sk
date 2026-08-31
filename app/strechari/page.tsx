@@ -79,7 +79,7 @@ export default function RoofersPage() {
       <BreadcrumbJsonLd name="Spolupráca pre strechárov" path="/strechari/" />
       <header className="site-header">
         <div className="header-main">
-          <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
+          <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu (eternitu)">
             <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>

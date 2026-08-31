@@ -106,12 +106,11 @@ const defaultTrustItems = [
   ['Od roku 2011', 'Skúsenosti s azbestom a eternitom'],
   ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
   ['RÚVZ / OÚŽP ku konkrétnej stavbe', 'Postup riešime legálne, nie iba všeobecným sľubom'],
-  ['Doprava nad 100 m2 zdarma', 'Pri väčších zákazkách dopravu neúčtujeme'],
   ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
 ] satisfies [string, string][];
 
 const defaultProcessSteps = [
-  ['Zadáte m2 a údaje', 'Uveďte približnú výmeru, lokalitu a typ materiálu.'],
+  ['Zadáte výmeru a údaje', 'Uveďte približnú výmeru, lokalitu a typ azbestu.'],
   ['Priložíte fotky, ak ich máte', 'Fotky pomôžu spresniť prístup, výšku, stav strechy a náročnosť.'],
   ['Pripravíme cenovú ponuku', 'Na základe m2 a údajov pripravíme nezáväznú cenovú ponuku.'],
   ['Po objednávke vybavíme dokumentáciu a termín', 'Pripravíme potrebný postup, doklady a dohodneme realizáciu.'],
@@ -163,12 +162,23 @@ const defaultRooferItems = [
 
 const defaultWhyItems = [
   'Skúsenosti od roku 2011.',
-  'Špecializácia na azbest a eternit.',
+  'Špecializácia na likvidáciu azbestu (eternitu).',
   'Pôsobíme po celom Slovensku.',
   'Vybavíme dokumentáciu, demontáž, balenie, odvoz aj doklady.',
   'Pomôžeme zladiť termín so strechárom.',
-  'Doprava nad 100 m2 zdarma.',
 ];
+
+const legacyPublicTransportClaim = /doprava\s+nad\s+100\s*m2\s+zdarma/i;
+
+function normalizePublicAzbestCopy(value: string) {
+  return value
+    .replace(/Likvidácia azbestu a eternitu/g, 'Likvidácia azbestu (eternitu)')
+    .replace(/likvidácia azbestu a eternitu/g, 'likvidácia azbestu (eternitu)')
+    .replace(/typ materiálu/g, 'typ azbestu')
+    .replace(/Vlnitý eternit/g, 'Vlnitý azbest / eternit')
+    .replace(/Hladký \/ štvorcový eternit/g, 'Plochý azbest / eternitové kosoštvorce')
+    .replace(/Hladký eternit/g, 'Plochý azbest / eternitové kosoštvorce');
+}
 
 const defaultFaq = [
   [
@@ -193,7 +203,7 @@ const defaultFaq = [
   ],
   [
     'Potrebujete fotky?',
-    'Fotky sú voliteľné, ale veľmi pomôžu. Podľa nich vieme lepšie posúdiť typ materiálu, prístup, výšku objektu, stav strechy a náročnosť.',
+    'Fotky sú voliteľné, ale veľmi pomôžu. Podľa nich vieme lepšie posúdiť typ azbestu, prístup, výšku objektu, stav strechy a náročnosť.',
   ],
   [
     'Čo dostanem po likvidácii?',
@@ -257,7 +267,7 @@ function buildJsonLd(faq: [string, string][]) {
       {
         '@type': 'ProfessionalService',
         '@id': 'https://likvidacia-eternitu.sk/#business',
-        name: 'ASTANA - likvidácia azbestu a eternitu',
+        name: 'ASTANA - likvidácia azbestu (eternitu)',
         url: 'https://likvidacia-eternitu.sk/',
         telephone: '+421905217946',
         email: 'astana@astana.sk',
@@ -275,7 +285,7 @@ function buildJsonLd(faq: [string, string][]) {
       {
         '@type': 'Service',
         '@id': 'https://likvidacia-eternitu.sk/#service',
-        name: 'Likvidácia azbestu a eternitu',
+        name: 'Likvidácia azbestu (eternitu)',
         serviceType: 'Odborná demontáž, stabilizácia, balenie, odvoz a dokumentácia',
         provider: { '@id': 'https://likvidacia-eternitu.sk/#organization' },
         areaServed: 'Slovensko',
@@ -299,7 +309,7 @@ function buildJsonLd(faq: [string, string][]) {
       {
         '@type': 'WebSite',
         '@id': 'https://likvidacia-eternitu.sk/#website',
-        name: 'Likvidácia azbestu a eternitu ASTANA',
+        name: 'Likvidácia azbestu (eternitu) ASTANA',
         url: 'https://likvidacia-eternitu.sk/',
         publisher: { '@id': 'https://likvidacia-eternitu.sk/#organization' },
       },
@@ -312,15 +322,15 @@ export const revalidate = 300;
 export default async function HomePage() {
   const rawContent = await getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion });
   const normalizedContent = Object.fromEntries(
-    Object.entries(rawContent).map(([key, value]) => [key, cleanSlovakText(value)]),
+    Object.entries(rawContent).map(([key, value]) => [key, normalizePublicAzbestCopy(cleanSlovakText(value))]),
   ) as Record<keyof typeof homeContentDefaults, string>;
   const content: typeof homeContentDefaults = {
     ...homeContentDefaults,
     ...normalizedContent,
-    heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
+    heroTitle: 'Likvidácia azbestu (eternitu) po celom Slovensku',
     heroClaim: 'ASTANA, s.r.o. - odborný postup, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
     heroText:
-      'ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
+      'ASTANA zabezpečuje odbornú likvidáciu azbestu (eternitu) vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
     ctaPrimary: 'Chcem cenovú ponuku',
     ctaPhone: 'Zavolať 0905 217 946',
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
@@ -346,13 +356,20 @@ export default async function HomePage() {
       items: includedItems.slice(6),
     },
   ].filter((group) => group.items.length > 0);
-  const trustItems = parsePairs(content.trustItems, defaultTrustItems);
+  const trustItems = parsePairs(content.trustItems, defaultTrustItems).filter(
+    ([title, text]) => !legacyPublicTransportClaim.test(`${title} ${text}`),
+  );
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
   const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
   const rooferItems = parsePairs(content.rooferItems, defaultRooferItems);
-  const whyItems = parseLines(content.whyItems, defaultWhyItems);
-  const faq = parsePairs(content.faqItems, defaultFaq);
+  const whyItems = parseLines(content.whyItems, defaultWhyItems).filter((item) => !legacyPublicTransportClaim.test(item));
+  const faq = parsePairs(content.faqItems, defaultFaq).map(([question, answer]) => {
+    if (/^čo ak neviem (presnú|približnú) výmeru\?$/i.test(question.trim())) {
+      return ['Čo ak neviem približnú výmeru?', 'Vyberte možnosť „Neviem približnú výmeru“. Ozveme sa vám a výmeru doplníme pred nacenením.'] as [string, string];
+    }
+    return [question, answer] as [string, string];
+  });
   const jsonLd = buildJsonLd(faq);
 
   return (
@@ -362,7 +379,7 @@ export default async function HomePage() {
       <link rel="preload" as="image" href={heroImage.desktopWebp} type="image/webp" media="(min-width: 768px)" fetchPriority="high" />
       <header className="site-header" id="top">
         <div className="header-main">
-          <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
+          <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu (eternitu)">
             <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
             <span>
               <small>Bezpečná likvidácia azbestu</small>
@@ -507,8 +524,12 @@ export default async function HomePage() {
                 <p className="form-stage-title">1. Výmera a lokalita</p>
                 <div className="field area-field">
                   <label htmlFor="areaEstimate">Približná výmera v m2 *</label>
-                  <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
-                  <p className="field-help">Ak neviete presne, uveďte odhad. Presné m2 sa overia podľa skutočnosti.</p>
+                  <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required aria-describedby="areaEstimateHelp" />
+                  <label className="area-unknown-choice" htmlFor="areaEstimateStatus">
+                    <input id="areaEstimateStatus" name="areaEstimateStatus" type="checkbox" value="lead_area_unknown" />
+                    <span>Neviem približnú výmeru</span>
+                  </label>
+                  <p className="field-help" id="areaEstimateHelp">Ak zvolíte túto možnosť, ozveme sa a výmeru doplníme pred nacenením.</p>
                 </div>
                 <div className="field">
                   <label htmlFor="city">Obec / mesto *</label>
@@ -521,19 +542,15 @@ export default async function HomePage() {
               </div>
 
               <div className="form-stage">
-                <p className="form-stage-title">2. Typ materiálu a termín</p>
+                <p className="form-stage-title">2. Typ azbestu a termín</p>
                 <div className="field">
-                  <label htmlFor="materialType">Typ azbestového materiálu *</label>
+                  <label htmlFor="materialType">Aký typ azbestu máte? *</label>
                   <select id="materialType" name="materialType" required defaultValue="">
-                    <option value="">Vyberte materiál *</option>
-                    <option>Vlnitý eternit</option>
-                    <option>Hladký / štvorcový eternit</option>
-                    <option>Azbestocementové rúry</option>
-                    <option>Boletické panely</option>
-                    <option>Azbestové obloženie / fasáda</option>
-                    <option>Azbest v interiéri</option>
-                    <option>Neviem posúdiť</option>
-                    <option>Iné</option>
+                    <option value="">Vyberte typ azbestu *</option>
+                    <option value="Vlnitý eternit">Vlnitý azbest / eternit</option>
+                    <option value="Hladký / štvorcový eternit">Plochý azbest / eternitové kosoštvorce</option>
+                    <option value="Iné">Iný azbestový materiál</option>
+                    <option value="Neviem posúdiť">Neviem</option>
                   </select>
                 </div>
                 <div className="field">
@@ -599,7 +616,7 @@ export default async function HomePage() {
                   <label className="file-drop" htmlFor="photos">
                     <span className="file-drop-icon" aria-hidden="true"></span>
                     <strong>Vybrať fotky zo zariadenia</strong>
-                    <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
+                    <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ azbestu, prístup a náročnosť.</span>
                   </label>
                   <input
                     className="file-input"
@@ -645,11 +662,11 @@ export default async function HomePage() {
             <p className="eyebrow">Orientačná cena</p>
             <h2 id="price-calculator-title">Koľko môže stáť likvidácia?</h2>
             <p>
-              Najrýchlejšie sa orientujeme podľa približnej výmery v m2. Zadajte plochu a typ materiálu, uvidíte pracovný
+              Najrýchlejšie sa orientujeme podľa približnej výmery v m2. Zadajte plochu a typ azbestu, uvidíte pracovný
               rozsah ceny. Záväznú ponuku pripravíme po overení detailov.
             </p>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginTop: '12px' }}>
-              ✓ Bez záväzkov &nbsp;·&nbsp; ✓ Odpovieme do 24h
+              ✓ Bez záväzkov &nbsp;·&nbsp; ✓ Cena po preverení detailov
               &nbsp;·&nbsp; ✓ Platíte po dokončení
             </p>
           </div>
@@ -668,11 +685,11 @@ export default async function HomePage() {
               defaultValue="120"
               aria-label="Približná výmera v metroch štvorcových"
             />
-            <div className="price-materials" role="group" aria-label="Typ materiálu">
-              <button type="button" className="is-active" data-price-material="vlnity">Vlnitý eternit</button>
-              <button type="button" data-price-material="hladky">Hladký eternit</button>
-              <button type="button" data-price-material="boleticky">Boletické panely</button>
-              <button type="button" data-price-material="neviem">Neviem posúdiť</button>
+            <div className="price-materials" role="group" aria-label="Typ azbestu">
+              <button type="button" className="is-active" data-price-material="vlnity">Vlnitý azbest / eternit</button>
+              <button type="button" data-price-material="hladky">Plochý azbest / eternitové kosoštvorce</button>
+              <button type="button" data-price-material="boleticky">Iný azbestový materiál</button>
+              <button type="button" data-price-material="neviem">Neviem</button>
             </div>
             <div className="price-result" aria-live="polite">
               <span>Orientačná cena</span>
@@ -754,11 +771,6 @@ export default async function HomePage() {
               </article>
             ))}
           </div>
-        </section>
-
-        <section className="transport-banner" aria-label="Doprava zdarma nad 100 metrov štvorcových">
-          <span className="transport-icon"><VisualIcon name="truck" /></span>
-          <strong>Dopravu pri zákazkách nad 100 m2 neúčtujeme!</strong>
         </section>
 
         <TrustComplianceSection />

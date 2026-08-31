@@ -295,8 +295,8 @@ export default function LandingClient() {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Cenov&uacute; ponuku v&aacute;m po&scaron;leme do 24 hod&iacute;n na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
-          '<div class="success-next"><em>&#268;o sa stane &#271;alej:</em><span>1. Skontrolujeme v&aacute;&scaron; dopyt</span><span>2. Priprav&iacute;me cenov&uacute; ponuku</span><span>3. Po&scaron;leme v&aacute;m ju do 24 hod&iacute;n</span></div>',
+          `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
+          '<div class="success-next"><em>&#268;o sa stane &#271;alej:</em><span>1. Skontrolujeme v&aacute;&scaron; dopyt</span><span>2. Overíme chýbajúce údaje</span><span>3. Ozveme sa vám s ďalším postupom</span></div>',
           '<small>M&aacute;te ot&aacute;zky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
           '<small>Po&ndash;Pia 7:00&ndash;18:00</small>',

@@ -1,4 +1,5 @@
 import type { Lead, LeadStatus } from './types';
+import { isLeadAreaUnknown } from './lead-area';
 
 export type LeadTag =
   | 'chyba_fotka'
@@ -53,13 +54,13 @@ export function getLeadInsight(lead: Lead, fileCount = 0, quoteCount = 0): LeadI
   if (fileCount === 0) tags.push('chyba_fotka');
   if (lead.wantsRooferRecommendation || lead.selectedRooferId || roofer.includes('potrebujem') || roofer.includes('chcem odporucit')) tags.push('potrebuje_strechara');
   if (term.includes('najskor') || term.includes('urgent') || term.includes('co naj')) tags.push('urgentne');
-  if (lead.areaEstimate >= 100) tags.push('nad_100_m2');
+  if (!isLeadAreaUnknown(lead) && lead.areaEstimate >= 100) tags.push('nad_100_m2');
 
   const score =
     (lead.fullName && lead.phone && lead.email ? 20 : 0) +
     (lead.city ? 15 : 0) +
     (lead.objectType && lead.materialType ? 20 : 0) +
-    (lead.areaEstimate > 0 ? 20 : 0) +
+    (!isLeadAreaUnknown(lead) && lead.areaEstimate > 0 ? 20 : 0) +
     (fileCount > 0 ? 20 : 0) +
     (lead.note || lead.term || lead.roofer ? 5 : 0);
 

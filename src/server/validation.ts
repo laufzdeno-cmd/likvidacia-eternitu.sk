@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const optionalAreaEstimate = z.preprocess(
+  (value) => (value === '' || value === null || value === undefined ? undefined : value),
+  z.coerce.number().positive('Zadajte približnú výmeru.').max(100000).optional(),
+);
+
 export const leadSchema = z.object({
   fullName: z.string().trim().min(2, 'Zadajte meno a priezvisko.').max(120),
   phone: z.string().trim().min(7, 'Zadajte telefónne číslo.').max(40),
@@ -7,8 +12,9 @@ export const leadSchema = z.object({
   city: z.string().trim().min(2, 'Zadajte obec alebo mesto.').max(120),
   district: z.string().trim().max(120).optional().or(z.literal('')),
   objectType: z.string().trim().min(2, 'Vyberte typ objektu.').max(120),
-  materialType: z.string().trim().min(2, 'Vyberte typ materiálu.').max(160),
-  areaEstimate: z.coerce.number().positive('Zadajte približnú výmeru.').max(100000),
+  materialType: z.string().trim().min(2, 'Vyberte typ azbestu.').max(160),
+  areaEstimateStatus: z.enum(['known', 'lead_area_unknown']).default('known'),
+  areaEstimate: optionalAreaEstimate,
   preferredContact: z.string().trim().max(80).optional().or(z.literal('')),
   roofer: z.string().trim().max(160).optional().or(z.literal('')),
   selectedRooferId: z.string().trim().max(80).optional().or(z.literal('')),
@@ -16,6 +22,10 @@ export const leadSchema = z.object({
   note: z.string().trim().max(3000).optional().or(z.literal('')),
   gdpr: z.union([z.literal('on'), z.literal('true'), z.literal(true)]),
   companyWebsite: z.string().trim().max(1000).optional().or(z.literal('')),
+}).superRefine((data, context) => {
+  if (data.areaEstimateStatus === 'known' && !data.areaEstimate) {
+    context.addIssue({ code: 'custom', path: ['areaEstimate'], message: 'Zadajte približnú výmeru.' });
+  }
 });
 
 export const quoteSchema = z.object({

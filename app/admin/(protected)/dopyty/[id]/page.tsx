@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getLeadWithFiles, getRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { getLeadInsight, statusLabels, tagLabels } from '@/src/server/lead-insights';
 import { cleanSlovakText, leadEventLabel } from '@/src/server/slovak-text';
+import { formatLeadArea } from '@/src/server/lead-area';
 import { cancelLeadFollowup, deleteLeadFileAction, saveInternalNote, saveLeadWorkflow } from './actions';
 
 const statuses = [
@@ -64,7 +65,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
             <h2>Dopyt</h2>
             <dl className="admin-dl">
               <dt>Materiál</dt><dd>{cleanSlovakText(lead.materialType)}</dd>
-              <dt>Výmera</dt><dd>{lead.areaEstimate} m2</dd>
+              <dt>Výmera</dt><dd>{formatLeadArea(lead)}</dd>
               <dt>Typ objektu</dt><dd>{cleanSlovakText(lead.objectType)}</dd>
               <dt>Termín</dt><dd>{cleanSlovakText(lead.term) || 'Neuvedené'}</dd>
               <dt>Preferovaný kontakt</dt><dd>{cleanSlovakText(lead.preferredContact)}</dd>

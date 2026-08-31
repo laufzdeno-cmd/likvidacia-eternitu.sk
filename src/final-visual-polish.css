@@ -10659,3 +10659,27 @@ main .quote-card .form-submit {
   background: #ffffff !important;
   color: #0f1f3d !important;
 }
+
+/* V5: a small, explicit alternative to inventing an area estimate. */
+.quote-card .area-unknown-choice {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  margin: 10px 0 0;
+  color: #243553 !important;
+  cursor: pointer;
+  font-size: 0.91rem;
+  font-weight: 700;
+}
+
+.quote-card .area-unknown-choice input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: #c86432;
+}
+
+.quote-card.is-area-unknown #areaEstimate {
+  background: #f3f6fb !important;
+  color: #6b778b !important;
+}
