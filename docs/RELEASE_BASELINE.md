@@ -2,17 +2,23 @@
 
 ## Aktuálny zdrojovo doložený produkčný baseline
 
-- Source SHA: `78fee8ec9089cc32c926e251d138482edb9b84d6`
-- Deployment: `dpl_BnJ32pJfz5NmzY6N3KHzA9tb1A92`
+- Source SHA: `691dba1b96e90d887cb3c195d00bd59d61d2e59f`
+- Parent SHA: `b97d6cdba8635e37feab6a941ca701816b4cfb11`
+- Deployment: `dpl_EGzMuDSrCBau6opSn5bsJ6gT4ccs`
 - Domény: `likvidacia-eternitu.sk` a `www.likvidacia-eternitu.sk`
+- Promote: `2026-09-01 12:41:18 UTC`
+- Zdrojová attestácia: lokálny worktree bol pred uploadom čistý (`git status` bez zmien); kandidát bol vytvorený z commitnutého SHA bez dirty overlay. Vercel pri tomto CLI uploade v inspect výstupe neposkytuje samostatné pole `gitDirty`; projektový deployment list však eviduje `gitCommitSha` `691dba1b...`.
+- Runtime rozsah: oproti parentu ide iba o presný `.gitignore` overlay a testovací harness; `app/`, `src/`, `vercel.json`, produkčné formulárové/API/DB/mail/tracking časti a dependencies sa nemenili.
 - Stav: P0 Mobile Light je produkčne overený. HTML aj CSS deklarujú `only light`; verejné GEO endpointy a redirecty prešli smoke kontrolou. Crony bežia z tohto deploymentu so zachovanými cestami a harmonogramami.
-- Poznámka: pri tomto release nevznikol zámerný QA lead ani email. Skorší produkčný QA tok formulára a emailov ostáva zdokumentovaný pri predchádzajúcom release gate.
+- Aktuálne crony: `/api/cron/backup` — `0 3 * * 0`; `/api/cron/meta-capi` — `*/5 * * * *`; `/api/cron/notifications` — `0 7 * * *`.
+- Poznámka: pri tomto release nevznikol zámerný QA lead ani email. P1B mail outbox zostáva zmrazený/odložený.
 
 ## Bezprostredný operatívny rollback
 
-- Deployment: `dpl_4boBbXeNgyp1XHYMmAxF3BqzngLL`
-- Stav: predchádzajúci funkčný live deployment pred P0 promoteom.
-- Source SHA: `UNKNOWN` -- deployment bol operatívne funkčný, ale jeho zdroj nebol spätne doložený. Nepovyšovať ho na zdrojový baseline ani ho nepromovať bez výslovného release rozhodnutia.
+- Deployment: `dpl_7BruxgoQnPD4MEZDZREehAoz8GV4`
+- Stav: predchádzajúci funkčný live deployment pred čistým source promoteom.
+- Source SHA: `b97d6cdba8635e37feab6a941ca701816b4cfb11`
+- Poznámka: pri pôvodnom uploade bol evidovaný `gitDirty=1` kvôli jedinému známemu `.gitignore` overlay. Nepovyšovať ho na aktuálny source baseline; slúži iba ako operatívny rollback.
 
 ## Historický zdrojovo doložený rollback
 
