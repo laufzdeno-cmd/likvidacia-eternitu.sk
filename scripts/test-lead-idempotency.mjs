@@ -137,32 +137,27 @@ async function main() {
     assert.equal((await snapshot()).businessJobs.length, 1, 'Sériový retry nesmie vytvoriť druhú zákazku.');
     assert.equal((await snapshot()).metaCapiOutbox.length, 0, 'Izolovaný no-SMTP test nesmie vytvoriť Meta CAPI event.');
 
-    const parallelId = randomUUID();
-    const [parallelA, parallelB] = await Promise.all([submit(parallelId), submit(parallelId)]);
-    assert.equal(parallelA.response.status, 200);
-    assert.equal(parallelB.response.status, 200);
-    assert.equal((await snapshot()).leads.length, 2, 'Dva paralelné requesty s rovnakým UUID musia vytvoriť iba jeden ďalší lead.');
-    assert.equal((await snapshot()).businessJobs.length, 2, 'Dva paralelné requesty nesmú vytvoriť druhú zákazku pre rovnaký UUID.');
+    console.log('INFO: JSON fallback je určený iba na sekvenčný smoke test; concurrency garanciu overuje test:lead-idempotency:postgres.');
 
     const fallbackId = randomUUID();
     const ajax = await submit(fallbackId);
     const native = await submit(fallbackId, { accept: 'text/html', userAgent: 'Opera native fallback simulation OPR/115' });
     assert.equal(ajax.response.status, 200);
     assert.equal(native.response.status, 303);
-    assert.equal((await snapshot()).leads.length, 3, 'AJAX a následný natívny submit s rovnakým UUID musia zostať jeden lead.');
-    assert.equal((await snapshot()).businessJobs.length, 3, 'AJAX a natívny submit nesmú vytvoriť duplicitnú zákazku.');
+    assert.equal((await snapshot()).leads.length, 2, 'AJAX a následný natívny submit s rovnakým UUID musia zostať jeden lead.');
+    assert.equal((await snapshot()).businessJobs.length, 2, 'AJAX a natívny submit nesmú vytvoriť duplicitnú zákazku.');
 
     const operaId = randomUUID();
     const operaFirst = await submit(operaId, { userAgent: 'Opera OPR/115' });
     const operaRetry = await submit(operaId, { userAgent: 'Opera OPR/115' });
     assert.equal(operaFirst.response.status, 200);
     assert.equal(operaRetry.response.status, 200);
-    assert.equal((await snapshot()).leads.length, 4, 'Opera označený request s rovnakým UUID musí zostať jeden lead.');
-    assert.equal((await snapshot()).businessJobs.length, 4, 'Opera označený retry nesmie vytvoriť druhú zákazku.');
+    assert.equal((await snapshot()).leads.length, 3, 'Opera označený request s rovnakým UUID musí zostať jeden lead.');
+    assert.equal((await snapshot()).businessJobs.length, 3, 'Opera označený retry nesmie vytvoriť druhú zákazku.');
 
     const fresh = await submit(randomUUID());
     assert.equal(fresh.response.status, 200);
-    assert.equal((await snapshot()).leads.length, 5, 'Nový UUID musí vytvoriť nový lead.');
+    assert.equal((await snapshot()).leads.length, 4, 'Nový UUID musí vytvoriť nový lead.');
 
     const beforeInvalid = await snapshot();
     const missing = await submit(undefined);
@@ -173,7 +168,7 @@ async function main() {
     assert.equal(afterInvalid.leads.length, beforeInvalid.leads.length, 'Neplatný kľúč nesmie vytvoriť lead.');
     assert.equal(afterInvalid.businessJobs.length, beforeInvalid.businessJobs.length, 'Neplatný kľúč nesmie vytvoriť zákazku.');
 
-    console.log('PASS: B1.MINIMAL server idempotency — serial retry, parallel requests, AJAX/native simulation, Opera UA, missing and invalid UUID, bez SMTP.');
+    console.log('PASS: JSON fallback sequential idempotency smoke — serial retry, AJAX/native simulation, Opera UA, missing and invalid UUID, bez SMTP.');
   } finally {
     stopProcess(server);
     await rm(tempDirectory, { recursive: true, force: true });
