@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import type {
   AuditLog,
   AnalyticsEvent,
@@ -115,6 +115,7 @@ export type MetaCapiOutboxStatus = Pick<
 
 export type LeadWithMetaCapiOutbox = {
   lead: Lead;
+  businessJob: BusinessJob;
   created: boolean;
   outboxQueued: boolean;
 };
@@ -683,6 +684,7 @@ async function ensureSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_source text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES leads(id) ON DELETE SET NULL;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS offer_confirmed_date date;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ruvz_submitted_date date;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ouzp_submitted_date date;
@@ -770,6 +772,7 @@ async function ensureSchema() {
 
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS leads_submission_id_unique ON leads (submission_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS business_jobs_lead_id_unique ON business_jobs (lead_id) WHERE lead_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
@@ -1058,6 +1061,7 @@ function enrichBusinessJob(
   const grossProfit = totalPrice - rewardsTotal - jobCosts.total;
   return {
     id: String(row.id),
+    leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : undefined,
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
@@ -1236,15 +1240,10 @@ function buildMetaCapiOutboxRecord(lead: Lead, input: MetaCapiOutboxInput): Meta
   };
 }
 
-export async function createLeadWithMetaCapiOutbox(
-  input: LeadInput,
-  submissionId: string,
-  outboxInput?: MetaCapiOutboxInput,
-): Promise<LeadWithMetaCapiOutbox> {
-  await ensureSchema();
-  const id = randomUUID();
-  const timestamp = now();
-  const lead: Lead = {
+const leadJobWorkflowVersion = 'lead_job_v1';
+
+function createSubmissionLead(input: LeadInput, id: string, timestamp: string): Lead {
+  return {
     ...input,
     id,
     status: 'novy',
@@ -1257,10 +1256,103 @@ export async function createLeadWithMetaCapiOutbox(
     preferredContact: input.preferredContact ?? 'Zavolajte mi',
     wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
     selectedRooferId: input.selectedRooferId ?? '',
-    rawData: input.rawData ?? {},
+    rawData: { ...input.rawData, leadWorkflow: leadJobWorkflowVersion },
     createdAt: timestamp,
     updatedAt: timestamp,
   };
+}
+
+function pricePerM2FromValue(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? money(parsed) : 12;
+}
+
+function businessJobFromLeadForSubmission(lead: Lead, pricePerM2: number, timestamp: string): BusinessJob {
+  const id = randomUUID();
+  return enrichBusinessJob(
+    {
+      id,
+      lead_id: lead.id,
+      created_at: timestamp,
+      updated_at: timestamp,
+      demolition_date: timestamp.slice(0, 10),
+      customer_name: lead.fullName,
+      customer_phone: lead.phone,
+      customer_email: lead.email,
+      location: lead.city,
+      district: lead.district,
+      material_type: lead.materialType,
+      object_type: lead.objectType,
+      term: lead.term,
+      lead_source: lead.source || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
+      preferovany_kontakt: lead.preferredContact || 'Zavolajte mi',
+      m2: money(lead.areaEstimate),
+      price_per_m2: money(pricePerM2),
+      total_price: money(lead.areaEstimate * pricePerM2),
+      payment_type: 'FAKTURA',
+      work_type: 'DEMONTAZ_A_ODVOZ',
+      waste_kg: 0,
+      landfill: 'INA',
+      status: 'DOPYT',
+      note: [isLeadAreaUnknown(lead) ? 'Výmera neznáma — doplniť pred nacenením.' : '', lead.note].filter(Boolean).join('\n'),
+    },
+    [],
+    { jobId: id, fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0, total: 0 },
+  );
+}
+
+function hasLeadJobWorkflowMarker(lead: Lead) {
+  return lead.rawData?.leadWorkflow === leadJobWorkflowVersion;
+}
+
+async function insertSubmissionBusinessJob(client: PoolClient, businessJob: BusinessJob) {
+  await client.query(
+    `INSERT INTO business_jobs (
+      id, lead_id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
+      material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)`,
+    [
+      businessJob.id,
+      businessJob.leadId,
+      businessJob.createdAt,
+      businessJob.updatedAt,
+      businessJob.demolitionDate,
+      businessJob.customerName,
+      businessJob.customerPhone,
+      businessJob.customerEmail,
+      businessJob.location,
+      businessJob.district,
+      businessJob.materialType,
+      businessJob.objectType,
+      businessJob.term,
+      businessJob.leadSource,
+      businessJob.preferredContact,
+      businessJob.m2,
+      businessJob.pricePerM2,
+      businessJob.totalPrice,
+      businessJob.paymentType,
+      businessJob.workType,
+      businessJob.wasteKg,
+      businessJob.landfill,
+      businessJob.status,
+      businessJob.note,
+    ],
+  );
+  await client.query(
+    `INSERT INTO business_job_costs (job_id, fuel, suits, gloves, penetrant, landfill_cost, other_name, other_amount, total)
+     VALUES ($1,0,0,0,0,0,'',0,0)`,
+    [businessJob.id],
+  );
+}
+
+export async function createLeadWithMetaCapiOutbox(
+  input: LeadInput,
+  submissionId: string,
+  outboxInput?: MetaCapiOutboxInput,
+): Promise<LeadWithMetaCapiOutbox> {
+  await ensureSchema();
+  const timestamp = now();
+  const lead = createSubmissionLead(input, randomUUID(), timestamp);
   const safeOutboxInput = outboxInput && validMetaCapiConsentSubject(outboxInput.consentSubject) ? outboxInput : undefined;
   const db = getPool();
 
@@ -1268,28 +1360,68 @@ export async function createLeadWithMetaCapiOutbox(
     return withLocalOutboxLock(async () => {
       const local = await readLocalDb();
       const duplicate = local.leads.find((item) => item.rawData?.metaSubmissionId === submissionId);
-      if (duplicate) return { lead: duplicate, created: false, outboxQueued: Boolean(safeOutboxInput) };
+      if (duplicate) {
+        let businessJob = local.businessJobs.find((item) => item.leadId === duplicate.id);
+        if (!businessJob && hasLeadJobWorkflowMarker(duplicate)) {
+          businessJob = businessJobFromLeadForSubmission(
+            duplicate,
+            pricePerM2FromValue(local.siteContent.find((item) => item.key === 'defaultPricePerM2')?.value ?? 12),
+            timestamp,
+          );
+          local.businessJobs.unshift(businessJob);
+          local.auditLogs.unshift({
+            id: randomUUID(),
+            entityType: 'business_job',
+            entityId: businessJob.id,
+            action: 'business_job_lead_recovered',
+            actorEmail: 'system',
+            changes: { leadId: duplicate.id },
+            createdAt: timestamp,
+          });
+          await writeLocalDb(local);
+        }
+        if (!businessJob) throw new Error('Pôvodný dopyt nemá prepojenú zákazku.');
+        return { lead: duplicate, businessJob, created: false, outboxQueued: false };
+      }
 
       const localLead: Lead = { ...lead, rawData: { ...lead.rawData, metaSubmissionId: submissionId } };
+      const businessJob = businessJobFromLeadForSubmission(
+        localLead,
+        pricePerM2FromValue(local.siteContent.find((item) => item.key === 'defaultPricePerM2')?.value ?? 12),
+        timestamp,
+      );
       local.leads.unshift(localLead);
+      local.businessJobs.unshift(businessJob);
       if (safeOutboxInput) local.metaCapiOutbox.unshift(buildMetaCapiOutboxRecord(localLead, safeOutboxInput));
-      local.auditLogs.unshift({
-        id: randomUUID(),
-        entityType: 'lead',
-        entityId: localLead.id,
-        action: 'lead_created',
-        actorEmail: 'system',
-        changes: { status: 'novy' },
-        createdAt: timestamp,
-      });
+      local.auditLogs.unshift(
+        {
+          id: randomUUID(),
+          entityType: 'lead',
+          entityId: localLead.id,
+          action: 'lead_created',
+          actorEmail: 'system',
+          changes: { status: 'novy' },
+          createdAt: timestamp,
+        },
+        {
+          id: randomUUID(),
+          entityType: 'business_job',
+          entityId: businessJob.id,
+          action: 'business_job_lead_received',
+          actorEmail: 'system',
+          changes: { leadId: localLead.id },
+          createdAt: timestamp,
+        },
+      );
       await writeLocalDb(local);
-      return { lead: localLead, created: true, outboxQueued: Boolean(safeOutboxInput) };
+      return { lead: localLead, businessJob, created: true, outboxQueued: Boolean(safeOutboxInput) };
     });
   }
 
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [submissionId]);
     const inserted = await client.query(
       `INSERT INTO leads (
         id, created_at, updated_at, status, full_name, phone, email, city, district,
@@ -1327,12 +1459,29 @@ export async function createLeadWithMetaCapiOutbox(
 
     if (!inserted.rows[0]) {
       const existing = await client.query('SELECT * FROM leads WHERE submission_id = $1 LIMIT 1', [submissionId]);
-      await client.query('COMMIT');
       if (!existing.rows[0]) throw new Error('Nepodarilo sa načítať pôvodný dopyt.');
-      return { lead: toLead(existing.rows[0]), created: false, outboxQueued: Boolean(safeOutboxInput) };
+      const existingLead = toLead(existing.rows[0]);
+      const existingJob = await client.query('SELECT * FROM business_jobs WHERE lead_id = $1 LIMIT 1', [existingLead.id]);
+      let businessJob = existingJob.rows[0] ? enrichBusinessJob(existingJob.rows[0]) : undefined;
+      if (!businessJob && hasLeadJobWorkflowMarker(existingLead)) {
+        const priceSetting = await client.query("SELECT value FROM site_content WHERE key = 'defaultPricePerM2' LIMIT 1");
+        businessJob = businessJobFromLeadForSubmission(existingLead, pricePerM2FromValue(priceSetting.rows[0]?.value ?? 12), timestamp);
+        await insertSubmissionBusinessJob(client, businessJob);
+        await client.query(
+          `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+           VALUES ($1,'business_job',$2,'business_job_lead_recovered','system',$3,$4)`,
+          [randomUUID(), businessJob.id, { leadId: existingLead.id }, timestamp],
+        );
+      }
+      if (!businessJob) throw new Error('Pôvodný dopyt nemá prepojenú zákazku.');
+      await client.query('COMMIT');
+      return { lead: existingLead, businessJob, created: false, outboxQueued: false };
     }
 
     const savedLead = toLead(inserted.rows[0]);
+    const priceSetting = await client.query("SELECT value FROM site_content WHERE key = 'defaultPricePerM2' LIMIT 1");
+    const businessJob = businessJobFromLeadForSubmission(savedLead, pricePerM2FromValue(priceSetting.rows[0]?.value ?? 12), timestamp);
+    await insertSubmissionBusinessJob(client, businessJob);
     if (safeOutboxInput) {
       await client.query(
         `INSERT INTO meta_capi_delivery_outbox (
@@ -1356,11 +1505,13 @@ export async function createLeadWithMetaCapiOutbox(
     }
     await client.query(
       `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
-       VALUES ($1,'lead',$2,'lead_created','system',$3,$4)`,
-      [randomUUID(), savedLead.id, { status: 'novy' }, timestamp],
+       VALUES
+       ($1,'lead',$2,'lead_created','system',$3,$4),
+       ($5,'business_job',$6,'business_job_lead_received','system',$7,$4)`,
+      [randomUUID(), savedLead.id, { status: 'novy' }, timestamp, randomUUID(), businessJob.id, { leadId: savedLead.id }],
     );
     await client.query('COMMIT');
-    return { lead: savedLead, created: true, outboxQueued: Boolean(safeOutboxInput) };
+    return { lead: savedLead, businessJob, created: true, outboxQueued: Boolean(safeOutboxInput) };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw error;

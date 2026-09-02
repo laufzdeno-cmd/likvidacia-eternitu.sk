@@ -129,12 +129,20 @@ async function main() {
     assert.equal(first.body?.ok, true);
     assert.equal((await snapshot()).leads.length, 1, 'Nový UUID musí vytvoriť presne jeden lead.');
     assert.equal((await snapshot()).businessJobs.length, 1, 'Nový UUID musí vytvoriť presne jednu zákazku.');
+    {
+      const current = await snapshot();
+      assert.equal(current.businessJobs[0]?.leadId, current.leads[0]?.id, 'Zákazka musí byť uložená s leadId.');
+    }
 
     const retry = await submit(firstId);
     assert.equal(retry.response.status, 200);
     assert.equal(retry.body?.ok, true);
     assert.equal((await snapshot()).leads.length, 1, 'Sériový retry s rovnakým UUID nesmie vytvoriť druhý lead.');
     assert.equal((await snapshot()).businessJobs.length, 1, 'Sériový retry nesmie vytvoriť druhú zákazku.');
+    {
+      const current = await snapshot();
+      assert.equal(current.businessJobs[0]?.leadId, current.leads[0]?.id, 'Retry nesmie rozbiť väzbu lead → zákazka.');
+    }
     assert.equal((await snapshot()).metaCapiOutbox.length, 0, 'Izolovaný no-SMTP test nesmie vytvoriť Meta CAPI event.');
 
     console.log('INFO: JSON fallback je určený iba na sekvenčný smoke test; concurrency garanciu overuje test:lead-idempotency:postgres.');

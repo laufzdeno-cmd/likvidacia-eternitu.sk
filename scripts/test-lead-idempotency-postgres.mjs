@@ -134,56 +134,58 @@ async function main() {
   }
 
   async function snapshot() {
-    const [leads, jobs, meta] = await Promise.all([
+    const [leads, jobs, linkedJobs, meta] = await Promise.all([
       pool.query('SELECT COUNT(*)::int AS count FROM leads'),
       pool.query('SELECT COUNT(*)::int AS count FROM business_jobs'),
+      pool.query('SELECT COUNT(*)::int AS count FROM business_jobs WHERE lead_id IS NOT NULL'),
       pool.query('SELECT COUNT(*)::int AS count FROM meta_capi_delivery_outbox'),
     ]);
     return {
       leads: leads.rows[0].count,
       businessJobs: jobs.rows[0].count,
+      linkedBusinessJobs: linkedJobs.rows[0].count,
       metaCapiOutbox: meta.rows[0].count,
     };
   }
 
   try {
     await waitForServer(baseUrl, server);
-    assert.deepEqual(await snapshot(), { leads: 0, businessJobs: 0, metaCapiOutbox: 0 }, 'Test DB musí byť prázdna.');
+    assert.deepEqual(await snapshot(), { leads: 0, businessJobs: 0, linkedBusinessJobs: 0, metaCapiOutbox: 0 }, 'Test DB musí byť prázdna.');
 
     const firstId = randomUUID();
     const first = await submit(firstId);
     assert.equal(first.response.status, 200);
     assert.equal(first.body?.ok, true);
-    assert.deepEqual(await snapshot(), { leads: 1, businessJobs: 1, metaCapiOutbox: 0 });
+    assert.deepEqual(await snapshot(), { leads: 1, businessJobs: 1, linkedBusinessJobs: 1, metaCapiOutbox: 0 });
 
     const retry = await submit(firstId);
     assert.equal(retry.response.status, 200);
     assert.equal(retry.body?.ok, true);
-    assert.deepEqual(await snapshot(), { leads: 1, businessJobs: 1, metaCapiOutbox: 0 });
+    assert.deepEqual(await snapshot(), { leads: 1, businessJobs: 1, linkedBusinessJobs: 1, metaCapiOutbox: 0 });
 
     const parallelId = randomUUID();
     const [parallelA, parallelB] = await Promise.all([submit(parallelId), submit(parallelId)]);
     assert.equal(parallelA.response.status, 200);
     assert.equal(parallelB.response.status, 200);
-    assert.deepEqual(await snapshot(), { leads: 2, businessJobs: 2, metaCapiOutbox: 0 }, 'PostgreSQL unique constraint musí zadržať paralelný duplicate.');
+    assert.deepEqual(await snapshot(), { leads: 2, businessJobs: 2, linkedBusinessJobs: 2, metaCapiOutbox: 0 }, 'PostgreSQL unique constraint musí zadržať paralelný duplicate.');
 
     const fallbackId = randomUUID();
     const ajax = await submit(fallbackId);
     const native = await submit(fallbackId, { accept: 'text/html', userAgent: 'Opera native fallback simulation OPR/115' });
     assert.equal(ajax.response.status, 200);
     assert.equal(native.response.status, 303);
-    assert.deepEqual(await snapshot(), { leads: 3, businessJobs: 3, metaCapiOutbox: 0 });
+    assert.deepEqual(await snapshot(), { leads: 3, businessJobs: 3, linkedBusinessJobs: 3, metaCapiOutbox: 0 });
 
     const operaId = randomUUID();
     const operaFirst = await submit(operaId, { userAgent: 'Opera OPR/115' });
     const operaRetry = await submit(operaId, { userAgent: 'Opera OPR/115' });
     assert.equal(operaFirst.response.status, 200);
     assert.equal(operaRetry.response.status, 200);
-    assert.deepEqual(await snapshot(), { leads: 4, businessJobs: 4, metaCapiOutbox: 0 });
+    assert.deepEqual(await snapshot(), { leads: 4, businessJobs: 4, linkedBusinessJobs: 4, metaCapiOutbox: 0 });
 
     const fresh = await submit(randomUUID());
     assert.equal(fresh.response.status, 200);
-    assert.deepEqual(await snapshot(), { leads: 5, businessJobs: 5, metaCapiOutbox: 0 });
+    assert.deepEqual(await snapshot(), { leads: 5, businessJobs: 5, linkedBusinessJobs: 5, metaCapiOutbox: 0 });
 
     const beforeInvalid = await snapshot();
     const missing = await submit(undefined);

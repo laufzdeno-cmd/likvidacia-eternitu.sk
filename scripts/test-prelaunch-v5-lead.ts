@@ -49,18 +49,22 @@ async function main() {
       source: 'test',
     }, randomUUID());
     assert.equal(saved.created, true);
+    assert.equal(saved.businessJob.leadId, saved.lead.id);
   };
 
   try {
     await submit(120);
 
     const db = JSON.parse(await readFile(process.env.ASTANA_LOCAL_DB_PATH, 'utf8')) as {
-      leads: Array<{ areaEstimate: number; rawData?: { areaEstimateStatus?: string } }>;
+      leads: Array<{ id: string; areaEstimate: number; rawData?: { areaEstimateStatus?: string } }>;
+      businessJobs: Array<{ leadId?: string }>;
       metaCapiOutbox: unknown[];
     };
     assert.equal(db.leads.length, 1);
     assert.equal(db.leads[0]?.areaEstimate, 120);
     assert.equal(db.leads[0]?.rawData?.areaEstimateStatus, 'known');
+    assert.equal(db.businessJobs.length, 1);
+    assert.equal(db.businessJobs[0]?.leadId, db.leads[0]?.id);
     assert.equal(db.metaCapiOutbox.length, 0);
     console.log('PASS: required known area estimate; no-consent CAPI outbox = 0');
   } finally {

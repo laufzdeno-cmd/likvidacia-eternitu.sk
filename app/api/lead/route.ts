@@ -1,5 +1,5 @@
 import { after, NextRequest, NextResponse } from 'next/server';
-import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLeadWithMetaCapiOutbox } from '@/src/server/db';
+import { addAuditLog, addLeadFiles, createLeadWithMetaCapiOutbox } from '@/src/server/db';
 import { validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
 import { dispatchMetaCapiOutbox, isMetaCapiConfigured, metaMaterialFromLeadValue } from '@/src/server/meta-conversions-api';
@@ -186,8 +186,7 @@ export async function POST(request: NextRequest) {
       fbc: request.cookies.get('_fbc')?.value,
     } : undefined);
     const lead = savedLead.lead;
-
-    const businessJob = savedLead.created ? await createBusinessJobFromLead(lead) : null;
+    const businessJob = savedLead.businessJob;
 
     const metaLead: MetaLeadResponse = {
       eventId: lead.id,

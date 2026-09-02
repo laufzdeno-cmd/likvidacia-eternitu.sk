@@ -296,6 +296,8 @@ export type BusinessJobInput = {
 
 export type BusinessJob = {
   id: string;
+  /** Prepojenie vzniknuté výhradne pri webovom dopyte; ručné zákazky ho nemajú. */
+  leadId?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;

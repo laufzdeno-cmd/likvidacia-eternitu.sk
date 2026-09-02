@@ -53,6 +53,7 @@ async function createQueuedLead(consentSubject?: string) {
   const created = await createLeadWithMetaCapiOutbox(leadInput(), randomUUID(), outboxInput(consentSubject));
   assert.equal(created.created, true);
   assert.equal(created.outboxQueued, true);
+  assert.equal(created.businessJob.leadId, created.lead.id, 'Nový lead musí mať naviazanú presne jednu zákazku.');
   return created;
 }
 
@@ -115,6 +116,8 @@ try {
   assert.equal(duplicateFirst.created, true);
   assert.equal(duplicateSecond.created, false);
   assert.equal(duplicateFirst.lead.id, duplicateSecond.lead.id);
+  assert.equal(duplicateFirst.businessJob.id, duplicateSecond.businessJob.id);
+  assert.equal(duplicateSecond.outboxQueued, false, 'Retry nesmie vytvoriť ani znovu zaradiť CAPI udalosť.');
   assert.equal((await getMetaCapiOutboxStatus(duplicateFirst.lead.id))?.eventId, duplicateFirst.lead.id);
 
   // 10. Odvolanie súhlasu pred ďalším pokusom zablokuje opakovanie.
