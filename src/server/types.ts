@@ -69,6 +69,7 @@ export type AuditLog = {
     | 'realization'
     | 'site_content'
     | 'roofer'
+    | 'roofer_registration'
     | 'review_request'
     | 'business_job'
     | 'admin_user'
@@ -526,4 +527,31 @@ export type RooferInput = {
   reviewCount?: number;
   complaintsCount?: number;
   internalScore?: number;
+};
+
+export type RooferBusinessType = 'sro' | 'szco' | 'other';
+export type RooferRoofTrussOption = 'yes' | 'no' | 'by_scope';
+export type RooferRegistrationStatus = 'new' | 'reviewed' | 'archived';
+
+export type RooferRegistration = {
+  id: string;
+  submissionId: string;
+  createdAt: string;
+  updatedAt: string;
+  businessType: RooferBusinessType;
+  companyName: string;
+  companyId: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  website: string;
+  serviceRegions: string[];
+  specializations: string[];
+  otherSpecialization: string;
+  canBuildRoofTruss: RooferRoofTrussOption;
+  acceptCustomerReferrals: boolean;
+  consentPublicProfile: boolean;
+  privacyConsent: boolean;
+  note: string;
+  status: RooferRegistrationStatus;
 };

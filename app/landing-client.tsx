@@ -50,6 +50,7 @@ export default function LandingClient() {
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
+    let rooferRegistrationSubmitting = false;
 
     const analyticsSessionId = (() => {
       const key = 'astana_analytics_session';
@@ -460,10 +461,38 @@ export default function LandingClient() {
     const onRooferRegistrationSubmit = async (event: SubmitEvent) => {
       if (!rooferRegistrationForm) return;
       event.preventDefault();
+      if (rooferRegistrationSubmitting) return;
       if (rooferRegistrationStatus) {
         rooferRegistrationStatus.textContent = '';
         rooferRegistrationStatus.classList.remove('is-success', 'is-error');
       }
+      if (!rooferRegistrationForm.checkValidity()) {
+        rooferRegistrationForm.reportValidity();
+        return;
+      }
+      const selectedRegions = rooferRegistrationForm.querySelectorAll<HTMLInputElement>('input[name="serviceRegions[]"]:checked');
+      if (!selectedRegions.length) {
+        if (rooferRegistrationStatus) {
+          rooferRegistrationStatus.textContent = 'Vyberte aspoň jeden kraj, v ktorom pracujete.';
+          rooferRegistrationStatus.classList.add('is-error');
+        }
+        rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="serviceRegions[]"]')?.focus();
+        return;
+      }
+      const selectedSpecializations = rooferRegistrationForm.querySelectorAll<HTMLInputElement>('input[name="specializations[]"]:checked');
+      if (!selectedSpecializations.length) {
+        if (rooferRegistrationStatus) {
+          rooferRegistrationStatus.textContent = 'Vyberte aspoň jednu špecializáciu.';
+          rooferRegistrationStatus.classList.add('is-error');
+        }
+        rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="specializations[]"]')?.focus();
+        return;
+      }
+      const submissionIdInput = rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="submissionId"]');
+      if (submissionIdInput && !submissionIdInput.value) {
+        submissionIdInput.value = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      }
+      rooferRegistrationSubmitting = true;
       const button = rooferRegistrationForm.querySelector<HTMLButtonElement>('button[type="submit"]');
       button?.setAttribute('disabled', 'true');
 
@@ -480,7 +509,7 @@ export default function LandingClient() {
         rooferRegistrationForm.reset();
         if (rooferRegistrationStatus) {
           rooferRegistrationStatus.textContent =
-            result.message || 'Ďakujeme! Vaša registrácia bola prijatá.\nOzveme sa vám do 48 hodín na zadané telefónne číslo.';
+            result.message || 'Ďakujeme! Registráciu sme prijali a najprv si ju interne skontrolujeme.';
           rooferRegistrationStatus.classList.add('is-success');
         }
         trackAnalytics('roofer_registration_success', { form: 'roofer_registration' });
@@ -490,6 +519,7 @@ export default function LandingClient() {
           rooferRegistrationStatus.classList.add('is-error');
         }
       } finally {
+        rooferRegistrationSubmitting = false;
         button?.removeAttribute('disabled');
       }
     };
@@ -686,6 +716,35 @@ export default function LandingClient() {
     trackAnalytics('page_view');
     testimonialForm?.addEventListener('submit', onTestimonialSubmit);
     rooferRegistrationForm?.addEventListener('submit', onRooferRegistrationSubmit);
+    const rooferRegionInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="serviceRegions[]"]'));
+    const allRegionsInput = rooferRegionInputs.find((input) => input.dataset.allRegions !== undefined);
+    const individualRegionInputs = rooferRegionInputs.filter((input) => input !== allRegionsInput);
+    const syncRooferRegions = (changed: HTMLInputElement) => {
+      if (!allRegionsInput) return;
+      if (changed === allRegionsInput && allRegionsInput.checked) {
+        individualRegionInputs.forEach((input) => { input.checked = true; });
+        return;
+      }
+      if (changed === allRegionsInput && !allRegionsInput.checked) {
+        individualRegionInputs.forEach((input) => { input.checked = false; });
+        return;
+      }
+      if (!changed.checked) allRegionsInput.checked = false;
+      if (individualRegionInputs.length && individualRegionInputs.every((input) => input.checked)) allRegionsInput.checked = true;
+    };
+    rooferRegionInputs.forEach((input) => input.addEventListener('change', () => syncRooferRegions(input)));
+    const otherSpecialization = document.querySelector<HTMLElement>('[data-other-specialization]');
+    const otherSpecializationInput = document.querySelector<HTMLInputElement>('input[data-specialization="Iné"]');
+    const syncOtherSpecialization = () => {
+      if (!otherSpecialization || !otherSpecializationInput) return;
+      otherSpecialization.hidden = !otherSpecializationInput.checked;
+      if (!otherSpecializationInput.checked) {
+        const input = otherSpecialization.querySelector<HTMLInputElement>('input[name="otherSpecialization"]');
+        if (input) input.value = '';
+      }
+    };
+    otherSpecializationInput?.addEventListener('change', syncOtherSpecialization);
+    syncOtherSpecialization();
     const contactButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-roofer-contact]'));
     const quoteLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-roofer-quote]'));
     const rooferCards = Array.from(document.querySelectorAll<HTMLElement>('[data-roofer-card]'));

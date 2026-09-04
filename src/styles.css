@@ -8372,7 +8372,24 @@ h2 {
 
 /* B2B roofer registration landing page. */
 .roofer-b2b-page {
-  background: #ffffff;
+  background: #f4f8fa;
+}
+
+.roofer-b2b-site-header,
+.roofer-b2b-site-header .menu-toggle,
+.roofer-b2b-page .button {
+  box-shadow: none;
+}
+
+header.site-header.roofer-b2b-site-header,
+header.site-header.roofer-b2b-site-header .brand,
+header.site-header.roofer-b2b-site-header .header-main .menu-toggle,
+main.roofer-b2b-page .button.button-primary,
+main.roofer-b2b-page .button.button-outline,
+body:has(main.roofer-b2b-page) .cookie-banner,
+body:has(main.roofer-b2b-page) .cookie-banner button,
+body:has(main.roofer-b2b-page) .footer-brand {
+  box-shadow: none !important;
 }
 
 .roofer-b2b-inner {
@@ -8381,26 +8398,67 @@ h2 {
 }
 
 .roofer-b2b-hero {
+  position: relative;
+  overflow: hidden;
   padding: 80px 0;
-  background: #0f1f3d;
-  color: #ffffff;
+  border-bottom: 1px solid #dce7ec;
+  background: #f4f8fa;
+  color: #0f1f3d;
+}
+
+.roofer-b2b-hero .roofer-b2b-inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(380px, 1.05fr);
+  align-items: center;
+  gap: clamp(36px, 6vw, 84px);
+}
+
+.roofer-b2b-hero-copy {
+  min-width: 0;
+}
+
+.roofer-b2b-eyebrow {
+  margin: 0 0 16px !important;
+  color: #d34a22 !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  line-height: 1.3 !important;
+  text-transform: uppercase;
 }
 
 .roofer-b2b-hero h1 {
   max-width: 760px;
   margin: 0;
-  color: #ffffff;
-  font-size: clamp(42px, 6vw, 74px);
-  line-height: 1.02;
+  color: #0f1f3d;
+  font-size: clamp(42px, 5vw, 68px);
+  line-height: 1.04;
   letter-spacing: 0;
 }
 
 .roofer-b2b-hero p {
   max-width: 760px;
   margin: 22px 0 0;
-  color: rgba(255, 255, 255, 0.75);
+  color: #526675;
   font-size: 18px;
   line-height: 1.65;
+}
+
+.roofer-b2b-hero-copy > p:not(.roofer-b2b-eyebrow) {
+  max-width: 610px;
+  color: #405563;
+  font-size: 19px;
+  line-height: 1.55;
+}
+
+.roofer-b2b-hero-trust {
+  max-width: 610px;
+  color: #0f1f3d !important;
+  font-size: 16px !important;
+  font-weight: 700;
+  line-height: 1.5 !important;
 }
 
 .roofer-b2b-hero .hero-actions {
@@ -8409,14 +8467,80 @@ h2 {
 
 .roofer-b2b-hero .button-primary,
 .roofer-registration-form .button-primary {
-  background: #e8541a;
-  border-color: #e8541a;
+  background: #e53927;
+  border-color: #e53927;
 }
 
 .roofer-b2b-hero .button-outline,
 .roofer-b2b-footer-cta .button-outline {
-  border-color: rgba(255, 255, 255, 0.72);
-  color: #ffffff;
+  border-color: #a9bbc5;
+  background: #ffffff;
+  color: #0f1f3d;
+}
+
+.roofer-b2b-hero-media {
+  position: relative;
+  min-height: 440px;
+  overflow: hidden;
+  border: 1px solid #d2e0e6;
+  border-radius: 14px;
+  background: #dceaf0;
+  box-shadow: none;
+}
+
+.roofer-b2b-hero-media::after {
+  display: none;
+}
+
+.roofer-b2b-hero-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 440px;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.roofer-b2b-hero-media p {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  z-index: 1;
+  max-width: 280px;
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid #e53927;
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f1f3d;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.roofer-b2b-trust-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  max-width: 640px;
+  margin-top: 34px;
+  padding-top: 20px;
+  border-top: 1px solid #d2e0e6;
+}
+
+.roofer-b2b-trust-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.roofer-b2b-trust-row strong {
+  color: #0f1f3d;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.roofer-b2b-trust-row small {
+  color: #607583;
+  font-size: 12px;
+  line-height: 1.3;
 }
 
 .roofer-b2b-benefits,
@@ -8434,7 +8558,7 @@ h2 {
 
 .roofer-b2b-card-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 24px;
   margin-top: 34px;
 }
@@ -8444,13 +8568,14 @@ h2 {
   align-content: start;
   gap: 14px;
   padding: 28px;
-  border: 1px solid #e8e6df;
+  border: 1px solid #dce7ec;
   border-radius: 12px;
   background: #ffffff;
+  box-shadow: none;
 }
 
 .roofer-b2b-icon {
-  color: #e8541a;
+  color: #e53927;
 }
 
 .roofer-b2b-card h3 {
@@ -8462,14 +8587,66 @@ h2 {
 
 .roofer-b2b-card p {
   margin: 0;
-  color: #4a4845;
+  color: #526675;
   font-size: 15px;
   line-height: 1.65;
 }
 
+.roofer-b2b-winwin {
+  padding: 80px 0;
+  background: #eaf2f5;
+  border-top: 1px solid #dce7ec;
+  border-bottom: 1px solid #dce7ec;
+}
+
+.roofer-b2b-section-eyebrow {
+  margin: 0 0 10px;
+  color: #d34a22;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.roofer-b2b-winwin h2 {
+  margin: 0;
+  color: #0f1f3d;
+}
+
+.roofer-b2b-winwin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  margin-top: 30px;
+}
+
+.roofer-b2b-winwin-grid article {
+  padding: 26px 28px;
+  border-left: 4px solid #e53927;
+  background: #ffffff;
+}
+
+.roofer-b2b-winwin-kicker {
+  display: block;
+  color: #0f1f3d;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.roofer-b2b-winwin-grid p {
+  margin: 12px 0 0;
+  color: #526675;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
 .roofer-b2b-how {
   padding: 96px 0;
-  background: #ffffff;
+  background: #f4f8fa;
+  border-top: 1px solid #e2ebef;
+  border-bottom: 1px solid #e2ebef;
 }
 
 .roofer-b2b-stepper {
@@ -8498,7 +8675,7 @@ h2 {
   left: calc(50% + 22px);
   width: calc(100% - 44px);
   height: 1px;
-  background: #d4d2cb;
+  background: #c9dbe2;
 }
 
 .roofer-b2b-stepper .step-num {
@@ -8525,9 +8702,9 @@ h2 {
 
 .roofer-b2b-stepper p {
   margin: 8px 0 0;
-  color: #8a8880;
+  color: #607583;
   font-size: 14px;
-  line-height: 1.55;
+  line-height: 1.4;
 }
 
 .roofer-registration-head {
@@ -8547,15 +8724,97 @@ h2 {
   display: grid;
   gap: 22px;
   padding: 30px;
-  border: 1px solid #e8e6df;
+  border: 1px solid #dce7ec;
   border-radius: 12px;
-  background: #ffffff;
+  background: #f8fbfc;
+  box-shadow: none;
+}
+
+.roofer-form-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 2px solid #dce7ec;
+}
+
+.roofer-form-section-heading:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.roofer-form-section-heading > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #0f1f3d;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.roofer-form-section-heading[data-step="1"] {
+  border-color: #f3c9c2;
+}
+
+.roofer-form-section-heading[data-step="1"] > span {
+  background: #d34a22;
+}
+
+.roofer-form-section-heading[data-step="2"] {
+  border-color: #b8dedc;
+}
+
+.roofer-form-section-heading[data-step="2"] > span {
+  background: #168c88;
+}
+
+.roofer-form-section-heading[data-step="3"] {
+  border-color: #f1d6a9;
+}
+
+.roofer-form-section-heading[data-step="3"] > span {
+  background: #c67b13;
+}
+
+.roofer-form-section-heading[data-step="4"] {
+  border-color: #c8d1f0;
+}
+
+.roofer-form-section-heading[data-step="4"] > span {
+  background: #4057a6;
+}
+
+.roofer-form-section-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.roofer-form-section-heading strong {
+  color: #0f1f3d;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.roofer-form-section-heading small {
+  color: #607583;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.25;
 }
 
 .roofer-form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+}
+
+.roofer-form-wide {
+  grid-column: 1 / -1;
 }
 
 .roofer-registration-form label,
@@ -8583,15 +8842,28 @@ h2 {
 .roofer-registration-form input[type="text"],
 .roofer-registration-form input[type="tel"],
 .roofer-registration-form input[type="email"],
+.roofer-registration-form input[type="url"],
+.roofer-registration-form select,
 .roofer-registration-form textarea {
   width: 100%;
+  min-height: 50px;
   padding: 12px 14px;
-  border: 1px solid #d4d2cb;
+  border: 1.5px solid #c7d7de;
   border-radius: 8px;
   background: #ffffff;
   color: #242321;
   font: inherit;
   font-weight: 400;
+}
+
+.roofer-registration-form input[type="text"]:focus,
+.roofer-registration-form input[type="tel"]:focus,
+.roofer-registration-form input[type="email"]:focus,
+.roofer-registration-form input[type="url"]:focus,
+.roofer-registration-form select:focus,
+.roofer-registration-form textarea:focus {
+  border-color: #4057a6;
+  outline: 3px solid rgba(64, 87, 166, 0.15);
 }
 
 .roofer-checkbox-grid {
@@ -8600,37 +8872,137 @@ h2 {
   gap: 10px;
 }
 
-.roofer-checkbox-grid-compact {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.roofer-checkbox-grid-specializations {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .roofer-checkbox-grid label,
-.roofer-consent {
+.roofer-registration-form .roofer-consent {
   display: flex;
   align-items: flex-start;
   gap: 9px;
-  padding: 10px 12px;
-  border: 1px solid #e8e6df;
+  min-height: 50px;
+  padding: 13px 14px;
+  border: 1px solid #d6e3e8;
   border-radius: 8px;
   background: #ffffff;
-  color: #4a4845;
+  color: #405563;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.28;
+  cursor: pointer;
+}
+
+.roofer-checkbox-grid label:hover {
+  border-color: #8daab6;
+  background: #f1f8fa;
+}
+
+.roofer-checkbox-grid label:has(input:checked) {
+  border-color: #e53927;
+  background: #fff5f2;
+  color: #0f1f3d;
+  box-shadow: inset 4px 0 0 #e53927;
+}
+
+.roofer-checkbox-grid input {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin: 1px 0 0;
+  accent-color: #e53927;
+}
+
+.roofer-checkbox-card-wide {
+  grid-column: 1 / -1;
+}
+
+.roofer-option-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.roofer-option-grid label {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 13px 14px;
+  border: 1px solid #d6e3e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #405563;
+  cursor: pointer;
+}
+
+.roofer-option-grid label:has(input:checked) {
+  border-color: #168c88;
+  background: #eefaf8;
+  color: #0f1f3d;
+  box-shadow: inset 4px 0 0 #168c88;
+}
+
+.roofer-option-grid input {
+  width: 18px;
+  height: 18px;
+  margin: 0 9px 0 0;
+  accent-color: #168c88;
 }
 
 .roofer-consent {
   background: transparent;
 }
 
+.roofer-registration-form .roofer-consent {
+  align-items: flex-start;
+}
+
+.roofer-registration-form .roofer-consent span {
+  display: grid;
+  gap: 4px;
+}
+
+.roofer-registration-form .roofer-consent strong {
+  color: #0f1f3d;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.roofer-registration-form .roofer-consent small {
+  color: #607583;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.roofer-registration-form .roofer-consent a {
+  color: #4057a6;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.roofer-registration-form .roofer-consent input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+}
+
 .roofer-registration-form button {
   justify-self: start;
+}
+
+.roofer-form-microcopy {
+  margin: -12px 0 0;
+  color: #607583;
+  font-size: 13px;
+  line-height: 1.3;
 }
 
 .roofer-registration-status {
   white-space: pre-line;
   margin: 0;
   font-size: 15px;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .roofer-registration-status.is-success {
@@ -8648,20 +9020,21 @@ h2 {
 
 .roofer-b2b-footer-cta {
   padding: 72px 0;
-  background: #0f1f3d;
-  color: #ffffff;
+  border-top: 1px solid #dce7ec;
+  background: #eaf2f5;
+  color: #0f1f3d;
   text-align: center;
 }
 
 .roofer-b2b-footer-cta h2 {
   margin: 0;
-  color: #ffffff;
+  color: #0f1f3d;
 }
 
 .roofer-b2b-footer-cta a {
   display: inline-block;
   margin-top: 18px;
-  color: #ffffff;
+  color: #e53927;
   font-size: 28px;
   font-weight: 700;
   text-decoration: none;
@@ -8669,7 +9042,7 @@ h2 {
 
 .roofer-b2b-footer-cta p {
   margin: 8px 0 0;
-  color: rgba(255, 255, 255, 0.65);
+  color: #607583;
   font-size: 14px;
 }
 
@@ -8680,16 +9053,94 @@ h2 {
 
   .roofer-b2b-hero,
   .roofer-b2b-benefits,
+  .roofer-b2b-winwin,
   .roofer-b2b-how,
   .roofer-b2b-registration {
-    padding: 64px 0;
+    padding: 52px 0;
+  }
+
+  .roofer-b2b-hero .roofer-b2b-inner {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .roofer-b2b-eyebrow {
+    margin-bottom: 12px !important;
+    font-size: 11px !important;
+  }
+
+  .roofer-b2b-hero h1 {
+    font-size: clamp(34px, 9.6vw, 46px);
+    line-height: 1.06;
+  }
+
+  .roofer-b2b-hero-copy > p:not(.roofer-b2b-eyebrow) {
+    margin-top: 16px;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+
+  .roofer-b2b-hero-trust {
+    font-size: 15px !important;
+  }
+
+  .roofer-b2b-hero .hero-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 22px;
+  }
+
+  .roofer-b2b-hero .hero-actions .button {
+    width: 100%;
+    min-height: 50px;
+  }
+
+  .roofer-b2b-trust-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-top: 24px;
+    padding-top: 16px;
+  }
+
+  .roofer-b2b-trust-row span {
+    grid-template-columns: minmax(130px, 0.72fr) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .roofer-b2b-hero-media {
+    min-height: 220px;
+    border-radius: 12px;
+  }
+
+  .roofer-b2b-hero-media img {
+    min-height: 220px;
+    max-height: 260px;
+  }
+
+  .roofer-b2b-hero-media p {
+    right: 12px;
+    bottom: 12px;
+    max-width: 240px;
+    font-size: 12px;
+  }
+
+  .roofer-form-section-heading {
+    padding-top: 4px;
   }
 
   .roofer-b2b-card-grid,
+  .roofer-b2b-winwin-grid,
   .roofer-form-grid,
   .roofer-checkbox-grid,
-  .roofer-checkbox-grid-compact {
+  .roofer-checkbox-grid-specializations,
+  .roofer-option-grid {
     grid-template-columns: 1fr;
+  }
+
+  .roofer-checkbox-card-wide {
+    grid-column: auto;
   }
 
   .roofer-b2b-stepper {
@@ -8719,6 +9170,47 @@ h2 {
   .roofer-registration-form button {
     width: 100%;
     justify-self: stretch;
+  }
+}
+
+.admin-roofer-registration-detail {
+  border-top: 1px solid #e2ebef;
+  padding-top: 8px;
+}
+
+.admin-roofer-registration-detail summary {
+  color: #4057a6;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.admin-roofer-registration-detail dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 24px;
+  margin: 16px 0 4px;
+}
+
+.admin-roofer-registration-detail dl div {
+  display: grid;
+  gap: 3px;
+}
+
+.admin-roofer-registration-detail dt {
+  color: #607583;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-roofer-registration-detail dd {
+  margin: 0;
+  color: #242321;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .admin-roofer-registration-detail dl {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -11568,5 +12060,721 @@ body .admin-main .admin-page .admin-card,
 @media (prefers-reduced-motion: reduce) {
   .whatsapp-btn {
     animation: none;
+  }
+}
+
+/* Process page: a brighter, more practical presentation without touching the lead form. */
+.postup-process-page {
+  --postup-navy: #102b4b;
+  --postup-ink: #182b40;
+  --postup-muted: #536477;
+  --postup-blue: #edf6fc;
+  --postup-blue-strong: #cfe5f5;
+  --postup-red: #c63225;
+  --postup-orange: #ea721d;
+  --postup-line: #d8e5ee;
+  width: min(calc(100% - 48px), 1180px);
+  padding-top: 40px;
+  padding-bottom: 72px;
+  color: var(--postup-ink);
+}
+
+.postup-process-page h1,
+.postup-process-page h2,
+.postup-process-page h3,
+.postup-process-page p {
+  letter-spacing: 0;
+}
+
+.postup-process-page h2 {
+  max-width: 820px;
+  color: var(--postup-navy);
+  font-size: 2.65rem;
+  line-height: 1.08;
+}
+
+.postup-process-page h3 {
+  color: var(--postup-navy);
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.postup-process-page p {
+  color: var(--postup-muted);
+  line-height: 1.5;
+}
+
+.postup-process-page a {
+  color: var(--postup-navy);
+}
+
+.postup-process-page .postup-process-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.03fr) minmax(360px, 0.97fr);
+  gap: 56px;
+  align-items: center;
+  padding: 48px 0 72px;
+}
+
+.postup-process-hero-copy {
+  min-width: 0;
+}
+
+.postup-process-page .postup-process-hero h1 {
+  max-width: 720px;
+  margin: 12px 0 20px;
+  color: var(--postup-navy);
+  font-size: 3.8rem;
+  line-height: 1.03;
+}
+
+.postup-process-hero-context {
+  max-width: 680px;
+  margin: 0;
+  color: var(--postup-navy) !important;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.45 !important;
+}
+
+.postup-process-hero-body {
+  max-width: 650px;
+  margin: 18px 0 0;
+  font-size: 1.06rem;
+  line-height: 1.5 !important;
+}
+
+.postup-process-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 28px;
+}
+
+.postup-process-page .postup-process-actions .button {
+  min-height: 50px;
+  padding: 14px 20px;
+  border-radius: 6px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.postup-process-page .postup-process-actions .button-primary {
+  border-color: var(--postup-red);
+  background: var(--postup-red);
+  color: #fff;
+}
+
+.postup-process-page .postup-process-actions .button-primary:hover {
+  border-color: #992218;
+  background: #992218;
+}
+
+.postup-process-page .postup-process-actions .button-outline {
+  border-color: var(--postup-navy);
+  background: #fff;
+  color: var(--postup-navy);
+}
+
+.postup-process-page .postup-process-actions .button-outline:hover {
+  background: var(--postup-blue);
+}
+
+.postup-process-micro {
+  margin: 14px 0 0;
+  color: var(--postup-navy) !important;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.postup-process-micro span {
+  padding: 0 7px;
+  color: var(--postup-orange);
+}
+
+.postup-process-trust-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  max-width: 650px;
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid var(--postup-line);
+}
+
+.postup-process-trust-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.postup-process-trust-row strong {
+  color: var(--postup-navy);
+  font-size: 1.05rem;
+}
+
+.postup-process-trust-row small {
+  color: var(--postup-muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.postup-process-hero-media,
+.postup-process-step-media,
+.postup-process-wide-proof {
+  margin: 0;
+}
+
+.postup-process-hero-media img,
+.postup-process-step-media img,
+.postup-process-wide-proof img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.postup-process-hero-media img {
+  aspect-ratio: 4 / 3;
+  border-radius: 8px;
+}
+
+.postup-process-hero-media figcaption,
+.postup-process-wide-proof figcaption {
+  margin-top: 9px;
+  color: var(--postup-muted);
+  font-size: 0.78rem;
+}
+
+.postup-process-answer {
+  margin: 0 0 12px;
+  padding: 30px 36px;
+  border-left: 5px solid var(--postup-orange);
+  background: var(--postup-blue);
+}
+
+.postup-process-answer h2 {
+  margin: 6px 0 10px;
+  font-size: 2rem;
+}
+
+.postup-process-answer p:last-child {
+  max-width: 900px;
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.postup-process-kicker {
+  margin: 0;
+  color: var(--postup-orange) !important;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase;
+}
+
+.postup-process-section {
+  padding: 76px 0 12px;
+  border-top: 1px solid var(--postup-line);
+}
+
+.postup-process-section-heading {
+  max-width: 850px;
+  margin-bottom: 30px;
+}
+
+.postup-process-section-heading h2 {
+  margin: 8px 0 14px;
+}
+
+.postup-process-section-heading > p:last-child {
+  max-width: 760px;
+  margin: 0;
+  font-size: 1.03rem;
+}
+
+.postup-process-step-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.postup-process-step {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 22px;
+  border: 1px solid var(--postup-line);
+  border-top: 4px solid var(--postup-blue-strong);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.postup-process-step:nth-child(2n) {
+  border-top-color: var(--postup-orange);
+}
+
+.postup-process-step:nth-child(-n + 3) {
+  grid-column: span 2;
+}
+
+.postup-process-step:nth-child(n + 4) {
+  grid-column: span 3;
+}
+
+.postup-process-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.postup-process-step-number {
+  color: var(--postup-navy);
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.postup-process-step-label,
+.postup-process-column-label {
+  color: var(--postup-orange);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.postup-process-step h3 {
+  margin: 0 0 12px;
+}
+
+.postup-process-step > p {
+  margin: 0;
+  font-size: 0.97rem;
+}
+
+.postup-process-proof {
+  margin-top: 18px !important;
+  padding-top: 13px;
+  border-top: 1px solid var(--postup-line);
+  color: var(--postup-navy) !important;
+  font-size: 0.88rem !important;
+  font-weight: 700;
+}
+
+.postup-process-step-media {
+  margin-top: 20px;
+}
+
+.postup-process-step-media img {
+  aspect-ratio: 16 / 9;
+  border-radius: 5px;
+}
+
+.postup-process-inline-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  margin-top: 22px;
+  color: var(--postup-red) !important;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.postup-process-inline-cta::after {
+  margin-left: 8px;
+  content: '→';
+}
+
+.postup-process-columns,
+.postup-process-duo {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.postup-process-columns article,
+.postup-process-duo article {
+  min-width: 0;
+  padding: 28px;
+  border: 1px solid var(--postup-line);
+  border-radius: 8px;
+  background: var(--postup-blue);
+}
+
+.postup-process-columns article:last-child {
+  border-color: var(--postup-blue-strong);
+  background: #fff;
+}
+
+.postup-process-columns ul,
+.postup-process-checklist {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.postup-process-columns li,
+.postup-process-checklist li {
+  position: relative;
+  padding-left: 25px;
+  color: var(--postup-ink);
+  line-height: 1.45;
+}
+
+.postup-process-columns li::before,
+.postup-process-checklist li::before {
+  position: absolute;
+  top: 0.18em;
+  left: 0;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--postup-orange);
+  color: #fff;
+  content: '✓';
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 15px;
+  text-align: center;
+}
+
+.postup-process-timeline-section {
+  padding-bottom: 68px;
+}
+
+.postup-process-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 26px 18px;
+}
+
+.postup-process-timeline article {
+  min-width: 0;
+  padding-top: 15px;
+  border-top: 3px solid var(--postup-blue-strong);
+}
+
+.postup-process-timeline article:nth-child(2n) {
+  border-top-color: var(--postup-orange);
+}
+
+.postup-process-timeline span {
+  color: var(--postup-orange);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.postup-process-timeline h3 {
+  margin: 11px 0 7px;
+  font-size: 1.1rem;
+}
+
+.postup-process-timeline p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.postup-process-wide-proof {
+  max-width: 720px;
+  margin-top: 34px;
+}
+
+.postup-process-wide-proof img {
+  aspect-ratio: 16 / 8;
+  border-radius: 7px;
+}
+
+.postup-process-roofer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 68px 0;
+  padding: 36px 40px;
+  border-left: 5px solid var(--postup-red);
+  background: var(--postup-blue);
+}
+
+.postup-process-roofer h2 {
+  margin: 7px 0 12px;
+  font-size: 2.2rem;
+}
+
+.postup-process-roofer p {
+  max-width: 760px;
+  margin: 0 0 10px;
+}
+
+.postup-process-roofer .button {
+  flex: 0 0 auto;
+}
+
+.postup-process-trust {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 52px;
+  align-items: start;
+}
+
+.postup-process-trust-copy > p:not(.postup-process-kicker) {
+  max-width: 760px;
+}
+
+.postup-process-trust-copy h2 {
+  margin: 7px 0 16px;
+}
+
+.postup-process-checklist {
+  max-width: 760px;
+  margin-top: 22px;
+}
+
+.postup-process-note {
+  max-width: 760px;
+  margin-top: 22px !important;
+  font-size: 0.9rem;
+}
+
+.postup-process-note a {
+  font-weight: 800;
+}
+
+.postup-process-trust-badge {
+  display: grid;
+  gap: 9px;
+  padding: 24px;
+  border: 1px solid var(--postup-blue-strong);
+  border-top: 4px solid var(--postup-orange);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--postup-muted);
+}
+
+.postup-process-trust-badge strong {
+  color: var(--postup-navy);
+  font-size: 1.15rem;
+}
+
+.postup-process-trust-badge span {
+  font-size: 0.9rem;
+}
+
+.postup-process-duo {
+  padding: 76px 0 12px;
+  border-top: 1px solid var(--postup-line);
+}
+
+.postup-process-duo article {
+  background: #fff;
+}
+
+.postup-process-duo article:last-child {
+  background: var(--postup-blue);
+}
+
+.postup-process-duo h2 {
+  margin: 8px 0 14px;
+  font-size: 2rem;
+}
+
+.postup-process-duo p:last-child {
+  margin: 0;
+}
+
+.postup-process-faq {
+  max-width: 900px;
+}
+
+.postup-process-faq details {
+  margin: 0 0 10px;
+  padding: 18px 20px;
+  border: 1px solid var(--postup-line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.postup-process-faq summary {
+  min-height: 28px;
+  cursor: pointer;
+  color: var(--postup-navy);
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.postup-process-faq details p {
+  max-width: 780px;
+  margin: 14px 0 0;
+}
+
+.postup-process-final-cta {
+  margin-top: 72px;
+  padding: 44px 48px;
+  border: 1px solid var(--postup-blue-strong);
+  border-radius: 8px;
+  background: var(--postup-blue);
+  text-align: center;
+}
+
+.postup-process-final-cta h2 {
+  max-width: 760px;
+  margin: 8px auto 14px;
+}
+
+.postup-process-final-cta > p:not(.postup-process-kicker) {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.postup-process-final-cta .postup-process-actions {
+  justify-content: center;
+}
+
+@media (max-width: 820px) {
+  .postup-process-page {
+    width: min(calc(100% - 28px), 640px);
+    padding-top: 20px;
+    padding-bottom: 48px;
+  }
+
+  .postup-process-page h2 {
+    font-size: 2.15rem;
+  }
+
+  .postup-process-page .postup-process-hero {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    align-items: stretch;
+    padding: 28px 0 52px;
+  }
+
+  .postup-process-page .postup-process-hero h1 {
+    margin-top: 10px;
+    font-size: 2.7rem;
+  }
+
+  .postup-process-hero-context {
+    font-size: 1.1rem;
+  }
+
+  .postup-process-hero-media {
+    order: 2;
+  }
+
+  .postup-process-trust-row {
+    margin-top: 26px;
+  }
+
+  .postup-process-answer {
+    padding: 22px 24px;
+  }
+
+  .postup-process-section {
+    padding-top: 54px;
+  }
+
+  .postup-process-step-grid,
+  .postup-process-columns,
+  .postup-process-duo,
+  .postup-process-timeline,
+  .postup-process-trust {
+    grid-template-columns: 1fr;
+  }
+
+  .postup-process-step:nth-child(-n + 3),
+  .postup-process-step:nth-child(n + 4) {
+    grid-column: auto;
+  }
+
+  .postup-process-step {
+    padding: 22px;
+  }
+
+  .postup-process-columns article,
+  .postup-process-duo article,
+  .postup-process-trust-badge {
+    padding: 24px 22px;
+  }
+
+  .postup-process-timeline {
+    gap: 14px;
+  }
+
+  .postup-process-timeline article {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    column-gap: 12px;
+    padding-top: 13px;
+  }
+
+  .postup-process-timeline article h3 {
+    margin: 0 0 5px;
+  }
+
+  .postup-process-timeline article p {
+    grid-column: 2;
+  }
+
+  .postup-process-roofer {
+    display: block;
+    margin: 52px 0;
+    padding: 28px 22px;
+  }
+
+  .postup-process-roofer .button {
+    display: inline-flex;
+    margin-top: 12px;
+  }
+
+  .postup-process-trust {
+    gap: 24px;
+  }
+
+  .postup-process-duo {
+    padding-top: 54px;
+  }
+
+  .postup-process-final-cta {
+    margin-top: 52px;
+    padding: 30px 22px;
+  }
+}
+
+@media (max-width: 520px) {
+  body:has(.postup-process-page) .whatsapp-btn {
+    bottom: 14px;
+  }
+
+  .postup-process-page .postup-process-hero h1 {
+    font-size: 2.35rem;
+  }
+
+  .postup-process-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .postup-process-page .postup-process-actions .button {
+    width: 100%;
+  }
+
+  .postup-process-trust-row {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .postup-process-trust-row span {
+    grid-template-columns: 130px minmax(0, 1fr);
+    align-items: baseline;
+  }
+
+  .postup-process-page h2 {
+    font-size: 2rem;
   }
 }

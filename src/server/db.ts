@@ -43,6 +43,8 @@ import type {
   ReviewRequestStatus,
   Roofer,
   RooferInput,
+  RooferRegistration,
+  RooferRegistrationStatus,
   SiteContentItem,
   Testimonial,
   TestimonialInput,
@@ -66,6 +68,7 @@ type LocalDb = {
   landfillPrices: LandfillPrice[];
   realizations: Realization[];
   roofers: Roofer[];
+  rooferRegistrations: RooferRegistration[];
   siteContent: SiteContentItem[];
   analyticsEvents: AnalyticsEvent[];
   adminSettings: Record<string, string>;
@@ -442,6 +445,29 @@ async function ensureSchema() {
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS failed_jobs_count integer NOT NULL DEFAULT 0;
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS internal_score numeric(5,2) NOT NULL DEFAULT 0;
 
+    CREATE TABLE IF NOT EXISTS roofer_registrations (
+      id uuid PRIMARY KEY,
+      submission_id text NOT NULL UNIQUE,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      business_type text NOT NULL DEFAULT 'other',
+      company_name text NOT NULL DEFAULT '',
+      company_id text NOT NULL DEFAULT '',
+      contact_person text NOT NULL DEFAULT '',
+      phone text NOT NULL DEFAULT '',
+      email text NOT NULL DEFAULT '',
+      website text NOT NULL DEFAULT '',
+      service_regions jsonb NOT NULL DEFAULT '[]'::jsonb,
+      specializations jsonb NOT NULL DEFAULT '[]'::jsonb,
+      other_specialization text NOT NULL DEFAULT '',
+      can_build_roof_truss text NOT NULL DEFAULT 'by_scope',
+      accept_customer_referrals boolean NOT NULL DEFAULT false,
+      consent_public_profile boolean NOT NULL DEFAULT false,
+      privacy_consent boolean NOT NULL DEFAULT false,
+      note text NOT NULL DEFAULT '',
+      status text NOT NULL DEFAULT 'new'
+    );
+
     CREATE TABLE IF NOT EXISTS roofer_events (
       id uuid PRIMARY KEY,
       roofer_id uuid NOT NULL REFERENCES roofers(id) ON DELETE CASCADE,
@@ -646,6 +672,7 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS roofers_active_region_idx ON roofers (active, region, updated_at DESC);
     CREATE INDEX IF NOT EXISTS roofer_events_roofer_created_idx ON roofer_events (roofer_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS roofer_registrations_status_created_idx ON roofer_registrations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
@@ -710,6 +737,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     landfillPrices: data.landfillPrices ?? [],
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
+    rooferRegistrations: data.rooferRegistrations ?? [],
     siteContent: data.siteContent ?? [],
     analyticsEvents: data.analyticsEvents ?? [],
     adminSettings: data.adminSettings ?? {},
@@ -796,6 +824,31 @@ function toRoofer(row: Record<string, unknown>): Roofer {
     profit: Number(row.profit ?? 0),
     createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
+  };
+}
+
+function toRooferRegistration(row: Record<string, unknown>): RooferRegistration {
+  return {
+    id: String(row.id),
+    submissionId: String(row.submission_id ?? row.submissionId ?? ''),
+    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
+    businessType: String(row.business_type ?? row.businessType ?? 'other') as RooferRegistration['businessType'],
+    companyName: String(row.company_name ?? row.companyName ?? ''),
+    companyId: String(row.company_id ?? row.companyId ?? ''),
+    contactPerson: String(row.contact_person ?? row.contactPerson ?? row.full_name ?? ''),
+    phone: String(row.phone ?? ''),
+    email: String(row.email ?? ''),
+    website: String(row.website ?? row.web ?? ''),
+    serviceRegions: parseStringArray(row.service_regions ?? row.serviceRegions ?? row.regions),
+    specializations: parseStringArray(row.specializations ?? row.specialization),
+    otherSpecialization: String(row.other_specialization ?? row.otherSpecialization ?? ''),
+    canBuildRoofTruss: String(row.can_build_roof_truss ?? row.canBuildRoofTruss ?? 'by_scope') as RooferRegistration['canBuildRoofTruss'],
+    acceptCustomerReferrals: Boolean(row.accept_customer_referrals ?? row.acceptCustomerReferrals),
+    consentPublicProfile: Boolean(row.consent_public_profile ?? row.consentPublicProfile),
+    privacyConsent: Boolean(row.privacy_consent ?? row.privacyConsent),
+    note: String(row.note ?? row.message ?? ''),
+    status: String(row.status ?? 'new') as RooferRegistrationStatus,
   };
 }
 
@@ -990,6 +1043,7 @@ async function readLocalDb(): Promise<LocalDb> {
       landfillPrices: [],
       realizations: [],
       roofers: [],
+      rooferRegistrations: [],
       siteContent: [],
       analyticsEvents: [],
       adminSettings: {},
@@ -2617,6 +2671,114 @@ export async function listRoofers(options: { publicOnly?: boolean; region?: stri
 
 export async function listPublicRoofers(filters: { region?: string; district?: string } = {}) {
   return listRoofers({ ...filters, publicOnly: true });
+}
+
+type RooferRegistrationCreateResult = {
+  registration: RooferRegistration;
+  duplicate: boolean;
+};
+
+const rooferRegistrationWrites = new Map<string, Promise<RooferRegistrationCreateResult>>();
+
+export async function listRooferRegistrations(): Promise<RooferRegistration[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.rooferRegistrations
+      .map((registration) => toRooferRegistration(registration as unknown as Record<string, unknown>))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query('SELECT * FROM roofer_registrations ORDER BY created_at DESC LIMIT 300');
+  return rows.map(toRooferRegistration);
+}
+
+export async function createRooferRegistration(input: Omit<RooferRegistration, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<RooferRegistrationCreateResult> {
+  const existingWrite = rooferRegistrationWrites.get(input.submissionId);
+  if (existingWrite) {
+    return { registration: (await existingWrite).registration, duplicate: true };
+  }
+
+  const write = (async () => {
+    await ensureSchema();
+    const db = getPool();
+    if (!db) {
+      const local = await readLocalDb();
+      const existing = local.rooferRegistrations.find((item) => item.submissionId === input.submissionId);
+      if (existing) {
+        return { registration: toRooferRegistration(existing as unknown as Record<string, unknown>), duplicate: true };
+      }
+      const timestamp = now();
+      const registration: RooferRegistration = {
+        ...input,
+        id: randomUUID(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        status: 'new',
+      };
+      local.rooferRegistrations.unshift(registration);
+      await writeLocalDb(local);
+      await addAuditLog('roofer_registration', registration.id, 'roofer_registration_created', 'public', {
+        businessType: registration.businessType,
+        companyName: registration.companyName,
+        serviceRegions: registration.serviceRegions,
+      });
+      return { registration, duplicate: false };
+    }
+
+    const timestamp = now();
+    const { rows } = await db.query(
+      `INSERT INTO roofer_registrations (
+        id, submission_id, created_at, updated_at, business_type, company_name, company_id,
+        contact_person, phone, email, website, service_regions, specializations,
+        other_specialization, can_build_roof_truss, accept_customer_referrals,
+        consent_public_profile, privacy_consent, note, status
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20)
+      ON CONFLICT (submission_id) DO NOTHING
+      RETURNING *`,
+      [
+        randomUUID(),
+        input.submissionId,
+        timestamp,
+        timestamp,
+        input.businessType,
+        input.companyName,
+        input.companyId,
+        input.contactPerson,
+        input.phone,
+        input.email,
+        input.website,
+        JSON.stringify(input.serviceRegions),
+        JSON.stringify(input.specializations),
+        input.otherSpecialization,
+        input.canBuildRoofTruss,
+        input.acceptCustomerReferrals,
+        input.consentPublicProfile,
+        input.privacyConsent,
+        input.note,
+        'new',
+      ],
+    );
+    if (rows[0]) {
+      const registration = toRooferRegistration(rows[0]);
+      await addAuditLog('roofer_registration', registration.id, 'roofer_registration_created', 'public', {
+        businessType: registration.businessType,
+        companyName: registration.companyName,
+        serviceRegions: registration.serviceRegions,
+      });
+      return { registration, duplicate: false };
+    }
+    const duplicate = await db.query('SELECT * FROM roofer_registrations WHERE submission_id = $1 LIMIT 1', [input.submissionId]);
+    if (!duplicate.rows[0]) throw new Error('Roofer registration was not persisted.');
+    return { registration: toRooferRegistration(duplicate.rows[0]), duplicate: true };
+  })();
+
+  rooferRegistrationWrites.set(input.submissionId, write);
+  try {
+    return await write;
+  } finally {
+    if (rooferRegistrationWrites.get(input.submissionId) === write) rooferRegistrationWrites.delete(input.submissionId);
+  }
 }
 
 export async function listMatchingRoofers(lead: Pick<Lead, 'city' | 'district'>, limit = 5) {

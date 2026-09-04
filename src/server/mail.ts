@@ -556,14 +556,36 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
 }
 
 export type RooferRegistrationEmail = {
-  fullName: string;
-  companyName?: string;
+  id?: string;
+  submissionId: string;
+  businessType: 'sro' | 'szco' | 'other';
+  companyName: string;
+  companyId?: string;
+  contactPerson: string;
   phone: string;
   email: string;
-  regions: string[];
-  jobTypes: string[];
-  message?: string;
+  website?: string;
+  serviceRegions: string[];
+  specializations: string[];
+  otherSpecialization?: string;
+  canBuildRoofTruss: 'yes' | 'no' | 'by_scope';
+  acceptCustomerReferrals: boolean;
+  consentPublicProfile: boolean;
+  privacyConsent: boolean;
+  note?: string;
 };
+
+const rooferBusinessTypeLabels = {
+  sro: 's.r.o.',
+  szco: 'živnostník / SZČO',
+  other: 'iné',
+} as const;
+
+const rooferTrussLabels = {
+  yes: 'áno',
+  no: 'nie',
+  by_scope: 'podľa rozsahu zákazky',
+} as const;
 
 export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail) {
   const client = transporter();
@@ -572,21 +594,31 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
   const adminText = [
     'Prišla nová registrácia strechára z webu likvidacia-eternitu.sk.',
     '',
-    `Meno: ${input.fullName}`,
-    `Firma / živnosť: ${input.companyName || 'neuvedené'}`,
+    `Registrácia: ${input.id || 'bez ID'}`,
+    `Submission ID: ${input.submissionId}`,
+    `Forma podnikania: ${rooferBusinessTypeLabels[input.businessType]}`,
+    `Firma / obchodné meno: ${input.companyName}`,
+    `IČO: ${input.companyId || 'neuvedené'}`,
+    `Konajúca osoba: ${input.contactPerson}`,
     `Telefón: ${input.phone}`,
     `Email: ${input.email}`,
-    `Regióny: ${input.regions.join(', ')}`,
-    `Typ zákaziek: ${input.jobTypes.length ? input.jobTypes.join(', ') : 'neuvedené'}`,
+    `Web: ${input.website || 'neuvedený'}`,
+    `Kraje pôsobenia: ${input.serviceRegions.join(', ')}`,
+    `Špecializácie: ${input.specializations.join(', ')}`,
+    `Iná špecializácia: ${input.otherSpecialization || 'neuvedená'}`,
+    `Nový krov: ${rooferTrussLabels[input.canBuildRoofTruss]}`,
+    `Posielať zákazníkov: ${input.acceptCustomerReferrals ? 'áno' : 'nie'}`,
+    `Súhlas s verejným profilom: ${input.consentPublicProfile ? 'áno' : 'nie'}`,
+    `Súhlas so spracovaním údajov: ${input.privacyConsent ? 'áno' : 'nie'}`,
     '',
-    `Poznámka: ${input.message || 'bez poznámky'}`,
+    `Poznámka: ${input.note || 'bez poznámky'}`,
   ].join('\n');
 
   await client.sendMail({
     from: namedFromHeader('ASTANA systém'),
     to: leadRecipient(),
     replyTo: input.email,
-    subject: `[STRECHÁR] Nová registrácia — ${input.fullName}`,
+    subject: `[STRECHÁR] Nová registrácia — ${input.companyName}`,
     text: adminText,
   });
 
@@ -596,9 +628,9 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
     replyTo: leadRecipient(),
     subject: 'Prijali sme vašu registráciu — ASTANA',
     text: [
-      `Dobrý deň, ${input.fullName},`,
+      `Dobrý deň, ${input.contactPerson},`,
       '',
-      'Ďakujeme za registráciu do siete ASTANA. Ozveme sa vám do 48 hodín na zadané telefónne číslo a prejdeme si možnosti spolupráce.',
+      'Ďakujeme za registráciu do partnerskej siete ASTANA. Údaje si najprv interne skontrolujeme a následne sa vám ozveme ohľadom možností spolupráce.',
       '',
       'ASTANA, s.r.o.',
       '0905 217 946',

@@ -321,7 +321,8 @@ export default async function HomePage() {
     ...homeContentDefaults,
     ...normalizedContent,
     heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
-    heroClaim: 'ASTANA, s.r.o. - odborný postup, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
+    heroClaim:
+      'Vy nám pošlete približnú výmeru a obec. My sa postaráme o potrebné doklady, bezpečnú demontáž, zabalenie aj odvoz.',
     heroText:
       'ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
     ctaPrimary: 'Chcem cenovú ponuku',
@@ -409,10 +410,16 @@ export default async function HomePage() {
               <a className="button button-primary" href="#dopyt">
                 {content.ctaPrimary}
               </a>
-              <a className="button button-outline" href="tel:+421905217946">
-                <span className="button-phone" aria-hidden="true"></span>{content.ctaPhone}
+            <a className="button button-outline" href="tel:+421905217946">
+                <span className="button-phone" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 2.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 20 16.92z" />
+                  </svg>
+                </span>
+                {content.ctaPhone}
               </a>
             </div>
+            <p className="hero-microcopy">Fotky sú voliteľné · Bez záväzku</p>
             <div className="hero-counters" data-hero-counters aria-label="Výsledky ASTANA v číslach">
               {heroCounters.map((counter) => (
                 <div className="hero-counter-item" key={counter.label}>
@@ -475,9 +482,9 @@ export default async function HomePage() {
             <div className="quote-info-panel">
               <div className="quote-panel-main">
               <p className="eyebrow">Rýchle nacenenie</p>
-              <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
+              <h2>Čo bude nasledovať po odoslaní dopytu?</h2>
               <p>
-                Formulár zostáva krátky. Najdôležitejšia je približná výmera v m2, lokalita a kontakt, aby sme vedeli pripraviť reálnu ponuku.
+                Dopyt si skontrolujeme. Ak bude treba, doplníme s vami detaily a potom vám pripravíme konkrétnu cenovú ponuku.
               </p>
               <ul>
                 <li><VisualIcon name="check" className="quote-panel-icon" />Bez záväzku a bez automatickej objednávky</li>
@@ -503,7 +510,17 @@ export default async function HomePage() {
               <span></span>
             </div>
             <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data" noValidate>
-              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <input
+                className="hp-field"
+                type="text"
+                name="companyWebsite"
+                tabIndex={-1}
+                autoComplete="new-password"
+                aria-hidden="true"
+                data-submit-disabled="true"
+                disabled
+              />
+              <input id="submissionId" type="hidden" name="submissionId" value="" />
               <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
               <div className="form-stage form-stage-priority">
                 <p className="form-stage-title">1. Výmera a lokalita</p>

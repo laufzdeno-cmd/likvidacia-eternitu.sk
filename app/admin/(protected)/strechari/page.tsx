@@ -1,4 +1,5 @@
-import { listLeadSummaries, listRoofers } from '@/src/server/db';
+import { Fragment } from 'react';
+import { listLeadSummaries, listRooferRegistrations, listRoofers } from '@/src/server/db';
 import { getLeadInsight } from '@/src/server/lead-insights';
 import { createRooferAction, importRoofersAction, updateRooferFlagsAction } from './actions';
 
@@ -13,8 +14,12 @@ const regions = [
   'Košický',
 ];
 
+const businessTypeLabels = { sro: 's.r.o.', szco: 'živnostník / SZČO', other: 'iné' } as const;
+const trussLabels = { yes: 'áno', no: 'nie', by_scope: 'podľa rozsahu' } as const;
+const registrationStatusLabels = { new: 'nová', reviewed: 'skontrolovaná', archived: 'archivovaná' } as const;
+
 export default async function RoofersAdminPage() {
-  const [roofers, leads] = await Promise.all([listRoofers(), listLeadSummaries()]);
+  const [roofers, leads, registrations] = await Promise.all([listRoofers(), listLeadSummaries(), listRooferRegistrations()]);
   const wantsRooferLeads = leads.filter((lead) => getLeadInsight(lead, lead.fileCount, lead.quoteCount).tags.includes('potrebuje_strechara'));
 
   return (
@@ -32,6 +37,71 @@ export default async function RoofersAdminPage() {
         <article><span>Overení partneri</span><strong>{roofers.filter((item) => item.verifiedPartner).length}</strong></article>
         <article><span>V overovaní</span><strong>{roofers.filter((item) => item.inVerification).length}</strong></article>
         <article><span>Dopyty chcú strechára</span><strong>{wantsRooferLeads.length}</strong></article>
+      </section>
+
+      <section className="admin-card">
+        <h2>Nové registrácie partnerov</h2>
+        <p className="admin-muted">
+          Registrácie sú iba interné podklady na overenie. Súhlas s verejným profilom sám o sebe partnera nezverejní.
+        </p>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Firma</th>
+                <th>Kontakt</th>
+                <th>Kraje</th>
+                <th>Špecializácie</th>
+                <th>Nový krov</th>
+                <th>Zákazníci</th>
+                <th>Verejný profil</th>
+              </tr>
+            </thead>
+            <tbody>
+              {registrations.map((registration) => (
+                <Fragment key={registration.id}>
+                  <tr key={registration.id}>
+                    <td>
+                      <strong>{registration.companyName}</strong><br />
+                      <small>{businessTypeLabels[registration.businessType]} · {registration.companyId || 'IČO neuvedené'}</small><br />
+                      <small>stav: {registrationStatusLabels[registration.status] || registration.status}</small>
+                    </td>
+                    <td>
+                      {registration.contactPerson}<br />
+                      <a href={`tel:${registration.phone}`}>{registration.phone}</a><br />
+                      <a href={`mailto:${registration.email}`}>{registration.email}</a>
+                    </td>
+                    <td>{registration.serviceRegions.join(', ')}</td>
+                    <td>{registration.specializations.join(', ')}{registration.otherSpecialization ? <><br /><small>{registration.otherSpecialization}</small></> : null}</td>
+                    <td>{trussLabels[registration.canBuildRoofTruss] || registration.canBuildRoofTruss}</td>
+                    <td>{registration.acceptCustomerReferrals ? 'áno' : 'nie'}</td>
+                    <td>{registration.consentPublicProfile ? 'áno' : 'nie'}</td>
+                  </tr>
+                  <tr key={`${registration.id}-detail`}>
+                    <td colSpan={7}>
+                      <details className="admin-roofer-registration-detail">
+                        <summary>Zobraziť všetky údaje registrácie</summary>
+                        <dl>
+                          <div><dt>Vytvorená</dt><dd>{new Date(registration.createdAt).toLocaleString('sk-SK')}</dd></div>
+                          <div><dt>Web</dt><dd>{/^https?:\/\//i.test(registration.website) ? <a href={registration.website} target="_blank" rel="noreferrer">{registration.website}</a> : registration.website || 'neuvedený'}</dd></div>
+                          <div><dt>Kraje pôsobenia</dt><dd>{registration.serviceRegions.join(', ')}</dd></div>
+                          <div><dt>Špecializácie</dt><dd>{registration.specializations.join(', ')}{registration.otherSpecialization ? ` · ${registration.otherSpecialization}` : ''}</dd></div>
+                          <div><dt>Nový krov</dt><dd>{trussLabels[registration.canBuildRoofTruss] || registration.canBuildRoofTruss}</dd></div>
+                          <div><dt>Posielať zákazníkov</dt><dd>{registration.acceptCustomerReferrals ? 'áno' : 'nie'}</dd></div>
+                          <div><dt>Verejný profil</dt><dd>{registration.consentPublicProfile ? 'áno' : 'nie'}</dd></div>
+                          <div><dt>Spracovanie údajov</dt><dd>{registration.privacyConsent ? 'áno' : 'nie'}</dd></div>
+                          <div><dt>Poznámka</dt><dd>{registration.note || 'bez poznámky'}</dd></div>
+                          <div><dt>Submission ID</dt><dd>{registration.submissionId}</dd></div>
+                        </dl>
+                      </details>
+                    </td>
+                  </tr>
+                </Fragment>
+              ))}
+              {!registrations.length ? <tr><td colSpan={7}>Zatiaľ neprišla žiadna nová registrácia.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="admin-card">
