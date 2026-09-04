@@ -587,6 +587,91 @@ const rooferTrussLabels = {
   by_scope: 'podľa rozsahu zákazky',
 } as const;
 
+function rooferRegistrationRows(input: RooferRegistrationEmail) {
+  return [
+    ['Forma podnikania', rooferBusinessTypeLabels[input.businessType]],
+    ['Firma / obchodné meno', input.companyName],
+    ['IČO', input.companyId || 'neuvedené'],
+    ['Kontaktná osoba', input.contactPerson],
+    ['Telefón', input.phone],
+    ['Email', input.email],
+    ['Web', input.website || 'neuvedený'],
+    ['Kraje pôsobenia', input.serviceRegions.join(', ')],
+    ['Špecializácie', input.specializations.join(', ')],
+    ['Iná špecializácia', input.otherSpecialization || 'neuvedená'],
+    ['Nový krov', rooferTrussLabels[input.canBuildRoofTruss]],
+    ['Posielať zákazníkov', input.acceptCustomerReferrals ? 'áno' : 'nie'],
+    ['Verejný profil', input.consentPublicProfile ? 'áno' : 'nie'],
+    ['Spracovanie údajov', input.privacyConsent ? 'áno' : 'nie'],
+    ['Poznámka', input.note || 'bez poznámky'],
+  ] as const;
+}
+
+function rooferRegistrationEmailHtml(input: RooferRegistrationEmail) {
+  const rows = rooferRegistrationRows(input);
+  const adminUrl = `${siteUrl()}/admin/strechari/`;
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#f4f7f8;font-family:Arial,sans-serif;">
+    <tr><td style="padding:24px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;border:1px solid #dce7ec;">
+        <tr><td style="background:#0f1f3d;padding:24px 28px;color:#ffffff;">
+          <div style="font-size:22px;font-weight:700;line-height:1.2;">Nová registrácia strechára</div>
+          <div style="margin-top:6px;color:#c9d5e8;font-size:13px;line-height:1.5;">ASTANA partnerská sieť · ${escapeHtml(input.companyName)}</div>
+        </td></tr>
+        <tr><td style="background:#eaf7ed;border-left:5px solid #2d7a3a;padding:14px 20px;color:#175b2a;font-size:14px;font-weight:700;line-height:1.45;">Registrácia bola uložená a čaká na internú kontrolu.</td></tr>
+        <tr><td style="padding:24px 28px;">
+          <div style="margin-bottom:14px;color:#687284;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Údaje registrácie</div>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            ${rows.map(([label, value]) => `
+              <tr>
+                <td style="padding:9px 14px 9px 0;width:36%;border-bottom:1px solid #edf1f3;color:#687284;font-size:13px;vertical-align:top;">${escapeHtml(label)}</td>
+                <td style="padding:9px 0;border-bottom:1px solid #edf1f3;color:#1f2d3d;font-size:14px;font-weight:600;line-height:1.45;vertical-align:top;">${escapeHtml(value)}</td>
+              </tr>`).join('')}
+          </table>
+        </td></tr>
+        <tr><td style="background:#f7f4ee;padding:20px 28px;text-align:center;">
+          <a href="${adminUrl}" style="display:inline-block;background:#d34a22;color:#ffffff;padding:13px 24px;border-radius:7px;font-size:15px;font-weight:700;text-decoration:none;">Otvoriť registrácie v admine</a>
+          <div style="margin-top:10px;color:#687284;font-size:11px;line-height:1.5;">Registráciu nájdete v sekcii Strechári.</div>
+        </td></tr>
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 28px;text-align:center;color:#64748b;font-size:11px;line-height:1.5;">ASTANA, s.r.o. · likvidacia-eternitu.sk</td></tr>
+      </table>
+    </td></tr>
+  </table>`;
+}
+
+function rooferRegistrationConfirmationEmailHtml(input: RooferRegistrationEmail) {
+  return `
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#f4f7f8;font-family:Arial,sans-serif;">
+    <tr><td style="padding:24px 12px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;border:1px solid #dce7ec;">
+        <tr><td style="background:#0f1f3d;padding:26px 28px;color:#ffffff;">
+          <div style="font-size:24px;font-weight:700;line-height:1.2;">ASTANA</div>
+          <div style="margin-top:6px;color:#c9d5e8;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">partnerská sieť strechárov</div>
+        </td></tr>
+        <tr><td style="padding:28px;">
+          <div style="display:inline-block;background:#eaf7ed;color:#175b2a;padding:8px 12px;border-radius:6px;font-size:13px;font-weight:700;">✓ Registráciu sme prijali</div>
+          <h1 style="margin:20px 0 12px;color:#0f1f3d;font-size:24px;line-height:1.25;">Ďakujeme, ${escapeHtml(input.contactPerson)}.</h1>
+          <p style="margin:0;color:#374151;font-size:15px;line-height:1.65;">Vaše údaje sme prijali. Najprv ich interne skontrolujeme a potom sa vám ozveme ohľadom možností spolupráce.</p>
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-collapse:collapse;background:#f7f4ee;border-left:4px solid #d34a22;">
+            <tr><td style="padding:16px 18px;color:#263451;font-size:14px;line-height:1.7;">
+              <strong>Čo bude nasledovať</strong><br />
+              1. Skontrolujeme údaje o vašej firme a pôsobnosti.<br />
+              2. Ozveme sa vám, ak bude spolupráca dávať zmysel pre obe strany.
+            </td></tr>
+          </table>
+          <div style="margin-top:24px;color:#687284;font-size:12px;line-height:1.5;">Registrovaná firma</div>
+          <div style="margin-top:4px;color:#0f1f3d;font-size:16px;font-weight:700;">${escapeHtml(input.companyName)}</div>
+        </td></tr>
+        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 28px;text-align:center;color:#475569;font-size:12px;line-height:1.6;">
+          <div style="font-weight:700;color:#263451;">Máte otázky?</div>
+          <a href="tel:+421905217946" style="display:inline-block;margin-top:5px;color:#263451;font-size:18px;font-weight:700;text-decoration:none;">0905 217 946</a>
+          <div style="margin-top:5px;">ASTANA, s.r.o. · likvidacia-eternitu.sk</div>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>`;
+}
+
 export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail) {
   const client = transporter();
   if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
@@ -620,6 +705,7 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
     replyTo: input.email,
     subject: `[STRECHÁR] Nová registrácia — ${input.companyName}`,
     text: adminText,
+    html: rooferRegistrationEmailHtml(input),
   });
 
   await client.sendMail({
@@ -636,6 +722,7 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
       '0905 217 946',
       'astana@astana.sk',
     ].join('\n'),
+    html: rooferRegistrationConfirmationEmailHtml(input),
   });
 
   return { sent: true };

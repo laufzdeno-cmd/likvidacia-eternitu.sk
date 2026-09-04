@@ -8999,17 +8999,33 @@ body:has(main.roofer-b2b-page) .footer-brand {
 }
 
 .roofer-registration-status {
+  display: none;
   white-space: pre-line;
   margin: 0;
+  padding: 14px 16px;
+  border: 1px solid #dce7ec;
+  border-radius: 8px;
+  background: #ffffff;
   font-size: 15px;
-  line-height: 1.35;
+  line-height: 1.45;
+}
+
+.roofer-registration-status:not(:empty) {
+  display: block;
 }
 
 .roofer-registration-status.is-success {
-  color: #2d7a3a;
+  border-color: #a9d1b1;
+  border-left: 5px solid #2d7a3a;
+  background: #eaf7ed;
+  color: #175b2a;
+  font-weight: 700;
 }
 
 .roofer-registration-status.is-error {
+  border-color: #e9b8bd;
+  border-left: 5px solid #a1121f;
+  background: #fff4f5;
   color: #a1121f;
 }
 
