@@ -65,8 +65,6 @@ export function SummaryBox({ items }: { items: Array<readonly [string, string]> 
 export function TrustBox() {
   const stats = [
     site.claimedStats.foundedOrActiveSince.confirmed ? ['Od roku', site.claimedStats.foundedOrActiveSince.value] : null,
-    site.claimedStats.disposedArea.confirmed ? ['Zlikvidovaných', site.claimedStats.disposedArea.value] : null,
-    site.claimedStats.customers.confirmed ? ['Zákazníkov', site.claimedStats.customers.value] : null,
   ].filter(Boolean) as Array<[string, string]>;
 
   return (

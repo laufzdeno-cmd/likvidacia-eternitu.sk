@@ -137,7 +137,7 @@ export default function ProcessPage() {
             <p className="postup-process-micro">Stačí približná výmera <span aria-hidden="true">·</span> Fotky sú voliteľné</p>
             <div className="postup-process-trust-row" aria-label="Základné údaje o ASTANA">
               <span><strong>{site.areaServed}</strong><small>Pôsobnosť</small></span>
-              <span><strong>{site.claimedStats.disposedArea.value}</strong><small>Skúseností v rozsahu prác</small></span>
+              <span><strong>ÚVZ SR</strong><small>Verejný register</small></span>
               <span><strong>{site.claimedStats.foundedOrActiveSince.value}</strong><small>Na trhu od</small></span>
             </div>
           </div>

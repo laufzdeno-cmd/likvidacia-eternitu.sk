@@ -12,15 +12,6 @@ import { cleanSlovakText } from '@/src/server/slovak-text';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
 import { site } from '@/src/content/site';
 
-
-const statNumber = (value: string) => Number(value.replace(/m2.*$/i, '').replace(/\D/g, ''));
-
-const heroCounters = [
-  { value: statNumber(site.claimedStats.disposedArea.value), suffix: '+', label: 'm2 zlikvidovaných', start: 0, format: 'locale' },
-  { value: statNumber(site.claimedStats.customers.value), suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
-  { value: statNumber(site.claimedStats.foundedOrActiveSince.value), suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
-] as const;
-
 const heroImage = {
   mobileWebp: '/assets/azbest/hero/azbest-087-mobile-480.webp',
   mobileWebpSrcSet: '/assets/azbest/hero/azbest-087-mobile-480.webp 480w',
@@ -40,9 +31,6 @@ const realizationFilters = [
   { value: 'garaz', label: 'Garáž' },
   { value: 'priemyselny-objekt', label: 'Priemyselný objekt' },
 ] as const;
-
-const formatHeroCounterValue = (counter: (typeof heroCounters)[number]) =>
-  `${counter.value === 2011 ? counter.value.toString() : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
 
 const whyCardMeta = [
   { icon: 'shield', title: 'Bezpečný postup' },
@@ -238,44 +226,6 @@ function buildJsonLd(faq: [string, string][]) {
     '@context': 'https://schema.org',
     '@graph': [
       {
-        '@type': 'Organization',
-        '@id': 'https://likvidacia-eternitu.sk/#organization',
-        name: 'ASTANA',
-        legalName: 'ASTANA, s.r.o.',
-        url: 'https://likvidacia-eternitu.sk/',
-        telephone: '+421905217946',
-        email: 'astana@astana.sk',
-        foundingDate: '2011',
-        taxID: '46 157 701',
-        vatID: 'SK2023253771',
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: 'Scherffelova 1364/28',
-          postalCode: '058 01',
-          addressLocality: 'Poprad',
-          addressCountry: 'SK',
-        },
-        sameAs: ['https://astana.sk'],
-      },
-      {
-        '@type': 'ProfessionalService',
-        '@id': 'https://likvidacia-eternitu.sk/#business',
-        name: 'ASTANA - likvidácia azbestu a eternitu',
-        url: 'https://likvidacia-eternitu.sk/',
-        telephone: '+421905217946',
-        email: 'astana@astana.sk',
-        taxID: '46 157 701',
-        vatID: 'SK2023253771',
-        areaServed: { '@type': 'Country', name: 'Slovensko' },
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: 'Scherffelova 1364/28',
-          postalCode: '058 01',
-          addressLocality: 'Poprad',
-          addressCountry: 'SK',
-        },
-      },
-      {
         '@type': 'Service',
         '@id': 'https://likvidacia-eternitu.sk/#service',
         name: 'Likvidácia azbestu a eternitu',
@@ -298,13 +248,6 @@ function buildJsonLd(faq: [string, string][]) {
         '@type': 'BreadcrumbList',
         '@id': 'https://likvidacia-eternitu.sk/#breadcrumbs',
         itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Úvod', item: 'https://likvidacia-eternitu.sk/' }],
-      },
-      {
-        '@type': 'WebSite',
-        '@id': 'https://likvidacia-eternitu.sk/#website',
-        name: 'Likvidácia azbestu a eternitu ASTANA',
-        url: 'https://likvidacia-eternitu.sk/',
-        publisher: { '@id': 'https://likvidacia-eternitu.sk/#organization' },
       },
     ],
   };
@@ -420,21 +363,19 @@ export default async function HomePage() {
               </a>
             </div>
             <p className="hero-microcopy">Fotky sú voliteľné · Bez záväzku</p>
-            <div className="hero-counters" data-hero-counters aria-label="Výsledky ASTANA v číslach">
-              {heroCounters.map((counter) => (
-                <div className="hero-counter-item" key={counter.label}>
-                  <strong
-                    data-hero-counter
-                    data-counter-target={counter.value}
-                    data-counter-start={counter.start}
-                    data-counter-suffix={counter.suffix}
-                    data-counter-format={counter.format}
-                  >
-                    {formatHeroCounterValue(counter)}
-                  </strong>
-                  <span>{counter.label}</span>
-                </div>
-              ))}
+            <div className="hero-counters" aria-label="Základné údaje o ASTANA">
+              <div className="hero-counter-item">
+                <strong>Od 2011</strong>
+                <span>pôsobíme na trhu</span>
+              </div>
+              <div className="hero-counter-item">
+                <strong>Celé Slovensko</strong>
+                <span>pôsobnosť</span>
+              </div>
+              <div className="hero-counter-item">
+                <strong>ÚVZ SR</strong>
+                <span>verejný register</span>
+              </div>
             </div>
             <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
           </div>

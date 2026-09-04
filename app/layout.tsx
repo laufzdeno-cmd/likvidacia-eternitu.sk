@@ -45,10 +45,6 @@ export const metadata: Metadata = {
     follow: true,
   },
   other: {
-    'geo.region': 'SK',
-    'geo.placename': 'Slovensko',
-    'geo.position': '48.9;19.5',
-    ICBM: '48.9, 19.5',
     author: site.legalName,
   },
 };
