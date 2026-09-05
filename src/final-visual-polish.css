@@ -8781,7 +8781,7 @@ main .quote-panel-testimonial-author {
   align-items: center;
   justify-content: center;
   padding: 0 18px;
-  background: linear-gradient(135deg, #e8541a, #b33118);
+  background: #ef4f2f;
   color: #ffffff;
   border-color: transparent;
   text-decoration: none;
@@ -8807,13 +8807,21 @@ main .quote-panel-testimonial-author {
   gap: 14px;
   padding: 16px;
   border: 1px solid #b7d4ff;
+  border-left: 4px solid #1677ff;
   border-radius: 14px;
-  background: linear-gradient(135deg, #d5e9ff 0%, #edf6ff 44%, #ffffff 100%);
+  background: #edf6ff;
 }
 
 .analytics-funnel article:nth-child(even) {
-  border-color: #e9b778;
-  background: linear-gradient(135deg, #ffe5c7 0%, #fff2e3 42%, #ffffff 100%);
+  border-color: #f5bd7a;
+  border-left-color: #f97316;
+  background: #fff3e3;
+}
+
+.analytics-funnel article:nth-child(3n) {
+  border-color: #9dddbd;
+  border-left-color: #139b62;
+  background: #edf9f3;
 }
 
 .analytics-funnel article > span {
@@ -8835,7 +8843,7 @@ main .quote-panel-testimonial-author {
 
 .analytics-funnel small {
   margin-top: 3px;
-  color: #68758a;
+  color: #4c6382;
 }
 
 .analytics-funnel b {
@@ -8862,7 +8870,7 @@ main .quote-panel-testimonial-author {
 
 .analytics-day span,
 .analytics-day small {
-  color: #68758a;
+  color: #4c6382;
   font-size: 11px;
   white-space: nowrap;
 }
@@ -8872,7 +8880,8 @@ main .quote-panel-testimonial-author {
   align-items: end;
   justify-content: center;
   border-radius: 999px;
-  background: rgba(159, 197, 255, 0.2);
+  border: 1px solid #c4dcff;
+  background: #e4f0ff;
   overflow: hidden;
 }
 
@@ -8881,7 +8890,7 @@ main .quote-panel-testimonial-author {
   width: 100%;
   min-height: 6px;
   border-radius: 999px 999px 0 0;
-  background: linear-gradient(180deg, #e8541a, #185fa5);
+  background: #1677ff;
 }
 
 .admin-two-col {

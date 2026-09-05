@@ -11075,7 +11075,7 @@ body .admin-main .admin-page .price-offer-layout .admin-card:nth-child(even) {
 /* Admin full QA polish: readable navigation groups and denser tables. */
 .admin-shell {
   grid-template-columns: 200px minmax(0, 1fr) !important;
-  background: #f4f5f7 !important;
+  background: #f7fbff !important;
 }
 
 .admin-sidebar {
@@ -11085,7 +11085,7 @@ body .admin-main .admin-page .price-offer-layout .admin-card:nth-child(even) {
 
 .admin-main,
 .admin-page {
-  background: #f4f5f7 !important;
+  background: #f7fbff !important;
 }
 
 .admin-topbar {
@@ -11133,10 +11133,10 @@ body .admin-main .admin-page .price-offer-layout .admin-card:nth-child(even) {
 
 body .admin-main .admin-page .admin-card,
 .admin-card {
-  border: 1px solid #e2e8f0 !important;
+  border: 1px solid #bfd4ec !important;
   border-radius: 10px !important;
   background: #ffffff !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: none !important;
   padding: 20px 24px !important;
 }
 
