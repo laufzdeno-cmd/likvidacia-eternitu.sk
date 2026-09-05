@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/src/server/auth';
-import { listBusinessJobs } from '@/src/server/db';
+import { addAuditLog, listBusinessJobs } from '@/src/server/db';
+import { csvCell } from '@/src/server/csv';
 import { jobStatusLabels, landfillLabels, paymentLabels, workTypeLabels } from '../constants';
 
-function csvCell(value: string | number) {
-  const text = String(value);
-  return /[",;\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
 export async function GET(request: NextRequest) {
-  await requireAdmin();
+  const actorEmail = await requireAdmin();
   const month = request.nextUrl.searchParams.get('month') || '';
   const bounds = month ? { from: `${month}-01`, to: new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).toISOString().slice(0, 10) } : {};
   const jobs = await listBusinessJobs(bounds);
+  await addAuditLog('system', 'business_jobs', 'business_jobs_exported', actorEmail, { month: month || 'all' });
   const header = ['dátum', 'meno', 'lokalita', 'm2', 'cena/m2', 'celkom €', 'platba', 'typ práce', 'váha kg', 'skládka', 'tím', 'odmeny', 'náklady', 'zisk €', 'stav'];
   const lines = [
     header.join(';'),

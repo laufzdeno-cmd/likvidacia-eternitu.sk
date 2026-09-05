@@ -7,6 +7,8 @@ import type {
   AnalyticsEvent,
   AnalyticsEventInput,
   AnalyticsReport,
+  AnalyticsTrafficSlice,
+  AnalyticsTrafficSummary,
   AdminRole,
   AdminUser,
   AdminUserInput,
@@ -20,8 +22,11 @@ import type {
   BusinessWorkType,
   LandfillPrice,
   Lead,
+  LeadDuplicateMatch,
   LeadFile,
   LeadInput,
+  LeadQueueCounts,
+  LeadSummaryPage,
   LeadStatus,
   LeadSummary,
   PriceOffer,
@@ -78,7 +83,7 @@ type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: Aud
 type BusinessJobWithActivity = BusinessJob & { activityLogs: AuditLog[] };
 
 const databaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
-const localDbPath = path.join(process.cwd(), '.data', 'local-db.json');
+const localDbPath = process.env.ASTANA_LOCAL_DB_PATH || path.join(process.cwd(), '.data', 'local-db.json');
 const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
 
 let pool: Pool | undefined;
@@ -146,6 +151,8 @@ function toLead(row: Record<string, unknown>): Lead {
     wantsRooferRecommendation: Boolean(row.wants_roofer_recommendation ?? row.wantsRooferRecommendation),
     selectedRooferId: row.selected_roofer_id ? String(row.selected_roofer_id) : row.selectedRooferId ? String(row.selectedRooferId) : '',
     internalNote: row.internal_note ? cleanSlovakText(String(row.internal_note)) : '',
+    ownerEmail: row.owner_email ? String(row.owner_email).trim().toLowerCase() : row.ownerEmail ? String(row.ownerEmail).trim().toLowerCase() : '',
+    nextAction: row.next_action ? cleanSlovakText(String(row.next_action)) : row.nextAction ? cleanSlovakText(String(row.nextAction)) : '',
     followupDate: dateOnly(row.followup_date ?? row.followupDate),
     followupNote: row.followup_note ? cleanSlovakText(String(row.followup_note)) : row.followupNote ? cleanSlovakText(String(row.followupNote)) : '',
     followupNotificationSent: Boolean(row.followup_notif_odoslana ?? row.followupNotificationSent),
@@ -293,6 +300,8 @@ async function ensureSchema() {
       wants_roofer_recommendation boolean NOT NULL DEFAULT false,
       selected_roofer_id text NOT NULL DEFAULT '',
       internal_note text NOT NULL DEFAULT '',
+      owner_email text NOT NULL DEFAULT '',
+      next_action text NOT NULL DEFAULT '',
       followup_date date,
       followup_note text NOT NULL DEFAULT '',
       followup_notif_odoslana boolean NOT NULL DEFAULT false,
@@ -303,6 +312,8 @@ async function ensureSchema() {
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS wants_roofer_recommendation boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS selected_roofer_id text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT 'Zavolajte mi';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS owner_email text NOT NULL DEFAULT '';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_action text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_date date;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_note text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_notif_odoslana boolean NOT NULL DEFAULT false;
@@ -663,6 +674,7 @@ async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
+    CREATE INDEX IF NOT EXISTS leads_owner_followup_idx ON leads (owner_email, followup_date, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
@@ -1075,6 +1087,8 @@ export async function createLead(input: LeadInput): Promise<Lead> {
     preferredContact: input.preferredContact ?? 'Zavolajte mi',
     wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
     selectedRooferId: input.selectedRooferId ?? '',
+    ownerEmail: '',
+    nextAction: '',
     rawData: input.rawData ?? {},
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -1156,13 +1170,13 @@ export async function listLeads(): Promise<Lead[]> {
   return rows.map(toLead);
 }
 
-export async function listLeadSummaries(): Promise<LeadSummary[]> {
+export async function listLeadSummaries(includeDeleted = false): Promise<LeadSummary[]> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     return [...local.leads]
-      .filter((lead) => !lead.deletedAt)
+      .filter((lead) => includeDeleted || !lead.deletedAt)
       .map((lead) => ({
         ...lead,
         fileCount: local.leadFiles.filter((file) => file.leadId === lead.id).length,
@@ -1186,19 +1200,220 @@ export async function listLeadSummaries(): Promise<LeadSummary[]> {
       FROM quotes
       GROUP BY lead_id
     ) q ON q.lead_id = l.id
-    WHERE l.deleted_at IS NULL
+    WHERE ($1::boolean OR l.deleted_at IS NULL)
     ORDER BY l.created_at DESC
     LIMIT 300
-  `);
+  `, [includeDeleted]);
   return rows.map(toLeadSummary);
 }
 
-export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null> {
+type LeadSummaryPageFilters = {
+  archivedOnly?: boolean;
+  q?: string;
+  status?: LeadStatus | '';
+  tag?: string;
+  queue?: 'new' | 'unassigned' | 'followup' | 'waiting' | 'quote' | 'active' | '';
+  ownerEmail?: string;
+  today?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+const leadSummaryQualitySql = `
+  (CASE WHEN NULLIF(l.full_name, '') IS NOT NULL AND NULLIF(l.phone, '') IS NOT NULL AND NULLIF(l.email, '') IS NOT NULL THEN 20 ELSE 0 END) +
+  (CASE WHEN NULLIF(l.city, '') IS NOT NULL THEN 15 ELSE 0 END) +
+  (CASE WHEN NULLIF(l.object_type, '') IS NOT NULL AND NULLIF(l.material_type, '') IS NOT NULL THEN 20 ELSE 0 END) +
+  (CASE WHEN l.area_estimate > 0 THEN 20 ELSE 0 END) +
+  (CASE WHEN COALESCE(f.file_count, 0) > 0 THEN 20 ELSE 0 END) +
+  (CASE WHEN NULLIF(l.note, '') IS NOT NULL OR NULLIF(l.term, '') IS NOT NULL OR NULLIF(l.roofer, '') IS NOT NULL THEN 5 ELSE 0 END)
+`;
+
+function normalizeAdminSearch(value: string | undefined) {
+  return (value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+}
+
+function escapeLikePattern(value: string) {
+  return value.replace(/[\\%_]/g, '\\$&');
+}
+
+function leadSummaryPageSize(value: number | undefined) {
+  return value === 50 || value === 100 ? value : 25;
+}
+
+function leadSummaryPageNumber(value: number | undefined) {
+  return Number.isFinite(value) && value && value > 0 ? Math.floor(value) : 1;
+}
+
+function localLeadMatchesTag(lead: LeadSummary, tag: string) {
+  const term = normalizeAdminSearch(lead.term);
+  const roofer = normalizeAdminSearch(lead.roofer);
+  if (tag === 'chyba_fotka') return lead.fileCount === 0;
+  if (tag === 'potrebuje_strechara') return Boolean(lead.wantsRooferRecommendation || lead.selectedRooferId || roofer.includes('potrebujem') || roofer.includes('chcem odporucit'));
+  if (tag === 'urgentne') return term.includes('najskor') || term.includes('urgent') || term.includes('co naj');
+  if (tag === 'nad_100_m2') return lead.areaEstimate >= 100;
+  if (tag === 'pripravene_na_nacenenie') {
+    const score =
+      (lead.fullName && lead.phone && lead.email ? 20 : 0) +
+      (lead.city ? 15 : 0) +
+      (lead.objectType && lead.materialType ? 20 : 0) +
+      (lead.areaEstimate > 0 ? 20 : 0) +
+      (lead.fileCount > 0 ? 20 : 0) +
+      (lead.note || lead.term || lead.roofer ? 5 : 0);
+    return score >= 75 && lead.fileCount > 0;
+  }
+  return true;
+}
+
+function localLeadMatchesQueue(lead: LeadSummary, queue: LeadSummaryPageFilters['queue'], today: string) {
+  if (!queue) return true;
+  if (queue === 'new') return lead.status === 'novy';
+  if (queue === 'unassigned') return !lead.ownerEmail;
+  if (queue === 'followup') return Boolean(lead.followupDate && lead.followupDate <= today);
+  if (queue === 'waiting') return lead.status === 'caka_na_doplnenie';
+  if (queue === 'quote') return lead.status === 'naceneny';
+  return ['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii'].includes(lead.status);
+}
+
+function buildLeadSummaryPageWhere(filters: LeadSummaryPageFilters) {
+  const values: unknown[] = [];
+  const conditions = [filters.archivedOnly ? 'l.deleted_at IS NOT NULL' : 'l.deleted_at IS NULL'];
+  const addValue = (value: unknown) => {
+    values.push(value);
+    return `$${values.length}`;
+  };
+
+  const q = filters.q?.trim().slice(0, 100) || '';
+  if (q) {
+    const parameter = addValue(`%${escapeLikePattern(normalizeAdminSearch(q))}%`);
+    conditions.push(`TRANSLATE(LOWER(CONCAT_WS(' ', l.full_name, l.phone, l.email, l.city, l.district, l.material_type, l.object_type, l.id::text)), 'áäčďéěíĺľňóôŕšťúůýž', 'aacdeeillnoorstuuyz') LIKE ${parameter} ESCAPE E'\\\\'`);
+  }
+  if (filters.status) conditions.push(`l.status = ${addValue(filters.status)}`);
+
+  if (filters.queue === 'new') conditions.push(`l.status = 'novy'`);
+  if (filters.queue === 'unassigned') conditions.push(`COALESCE(NULLIF(l.owner_email, ''), '') = ''`);
+  if (filters.queue === 'followup') {
+    conditions.push(`l.followup_date IS NOT NULL AND l.followup_date <= ${addValue(filters.today || new Date().toISOString().slice(0, 10))}`);
+  }
+  if (filters.queue === 'waiting') conditions.push(`l.status = 'caka_na_doplnenie'`);
+  if (filters.queue === 'quote') conditions.push(`l.status = 'naceneny'`);
+  if (filters.queue === 'active') {
+    conditions.push(`l.status = ANY(${addValue(['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii'])}::text[])`);
+  }
+  if (filters.ownerEmail) conditions.push(`LOWER(COALESCE(l.owner_email, '')) = LOWER(${addValue(filters.ownerEmail)})`);
+
+  if (filters.tag === 'chyba_fotka') conditions.push('COALESCE(f.file_count, 0) = 0');
+  if (filters.tag === 'potrebuje_strechara') {
+    conditions.push(`(l.wants_roofer_recommendation = true OR NULLIF(l.selected_roofer_id, '') IS NOT NULL OR LOWER(COALESCE(l.roofer, '')) LIKE '%potrebujem%' OR LOWER(COALESCE(l.roofer, '')) LIKE '%chcem odporucit%')`);
+  }
+  if (filters.tag === 'urgentne') {
+    conditions.push(`(LOWER(COALESCE(l.term, '')) LIKE '%najskor%' OR LOWER(COALESCE(l.term, '')) LIKE '%urgent%' OR LOWER(COALESCE(l.term, '')) LIKE '%co naj%' OR LOWER(COALESCE(l.term, '')) LIKE '%čo naj%')`);
+  }
+  if (filters.tag === 'nad_100_m2') conditions.push('l.area_estimate >= 100');
+  if (filters.tag === 'pripravene_na_nacenenie') conditions.push(`COALESCE(f.file_count, 0) > 0 AND (${leadSummaryQualitySql}) >= 75`);
+
+  return { values, where: conditions.join(' AND ') };
+}
+
+export async function listLeadSummaryPage(filters: LeadSummaryPageFilters = {}): Promise<LeadSummaryPage> {
+  await ensureSchema();
+  const requestedPage = leadSummaryPageNumber(filters.page);
+  const pageSize = leadSummaryPageSize(filters.pageSize);
+  const today = filters.today || new Date().toISOString().slice(0, 10);
+  const db = getPool();
+
+  if (!db) {
+    const all = await listLeadSummaries(Boolean(filters.archivedOnly));
+    const q = normalizeAdminSearch(filters.q?.trim() || '');
+    const filtered = all
+      .filter((lead) => filters.archivedOnly ? Boolean(lead.deletedAt) : !lead.deletedAt)
+      .filter((lead) => !q || normalizeAdminSearch([lead.fullName, lead.phone, lead.email, lead.city, lead.district, lead.materialType, lead.objectType, lead.id].join(' ')).includes(q))
+      .filter((lead) => !filters.status || lead.status === filters.status)
+      .filter((lead) => localLeadMatchesQueue(lead, filters.queue, today))
+      .filter((lead) => !filters.ownerEmail || (lead.ownerEmail || '').toLowerCase() === filters.ownerEmail.toLowerCase())
+      .filter((lead) => !filters.tag || localLeadMatchesTag(lead, filters.tag));
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const page = Math.min(requestedPage, totalPages);
+    return { items: filtered.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, totalPages };
+  }
+
+  const base = `
+    FROM leads l
+    LEFT JOIN (
+      SELECT lead_id, count(*) AS file_count
+      FROM lead_files
+      GROUP BY lead_id
+    ) f ON f.lead_id = l.id
+    LEFT JOIN (
+      SELECT lead_id, count(*) AS quote_count
+      FROM quotes
+      GROUP BY lead_id
+    ) q ON q.lead_id = l.id
+  `;
+  const where = buildLeadSummaryPageWhere({ ...filters, today });
+  const countResult = await db.query(`SELECT count(*)::int AS total ${base} WHERE ${where.where}`, where.values);
+  const total = Number(countResult.rows[0]?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.min(requestedPage, totalPages);
+  const rowValues = [...where.values, pageSize, (page - 1) * pageSize];
+  const { rows } = await db.query(
+    `SELECT l.*, COALESCE(f.file_count, 0)::int AS file_count, COALESCE(q.quote_count, 0)::int AS quote_count
+     ${base}
+     WHERE ${where.where}
+     ORDER BY l.created_at DESC, l.id DESC
+     LIMIT $${rowValues.length - 1} OFFSET $${rowValues.length}`,
+    rowValues,
+  );
+  return { items: rows.map(toLeadSummary), total, page, pageSize, totalPages };
+}
+
+export async function getLeadQueueCounts(today = new Date().toISOString().slice(0, 10)): Promise<LeadQueueCounts> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const leads = await listLeadSummaries(false);
+    return {
+      total: leads.length,
+      newLeads: leads.filter((lead) => lead.status === 'novy').length,
+      unassigned: leads.filter((lead) => !lead.ownerEmail).length,
+      followups: leads.filter((lead) => Boolean(lead.followupDate && lead.followupDate <= today)).length,
+      waiting: leads.filter((lead) => lead.status === 'caka_na_doplnenie').length,
+      quote: leads.filter((lead) => lead.status === 'naceneny').length,
+      active: leads.filter((lead) => ['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii'].includes(lead.status)).length,
+    };
+  }
+
+  const { rows } = await db.query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE status = 'novy')::int AS new_leads,
+       COUNT(*) FILTER (WHERE COALESCE(NULLIF(owner_email, ''), '') = '')::int AS unassigned,
+       COUNT(*) FILTER (WHERE followup_date IS NOT NULL AND followup_date <= $1)::int AS followups,
+       COUNT(*) FILTER (WHERE status = 'caka_na_doplnenie')::int AS waiting,
+       COUNT(*) FILTER (WHERE status = 'naceneny')::int AS quote,
+       COUNT(*) FILTER (WHERE status = ANY($2::text[]))::int AS active
+     FROM leads
+     WHERE deleted_at IS NULL`,
+    [today, ['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii']],
+  );
+  const row = rows[0] ?? {};
+  return {
+    total: Number(row.total ?? 0),
+    newLeads: Number(row.new_leads ?? 0),
+    unassigned: Number(row.unassigned ?? 0),
+    followups: Number(row.followups ?? 0),
+    waiting: Number(row.waiting ?? 0),
+    quote: Number(row.quote ?? 0),
+    active: Number(row.active ?? 0),
+  };
+}
+
+export async function getLeadWithFiles(id: string, includeArchived = false): Promise<LeadWithFiles | null> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
+    const lead = local.leads.find((item) => item.id === id && (includeArchived || !item.deletedAt));
     if (!lead) return null;
     return {
       ...lead,
@@ -1207,7 +1422,7 @@ export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null
       auditLogs: local.auditLogs.filter((log) => log.entityId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
   }
-  const leadResult = await db.query('SELECT * FROM leads WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+  const leadResult = await db.query(`SELECT * FROM leads WHERE id = $1 ${includeArchived ? '' : 'AND deleted_at IS NULL'} LIMIT 1`, [id]);
   if (!leadResult.rowCount) return null;
   const [filesResult, quotesResult, auditResult] = await Promise.all([
     db.query('SELECT * FROM lead_files WHERE lead_id = $1 ORDER BY created_at DESC', [id]),
@@ -1220,6 +1435,66 @@ export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null
     quotes: quotesResult.rows.map(toQuote),
     auditLogs: auditResult.rows.map(toAuditLog),
   };
+}
+
+function duplicateText(value: unknown) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+function duplicatePhone(value: unknown) {
+  const digits = String(value ?? '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('421') && digits.length === 12) return digits.slice(3);
+  if (digits.startsWith('0') && digits.length === 10) return digits.slice(1);
+  return digits;
+}
+
+function leadExplicitAddress(lead: Lead) {
+  const data = lead.rawData && typeof lead.rawData === 'object' ? lead.rawData as Record<string, unknown> : {};
+  for (const key of ['address', 'objectAddress', 'propertyAddress', 'adresa', 'object_address']) {
+    const value = duplicateText(data[key]);
+    if (value) return value;
+  }
+  return '';
+}
+
+export async function findDuplicateLeads(leadId: string): Promise<LeadDuplicateMatch[]> {
+  const lead = await getLeadWithFiles(leadId);
+  if (!lead) return [];
+  const phone = duplicatePhone(lead.phone);
+  const email = duplicateText(lead.email);
+  const address = leadExplicitAddress(lead);
+  if (!phone && !email && !address) return [];
+
+  const matches = (await listLeadSummaries(true))
+    .filter((candidate) => candidate.id !== lead.id)
+    .map((candidate) => {
+      const reasons: LeadDuplicateMatch['reasons'] = [];
+      if (phone && duplicatePhone(candidate.phone) === phone) reasons.push('telefón');
+      if (email && duplicateText(candidate.email) === email) reasons.push('email');
+      if (address && leadExplicitAddress(candidate) === address) reasons.push('adresa');
+      if (!reasons.length) return null;
+      return {
+        leadId: candidate.id,
+        fullName: candidate.fullName,
+        email: candidate.email,
+        phone: candidate.phone,
+        city: candidate.city,
+        status: candidate.status,
+        createdAt: candidate.createdAt,
+        reasons,
+      } satisfies LeadDuplicateMatch;
+    })
+    .filter((candidate): candidate is LeadDuplicateMatch => Boolean(candidate));
+
+  const reasonRank: Record<LeadDuplicateMatch['reasons'][number], number> = { telefón: 0, email: 1, adresa: 2 };
+  return matches
+    .sort((a, b) => Math.min(...a.reasons.map((reason) => reasonRank[reason])) - Math.min(...b.reasons.map((reason) => reasonRank[reason])) || b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 10);
 }
 
 export async function getLeadFile(id: string): Promise<LeadFile | null> {
@@ -1238,7 +1513,7 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id);
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (!lead) return null;
     const previous = lead.status;
     lead.status = status;
@@ -1248,7 +1523,7 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
     return lead;
   }
   const previous = await getLeadWithFiles(id);
-  const { rows } = await db.query('UPDATE leads SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', [status, id]);
+  const { rows } = await db.query('UPDATE leads SET status = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING *', [status, id]);
   if (!rows[0]) return null;
   await addAuditLog('lead', id, 'status_changed', actorEmail, { previous: previous?.status, next: status });
   return toLead(rows[0]);
@@ -1256,44 +1531,76 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
 
 export async function updateLeadWorkflow(
   id: string,
-  input: { status: LeadStatus; followupDate?: string; followupNote?: string; rejectionReason?: string },
+  input: { status: LeadStatus; ownerEmail?: string; nextAction?: string; followupDate?: string; followupNote?: string; rejectionReason?: string },
   actorEmail: string,
 ) {
   await ensureSchema();
   const followupDate = input.followupDate || null;
   const followupNote = input.followupNote?.trim() || input.rejectionReason?.trim() || '';
+  const ownerEmail = input.ownerEmail?.trim().toLowerCase().slice(0, 254) || '';
+  const nextAction = input.nextAction?.trim().slice(0, 500) || '';
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (!lead) return null;
-    const previous = lead.status;
+    const previous = {
+      status: lead.status,
+      ownerEmail: lead.ownerEmail || '',
+      nextAction: lead.nextAction || '',
+      followupDate: lead.followupDate || '',
+      followupNote: lead.followupNote || '',
+    };
     lead.status = input.status;
+    lead.ownerEmail = ownerEmail;
+    lead.nextAction = nextAction;
     lead.followupDate = followupDate || '';
     lead.followupNote = followupNote;
     lead.followupNotificationSent = false;
     lead.updatedAt = now();
     await writeLocalDb(local);
-    await addAuditLog('lead', id, 'status_changed', actorEmail, { previous, next: input.status, followupDate, followupNote });
+    await addAuditLog('lead', id, 'status_changed', actorEmail, {
+      previous: previous.status,
+      next: input.status,
+      previousWorkflow: previous,
+      nextWorkflow: { status: input.status, ownerEmail, nextAction, followupDate: followupDate || '', followupNote },
+      changedFields: Object.keys(previous).filter((key) => previous[key as keyof typeof previous] !== ({ status: input.status, ownerEmail, nextAction, followupDate: followupDate || '', followupNote } as Record<string, string>)[key]),
+    });
     return lead;
   }
   const previous = await getLeadWithFiles(id);
+  const previousWorkflow = {
+    status: previous?.status || '',
+    ownerEmail: previous?.ownerEmail || '',
+    nextAction: previous?.nextAction || '',
+    followupDate: previous?.followupDate || '',
+    followupNote: previous?.followupNote || '',
+  };
+  const nextWorkflow = { status: input.status, ownerEmail, nextAction, followupDate: followupDate || '', followupNote };
   const { rows } = await db.query(
-    `UPDATE leads SET status = $1, followup_date = $2, followup_note = $3, followup_notif_odoslana = false, updated_at = now()
-     WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
-    [input.status, followupDate, followupNote, id],
+    `UPDATE leads SET status = $1, owner_email = $2, next_action = $3, followup_date = $4, followup_note = $5, followup_notif_odoslana = false, updated_at = now()
+     WHERE id = $6 AND deleted_at IS NULL RETURNING *`,
+    [input.status, ownerEmail, nextAction, followupDate, followupNote, id],
   );
   if (!rows[0]) return null;
-  await addAuditLog('lead', id, 'status_changed', actorEmail, { previous: previous?.status, next: input.status, followupDate, followupNote });
+  await addAuditLog('lead', id, 'status_changed', actorEmail, {
+    previous: previous?.status,
+    next: input.status,
+    previousWorkflow,
+    nextWorkflow,
+    changedFields: Object.keys(previousWorkflow).filter((key) => previousWorkflow[key as keyof typeof previousWorkflow] !== nextWorkflow[key as keyof typeof nextWorkflow]),
+  });
   return toLead(rows[0]);
 }
 
 export async function clearLeadFollowup(id: string, actorEmail: string) {
   await ensureSchema();
   const db = getPool();
+  const previousLead = await getLeadWithFiles(id);
+  if (!previousLead) return null;
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id);
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (lead) {
       lead.followupDate = '';
       lead.followupNote = '';
@@ -1302,9 +1609,13 @@ export async function clearLeadFollowup(id: string, actorEmail: string) {
       await writeLocalDb(local);
     }
   } else {
-    await db.query("UPDATE leads SET followup_date = NULL, followup_note = '', followup_notif_odoslana = false, updated_at = now() WHERE id = $1", [id]);
+    await db.query("UPDATE leads SET followup_date = NULL, followup_note = '', followup_notif_odoslana = false, updated_at = now() WHERE id = $1 AND deleted_at IS NULL", [id]);
   }
-  await addAuditLog('lead', id, 'followup_cancelled', actorEmail, {});
+  await addAuditLog('lead', id, 'followup_cancelled', actorEmail, {
+    previous: { followupDate: previousLead?.followupDate || '', followupNote: previousLead?.followupNote || '' },
+    next: { followupDate: '', followupNote: '' },
+  });
+  return previousLead;
 }
 
 export async function updateLeadInternalNote(id: string, internalNote: string, actorEmail: string) {
@@ -1312,7 +1623,7 @@ export async function updateLeadInternalNote(id: string, internalNote: string, a
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id);
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (!lead) return null;
     const previous = lead.internalNote;
     lead.internalNote = internalNote;
@@ -1322,7 +1633,7 @@ export async function updateLeadInternalNote(id: string, internalNote: string, a
     return lead;
   }
   const previous = await getLeadWithFiles(id);
-  const { rows } = await db.query('UPDATE leads SET internal_note = $1, updated_at = now() WHERE id = $2 RETURNING *', [internalNote, id]);
+  const { rows } = await db.query('UPDATE leads SET internal_note = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING *', [internalNote, id]);
   if (!rows[0]) return null;
   await addAuditLog('lead', id, 'internal_note_changed', actorEmail, { previous: previous?.internalNote, next: internalNote });
   return toLead(rows[0]);
@@ -1332,6 +1643,7 @@ export async function deleteLeadFileRecord(fileId: string, actorEmail: string) {
   await ensureSchema();
   const file = await getLeadFile(fileId);
   if (!file) return null;
+  if (!(await getLeadWithFiles(file.leadId))) return null;
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
@@ -1415,6 +1727,21 @@ export async function addAuditLog(
     [log.id, log.entityType, log.entityId, log.action, log.actorEmail, log.changes, log.createdAt],
   );
   return log;
+}
+
+export async function listAuditLogs(limit = 300): Promise<AuditLog[]> {
+  await ensureSchema();
+  const safeLimit = Math.min(1000, Math.max(1, Math.round(limit)));
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.auditLogs
+      .slice()
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, safeLimit);
+  }
+  const result = await db.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT $1', [safeLimit]);
+  return result.rows.map(toAuditLog);
 }
 
 export function calculateQuoteTotals(input: Pick<QuoteInput, 'areaEstimate' | 'pricePerM2' | 'documentationFee' | 'transportFee' | 'surcharge' | 'discount' | 'vatRate'>) {
@@ -2673,6 +3000,90 @@ export async function listPublicRoofers(filters: { region?: string; district?: s
   return listRoofers({ ...filters, publicOnly: true });
 }
 
+export async function archiveLead(id: string, actorEmail: string, reason = '') {
+  await ensureSchema();
+  const db = getPool();
+  const archivedAt = now();
+  if (!db) {
+    const local = await readLocalDb();
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
+    if (!lead) return null;
+    lead.deletedAt = archivedAt;
+    lead.updatedAt = archivedAt;
+    await writeLocalDb(local);
+    await addAuditLog('lead', id, 'lead_archived', actorEmail, { deletedAt: archivedAt, reason: reason.trim().slice(0, 500) });
+    return lead;
+  }
+  const { rows } = await db.query(
+    'UPDATE leads SET deleted_at = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING *',
+    [archivedAt, id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('lead', id, 'lead_archived', actorEmail, { deletedAt: archivedAt, reason: reason.trim().slice(0, 500) });
+  return toLead(rows[0]);
+}
+
+export async function restoreLead(id: string, actorEmail: string) {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const lead = local.leads.find((item) => item.id === id && item.deletedAt);
+    if (!lead) return null;
+    lead.deletedAt = undefined;
+    lead.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('lead', id, 'lead_restored', actorEmail, {});
+    return lead;
+  }
+  const { rows } = await db.query(
+    'UPDATE leads SET deleted_at = NULL, updated_at = now() WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *',
+    [id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('lead', id, 'lead_restored', actorEmail, {});
+  return toLead(rows[0]);
+}
+
+export async function destroyArchivedLead(id: string, actorEmail: string, reason: string) {
+  await ensureSchema();
+  const lead = await getLeadWithFiles(id, true);
+  if (!lead?.deletedAt) return null;
+  const cleanReason = reason.trim().slice(0, 500);
+  if (cleanReason.length < 3) throw new Error('Trvalé odstránenie vyžaduje dôvod.');
+  const blockingQuotes = lead.quotes.filter((quote) => !['draft', 'cancelled'].includes(quote.status));
+  if (blockingQuotes.length) {
+    throw new Error('Trvalé odstránenie je zablokované, pretože dopyt má aktívnu alebo historickú cenovú ponuku. Najprv ju zrušte alebo archivujte.');
+  }
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    local.leads = local.leads.filter((item) => item.id !== id);
+    local.leadFiles = local.leadFiles.filter((file) => file.leadId !== id);
+    local.quotes = local.quotes.filter((quote) => quote.leadId !== id);
+    local.reviewRequests = local.reviewRequests.map((request) => request.leadId === id ? { ...request, leadId: undefined } : request);
+    await writeLocalDb(local);
+  } else {
+    await db.query('BEGIN');
+    try {
+      await db.query('UPDATE review_requests SET lead_id = NULL WHERE lead_id = $1', [id]);
+      await db.query('DELETE FROM quotes WHERE lead_id = $1', [id]);
+      await db.query('DELETE FROM lead_files WHERE lead_id = $1', [id]);
+      await db.query('DELETE FROM leads WHERE id = $1 AND deleted_at IS NOT NULL', [id]);
+      await db.query('COMMIT');
+    } catch (error) {
+      await db.query('ROLLBACK');
+      throw error;
+    }
+  }
+  await addAuditLog('lead', id, 'lead_deleted', actorEmail, {
+    reason: cleanReason,
+    removedFiles: lead.files.length,
+    removedQuotes: lead.quotes.length,
+  });
+  return lead;
+}
+
 type RooferRegistrationCreateResult = {
   registration: RooferRegistration;
   duplicate: boolean;
@@ -3585,6 +3996,27 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
     if (event.sessionId) item.sessions.add(event.sessionId);
     sourceMap.set(source, item);
   }
+
+  const campaignMap = new Map<string, { campaign: string; source: string; sessions: Set<string>; leads: Set<string> }>();
+  for (const event of pageViews) {
+    const source = sourceFromEvent(event);
+    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
+    const key = `${source}\u0000${campaign}`;
+    const item = campaignMap.get(key) ?? { campaign, source, sessions: new Set<string>(), leads: new Set<string>() };
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    campaignMap.set(key, item);
+  }
+  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
+    const source = sourceFromEvent(event);
+    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
+    const key = `${source}\u0000${campaign}`;
+    const item = campaignMap.get(key) ?? { campaign, source, sessions: new Set<string>(), leads: new Set<string>() };
+    if (event.sessionId) {
+      item.sessions.add(event.sessionId);
+      item.leads.add(event.sessionId);
+    }
+    campaignMap.set(key, item);
+  }
   for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
     const source = sourceFromEvent(event);
     const item = sourceMap.get(source) ?? { source, sessions: new Set<string>(), leads: new Set<string>() };
@@ -3648,6 +4080,10 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
       .map((item) => ({ source: item.source, sessions: item.sessions.size, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
       .sort((a, b) => b.sessions - a.sessions)
       .slice(0, 10),
+    campaigns: [...campaignMap.values()]
+      .map((item) => ({ campaign: item.campaign, source: item.source, sessions: item.sessions.size, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 15),
     devices: [...deviceMap.values()]
       .map((item) => ({ device: item.device, sessions: item.sessions.size, pageViews: item.pageViews, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
       .sort((a, b) => b.sessions - a.sessions),
@@ -3667,6 +4103,87 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
       { label: 'Vytvorené ponuky', count: quoteCount, rateFromPrevious: percent(quoteCount, leadCount) },
       { label: 'Prijaté ponuky', count: acceptedQuotes, rateFromPrevious: percent(acceptedQuotes, quoteCount) },
     ],
+  };
+}
+
+function analyticsTrafficSlice(events: AnalyticsEvent[], sinceMs?: number): AnalyticsTrafficSlice {
+  const filtered = sinceMs === undefined ? events : events.filter((event) => new Date(event.createdAt).getTime() >= sinceMs);
+  return {
+    pageViews: filtered.filter((event) => event.eventType === 'page_view').length,
+    sessions: new Set(filtered.map((event) => event.sessionId).filter(Boolean)).size,
+    formStarts: filtered.filter((event) => event.eventType === 'form_start').length,
+    leads: filtered.filter((event) => event.eventType === 'form_submit_success').length,
+  };
+}
+
+function slovakDateParts(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Bratislava',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(date);
+  return {
+    year: Number(parts.find((part) => part.type === 'year')?.value),
+    month: Number(parts.find((part) => part.type === 'month')?.value),
+    day: Number(parts.find((part) => part.type === 'day')?.value),
+  };
+}
+
+function slovakMidnightUtc(parts: { year: number; month: number; day: number }) {
+  const guess = Date.UTC(parts.year, parts.month - 1, parts.day);
+  const localParts = slovakDateParts(new Date(guess));
+  const localAsUtc = Date.UTC(localParts.year, localParts.month - 1, localParts.day);
+  return new Date(guess - (localAsUtc - guess));
+}
+
+export async function getAnalyticsTrafficSummary(): Promise<AnalyticsTrafficSummary> {
+  await ensureSchema();
+  const currentDate = slovakDateParts(new Date());
+  const todayStart = slovakMidnightUtc(currentDate).toISOString();
+  const monthStart = slovakMidnightUtc({ ...currentDate, day: 1 }).toISOString();
+  const yearStart = slovakMidnightUtc({ ...currentDate, month: 1, day: 1 }).toISOString();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const events = local.analyticsEvents;
+    return {
+      today: analyticsTrafficSlice(events, new Date(todayStart).getTime()),
+      month: analyticsTrafficSlice(events, new Date(monthStart).getTime()),
+      year: analyticsTrafficSlice(events, new Date(yearStart).getTime()),
+      allTime: analyticsTrafficSlice(events),
+    };
+  }
+
+  const { rows } = await db.query(
+    `WITH periods AS (SELECT $1::timestamptz AS today_start, $2::timestamptz AS month_start, $3::timestamptz AS year_start)
+     SELECT
+       COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'page_view')::int AS today_page_views,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.today_start AND e.session_id <> '')::int AS today_sessions,
+       COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'form_start')::int AS today_form_starts,
+       COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'form_submit_success')::int AS today_leads,
+       COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'page_view')::int AS month_page_views,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.month_start AND e.session_id <> '')::int AS month_sessions,
+       COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'form_start')::int AS month_form_starts,
+       COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'form_submit_success')::int AS month_leads,
+       COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'page_view')::int AS year_page_views,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.year_start AND e.session_id <> '')::int AS year_sessions,
+       COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'form_start')::int AS year_form_starts,
+       COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'form_submit_success')::int AS year_leads,
+       COUNT(*) FILTER (WHERE e.event_type = 'page_view')::int AS all_page_views,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.session_id <> '')::int AS all_sessions,
+       COUNT(*) FILTER (WHERE e.event_type = 'form_start')::int AS all_form_starts,
+       COUNT(*) FILTER (WHERE e.event_type = 'form_submit_success')::int AS all_leads
+     FROM analytics_events e, periods p`,
+    [todayStart, monthStart, yearStart],
+  );
+  const row = rows[0] ?? {};
+  const number = (value: unknown) => Number(value ?? 0);
+  return {
+    today: { pageViews: number(row.today_page_views), sessions: number(row.today_sessions), formStarts: number(row.today_form_starts), leads: number(row.today_leads) },
+    month: { pageViews: number(row.month_page_views), sessions: number(row.month_sessions), formStarts: number(row.month_form_starts), leads: number(row.month_leads) },
+    year: { pageViews: number(row.year_page_views), sessions: number(row.year_sessions), formStarts: number(row.year_form_starts), leads: number(row.year_leads) },
+    allTime: { pageViews: number(row.all_page_views), sessions: number(row.all_sessions), formStarts: number(row.all_form_starts), leads: number(row.all_leads) },
   };
 }
 

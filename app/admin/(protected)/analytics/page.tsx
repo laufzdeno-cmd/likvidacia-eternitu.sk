@@ -1,5 +1,5 @@
 import { requireSuperAdmin } from '@/src/server/auth';
-import { getAnalyticsReport } from '@/src/server/db';
+import { getAnalyticsReport, getAnalyticsTrafficSummary } from '@/src/server/db';
 
 function formatPercent(value: number) {
   return `${value.toLocaleString('sk-SK', { maximumFractionDigits: 1 })} %`;
@@ -37,8 +37,14 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
   await requireSuperAdmin();
   const params = await searchParams;
   const days = Math.min(365, Math.max(7, Number(params?.dni || 30)));
-  const report = await getAnalyticsReport(days);
+  const [report, traffic] = await Promise.all([getAnalyticsReport(days), getAnalyticsTrafficSummary()]);
   const maxDaily = Math.max(1, ...report.daily.map((item) => item.sessions));
+  const trafficPeriods: Array<[string, typeof traffic.today]> = [
+    ['Dnes', traffic.today],
+    ['Tento mesiac', traffic.month],
+    ['Tento rok', traffic.year],
+    ['Celkom', traffic.allTime],
+  ];
 
   return (
     <main className="admin-page">
@@ -61,6 +67,26 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
           <a href={`/admin/analytics/export?dni=${report.rangeDays}`}>Exportovať</a>
         </form>
       </div>
+
+      <section className="admin-card analytics-traffic-overview">
+        <div className="admin-section-heading">
+          <div><p>Rýchly prehľad</p><h2>Návštevnosť</h2></div>
+          <span className="admin-muted">Zobrazenia, relácie, začaté formuláre a odoslané dopyty</span>
+        </div>
+        <div className="analytics-overview-grid">
+          {trafficPeriods.map(([label, slice]) => (
+            <article key={String(label)}>
+              <h3>{label}</h3>
+              <dl>
+                <div><dt>Návštevy</dt><dd>{formatNumber(slice.sessions)}</dd></div>
+                <div><dt>Zobrazenia</dt><dd>{formatNumber(slice.pageViews)}</dd></div>
+                <div><dt>Začaté formuláre</dt><dd>{formatNumber(slice.formStarts)}</dd></div>
+                <div><dt>Odoslané dopyty</dt><dd>{formatNumber(slice.leads)}</dd></div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="admin-stat-grid analytics-stat-grid">
         <article><span>Návštevy</span><strong>{formatNumber(report.totals.sessions)}</strong></article>
@@ -141,6 +167,27 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
           </div>
         </section>
       </div>
+
+      <section className="admin-card analytics-card">
+        <h2>Kampane a zdroje</h2>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>Kampaň</th><th>Zdroj</th><th>Návštevy</th><th>Dopyty</th><th>Konverzia</th></tr></thead>
+            <tbody>
+              {report.campaigns.map((campaign) => (
+                <tr key={`${campaign.source}-${campaign.campaign}`}>
+                  <td>{campaign.campaign}</td>
+                  <td>{campaign.source}</td>
+                  <td>{formatNumber(campaign.sessions)}</td>
+                  <td>{formatNumber(campaign.leads)}</td>
+                  <td>{formatPercent(campaign.conversionRate)}</td>
+                </tr>
+              ))}
+              {!report.campaigns.length ? <tr><td colSpan={5}>Zatiaľ nie sú uložené údaje o kampaniach.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <div className="admin-two-col">
         <section className="admin-card">

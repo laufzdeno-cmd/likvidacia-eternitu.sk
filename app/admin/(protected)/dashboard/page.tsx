@@ -1,5 +1,6 @@
-import { getSystemHealth, listBusinessJobs, listLeadSummaries, listPriceOffers, listWorkers } from '@/src/server/db';
+import { getLeadQueueCounts, getSystemHealth, listBusinessJobs, listLeadSummaries, listPlannerActions, listPriceOffers, listWorkers } from '@/src/server/db';
 import { requireAdminUser } from '@/src/server/auth';
+import { statusLabels } from '@/src/server/lead-insights';
 import { euro, jobStatusLabels, landfillLabels, numberSk } from '../zakazky/constants';
 import BusinessChart from './business-chart';
 
@@ -21,12 +22,35 @@ function pct(part: number, total: number) {
   return total ? `${Math.round((part / total) * 1000) / 10} %` : '0 %';
 }
 
+function WorkQueues({ counts }: { counts: { newLeads: number; unassigned: number; followups: number; waiting: number; quote: number; active: number } }) {
+  const items = [
+    { href: '/admin/dopyty?queue=new', label: 'Nové dopyty', count: counts.newLeads, note: 'Ešte bez prvého kontaktu' },
+    { href: '/admin/dopyty?queue=unassigned', label: 'Bez vlastníka', count: counts.unassigned, note: 'Treba priradiť zodpovednosť' },
+    { href: '/admin/dopyty?queue=followup', label: 'Follow-up', count: counts.followups, note: 'Dnes alebo po termíne' },
+    { href: '/admin/dopyty?queue=waiting', label: 'Čaká na doplnenie', count: counts.waiting, note: 'Chýbajúce údaje' },
+    { href: '/admin/dopyty?queue=quote', label: 'Na nacenenie', count: counts.quote, note: 'Pripravené na ponuku' },
+    { href: '/admin/dopyty?queue=active', label: 'V spracovaní', count: counts.active, note: 'Kontaktované a rozpracované' },
+  ];
+  return (
+    <section className="admin-card admin-work-queues">
+      <div className="admin-section-heading">
+        <div><p>Operatívna práca</p><h2>Pracovné fronty</h2></div>
+        <a href="/admin/dopyty">Všetky dopyty</a>
+      </div>
+      <div className="admin-queue-grid">
+        {items.map((item) => <a className="admin-queue-link" href={item.href} key={item.href}><span>{item.label}</span><strong>{item.count}</strong><small>{item.note}</small></a>)}
+      </div>
+    </section>
+  );
+}
+
 export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const adminUser = await requireAdminUser();
   const period = params.period || 'month';
   const bounds = periodBounds(period, params.from, params.to);
-  const [jobs, allJobs, leads, workers, offers, health] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true), listPriceOffers(), adminUser.role === 'SUPER_ADMIN' ? getSystemHealth() : Promise.resolve(null)]);
+  const today = new Date().toISOString().slice(0, 10);
+  const [jobs, allJobs, leads, workers, offers, health, todayActions, queueCounts] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true), listPriceOffers(), adminUser.role === 'SUPER_ADMIN' ? getSystemHealth() : Promise.resolve(null), listPlannerActions({ from: today, to: today }), getLeadQueueCounts(today)]);
   const revenue = jobs.reduce((sum, job) => sum + job.totalPrice, 0);
   const invoice = jobs.filter((job) => job.paymentType === 'FAKTURA').reduce((sum, job) => sum + job.totalPrice, 0);
   const cash = jobs.filter((job) => job.paymentType === 'CASH').reduce((sum, job) => sum + job.totalPrice, 0);
@@ -65,10 +89,9 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   const acceptedOffers = offers.filter((offer) => offer.status === 'PRIJATA').length;
   const done = jobs.filter((job) => job.status === 'DOKONCENA').length;
   if (adminUser.role === 'OPERATOR') {
-    const today = new Date().toISOString().slice(0, 10);
     const todayLeads = leads.filter((lead) => lead.createdAt.startsWith(today));
     const waitingForOffer = leads.filter((lead) => ['novy', 'kontaktovany', 'naceneny'].includes(lead.status));
-    const followupsToday = leads.filter((lead) => lead.followupDate === today);
+    const followupsToday = leads.filter((lead) => Boolean(lead.followupDate && lead.followupDate <= today));
     return (
       <main className="admin-page">
         <div className="admin-heading">
@@ -76,10 +99,11 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         </div>
         <section className="admin-stat-grid">
           <article><span>Nové dopyty dnes</span><strong>{todayLeads.length}</strong><a href="/admin/dopyty">Otvoriť dopyty</a></article>
-          <article><span>Čakajú na ponuku</span><strong>{waitingForOffer.length}</strong><a href="/admin/dopyty?status=novy">Spracovať</a></article>
-          <article><span>Follow-up dnes</span><strong>{followupsToday.length}</strong><a href="/admin/dopyty">Zavolať</a></article>
-          <article><span>Naplánované akcie dnes</span><strong>0</strong><a href="/admin/planovac">Plánovač</a></article>
+          <article><span>Otvorené dopyty</span><strong>{waitingForOffer.length}</strong><a href="/admin/dopyty">Spracovať</a></article>
+          <article><span>Follow-up na vybavenie</span><strong>{followupsToday.length}</strong><a href="/admin/dopyty?queue=followup">Zavolať</a></article>
+          <article><span>Naplánované akcie dnes</span><strong>{todayActions.length}</strong><a href="/admin/planovac">Plánovač</a></article>
         </section>
+        <WorkQueues counts={queueCounts} />
         <section className="admin-card">
           <h2>Rýchly prehľad</h2>
           <table className="admin-table">
@@ -91,7 +115,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                   <td>{lead.city}</td>
                   <td>{lead.areaEstimate}</td>
                   <td><a href={`tel:${lead.phone}`}>{lead.phone}</a></td>
-                  <td>{lead.status}</td>
+                  <td>{statusLabels[lead.status] || lead.status}</td>
                 </tr>
               ))}
             </tbody>
@@ -143,6 +167,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
           </div>
         </section>
       ) : null}
+
+      <WorkQueues counts={queueCounts} />
 
       <section className="admin-stat-grid">
         <article><span>Tržby spolu</span><strong>{euro(revenue)}</strong></article>

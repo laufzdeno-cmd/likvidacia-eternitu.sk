@@ -58,6 +58,8 @@ export function leadEventLabel(action: string, changes?: Record<string, unknown>
     status_changed: `Stav zmenený na: ${cleanSlovakText(String(changes?.next || ''))}`,
     note_added: 'Poznámka pridaná',
     internal_note_changed: 'Interná poznámka upravená',
+    lead_archived: 'Dopyt archivovaný',
+    lead_restored: 'Dopyt obnovený',
     cp_created: `Cenová ponuka č. ${changes?.number || ''} vytvorená`,
     cp_sent: 'Cenová ponuka odoslaná',
     roofer_assigned: `Strechár priradený: ${changes?.name || ''}`,

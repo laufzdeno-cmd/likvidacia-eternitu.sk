@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/src/server/auth';
-import { listAnalyticsEvents } from '@/src/server/db';
+import { addAuditLog, listAnalyticsEvents } from '@/src/server/db';
+import { csvCell } from '@/src/server/csv';
 import type { AnalyticsEvent } from '@/src/server/types';
 
 export const runtime = 'nodejs';
@@ -26,14 +27,8 @@ function sourceFromEvent(event: Pick<AnalyticsEvent, 'utmSource' | 'referrer'>) 
   }
 }
 
-function csvCell(value: string | number) {
-  const text = String(value);
-  if (!/[",\n\r;]/.test(text)) return text;
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
 export async function GET(request: NextRequest) {
-  await requireSuperAdmin();
+  const actorEmail = await requireSuperAdmin();
   const days = cleanDays(request.nextUrl.searchParams.get('dni'));
   const events = await listAnalyticsEvents(days);
   const rows = new Map<
@@ -42,6 +37,7 @@ export async function GET(request: NextRequest) {
       date: string;
       sessions: Set<string>;
       source: string;
+      campaign: string;
       device: string;
       ctaClicks: number;
       submittedForms: number;
@@ -51,24 +47,27 @@ export async function GET(request: NextRequest) {
   for (const event of events) {
     const date = eventDate(event.createdAt);
     const source = sourceFromEvent(event);
+    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
     const device = event.device || 'unknown';
-    const key = `${date}|${source}|${device}`;
-    const row = rows.get(key) ?? { date, sessions: new Set<string>(), source, device, ctaClicks: 0, submittedForms: 0 };
+    const key = `${date}|${source}|${campaign}|${device}`;
+    const row = rows.get(key) ?? { date, sessions: new Set<string>(), source, campaign, device, ctaClicks: 0, submittedForms: 0 };
     if (event.sessionId) row.sessions.add(event.sessionId);
     if (event.eventType === 'cta_click') row.ctaClicks += 1;
     if (event.eventType === 'form_submit_success') row.submittedForms += 1;
     rows.set(key, row);
   }
 
-  const header = ['dátum', 'návštevy', 'zdroj', 'zariadenie', 'CTA kliky', 'formuláre odoslané'];
+  const header = ['dátum', 'návštevy', 'zdroj', 'kampaň', 'zariadenie', 'CTA kliky', 'formuláre odoslané'];
   const lines = [
     header.join(';'),
     ...[...rows.values()]
       .sort((a, b) => b.date.localeCompare(a.date) || a.source.localeCompare(b.source) || a.device.localeCompare(b.device))
       .map((row) =>
-        [row.date, row.sessions.size, row.source, row.device, row.ctaClicks, row.submittedForms].map(csvCell).join(';'),
+        [row.date, row.sessions.size, row.source, row.campaign, row.device, row.ctaClicks, row.submittedForms].map(csvCell).join(';'),
       ),
   ];
+
+  await addAuditLog('system', 'analytics', 'analytics_exported', actorEmail.email, { days });
 
   return new NextResponse(`\uFEFF${lines.join('\n')}`, {
     headers: {

@@ -89,6 +89,7 @@ crop*.png
 hero-clean-*.png
 artifacts/
 .tmp-chrome-cdp/
+test-results/
 
 # Gatsby files
 .cache/

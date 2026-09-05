@@ -35,6 +35,8 @@ export type Lead = LeadInput & {
   id: string;
   status: LeadStatus;
   internalNote: string;
+  ownerEmail?: string;
+  nextAction?: string;
   followupDate?: string;
   followupNote?: string;
   followupNotificationSent?: boolean;
@@ -46,6 +48,35 @@ export type Lead = LeadInput & {
 export type LeadSummary = Lead & {
   fileCount: number;
   quoteCount: number;
+};
+
+export type LeadSummaryPage = {
+  items: LeadSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
+export type LeadQueueCounts = {
+  total: number;
+  newLeads: number;
+  unassigned: number;
+  followups: number;
+  waiting: number;
+  quote: number;
+  active: number;
+};
+
+export type LeadDuplicateMatch = {
+  leadId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  city: string;
+  status: LeadStatus;
+  createdAt: string;
+  reasons: Array<'telefón' | 'email' | 'adresa'>;
 };
 
 export type LeadFile = {
@@ -467,9 +498,24 @@ export type AnalyticsReport = {
   events: Array<{ eventType: string; count: number }>;
   topPages: Array<{ path: string; views: number; sessions: number; leads: number; conversionRate: number }>;
   sources: Array<{ source: string; sessions: number; leads: number; conversionRate: number }>;
+  campaigns: Array<{ campaign: string; source: string; sessions: number; leads: number; conversionRate: number }>;
   devices: Array<{ device: string; sessions: number; pageViews: number; leads: number; conversionRate: number }>;
   daily: Array<{ date: string; pageViews: number; sessions: number; leads: number; formStarts: number; quoteViews: number }>;
   funnel: Array<{ label: string; count: number; rateFromPrevious: number }>;
+};
+
+export type AnalyticsTrafficSlice = {
+  pageViews: number;
+  sessions: number;
+  formStarts: number;
+  leads: number;
+};
+
+export type AnalyticsTrafficSummary = {
+  today: AnalyticsTrafficSlice;
+  month: AnalyticsTrafficSlice;
+  year: AnalyticsTrafficSlice;
+  allTime: AnalyticsTrafficSlice;
 };
 
 export type Roofer = {
