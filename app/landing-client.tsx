@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { hasMarketingConsent } from '@/src/lib/marketing-consent';
 
 export default function LandingClient() {
   useEffect(() => {
@@ -52,7 +53,7 @@ export default function LandingClient() {
     let quoteSectionTracked = false;
     let rooferRegistrationSubmitting = false;
 
-    const analyticsSessionId = (() => {
+    const getAnalyticsSessionId = () => {
       const key = 'astana_analytics_session';
       try {
         const existing = window.localStorage.getItem(key);
@@ -63,7 +64,7 @@ export default function LandingClient() {
       } catch {
         return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
-    })();
+    };
 
     const analyticsDevice = () => {
       if (window.innerWidth < 768) return 'mobile';
@@ -81,6 +82,8 @@ export default function LandingClient() {
     };
 
     const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
+      if (!hasMarketingConsent()) return;
+      const analyticsSessionId = getAnalyticsSessionId();
       const payload = JSON.stringify({
         sessionId: analyticsSessionId,
         eventType,
@@ -155,7 +158,7 @@ export default function LandingClient() {
     };
 
     const trackRooferEvent = (rooferId: string, eventType: 'card_viewed' | 'contact_revealed' | 'quote_selected', region?: string) => {
-      if (!rooferId) return;
+      if (!rooferId || !hasMarketingConsent()) return;
       const payload = JSON.stringify({
         rooferId,
         eventType,

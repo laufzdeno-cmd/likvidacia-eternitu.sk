@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-
-const cookieKey = 'astana-cookies-v1';
+import { cookieConsentStorageKey, saveMarketingConsent } from '@/src/lib/marketing-consent';
 
 export default function PublicWidgets() {
   const pathname = usePathname();
@@ -13,7 +12,18 @@ export default function PublicWidgets() {
   useEffect(() => {
     if (isAdmin) return;
     try {
-      setShowCookieBanner(!window.localStorage.getItem(cookieKey));
+      let stored = window.localStorage.getItem(cookieConsentStorageKey);
+      if (!stored) {
+        const legacy = window.localStorage.getItem('astana-cookies-v1');
+        if (legacy === 'all') {
+          saveMarketingConsent('granted');
+          stored = 'marketing';
+        } else if (legacy === 'necessary') {
+          saveMarketingConsent('denied');
+          stored = 'necessary';
+        }
+      }
+      setShowCookieBanner(!stored);
     } catch {
       setShowCookieBanner(false);
     }
@@ -22,11 +32,7 @@ export default function PublicWidgets() {
   if (isAdmin) return null;
 
   const acceptCookies = (value: 'all' | 'necessary') => {
-    try {
-      window.localStorage.setItem(cookieKey, value);
-    } catch {
-      // localStorage may be unavailable in strict privacy modes.
-    }
+    saveMarketingConsent(value === 'all' ? 'granted' : 'denied');
     setShowCookieBanner(false);
   };
 

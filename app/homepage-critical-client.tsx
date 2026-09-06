@@ -51,7 +51,7 @@ export default function HomepageCriticalClient() {
       if (id) submissionIdInput.value = id;
     };
 
-    const analyticsSessionId = (() => {
+    const getAnalyticsSessionId = () => {
       const key = 'astana_analytics_session';
       try {
         const existing = window.localStorage.getItem(key);
@@ -62,7 +62,7 @@ export default function HomepageCriticalClient() {
       } catch {
         return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
-    })();
+    };
 
     const analyticsDevice = () => {
       if (window.innerWidth < 768) return 'mobile';
@@ -80,6 +80,8 @@ export default function HomepageCriticalClient() {
     };
 
     const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
+      if (!hasMarketingConsent()) return;
+      const analyticsSessionId = getAnalyticsSessionId();
       const payload = JSON.stringify({
         sessionId: analyticsSessionId,
         eventType,

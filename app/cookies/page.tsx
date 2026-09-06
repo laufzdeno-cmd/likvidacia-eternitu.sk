@@ -24,7 +24,11 @@ export default function CookiesPage() {
           </article>
           <article>
             <h2>Aké cookies používame</h2>
-            <p>Používame funkčné cookies potrebné pre bezpečné fungovanie stránky a formulára. Analytické údaje spracúvame first-party spôsobom bez IP adries.</p>
+            <p>Používame nevyhnutné uloženie voľby cookie súhlasu. Po voľbe „Prijať všetky“ sa môže zapnúť first-party analytika a marketingové meranie; po voľbe „Len nevyhnutné“ zostáva vypnuté. Analytické záznamy neobsahujú uloženú IP adresu.</p>
+          </article>
+          <article>
+            <h2>Vaša voľba</h2>
+            <p>Voľbu môžete zmeniť vymazaním uloženia stránky v prehliadači a opätovným načítaním webu. Pri zmene na „Len nevyhnutné“ sa voliteľné meranie ďalej nespúšťa. Nové marketingové alebo analytické nástroje dopĺňame iba s aktualizovanou informáciou.</p>
           </article>
           <article>
             <h2>Ako ich vypnúť</h2>

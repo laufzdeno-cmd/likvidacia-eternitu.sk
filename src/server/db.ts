@@ -88,6 +88,7 @@ const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
 
 let pool: Pool | undefined;
 let schemaReady = false;
+let schemaBootstrapRequested = false;
 
 function normalizeDatabaseUrl(value?: string) {
   if (!value || value.includes('localhost') || value.includes('127.0.0.1')) return value;
@@ -265,6 +266,43 @@ async function cleanupLegacyData(db: Pool) {
   `);
 }
 
+const requiredRuntimeTables = [
+  'leads',
+  'lead_files',
+  'audit_logs',
+  'quotes',
+  'testimonials',
+  'review_requests',
+  'realizations',
+  'roofers',
+  'roofer_registrations',
+  'roofer_events',
+  'site_content',
+  'admin_settings',
+  'admin_users',
+  'analytics_events',
+  'workers',
+  'landfill_prices',
+  'business_jobs',
+  'price_offers',
+  'business_job_workers',
+  'business_job_costs',
+  'planner_actions',
+] as const;
+
+async function assertRuntimeSchema(db: Pool) {
+  const { rows } = await db.query<{ table_name: string }>(
+    `SELECT required.table_name
+     FROM unnest($1::text[]) AS required(table_name)
+     WHERE to_regclass('public.' || required.table_name) IS NULL
+     ORDER BY required.table_name`,
+    [requiredRuntimeTables],
+  );
+  if (rows.length) {
+    throw new Error(`Databázová schéma nie je pripravená. Chýbajú tabuľky: ${rows.map((row) => row.table_name).join(', ')}. Spustite explicitné db:init.`);
+  }
+}
+
 async function ensureSchema() {
   if (schemaReady) return;
   const db = getPool();
@@ -273,6 +311,12 @@ async function ensureSchema() {
       throw new Error('DATABASE_URL is required in production.');
     }
     await readLocalDb();
+    schemaReady = true;
+    return;
+  }
+
+  if (!schemaBootstrapRequested) {
+    await assertRuntimeSchema(db);
     schemaReady = true;
     return;
   }
@@ -698,6 +742,18 @@ async function ensureSchema() {
   await seedDefaultWorkers();
   await seedDefaultAdminUser();
   schemaReady = true;
+}
+
+export async function initializeDatabase() {
+  if (!getPool()) throw new Error('DATABASE_URL je povinný pre explicitné pripravenie databázy.');
+  const previousRequest = schemaBootstrapRequested;
+  schemaBootstrapRequested = true;
+  schemaReady = false;
+  try {
+    await ensureSchema();
+  } finally {
+    schemaBootstrapRequested = previousRequest;
+  }
 }
 
 function toPriceOffer(row: Record<string, unknown>): PriceOffer {

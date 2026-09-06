@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect } from 'react';
+import { hasMarketingConsent } from '@/src/lib/marketing-consent';
 
 type TrackAnalytics = (eventType: string, metadata?: Record<string, unknown>) => void;
 
 function createAnalyticsTracker(): TrackAnalytics {
-  const analyticsSessionId = (() => {
+  const getAnalyticsSessionId = () => {
     const key = 'astana_analytics_session';
     try {
       const existing = window.localStorage.getItem(key);
@@ -16,7 +17,7 @@ function createAnalyticsTracker(): TrackAnalytics {
     } catch {
       return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
-  })();
+  };
 
   const analyticsDevice = () => {
     if (window.innerWidth < 768) return 'mobile';
@@ -34,6 +35,8 @@ function createAnalyticsTracker(): TrackAnalytics {
   };
 
   return (eventType, metadata = {}) => {
+    if (!hasMarketingConsent()) return;
+    const analyticsSessionId = getAnalyticsSessionId();
     const payload = JSON.stringify({
       sessionId: analyticsSessionId,
       eventType,
