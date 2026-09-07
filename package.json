@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/test-google-ads.cjs && next build",
+    "test:google-ads": "node scripts/test-google-ads.cjs",
     "preview": "next start",
     "typecheck": "tsc --noEmit",
     "lighthouse:ci": "ts-node scripts/lighthouse-ci.ts",

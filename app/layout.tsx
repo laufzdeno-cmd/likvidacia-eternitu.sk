@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import { site } from '@/src/content/site';
 import { buildOrganizationJsonLd } from './seo-json-ld';
+import GoogleAdsTag from './google-ads-tag';
 import '../src/styles.css';
 import '../src/premium-overrides.css';
 import '../src/final-visual-polish.css';
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={plusJakarta.className}>
         {children}
+        <GoogleAdsTag />
       </body>
     </html>
   );

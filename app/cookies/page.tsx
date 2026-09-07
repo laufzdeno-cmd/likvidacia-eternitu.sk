@@ -25,6 +25,7 @@ export default function CookiesPage() {
           <article>
             <h2>Aké cookies používame</h2>
             <p>Používame nevyhnutné uloženie voľby cookie súhlasu. Po voľbe „Prijať všetky“ sa môže zapnúť first-party analytika a marketingové meranie; po voľbe „Len nevyhnutné“ zostáva vypnuté. Analytické záznamy neobsahujú uloženú IP adresu.</p>
+            <p>Po marketingovom súhlase načítame Google tag na meranie úspešných dopytov z Google Ads. Konverziu zaznamenáme až po prijatí dopytu serverom, nie pri kliknutí na tlačidlo. Odovzdávame technický identifikátor odoslania; meno, email ani telefón do tejto konverznej udalosti nepridávame. Google pri načítaní tagu spracúva aj technické údaje spojenia. Bez súhlasu tag nenačítame. Rozšírené konverzie nezapíname.</p>
           </article>
           <article>
             <h2>Vaša voľba</h2>

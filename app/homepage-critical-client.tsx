@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { trackGoogleAdsConversion } from '@/src/lib/google-ads';
 import {
   hasMarketingConsent,
   rememberPendingMetaLead,
@@ -354,6 +355,7 @@ export default function HomepageCriticalClient() {
 
       try {
         const result = await submitLeadForm(payload);
+        trackGoogleAdsConversion(String(payload.get('submissionId') || ''));
         form.reset();
         selectedFiles = [];
         updateFileInput();
