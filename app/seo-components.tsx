@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { articles, commonProcessSteps, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
+import { articles, commonProcessSteps, locationPages, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
 import { companyAddressLine, emailLink, phoneLink, serviceOffer, site } from '@/src/content/site';
 import { PublicPageShell } from './public-layout';
 import { JsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd, buildServiceJsonLd } from './seo-json-ld';
@@ -211,21 +211,29 @@ export function InternalLinks({
           ['/likvidacia-azbestu/', 'Likvidácia azbestu'],
           ['/likvidacia-eternitu/', 'Likvidácia eternitu'],
           ['/cena-likvidacie-azbestu/', 'Cena likvidácie'],
+          ['/o-firme/', 'O firme ASTANA'],
           ['/kontakt/', 'Kontakt'],
         ]
       : context === 'location'
         ? [
-            ['/likvidacia-azbestu/', 'Hlavná služba: azbest'],
+            ['/likvidacia-azbestu/', 'Likvidácia azbestu'],
             ['/likvidacia-eternitu/', 'Likvidácia eternitu'],
             ['/cena-likvidacie-azbestu/', 'Cena'],
             ['/postup/', 'Postup'],
+            ['/o-firme/', 'O firme ASTANA'],
+            ['/realizacie/', 'Ukážky realizácií'],
+            ['/poradna/ako-zmerat-strechu-pre-cenovu-ponuku/', 'Ako odhadnúť výmeru strechy'],
+            ['/poradna/ake-doklady-dostanete-po-likvidacii-azbestu/', 'Doklady po likvidácii'],
             ['/kontakt/', 'Kontakt'],
           ]
         : [
+            ['/likvidacia-azbestu/', 'Likvidácia azbestu'],
+            ['/likvidacia-eternitu/', 'Likvidácia eternitu'],
             ['/cena-likvidacie-azbestu/', 'Cena'],
             ['/postup/', 'Postup'],
             ['/faq/', 'FAQ'],
             ['/realizacie/', 'Realizácie'],
+            ['/o-firme/', 'O firme ASTANA'],
             ['/kontakt/', 'Kontakt'],
           ];
 
@@ -237,6 +245,19 @@ export function InternalLinks({
           <a key={href} href={href}>{label}</a>
         ))}
       </div>
+      {context === 'service' ? (
+        <nav aria-label="Likvidácia azbestu podľa regiónu">
+          <h3>Kde zabezpečujeme likvidáciu</h3>
+          <p>Vyberte si región. Termín a rozsah prác dohodneme podľa vašej zákazky.</p>
+          <ul>
+            {locationPages.map((location) => (
+              <li key={location.slug}>
+                <a href={`/likvidacia-azbestu-${location.slug}/`}>{location.name} a okolie</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
     </section>
   );
 }
@@ -300,9 +321,9 @@ export function LocationPage({
 }) {
   const path = `/likvidacia-azbestu-${location.slug}/`;
   const h1 = `Likvidácia azbestu a eternitu - ${location.name}`;
-  const quickAnswer = `ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu v lokalite ${location.area} vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o likvidácii.`;
+  const quickAnswer = `ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu v ${location.area} vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o likvidácii.`;
   const faqs: FaqItem[] = [
-    { question: `Riešite likvidáciu azbestu v lokalite ${location.name}?`, answer: `Áno, ${site.legalName} pôsobí po celom Slovensku vrátane lokality ${location.area}.` },
+    { question: `Riešite likvidáciu azbestu aj v ${location.area}?`, answer: `Áno, ${site.legalName} zabezpečuje zákazky aj v ${location.area}. Sídlime v Poprade a termín výjazdu dohodneme podľa rozsahu prác a dostupnej kapacity.` },
     { question: `Čo poslať pre cenovú ponuku v lokalite ${location.name}?`, answer: 'Pošlite približnú výmeru v m2, obec alebo okres, fotky materiálu, typ objektu a informáciu o prístupe.' },
     { question: 'Od čoho závisí cena v tejto lokalite?', answer: 'Od výmery, typu materiálu, výšky objektu, prístupu, objemu odpadu, termínu a potrebnej dokumentácie.' },
   ];
@@ -320,9 +341,8 @@ export function LocationPage({
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
         </section>
-        <QuickAnswer>{quickAnswer}</QuickAnswer>
         <section className="seo-section">
-          <h2>Služby v lokalite</h2>
+          <h2>Čo nám pomôže pripraviť ponuku pre váš región</h2>
           <p className="seo-lead">{location.localNote}</p>
           <div className="seo-included-list">
             {serviceOffer.map((item) => <span key={item}>✓ {item}</span>)}

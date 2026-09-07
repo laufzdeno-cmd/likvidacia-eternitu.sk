@@ -3,10 +3,9 @@ import { articles, locationPages } from '@/src/content/seo-content';
 import { site } from '@/src/content/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
+  // Omit lastModified until actual content revision dates are available.
   const page = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] = 'monthly') => ({
     url: `${site.website}${path}`,
-    lastModified,
     changeFrequency,
     priority,
   });
