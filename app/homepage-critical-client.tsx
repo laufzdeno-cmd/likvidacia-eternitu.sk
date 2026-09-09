@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { leadAttribution, trackStoredLead } from './measurement';
+import { attachLeadFieldFeedback } from './lead-field-feedback';
 
 export default function HomepageCriticalClient() {
   useEffect(() => {
@@ -9,6 +10,7 @@ export default function HomepageCriticalClient() {
     const nav = document.querySelector<HTMLElement>('#site-nav');
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
+    const fieldFeedback = form ? attachLeadFieldFeedback(form) : null;
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
     const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
@@ -22,6 +24,8 @@ export default function HomepageCriticalClient() {
     const heroCounters = Array.from(document.querySelectorAll<HTMLElement>('[data-hero-counter]'));
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     let selectedFiles: File[] = [];
+    let submitInFlight = false;
+    const disabledBeforeSubmit = new Map<Element, boolean>();
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
@@ -125,7 +129,7 @@ export default function HomepageCriticalClient() {
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
           `<span>Cenovú ponuku vám pošleme do 24 hodín na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
-          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Pripravíme cenovú ponuku</span><span>3. Pošleme vám ju do 24 hodín</span></div>',
+          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Pripravíme cenovú ponuku</span><span>3. Pošleme vám ju emailom</span></div>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
           '<small>Po-Pia 7:00-18:00</small>',
@@ -137,6 +141,11 @@ export default function HomepageCriticalClient() {
 
     const renderFiles = () => {
       if (!fileInput || !preview) return;
+      const count = form?.querySelector<HTMLElement>('.file-selection-count');
+      if (count) {
+        count.hidden = selectedFiles.length === 0;
+        count.textContent = `Vybrané fotografie: ${selectedFiles.length}`;
+      }
       preview.innerHTML = '';
       selectedFiles.forEach((file, index) => {
         const chip = document.createElement('span');
@@ -213,8 +222,14 @@ export default function HomepageCriticalClient() {
       form.classList.toggle('is-submitting', submitting);
       Array.from(form.elements).forEach((element) => {
         const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
-        control.disabled = submitting;
+        if (submitting) {
+          if (!disabledBeforeSubmit.has(control)) disabledBeforeSubmit.set(control, control.disabled);
+          control.disabled = true;
+        } else {
+          control.disabled = disabledBeforeSubmit.get(control) ?? control.disabled;
+        }
       });
+      if (!submitting) disabledBeforeSubmit.clear();
       if (button) {
         button.disabled = submitting;
         button.classList.toggle('is-submitting', submitting);
@@ -237,7 +252,12 @@ export default function HomepageCriticalClient() {
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
       event.preventDefault();
+      if (submitInFlight || form.classList.contains('is-submitted')) return;
       clearStatus();
+      if (fieldFeedback && !fieldFeedback.validate()) {
+        setStatus('Skontrolujte označené polia. Údaje zostali vyplnené.', 'error');
+        return;
+      }
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
       Object.entries(leadAttribution()).forEach(([key, value]) => payload.set(key, value));
@@ -251,17 +271,22 @@ export default function HomepageCriticalClient() {
       const submittedEmail = String(payload.get('email') || '').trim();
       if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
       setFormSubmitting(true, button);
+      submitInFlight = true;
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 30_000);
 
       try {
         const response = await fetch(form.action, {
           method: 'POST',
           body: payload,
           headers: { Accept: 'application/json' },
+          signal: controller.signal,
         });
         const result = (await response.json()) as { ok?: boolean; message?: string; leadId?: string; orderId?: string; conversionEligible?: boolean };
         if (!response.ok || !result.ok) throw new Error(result.message || 'Dopyt sa nepodarilo odoslať.');
         if (!result.leadId || !result.orderId) throw new Error('Dopyt bol uložený, ale chýba jeho referenčné číslo. Zavolajte nám prosím.');
         form.reset();
+        fieldFeedback?.reset();
         selectedFiles = [];
         updateFileInput();
         if (preview) preview.innerHTML = '';
@@ -271,10 +296,14 @@ export default function HomepageCriticalClient() {
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať.', 'error');
+        setStatus(controller.signal.aborted
+          ? 'Potvrdenie trvá dlhšie. Údaje zostali vyplnené. Dopyt už mohol byť prijatý; pred ďalším pokusom skontrolujte email alebo nám zavolajte.'
+          : error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať.', 'error');
         trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
         setFormSubmitting(false, button);
       } finally {
+        window.clearTimeout(timeout);
+        submitInFlight = false;
         if (form.classList.contains('is-submitted')) button?.setAttribute('disabled', 'true');
       }
     };
@@ -465,6 +494,7 @@ export default function HomepageCriticalClient() {
       fileDrop?.removeEventListener('dragleave', onFileDragLeave);
       fileDrop?.removeEventListener('drop', onFileDrop);
       form?.removeEventListener('submit', onSubmit);
+      fieldFeedback?.destroy();
       form?.removeEventListener('focusin', onFormStart);
       form?.removeEventListener('input', onFormStart);
       document.removeEventListener('click', onAnalyticsClick);

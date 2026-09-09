@@ -474,6 +474,10 @@ export default async function HomePage() {
         <section className="quote-section" id="dopyt" aria-labelledby="quote-title">
           <div className="quote-section-inner">
             <div className="quote-info-panel">
+              <div className="quote-mobile-intro">
+                <h2>Stačí výmera, obec a kontakt</h2>
+                <p>Fotky môžete pridať, ak ich máte. Podľa údajov pripravíme cenovú ponuku.</p>
+              </div>
               <div className="quote-panel-main">
               <p className="eyebrow">Rýchle nacenenie</p>
               <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
@@ -579,7 +583,6 @@ export default async function HomePage() {
                   <legend>Ako vás máme kontaktovať?</legend>
                   <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /><span>Zavolať</span></label>
                   <label><input type="radio" name="preferredContact" value="Napíšte mi email" /><span>Email</span></label>
-                  <label><input type="radio" name="preferredContact" value="WhatsApp / SMS" /><span>WhatsApp / SMS</span></label>
                 </fieldset>
                 <div className="field">
                   <label htmlFor="phone">Telefón *</label>
@@ -598,11 +601,13 @@ export default async function HomePage() {
               <div className="form-stage form-stage-files">
                 <p className="form-stage-title">4. Fotky voliteľne</p>
                 <div className="field file-field field-full">
-                  <label htmlFor="photos">Nahrajte fotky</label>
+                  <label className="file-desktop-label" htmlFor="photos">Nahrajte fotky</label>
                   <label className="file-drop" htmlFor="photos">
                     <span className="file-drop-icon" aria-hidden="true"></span>
-                    <strong>Vybrať fotky zo zariadenia</strong>
-                    <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
+                    <strong className="file-desktop-label">Vybrať fotky zo zariadenia</strong>
+                    <span className="file-desktop-label">Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
+                    <span className="file-mobile-label"><strong>Pridať fotky</strong><small>Voliteľné</small></span>
+                    <span className="file-mobile-choice">Vybrať</span>
                   </label>
                   <input
                     className="file-input"
@@ -612,11 +617,12 @@ export default async function HomePage() {
                     accept=".jpg,.jpeg,.png,.webp,.heic,image/jpeg,image/png,image/webp,image/heic,image/heif"
                     multiple
                   />
-                  <p className="field-help">Podporované sú JPG, JPEG, PNG, WEBP alebo HEIC. Fotky z mobilu úplne stačia.</p>
+                  <p className="field-help">JPG, PNG, WEBP alebo HEIC</p>
+                  <p className="file-selection-count" aria-live="polite" hidden></p>
                   <div className="file-preview" aria-live="polite"></div>
                 </div>
                 <div className="field field-full">
-                  <label htmlFor="note">Poznámka</label>
+                  <label htmlFor="note">Poznámka (voliteľné)</label>
                   <textarea id="note" name="note" rows={2} placeholder="Prístup, konkrétny termín, kontakt na strechára..."></textarea>
                 </div>
               </div>
