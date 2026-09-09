@@ -10672,7 +10672,7 @@ main .quote-card .form-submit {
 #dopyt .field-validation-message { display: block; color: #a51d25; font-size: 12px; line-height: 1.35; margin-top: 4px; }
 #dopyt .field-validation-message[hidden] { display: none; }
 #dopyt .consent { flex-wrap: wrap; }
-#dopyt .consent .field-validation-message { flex-basis: 100%; }
+#dopyt .consent .field-validation-message { flex-basis: 100%; grid-column: 1 / -1; width: 100%; min-width: 0; }
 #dopyt .quote-card [data-field-state]:focus-visible { outline: 2px solid #176fa3; outline-offset: 3px; }
 .quote-mobile-intro,
 .file-mobile-label,

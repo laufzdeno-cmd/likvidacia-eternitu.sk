@@ -53,12 +53,17 @@ async function main() {
       }
       if (['invalid', 'server-error', 'timeout'].includes(scenario)) {
         await page.locator('.form-status.is-error').waitFor({ timeout: 35000 });
+        await page.waitForTimeout(350);
         assert.equal(posts, scenario === 'invalid' ? 0 : 1);
         if (scenario !== 'invalid') {
           assert.equal(await page.locator('#areaEstimate').inputValue(), '120');
           assert.equal(await page.locator('#email').inputValue(), 'qa@example.invalid');
           assert.ok(await page.evaluate(() => sessionStorage.getItem('astana_lead_submission_id_v1')));
-        } else assert.equal(await page.locator('#areaEstimate').getAttribute('aria-invalid'), 'true');
+        } else {
+          assert.equal(await page.locator('#areaEstimate').getAttribute('aria-invalid'), 'true');
+          assert.equal(await page.locator('#email').evaluate(e => getComputedStyle(e).borderColor), 'rgb(201, 42, 42)');
+          assert.ok(await page.locator('#lead-error-gdpr').evaluate(e => e.getBoundingClientRect().width > 200));
+        }
       } else {
         await page.locator('.lead-form.is-submitted').waitFor({ timeout: 15000 });
         assert.equal(posts, 1);
