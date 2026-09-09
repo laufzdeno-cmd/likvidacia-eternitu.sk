@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect } from 'react';
-import { hasMarketingConsent } from '@/src/lib/marketing-consent';
 
 export default function PublicBaseClient() {
   useEffect(() => {
@@ -11,7 +10,7 @@ export default function PublicBaseClient() {
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
 
-    const getAnalyticsSessionId = () => {
+    const analyticsSessionId = (() => {
       const key = 'astana_analytics_session';
       try {
         const existing = window.localStorage.getItem(key);
@@ -22,7 +21,7 @@ export default function PublicBaseClient() {
       } catch {
         return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
-    };
+    })();
 
     const analyticsDevice = () => {
       if (window.innerWidth < 768) return 'mobile';
@@ -40,8 +39,6 @@ export default function PublicBaseClient() {
     };
 
     const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
-      if (!hasMarketingConsent()) return;
-      const analyticsSessionId = getAnalyticsSessionId();
       const payload = JSON.stringify({
         sessionId: analyticsSessionId,
         eventType,

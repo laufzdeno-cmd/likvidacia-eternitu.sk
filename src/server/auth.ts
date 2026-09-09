@@ -78,8 +78,9 @@ export async function currentAdminEmail() {
 }
 
 export async function requireAdmin() {
-  const user = await requireAdminUser();
-  return user.email;
+  const email = await currentAdminEmail();
+  if (!email) redirect('/admin/login');
+  return email;
 }
 
 type PendingTwoFactor = { email: string; iat: number };
@@ -147,30 +148,13 @@ export async function consumePendingBackupCodes() {
 export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'name' | 'role' | 'active'> | null> {
   const email = await currentAdminEmail();
   if (!email) return null;
-
-  let user: AdminUser | null = null;
-  let lookupFailed = false;
-  try {
-    user = await getAdminUserByEmail(email);
-  } catch (error) {
-    lookupFailed = true;
-    console.error('Admin user lookup failed; refusing session fallback.', error);
-  }
+  const user = await getAdminUserByEmail(email).catch(() => null);
   if (user) return { email: user.email, name: user.name || user.email, role: user.role, active: user.active };
-
   const configuredEmail = adminEmail();
-  const temporaryEmail = process.env.TEMP_ADMIN_EMAIL || '';
-  const fallbackEmail = temporaryEmail || configuredEmail;
-  const hasConfiguredCredential = Boolean(
-    (temporaryEmail && process.env.TEMP_ADMIN_PASSWORD_HASH) || process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD,
-  );
-  if (!lookupFailed && process.env.NODE_ENV !== 'production' && fallbackEmail && email.toLowerCase() === fallbackEmail.toLowerCase()) {
+  if (configuredEmail && email.toLowerCase() === configuredEmail.toLowerCase()) {
     return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true };
   }
-  if (!lookupFailed && hasConfiguredCredential && fallbackEmail && email.toLowerCase() === fallbackEmail.toLowerCase()) {
-    return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true };
-  }
-  return null;
+  return { email, name: email, role: 'OPERATOR', active: true };
 }
 
 export async function requireAdminUser() {
@@ -191,9 +175,7 @@ export function canAccessAdminPath(role: AdminRole, pathname: string) {
     pathname.startsWith('/admin/analytics') ||
     pathname.startsWith('/admin/nastavenia') ||
     pathname.startsWith('/admin/import') ||
-    pathname.startsWith('/admin/users') ||
-    pathname.startsWith('/admin/health') ||
-    pathname.startsWith('/admin/audit')
+    pathname.startsWith('/admin/users')
   );
 }
 

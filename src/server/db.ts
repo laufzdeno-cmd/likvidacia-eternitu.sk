@@ -7,8 +7,6 @@ import type {
   AnalyticsEvent,
   AnalyticsEventInput,
   AnalyticsReport,
-  AnalyticsTrafficSlice,
-  AnalyticsTrafficSummary,
   AdminRole,
   AdminUser,
   AdminUserInput,
@@ -22,11 +20,8 @@ import type {
   BusinessWorkType,
   LandfillPrice,
   Lead,
-  LeadDuplicateMatch,
   LeadFile,
   LeadInput,
-  LeadQueueCounts,
-  LeadSummaryPage,
   LeadStatus,
   LeadSummary,
   PriceOffer,
@@ -48,8 +43,6 @@ import type {
   ReviewRequestStatus,
   Roofer,
   RooferInput,
-  RooferRegistration,
-  RooferRegistrationStatus,
   SiteContentItem,
   Testimonial,
   TestimonialInput,
@@ -57,6 +50,7 @@ import type {
   Worker,
 } from './types';
 import { cleanSlovakText } from './slovak-text';
+import { formatGoogleAdsOrderId, googleAdsOrderDate } from './google-ads-order-id';
 
 type LocalDb = {
   leads: Lead[];
@@ -73,7 +67,6 @@ type LocalDb = {
   landfillPrices: LandfillPrice[];
   realizations: Realization[];
   roofers: Roofer[];
-  rooferRegistrations: RooferRegistration[];
   siteContent: SiteContentItem[];
   analyticsEvents: AnalyticsEvent[];
   adminSettings: Record<string, string>;
@@ -82,13 +75,15 @@ type LocalDb = {
 type LeadWithFiles = Lead & { files: LeadFile[]; quotes: Quote[]; auditLogs: AuditLog[] };
 type BusinessJobWithActivity = BusinessJob & { activityLogs: AuditLog[] };
 
-const databaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
-const localDbPath = process.env.ASTANA_LOCAL_DB_PATH || path.join(process.cwd(), '.data', 'local-db.json');
+const previewSearchPath = process.env.DATABASE_SEARCH_PATH;
+const databaseUrl = normalizeDatabaseUrl(
+  previewSearchPath ? process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL : process.env.DATABASE_URL,
+);
+const localDbPath = path.join(process.cwd(), '.data', 'local-db.json');
 const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
 
 let pool: Pool | undefined;
 let schemaReady = false;
-let schemaBootstrapRequested = false;
 
 function normalizeDatabaseUrl(value?: string) {
   if (!value || value.includes('localhost') || value.includes('127.0.0.1')) return value;
@@ -109,9 +104,13 @@ function normalizeDatabaseUrl(value?: string) {
 
 function getPool() {
   if (!databaseUrl) return undefined;
+  if (previewSearchPath && !/^preview_[a-z0-9_]+$/.test(previewSearchPath)) {
+    throw new Error('DATABASE_SEARCH_PATH musí pomenúvať izolovanú preview_* schému.');
+  }
   pool ??= new Pool({
     connectionString: databaseUrl,
     ssl: databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1') ? undefined : { rejectUnauthorized: false },
+    options: previewSearchPath ? `-c search_path=${previewSearchPath}` : undefined,
   });
   return pool;
 }
@@ -132,6 +131,7 @@ function dateOnly(value: unknown) {
 function toLead(row: Record<string, unknown>): Lead {
   return {
     id: String(row.id),
+    googleAdsOrderId: row.google_ads_order_id ? String(row.google_ads_order_id) : undefined,
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
     status: String(row.status) as LeadStatus,
@@ -152,8 +152,6 @@ function toLead(row: Record<string, unknown>): Lead {
     wantsRooferRecommendation: Boolean(row.wants_roofer_recommendation ?? row.wantsRooferRecommendation),
     selectedRooferId: row.selected_roofer_id ? String(row.selected_roofer_id) : row.selectedRooferId ? String(row.selectedRooferId) : '',
     internalNote: row.internal_note ? cleanSlovakText(String(row.internal_note)) : '',
-    ownerEmail: row.owner_email ? String(row.owner_email).trim().toLowerCase() : row.ownerEmail ? String(row.ownerEmail).trim().toLowerCase() : '',
-    nextAction: row.next_action ? cleanSlovakText(String(row.next_action)) : row.nextAction ? cleanSlovakText(String(row.nextAction)) : '',
     followupDate: dateOnly(row.followup_date ?? row.followupDate),
     followupNote: row.followup_note ? cleanSlovakText(String(row.followup_note)) : row.followupNote ? cleanSlovakText(String(row.followupNote)) : '',
     followupNotificationSent: Boolean(row.followup_notif_odoslana ?? row.followupNotificationSent),
@@ -266,43 +264,6 @@ async function cleanupLegacyData(db: Pool) {
   `);
 }
 
-const requiredRuntimeTables = [
-  'leads',
-  'lead_files',
-  'audit_logs',
-  'quotes',
-  'testimonials',
-  'review_requests',
-  'realizations',
-  'roofers',
-  'roofer_registrations',
-  'roofer_events',
-  'site_content',
-  'admin_settings',
-  'admin_users',
-  'analytics_events',
-  'workers',
-  'landfill_prices',
-  'business_jobs',
-  'price_offers',
-  'business_job_workers',
-  'business_job_costs',
-  'planner_actions',
-] as const;
-
-async function assertRuntimeSchema(db: Pool) {
-  const { rows } = await db.query<{ table_name: string }>(
-    `SELECT required.table_name
-     FROM unnest($1::text[]) AS required(table_name)
-     WHERE to_regclass('public.' || required.table_name) IS NULL
-     ORDER BY required.table_name`,
-    [requiredRuntimeTables],
-  );
-  if (rows.length) {
-    throw new Error(`Databázová schéma nie je pripravená. Chýbajú tabuľky: ${rows.map((row) => row.table_name).join(', ')}. Spustite explicitné db:init.`);
-  }
-}
-
 async function ensureSchema() {
   if (schemaReady) return;
   const db = getPool();
@@ -311,12 +272,6 @@ async function ensureSchema() {
       throw new Error('DATABASE_URL is required in production.');
     }
     await readLocalDb();
-    schemaReady = true;
-    return;
-  }
-
-  if (!schemaBootstrapRequested) {
-    await assertRuntimeSchema(db);
     schemaReady = true;
     return;
   }
@@ -344,8 +299,6 @@ async function ensureSchema() {
       wants_roofer_recommendation boolean NOT NULL DEFAULT false,
       selected_roofer_id text NOT NULL DEFAULT '',
       internal_note text NOT NULL DEFAULT '',
-      owner_email text NOT NULL DEFAULT '',
-      next_action text NOT NULL DEFAULT '',
       followup_date date,
       followup_note text NOT NULL DEFAULT '',
       followup_notif_odoslana boolean NOT NULL DEFAULT false,
@@ -355,13 +308,25 @@ async function ensureSchema() {
 
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS wants_roofer_recommendation boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS selected_roofer_id text NOT NULL DEFAULT '';
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS google_ads_order_id text;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT 'Zavolajte mi';
-    ALTER TABLE leads ADD COLUMN IF NOT EXISTS owner_email text NOT NULL DEFAULT '';
-    ALTER TABLE leads ADD COLUMN IF NOT EXISTS next_action text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_date date;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_note text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS followup_notif_odoslana boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_submission_id
+      ON leads ((raw_data->'attribution'->>'submissionId'))
+      WHERE COALESCE(raw_data->'attribution'->>'submissionId', '') <> '';
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_google_ads_order_id
+      ON leads (google_ads_order_id)
+      WHERE google_ads_order_id IS NOT NULL AND google_ads_order_id <> '';
+    CREATE TABLE IF NOT EXISTS astana_google_ads_order_counters (
+      order_date text NOT NULL,
+      domain_code text NOT NULL,
+      last_value integer NOT NULL,
+      PRIMARY KEY (order_date, domain_code),
+      CHECK (last_value BETWEEN 1 AND 999999)
+    );
 
     CREATE TABLE IF NOT EXISTS lead_files (
       id uuid PRIMARY KEY,
@@ -499,29 +464,6 @@ async function ensureSchema() {
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS quote_use_click_count integer NOT NULL DEFAULT 0;
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS failed_jobs_count integer NOT NULL DEFAULT 0;
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS internal_score numeric(5,2) NOT NULL DEFAULT 0;
-
-    CREATE TABLE IF NOT EXISTS roofer_registrations (
-      id uuid PRIMARY KEY,
-      submission_id text NOT NULL UNIQUE,
-      created_at timestamptz NOT NULL DEFAULT now(),
-      updated_at timestamptz NOT NULL DEFAULT now(),
-      business_type text NOT NULL DEFAULT 'other',
-      company_name text NOT NULL DEFAULT '',
-      company_id text NOT NULL DEFAULT '',
-      contact_person text NOT NULL DEFAULT '',
-      phone text NOT NULL DEFAULT '',
-      email text NOT NULL DEFAULT '',
-      website text NOT NULL DEFAULT '',
-      service_regions jsonb NOT NULL DEFAULT '[]'::jsonb,
-      specializations jsonb NOT NULL DEFAULT '[]'::jsonb,
-      other_specialization text NOT NULL DEFAULT '',
-      can_build_roof_truss text NOT NULL DEFAULT 'by_scope',
-      accept_customer_referrals boolean NOT NULL DEFAULT false,
-      consent_public_profile boolean NOT NULL DEFAULT false,
-      privacy_consent boolean NOT NULL DEFAULT false,
-      note text NOT NULL DEFAULT '',
-      status text NOT NULL DEFAULT 'new'
-    );
 
     CREATE TABLE IF NOT EXISTS roofer_events (
       id uuid PRIMARY KEY,
@@ -718,7 +660,6 @@ async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
-    CREATE INDEX IF NOT EXISTS leads_owner_followup_idx ON leads (owner_email, followup_date, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS audit_logs_action_created_at_idx ON audit_logs (action, created_at DESC);
@@ -728,7 +669,6 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS roofers_active_region_idx ON roofers (active, region, updated_at DESC);
     CREATE INDEX IF NOT EXISTS roofer_events_roofer_created_idx ON roofer_events (roofer_id, created_at DESC);
-    CREATE INDEX IF NOT EXISTS roofer_registrations_status_created_idx ON roofer_registrations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
@@ -742,18 +682,6 @@ async function ensureSchema() {
   await seedDefaultWorkers();
   await seedDefaultAdminUser();
   schemaReady = true;
-}
-
-export async function initializeDatabase() {
-  if (!getPool()) throw new Error('DATABASE_URL je povinný pre explicitné pripravenie databázy.');
-  const previousRequest = schemaBootstrapRequested;
-  schemaBootstrapRequested = true;
-  schemaReady = false;
-  try {
-    await ensureSchema();
-  } finally {
-    schemaBootstrapRequested = previousRequest;
-  }
 }
 
 function toPriceOffer(row: Record<string, unknown>): PriceOffer {
@@ -805,7 +733,6 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     landfillPrices: data.landfillPrices ?? [],
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
-    rooferRegistrations: data.rooferRegistrations ?? [],
     siteContent: data.siteContent ?? [],
     analyticsEvents: data.analyticsEvents ?? [],
     adminSettings: data.adminSettings ?? {},
@@ -892,31 +819,6 @@ function toRoofer(row: Record<string, unknown>): Roofer {
     profit: Number(row.profit ?? 0),
     createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
-  };
-}
-
-function toRooferRegistration(row: Record<string, unknown>): RooferRegistration {
-  return {
-    id: String(row.id),
-    submissionId: String(row.submission_id ?? row.submissionId ?? ''),
-    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
-    updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
-    businessType: String(row.business_type ?? row.businessType ?? 'other') as RooferRegistration['businessType'],
-    companyName: String(row.company_name ?? row.companyName ?? ''),
-    companyId: String(row.company_id ?? row.companyId ?? ''),
-    contactPerson: String(row.contact_person ?? row.contactPerson ?? row.full_name ?? ''),
-    phone: String(row.phone ?? ''),
-    email: String(row.email ?? ''),
-    website: String(row.website ?? row.web ?? ''),
-    serviceRegions: parseStringArray(row.service_regions ?? row.serviceRegions ?? row.regions),
-    specializations: parseStringArray(row.specializations ?? row.specialization),
-    otherSpecialization: String(row.other_specialization ?? row.otherSpecialization ?? ''),
-    canBuildRoofTruss: String(row.can_build_roof_truss ?? row.canBuildRoofTruss ?? 'by_scope') as RooferRegistration['canBuildRoofTruss'],
-    acceptCustomerReferrals: Boolean(row.accept_customer_referrals ?? row.acceptCustomerReferrals),
-    consentPublicProfile: Boolean(row.consent_public_profile ?? row.consentPublicProfile),
-    privacyConsent: Boolean(row.privacy_consent ?? row.privacyConsent),
-    note: String(row.note ?? row.message ?? ''),
-    status: String(row.status ?? 'new') as RooferRegistrationStatus,
   };
 }
 
@@ -1111,7 +1013,6 @@ async function readLocalDb(): Promise<LocalDb> {
       landfillPrices: [],
       realizations: [],
       roofers: [],
-      rooferRegistrations: [],
       siteContent: [],
       analyticsEvents: [],
       adminSettings: {},
@@ -1126,7 +1027,7 @@ async function writeLocalDb(data: LocalDb) {
   await writeFile(localDbPath, JSON.stringify(data, null, 2), 'utf8');
 }
 
-export async function createLead(input: LeadInput): Promise<Lead> {
+export async function createLead(input: LeadInput): Promise<{ lead: Lead; created: boolean }> {
   await ensureSchema();
   const id = randomUUID();
   const timestamp = now();
@@ -1143,8 +1044,6 @@ export async function createLead(input: LeadInput): Promise<Lead> {
     preferredContact: input.preferredContact ?? 'Zavolajte mi',
     wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
     selectedRooferId: input.selectedRooferId ?? '',
-    ownerEmail: '',
-    nextAction: '',
     rawData: input.rawData ?? {},
     createdAt: timestamp,
     updatedAt: timestamp,
@@ -1153,18 +1052,24 @@ export async function createLead(input: LeadInput): Promise<Lead> {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
+    const dateCode = googleAdsOrderDate();
+    const sequence = local.leads.filter((item) => item.googleAdsOrderId?.startsWith(`AST-ET-${dateCode}-`)).length + 1;
+    lead.googleAdsOrderId = formatGoogleAdsOrderId('ET', sequence);
     local.leads.unshift(lead);
     await writeLocalDb(local);
     await addAuditLog('lead', id, 'lead_created', 'system', { status: 'novy' });
-    return lead;
+    return { lead, created: true };
   }
 
-  await db.query(
+  lead.googleAdsOrderId = await nextGoogleAdsOrderId('ET');
+  const inserted = await db.query(
     `INSERT INTO leads (
       id, created_at, updated_at, status, full_name, phone, email, city, district,
       object_type, material_type, area_estimate, preferovany_kontakt, roofer, term, note, gdpr, source,
-      internal_note, raw_data, wants_roofer_recommendation, selected_roofer_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)`,
+      internal_note, raw_data, wants_roofer_recommendation, selected_roofer_id, google_ads_order_id
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+    ON CONFLICT DO NOTHING
+    RETURNING id`,
     [
       lead.id,
       lead.createdAt,
@@ -1188,10 +1093,68 @@ export async function createLead(input: LeadInput): Promise<Lead> {
       lead.rawData,
       lead.wantsRooferRecommendation,
       lead.selectedRooferId,
+      lead.googleAdsOrderId,
     ],
   );
+  if (!inserted.rowCount) {
+    const submissionId = String((lead.rawData?.attribution as Record<string, unknown> | undefined)?.submissionId || '');
+    const existing = submissionId ? await findLeadBySubmissionId(submissionId) : null;
+    if (existing) return { lead: await ensureLeadGoogleAdsOrderId(existing), created: false };
+    throw new Error('Lead sa nepodarilo uložiť.');
+  }
   await addAuditLog('lead', id, 'lead_created', 'system', { status: 'novy' });
-  return lead;
+  return { lead, created: true };
+}
+
+async function nextGoogleAdsOrderId(prefix: 'ET' | 'AZ') {
+  const db = getPool();
+  if (!db) throw new Error('Databáza nie je dostupná pre vytvorenie Google Ads referencie.');
+  const dateCode = googleAdsOrderDate();
+  const result = await db.query<{ last_value: number }>(
+    `INSERT INTO astana_google_ads_order_counters (order_date, domain_code, last_value)
+     VALUES ($1, $2, 1)
+     ON CONFLICT (order_date, domain_code)
+     DO UPDATE SET last_value = astana_google_ads_order_counters.last_value + 1
+     RETURNING last_value`,
+    [dateCode, prefix],
+  );
+  return formatGoogleAdsOrderId(prefix, Number(result.rows[0]?.last_value));
+}
+
+export async function ensureLeadGoogleAdsOrderId(lead: Lead): Promise<Lead> {
+  if (lead.googleAdsOrderId) return lead;
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const stored = local.leads.find((item) => item.id === lead.id);
+    if (!stored) return lead;
+    const dateCode = googleAdsOrderDate(new Date(stored.createdAt));
+    const sequence = local.leads.filter((item) => item.googleAdsOrderId?.startsWith(`AST-ET-${dateCode}-`)).length + 1;
+    stored.googleAdsOrderId = formatGoogleAdsOrderId('ET', sequence, new Date(stored.createdAt));
+    await writeLocalDb(local);
+    return stored;
+  }
+  const orderId = await nextGoogleAdsOrderId('ET');
+  const updated = await db.query('UPDATE leads SET google_ads_order_id = $2 WHERE id = $1 AND google_ads_order_id IS NULL RETURNING *', [lead.id, orderId]);
+  if (updated.rows[0]) return toLead(updated.rows[0]);
+  const current = await db.query('SELECT * FROM leads WHERE id = $1 LIMIT 1', [lead.id]);
+  return current.rows[0] ? toLead(current.rows[0]) : lead;
+}
+
+export async function findLeadBySubmissionId(submissionId: string): Promise<Lead | null> {
+  if (!submissionId) return null;
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.leads.find((lead) => String((lead.rawData?.attribution as Record<string, unknown> | undefined)?.submissionId || '') === submissionId) || null;
+  }
+  const result = await db.query(
+    `SELECT * FROM leads WHERE raw_data->'attribution'->>'submissionId' = $1 LIMIT 1`,
+    [submissionId],
+  );
+  return result.rows[0] ? toLead(result.rows[0]) : null;
 }
 
 export async function addLeadFiles(files: Omit<LeadFile, 'id' | 'createdAt'>[]) {
@@ -1226,13 +1189,13 @@ export async function listLeads(): Promise<Lead[]> {
   return rows.map(toLead);
 }
 
-export async function listLeadSummaries(includeDeleted = false): Promise<LeadSummary[]> {
+export async function listLeadSummaries(): Promise<LeadSummary[]> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     return [...local.leads]
-      .filter((lead) => includeDeleted || !lead.deletedAt)
+      .filter((lead) => !lead.deletedAt)
       .map((lead) => ({
         ...lead,
         fileCount: local.leadFiles.filter((file) => file.leadId === lead.id).length,
@@ -1256,220 +1219,19 @@ export async function listLeadSummaries(includeDeleted = false): Promise<LeadSum
       FROM quotes
       GROUP BY lead_id
     ) q ON q.lead_id = l.id
-    WHERE ($1::boolean OR l.deleted_at IS NULL)
+    WHERE l.deleted_at IS NULL
     ORDER BY l.created_at DESC
     LIMIT 300
-  `, [includeDeleted]);
+  `);
   return rows.map(toLeadSummary);
 }
 
-type LeadSummaryPageFilters = {
-  archivedOnly?: boolean;
-  q?: string;
-  status?: LeadStatus | '';
-  tag?: string;
-  queue?: 'new' | 'unassigned' | 'followup' | 'waiting' | 'quote' | 'active' | '';
-  ownerEmail?: string;
-  today?: string;
-  page?: number;
-  pageSize?: number;
-};
-
-const leadSummaryQualitySql = `
-  (CASE WHEN NULLIF(l.full_name, '') IS NOT NULL AND NULLIF(l.phone, '') IS NOT NULL AND NULLIF(l.email, '') IS NOT NULL THEN 20 ELSE 0 END) +
-  (CASE WHEN NULLIF(l.city, '') IS NOT NULL THEN 15 ELSE 0 END) +
-  (CASE WHEN NULLIF(l.object_type, '') IS NOT NULL AND NULLIF(l.material_type, '') IS NOT NULL THEN 20 ELSE 0 END) +
-  (CASE WHEN l.area_estimate > 0 THEN 20 ELSE 0 END) +
-  (CASE WHEN COALESCE(f.file_count, 0) > 0 THEN 20 ELSE 0 END) +
-  (CASE WHEN NULLIF(l.note, '') IS NOT NULL OR NULLIF(l.term, '') IS NOT NULL OR NULLIF(l.roofer, '') IS NOT NULL THEN 5 ELSE 0 END)
-`;
-
-function normalizeAdminSearch(value: string | undefined) {
-  return (value || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-}
-
-function escapeLikePattern(value: string) {
-  return value.replace(/[\\%_]/g, '\\$&');
-}
-
-function leadSummaryPageSize(value: number | undefined) {
-  return value === 50 || value === 100 ? value : 25;
-}
-
-function leadSummaryPageNumber(value: number | undefined) {
-  return Number.isFinite(value) && value && value > 0 ? Math.floor(value) : 1;
-}
-
-function localLeadMatchesTag(lead: LeadSummary, tag: string) {
-  const term = normalizeAdminSearch(lead.term);
-  const roofer = normalizeAdminSearch(lead.roofer);
-  if (tag === 'chyba_fotka') return lead.fileCount === 0;
-  if (tag === 'potrebuje_strechara') return Boolean(lead.wantsRooferRecommendation || lead.selectedRooferId || roofer.includes('potrebujem') || roofer.includes('chcem odporucit'));
-  if (tag === 'urgentne') return term.includes('najskor') || term.includes('urgent') || term.includes('co naj');
-  if (tag === 'nad_100_m2') return lead.areaEstimate >= 100;
-  if (tag === 'pripravene_na_nacenenie') {
-    const score =
-      (lead.fullName && lead.phone && lead.email ? 20 : 0) +
-      (lead.city ? 15 : 0) +
-      (lead.objectType && lead.materialType ? 20 : 0) +
-      (lead.areaEstimate > 0 ? 20 : 0) +
-      (lead.fileCount > 0 ? 20 : 0) +
-      (lead.note || lead.term || lead.roofer ? 5 : 0);
-    return score >= 75 && lead.fileCount > 0;
-  }
-  return true;
-}
-
-function localLeadMatchesQueue(lead: LeadSummary, queue: LeadSummaryPageFilters['queue'], today: string) {
-  if (!queue) return true;
-  if (queue === 'new') return lead.status === 'novy';
-  if (queue === 'unassigned') return !lead.ownerEmail;
-  if (queue === 'followup') return Boolean(lead.followupDate && lead.followupDate <= today);
-  if (queue === 'waiting') return lead.status === 'caka_na_doplnenie';
-  if (queue === 'quote') return lead.status === 'naceneny';
-  return ['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii'].includes(lead.status);
-}
-
-function buildLeadSummaryPageWhere(filters: LeadSummaryPageFilters) {
-  const values: unknown[] = [];
-  const conditions = [filters.archivedOnly ? 'l.deleted_at IS NOT NULL' : 'l.deleted_at IS NULL'];
-  const addValue = (value: unknown) => {
-    values.push(value);
-    return `$${values.length}`;
-  };
-
-  const q = filters.q?.trim().slice(0, 100) || '';
-  if (q) {
-    const parameter = addValue(`%${escapeLikePattern(normalizeAdminSearch(q))}%`);
-    conditions.push(`TRANSLATE(LOWER(CONCAT_WS(' ', l.full_name, l.phone, l.email, l.city, l.district, l.material_type, l.object_type, l.id::text)), 'áäčďéěíĺľňóôŕšťúůýž', 'aacdeeillnoorstuuyz') LIKE ${parameter} ESCAPE E'\\\\'`);
-  }
-  if (filters.status) conditions.push(`l.status = ${addValue(filters.status)}`);
-
-  if (filters.queue === 'new') conditions.push(`l.status = 'novy'`);
-  if (filters.queue === 'unassigned') conditions.push(`COALESCE(NULLIF(l.owner_email, ''), '') = ''`);
-  if (filters.queue === 'followup') {
-    conditions.push(`l.followup_date IS NOT NULL AND l.followup_date <= ${addValue(filters.today || new Date().toISOString().slice(0, 10))}`);
-  }
-  if (filters.queue === 'waiting') conditions.push(`l.status = 'caka_na_doplnenie'`);
-  if (filters.queue === 'quote') conditions.push(`l.status = 'naceneny'`);
-  if (filters.queue === 'active') {
-    conditions.push(`l.status = ANY(${addValue(['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii'])}::text[])`);
-  }
-  if (filters.ownerEmail) conditions.push(`LOWER(COALESCE(l.owner_email, '')) = LOWER(${addValue(filters.ownerEmail)})`);
-
-  if (filters.tag === 'chyba_fotka') conditions.push('COALESCE(f.file_count, 0) = 0');
-  if (filters.tag === 'potrebuje_strechara') {
-    conditions.push(`(l.wants_roofer_recommendation = true OR NULLIF(l.selected_roofer_id, '') IS NOT NULL OR LOWER(COALESCE(l.roofer, '')) LIKE '%potrebujem%' OR LOWER(COALESCE(l.roofer, '')) LIKE '%chcem odporucit%')`);
-  }
-  if (filters.tag === 'urgentne') {
-    conditions.push(`(LOWER(COALESCE(l.term, '')) LIKE '%najskor%' OR LOWER(COALESCE(l.term, '')) LIKE '%urgent%' OR LOWER(COALESCE(l.term, '')) LIKE '%co naj%' OR LOWER(COALESCE(l.term, '')) LIKE '%čo naj%')`);
-  }
-  if (filters.tag === 'nad_100_m2') conditions.push('l.area_estimate >= 100');
-  if (filters.tag === 'pripravene_na_nacenenie') conditions.push(`COALESCE(f.file_count, 0) > 0 AND (${leadSummaryQualitySql}) >= 75`);
-
-  return { values, where: conditions.join(' AND ') };
-}
-
-export async function listLeadSummaryPage(filters: LeadSummaryPageFilters = {}): Promise<LeadSummaryPage> {
-  await ensureSchema();
-  const requestedPage = leadSummaryPageNumber(filters.page);
-  const pageSize = leadSummaryPageSize(filters.pageSize);
-  const today = filters.today || new Date().toISOString().slice(0, 10);
-  const db = getPool();
-
-  if (!db) {
-    const all = await listLeadSummaries(Boolean(filters.archivedOnly));
-    const q = normalizeAdminSearch(filters.q?.trim() || '');
-    const filtered = all
-      .filter((lead) => filters.archivedOnly ? Boolean(lead.deletedAt) : !lead.deletedAt)
-      .filter((lead) => !q || normalizeAdminSearch([lead.fullName, lead.phone, lead.email, lead.city, lead.district, lead.materialType, lead.objectType, lead.id].join(' ')).includes(q))
-      .filter((lead) => !filters.status || lead.status === filters.status)
-      .filter((lead) => localLeadMatchesQueue(lead, filters.queue, today))
-      .filter((lead) => !filters.ownerEmail || (lead.ownerEmail || '').toLowerCase() === filters.ownerEmail.toLowerCase())
-      .filter((lead) => !filters.tag || localLeadMatchesTag(lead, filters.tag));
-    const total = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(total / pageSize));
-    const page = Math.min(requestedPage, totalPages);
-    return { items: filtered.slice((page - 1) * pageSize, page * pageSize), total, page, pageSize, totalPages };
-  }
-
-  const base = `
-    FROM leads l
-    LEFT JOIN (
-      SELECT lead_id, count(*) AS file_count
-      FROM lead_files
-      GROUP BY lead_id
-    ) f ON f.lead_id = l.id
-    LEFT JOIN (
-      SELECT lead_id, count(*) AS quote_count
-      FROM quotes
-      GROUP BY lead_id
-    ) q ON q.lead_id = l.id
-  `;
-  const where = buildLeadSummaryPageWhere({ ...filters, today });
-  const countResult = await db.query(`SELECT count(*)::int AS total ${base} WHERE ${where.where}`, where.values);
-  const total = Number(countResult.rows[0]?.total ?? 0);
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const page = Math.min(requestedPage, totalPages);
-  const rowValues = [...where.values, pageSize, (page - 1) * pageSize];
-  const { rows } = await db.query(
-    `SELECT l.*, COALESCE(f.file_count, 0)::int AS file_count, COALESCE(q.quote_count, 0)::int AS quote_count
-     ${base}
-     WHERE ${where.where}
-     ORDER BY l.created_at DESC, l.id DESC
-     LIMIT $${rowValues.length - 1} OFFSET $${rowValues.length}`,
-    rowValues,
-  );
-  return { items: rows.map(toLeadSummary), total, page, pageSize, totalPages };
-}
-
-export async function getLeadQueueCounts(today = new Date().toISOString().slice(0, 10)): Promise<LeadQueueCounts> {
-  await ensureSchema();
-  const db = getPool();
-  if (!db) {
-    const leads = await listLeadSummaries(false);
-    return {
-      total: leads.length,
-      newLeads: leads.filter((lead) => lead.status === 'novy').length,
-      unassigned: leads.filter((lead) => !lead.ownerEmail).length,
-      followups: leads.filter((lead) => Boolean(lead.followupDate && lead.followupDate <= today)).length,
-      waiting: leads.filter((lead) => lead.status === 'caka_na_doplnenie').length,
-      quote: leads.filter((lead) => lead.status === 'naceneny').length,
-      active: leads.filter((lead) => ['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii'].includes(lead.status)).length,
-    };
-  }
-
-  const { rows } = await db.query(
-    `SELECT
-       COUNT(*)::int AS total,
-       COUNT(*) FILTER (WHERE status = 'novy')::int AS new_leads,
-       COUNT(*) FILTER (WHERE COALESCE(NULLIF(owner_email, ''), '') = '')::int AS unassigned,
-       COUNT(*) FILTER (WHERE followup_date IS NOT NULL AND followup_date <= $1)::int AS followups,
-       COUNT(*) FILTER (WHERE status = 'caka_na_doplnenie')::int AS waiting,
-       COUNT(*) FILTER (WHERE status = 'naceneny')::int AS quote,
-       COUNT(*) FILTER (WHERE status = ANY($2::text[]))::int AS active
-     FROM leads
-     WHERE deleted_at IS NULL`,
-    [today, ['kontaktovany', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii']],
-  );
-  const row = rows[0] ?? {};
-  return {
-    total: Number(row.total ?? 0),
-    newLeads: Number(row.new_leads ?? 0),
-    unassigned: Number(row.unassigned ?? 0),
-    followups: Number(row.followups ?? 0),
-    waiting: Number(row.waiting ?? 0),
-    quote: Number(row.quote ?? 0),
-    active: Number(row.active ?? 0),
-  };
-}
-
-export async function getLeadWithFiles(id: string, includeArchived = false): Promise<LeadWithFiles | null> {
+export async function getLeadWithFiles(id: string): Promise<LeadWithFiles | null> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && (includeArchived || !item.deletedAt));
+    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (!lead) return null;
     return {
       ...lead,
@@ -1478,7 +1240,7 @@ export async function getLeadWithFiles(id: string, includeArchived = false): Pro
       auditLogs: local.auditLogs.filter((log) => log.entityId === id).sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     };
   }
-  const leadResult = await db.query(`SELECT * FROM leads WHERE id = $1 ${includeArchived ? '' : 'AND deleted_at IS NULL'} LIMIT 1`, [id]);
+  const leadResult = await db.query('SELECT * FROM leads WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
   if (!leadResult.rowCount) return null;
   const [filesResult, quotesResult, auditResult] = await Promise.all([
     db.query('SELECT * FROM lead_files WHERE lead_id = $1 ORDER BY created_at DESC', [id]),
@@ -1491,66 +1253,6 @@ export async function getLeadWithFiles(id: string, includeArchived = false): Pro
     quotes: quotesResult.rows.map(toQuote),
     auditLogs: auditResult.rows.map(toAuditLog),
   };
-}
-
-function duplicateText(value: unknown) {
-  return String(value ?? '')
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '');
-}
-
-function duplicatePhone(value: unknown) {
-  const digits = String(value ?? '').replace(/\D/g, '');
-  if (!digits) return '';
-  if (digits.startsWith('421') && digits.length === 12) return digits.slice(3);
-  if (digits.startsWith('0') && digits.length === 10) return digits.slice(1);
-  return digits;
-}
-
-function leadExplicitAddress(lead: Lead) {
-  const data = lead.rawData && typeof lead.rawData === 'object' ? lead.rawData as Record<string, unknown> : {};
-  for (const key of ['address', 'objectAddress', 'propertyAddress', 'adresa', 'object_address']) {
-    const value = duplicateText(data[key]);
-    if (value) return value;
-  }
-  return '';
-}
-
-export async function findDuplicateLeads(leadId: string): Promise<LeadDuplicateMatch[]> {
-  const lead = await getLeadWithFiles(leadId);
-  if (!lead) return [];
-  const phone = duplicatePhone(lead.phone);
-  const email = duplicateText(lead.email);
-  const address = leadExplicitAddress(lead);
-  if (!phone && !email && !address) return [];
-
-  const matches = (await listLeadSummaries(true))
-    .filter((candidate) => candidate.id !== lead.id)
-    .map((candidate) => {
-      const reasons: LeadDuplicateMatch['reasons'] = [];
-      if (phone && duplicatePhone(candidate.phone) === phone) reasons.push('telefón');
-      if (email && duplicateText(candidate.email) === email) reasons.push('email');
-      if (address && leadExplicitAddress(candidate) === address) reasons.push('adresa');
-      if (!reasons.length) return null;
-      return {
-        leadId: candidate.id,
-        fullName: candidate.fullName,
-        email: candidate.email,
-        phone: candidate.phone,
-        city: candidate.city,
-        status: candidate.status,
-        createdAt: candidate.createdAt,
-        reasons,
-      } satisfies LeadDuplicateMatch;
-    })
-    .filter((candidate): candidate is LeadDuplicateMatch => Boolean(candidate));
-
-  const reasonRank: Record<LeadDuplicateMatch['reasons'][number], number> = { telefón: 0, email: 1, adresa: 2 };
-  return matches
-    .sort((a, b) => Math.min(...a.reasons.map((reason) => reasonRank[reason])) - Math.min(...b.reasons.map((reason) => reasonRank[reason])) || b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 10);
 }
 
 export async function getLeadFile(id: string): Promise<LeadFile | null> {
@@ -1569,7 +1271,7 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
+    const lead = local.leads.find((item) => item.id === id);
     if (!lead) return null;
     const previous = lead.status;
     lead.status = status;
@@ -1579,7 +1281,7 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
     return lead;
   }
   const previous = await getLeadWithFiles(id);
-  const { rows } = await db.query('UPDATE leads SET status = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING *', [status, id]);
+  const { rows } = await db.query('UPDATE leads SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', [status, id]);
   if (!rows[0]) return null;
   await addAuditLog('lead', id, 'status_changed', actorEmail, { previous: previous?.status, next: status });
   return toLead(rows[0]);
@@ -1587,76 +1289,44 @@ export async function updateLeadStatus(id: string, status: LeadStatus, actorEmai
 
 export async function updateLeadWorkflow(
   id: string,
-  input: { status: LeadStatus; ownerEmail?: string; nextAction?: string; followupDate?: string; followupNote?: string; rejectionReason?: string },
+  input: { status: LeadStatus; followupDate?: string; followupNote?: string; rejectionReason?: string },
   actorEmail: string,
 ) {
   await ensureSchema();
   const followupDate = input.followupDate || null;
   const followupNote = input.followupNote?.trim() || input.rejectionReason?.trim() || '';
-  const ownerEmail = input.ownerEmail?.trim().toLowerCase().slice(0, 254) || '';
-  const nextAction = input.nextAction?.trim().slice(0, 500) || '';
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
     if (!lead) return null;
-    const previous = {
-      status: lead.status,
-      ownerEmail: lead.ownerEmail || '',
-      nextAction: lead.nextAction || '',
-      followupDate: lead.followupDate || '',
-      followupNote: lead.followupNote || '',
-    };
+    const previous = lead.status;
     lead.status = input.status;
-    lead.ownerEmail = ownerEmail;
-    lead.nextAction = nextAction;
     lead.followupDate = followupDate || '';
     lead.followupNote = followupNote;
     lead.followupNotificationSent = false;
     lead.updatedAt = now();
     await writeLocalDb(local);
-    await addAuditLog('lead', id, 'status_changed', actorEmail, {
-      previous: previous.status,
-      next: input.status,
-      previousWorkflow: previous,
-      nextWorkflow: { status: input.status, ownerEmail, nextAction, followupDate: followupDate || '', followupNote },
-      changedFields: Object.keys(previous).filter((key) => previous[key as keyof typeof previous] !== ({ status: input.status, ownerEmail, nextAction, followupDate: followupDate || '', followupNote } as Record<string, string>)[key]),
-    });
+    await addAuditLog('lead', id, 'status_changed', actorEmail, { previous, next: input.status, followupDate, followupNote });
     return lead;
   }
   const previous = await getLeadWithFiles(id);
-  const previousWorkflow = {
-    status: previous?.status || '',
-    ownerEmail: previous?.ownerEmail || '',
-    nextAction: previous?.nextAction || '',
-    followupDate: previous?.followupDate || '',
-    followupNote: previous?.followupNote || '',
-  };
-  const nextWorkflow = { status: input.status, ownerEmail, nextAction, followupDate: followupDate || '', followupNote };
   const { rows } = await db.query(
-    `UPDATE leads SET status = $1, owner_email = $2, next_action = $3, followup_date = $4, followup_note = $5, followup_notif_odoslana = false, updated_at = now()
-     WHERE id = $6 AND deleted_at IS NULL RETURNING *`,
-    [input.status, ownerEmail, nextAction, followupDate, followupNote, id],
+    `UPDATE leads SET status = $1, followup_date = $2, followup_note = $3, followup_notif_odoslana = false, updated_at = now()
+     WHERE id = $4 AND deleted_at IS NULL RETURNING *`,
+    [input.status, followupDate, followupNote, id],
   );
   if (!rows[0]) return null;
-  await addAuditLog('lead', id, 'status_changed', actorEmail, {
-    previous: previous?.status,
-    next: input.status,
-    previousWorkflow,
-    nextWorkflow,
-    changedFields: Object.keys(previousWorkflow).filter((key) => previousWorkflow[key as keyof typeof previousWorkflow] !== nextWorkflow[key as keyof typeof nextWorkflow]),
-  });
+  await addAuditLog('lead', id, 'status_changed', actorEmail, { previous: previous?.status, next: input.status, followupDate, followupNote });
   return toLead(rows[0]);
 }
 
 export async function clearLeadFollowup(id: string, actorEmail: string) {
   await ensureSchema();
   const db = getPool();
-  const previousLead = await getLeadWithFiles(id);
-  if (!previousLead) return null;
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
+    const lead = local.leads.find((item) => item.id === id);
     if (lead) {
       lead.followupDate = '';
       lead.followupNote = '';
@@ -1665,13 +1335,9 @@ export async function clearLeadFollowup(id: string, actorEmail: string) {
       await writeLocalDb(local);
     }
   } else {
-    await db.query("UPDATE leads SET followup_date = NULL, followup_note = '', followup_notif_odoslana = false, updated_at = now() WHERE id = $1 AND deleted_at IS NULL", [id]);
+    await db.query("UPDATE leads SET followup_date = NULL, followup_note = '', followup_notif_odoslana = false, updated_at = now() WHERE id = $1", [id]);
   }
-  await addAuditLog('lead', id, 'followup_cancelled', actorEmail, {
-    previous: { followupDate: previousLead?.followupDate || '', followupNote: previousLead?.followupNote || '' },
-    next: { followupDate: '', followupNote: '' },
-  });
-  return previousLead;
+  await addAuditLog('lead', id, 'followup_cancelled', actorEmail, {});
 }
 
 export async function updateLeadInternalNote(id: string, internalNote: string, actorEmail: string) {
@@ -1679,7 +1345,7 @@ export async function updateLeadInternalNote(id: string, internalNote: string, a
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
+    const lead = local.leads.find((item) => item.id === id);
     if (!lead) return null;
     const previous = lead.internalNote;
     lead.internalNote = internalNote;
@@ -1689,7 +1355,7 @@ export async function updateLeadInternalNote(id: string, internalNote: string, a
     return lead;
   }
   const previous = await getLeadWithFiles(id);
-  const { rows } = await db.query('UPDATE leads SET internal_note = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING *', [internalNote, id]);
+  const { rows } = await db.query('UPDATE leads SET internal_note = $1, updated_at = now() WHERE id = $2 RETURNING *', [internalNote, id]);
   if (!rows[0]) return null;
   await addAuditLog('lead', id, 'internal_note_changed', actorEmail, { previous: previous?.internalNote, next: internalNote });
   return toLead(rows[0]);
@@ -1699,7 +1365,6 @@ export async function deleteLeadFileRecord(fileId: string, actorEmail: string) {
   await ensureSchema();
   const file = await getLeadFile(fileId);
   if (!file) return null;
-  if (!(await getLeadWithFiles(file.leadId))) return null;
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
@@ -1783,21 +1448,6 @@ export async function addAuditLog(
     [log.id, log.entityType, log.entityId, log.action, log.actorEmail, log.changes, log.createdAt],
   );
   return log;
-}
-
-export async function listAuditLogs(limit = 300): Promise<AuditLog[]> {
-  await ensureSchema();
-  const safeLimit = Math.min(1000, Math.max(1, Math.round(limit)));
-  const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    return local.auditLogs
-      .slice()
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, safeLimit);
-  }
-  const result = await db.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT $1', [safeLimit]);
-  return result.rows.map(toAuditLog);
 }
 
 export function calculateQuoteTotals(input: Pick<QuoteInput, 'areaEstimate' | 'pricePerM2' | 'documentationFee' | 'transportFee' | 'surcharge' | 'discount' | 'vatRate'>) {
@@ -3056,198 +2706,6 @@ export async function listPublicRoofers(filters: { region?: string; district?: s
   return listRoofers({ ...filters, publicOnly: true });
 }
 
-export async function archiveLead(id: string, actorEmail: string, reason = '') {
-  await ensureSchema();
-  const db = getPool();
-  const archivedAt = now();
-  if (!db) {
-    const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && !item.deletedAt);
-    if (!lead) return null;
-    lead.deletedAt = archivedAt;
-    lead.updatedAt = archivedAt;
-    await writeLocalDb(local);
-    await addAuditLog('lead', id, 'lead_archived', actorEmail, { deletedAt: archivedAt, reason: reason.trim().slice(0, 500) });
-    return lead;
-  }
-  const { rows } = await db.query(
-    'UPDATE leads SET deleted_at = $1, updated_at = now() WHERE id = $2 AND deleted_at IS NULL RETURNING *',
-    [archivedAt, id],
-  );
-  if (!rows[0]) return null;
-  await addAuditLog('lead', id, 'lead_archived', actorEmail, { deletedAt: archivedAt, reason: reason.trim().slice(0, 500) });
-  return toLead(rows[0]);
-}
-
-export async function restoreLead(id: string, actorEmail: string) {
-  await ensureSchema();
-  const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    const lead = local.leads.find((item) => item.id === id && item.deletedAt);
-    if (!lead) return null;
-    lead.deletedAt = undefined;
-    lead.updatedAt = now();
-    await writeLocalDb(local);
-    await addAuditLog('lead', id, 'lead_restored', actorEmail, {});
-    return lead;
-  }
-  const { rows } = await db.query(
-    'UPDATE leads SET deleted_at = NULL, updated_at = now() WHERE id = $1 AND deleted_at IS NOT NULL RETURNING *',
-    [id],
-  );
-  if (!rows[0]) return null;
-  await addAuditLog('lead', id, 'lead_restored', actorEmail, {});
-  return toLead(rows[0]);
-}
-
-export async function destroyArchivedLead(id: string, actorEmail: string, reason: string) {
-  await ensureSchema();
-  const lead = await getLeadWithFiles(id, true);
-  if (!lead?.deletedAt) return null;
-  const cleanReason = reason.trim().slice(0, 500);
-  if (cleanReason.length < 3) throw new Error('Trvalé odstránenie vyžaduje dôvod.');
-  const blockingQuotes = lead.quotes.filter((quote) => !['draft', 'cancelled'].includes(quote.status));
-  if (blockingQuotes.length) {
-    throw new Error('Trvalé odstránenie je zablokované, pretože dopyt má aktívnu alebo historickú cenovú ponuku. Najprv ju zrušte alebo archivujte.');
-  }
-  const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    local.leads = local.leads.filter((item) => item.id !== id);
-    local.leadFiles = local.leadFiles.filter((file) => file.leadId !== id);
-    local.quotes = local.quotes.filter((quote) => quote.leadId !== id);
-    local.reviewRequests = local.reviewRequests.map((request) => request.leadId === id ? { ...request, leadId: undefined } : request);
-    await writeLocalDb(local);
-  } else {
-    await db.query('BEGIN');
-    try {
-      await db.query('UPDATE review_requests SET lead_id = NULL WHERE lead_id = $1', [id]);
-      await db.query('DELETE FROM quotes WHERE lead_id = $1', [id]);
-      await db.query('DELETE FROM lead_files WHERE lead_id = $1', [id]);
-      await db.query('DELETE FROM leads WHERE id = $1 AND deleted_at IS NOT NULL', [id]);
-      await db.query('COMMIT');
-    } catch (error) {
-      await db.query('ROLLBACK');
-      throw error;
-    }
-  }
-  await addAuditLog('lead', id, 'lead_deleted', actorEmail, {
-    reason: cleanReason,
-    removedFiles: lead.files.length,
-    removedQuotes: lead.quotes.length,
-  });
-  return lead;
-}
-
-type RooferRegistrationCreateResult = {
-  registration: RooferRegistration;
-  duplicate: boolean;
-};
-
-const rooferRegistrationWrites = new Map<string, Promise<RooferRegistrationCreateResult>>();
-
-export async function listRooferRegistrations(): Promise<RooferRegistration[]> {
-  await ensureSchema();
-  const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    return local.rooferRegistrations
-      .map((registration) => toRooferRegistration(registration as unknown as Record<string, unknown>))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  }
-  const { rows } = await db.query('SELECT * FROM roofer_registrations ORDER BY created_at DESC LIMIT 300');
-  return rows.map(toRooferRegistration);
-}
-
-export async function createRooferRegistration(input: Omit<RooferRegistration, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<RooferRegistrationCreateResult> {
-  const existingWrite = rooferRegistrationWrites.get(input.submissionId);
-  if (existingWrite) {
-    return { registration: (await existingWrite).registration, duplicate: true };
-  }
-
-  const write = (async () => {
-    await ensureSchema();
-    const db = getPool();
-    if (!db) {
-      const local = await readLocalDb();
-      const existing = local.rooferRegistrations.find((item) => item.submissionId === input.submissionId);
-      if (existing) {
-        return { registration: toRooferRegistration(existing as unknown as Record<string, unknown>), duplicate: true };
-      }
-      const timestamp = now();
-      const registration: RooferRegistration = {
-        ...input,
-        id: randomUUID(),
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        status: 'new',
-      };
-      local.rooferRegistrations.unshift(registration);
-      await writeLocalDb(local);
-      await addAuditLog('roofer_registration', registration.id, 'roofer_registration_created', 'public', {
-        businessType: registration.businessType,
-        companyName: registration.companyName,
-        serviceRegions: registration.serviceRegions,
-      });
-      return { registration, duplicate: false };
-    }
-
-    const timestamp = now();
-    const { rows } = await db.query(
-      `INSERT INTO roofer_registrations (
-        id, submission_id, created_at, updated_at, business_type, company_name, company_id,
-        contact_person, phone, email, website, service_regions, specializations,
-        other_specialization, can_build_roof_truss, accept_customer_referrals,
-        consent_public_profile, privacy_consent, note, status
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,$19,$20)
-      ON CONFLICT (submission_id) DO NOTHING
-      RETURNING *`,
-      [
-        randomUUID(),
-        input.submissionId,
-        timestamp,
-        timestamp,
-        input.businessType,
-        input.companyName,
-        input.companyId,
-        input.contactPerson,
-        input.phone,
-        input.email,
-        input.website,
-        JSON.stringify(input.serviceRegions),
-        JSON.stringify(input.specializations),
-        input.otherSpecialization,
-        input.canBuildRoofTruss,
-        input.acceptCustomerReferrals,
-        input.consentPublicProfile,
-        input.privacyConsent,
-        input.note,
-        'new',
-      ],
-    );
-    if (rows[0]) {
-      const registration = toRooferRegistration(rows[0]);
-      await addAuditLog('roofer_registration', registration.id, 'roofer_registration_created', 'public', {
-        businessType: registration.businessType,
-        companyName: registration.companyName,
-        serviceRegions: registration.serviceRegions,
-      });
-      return { registration, duplicate: false };
-    }
-    const duplicate = await db.query('SELECT * FROM roofer_registrations WHERE submission_id = $1 LIMIT 1', [input.submissionId]);
-    if (!duplicate.rows[0]) throw new Error('Roofer registration was not persisted.');
-    return { registration: toRooferRegistration(duplicate.rows[0]), duplicate: true };
-  })();
-
-  rooferRegistrationWrites.set(input.submissionId, write);
-  try {
-    return await write;
-  } finally {
-    if (rooferRegistrationWrites.get(input.submissionId) === write) rooferRegistrationWrites.delete(input.submissionId);
-  }
-}
-
 export async function listMatchingRoofers(lead: Pick<Lead, 'city' | 'district'>, limit = 5) {
   const district = lead.district?.trim() || '';
   const city = lead.city?.trim() || '';
@@ -3473,7 +2931,10 @@ export async function getSiteContentMap(
   }, {});
 
   if (options?.versionKey && options.version && stored[options.versionKey] !== options.version) {
-    await upsertSiteContentValues({ ...defaults, [options.versionKey]: options.version }, 'system-content-migration');
+    // A public page must remain a read-only request. In particular, Vercel can
+    // serve it through a read-only database transaction. Content migration is
+    // an explicit admin operation, never a side effect of a visitor loading
+    // the homepage.
     return { ...defaults };
   }
 
@@ -4052,27 +3513,6 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
     if (event.sessionId) item.sessions.add(event.sessionId);
     sourceMap.set(source, item);
   }
-
-  const campaignMap = new Map<string, { campaign: string; source: string; sessions: Set<string>; leads: Set<string> }>();
-  for (const event of pageViews) {
-    const source = sourceFromEvent(event);
-    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
-    const key = `${source}\u0000${campaign}`;
-    const item = campaignMap.get(key) ?? { campaign, source, sessions: new Set<string>(), leads: new Set<string>() };
-    if (event.sessionId) item.sessions.add(event.sessionId);
-    campaignMap.set(key, item);
-  }
-  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
-    const source = sourceFromEvent(event);
-    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
-    const key = `${source}\u0000${campaign}`;
-    const item = campaignMap.get(key) ?? { campaign, source, sessions: new Set<string>(), leads: new Set<string>() };
-    if (event.sessionId) {
-      item.sessions.add(event.sessionId);
-      item.leads.add(event.sessionId);
-    }
-    campaignMap.set(key, item);
-  }
   for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
     const source = sourceFromEvent(event);
     const item = sourceMap.get(source) ?? { source, sessions: new Set<string>(), leads: new Set<string>() };
@@ -4136,10 +3576,6 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
       .map((item) => ({ source: item.source, sessions: item.sessions.size, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
       .sort((a, b) => b.sessions - a.sessions)
       .slice(0, 10),
-    campaigns: [...campaignMap.values()]
-      .map((item) => ({ campaign: item.campaign, source: item.source, sessions: item.sessions.size, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
-      .sort((a, b) => b.sessions - a.sessions)
-      .slice(0, 15),
     devices: [...deviceMap.values()]
       .map((item) => ({ device: item.device, sessions: item.sessions.size, pageViews: item.pageViews, leads: item.leads.size, conversionRate: percent(item.leads.size, item.sessions.size) }))
       .sort((a, b) => b.sessions - a.sessions),
@@ -4159,87 +3595,6 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
       { label: 'Vytvorené ponuky', count: quoteCount, rateFromPrevious: percent(quoteCount, leadCount) },
       { label: 'Prijaté ponuky', count: acceptedQuotes, rateFromPrevious: percent(acceptedQuotes, quoteCount) },
     ],
-  };
-}
-
-function analyticsTrafficSlice(events: AnalyticsEvent[], sinceMs?: number): AnalyticsTrafficSlice {
-  const filtered = sinceMs === undefined ? events : events.filter((event) => new Date(event.createdAt).getTime() >= sinceMs);
-  return {
-    pageViews: filtered.filter((event) => event.eventType === 'page_view').length,
-    sessions: new Set(filtered.map((event) => event.sessionId).filter(Boolean)).size,
-    formStarts: filtered.filter((event) => event.eventType === 'form_start').length,
-    leads: filtered.filter((event) => event.eventType === 'form_submit_success').length,
-  };
-}
-
-function slovakDateParts(date: Date) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Bratislava',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-  }).formatToParts(date);
-  return {
-    year: Number(parts.find((part) => part.type === 'year')?.value),
-    month: Number(parts.find((part) => part.type === 'month')?.value),
-    day: Number(parts.find((part) => part.type === 'day')?.value),
-  };
-}
-
-function slovakMidnightUtc(parts: { year: number; month: number; day: number }) {
-  const guess = Date.UTC(parts.year, parts.month - 1, parts.day);
-  const localParts = slovakDateParts(new Date(guess));
-  const localAsUtc = Date.UTC(localParts.year, localParts.month - 1, localParts.day);
-  return new Date(guess - (localAsUtc - guess));
-}
-
-export async function getAnalyticsTrafficSummary(): Promise<AnalyticsTrafficSummary> {
-  await ensureSchema();
-  const currentDate = slovakDateParts(new Date());
-  const todayStart = slovakMidnightUtc(currentDate).toISOString();
-  const monthStart = slovakMidnightUtc({ ...currentDate, day: 1 }).toISOString();
-  const yearStart = slovakMidnightUtc({ ...currentDate, month: 1, day: 1 }).toISOString();
-  const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    const events = local.analyticsEvents;
-    return {
-      today: analyticsTrafficSlice(events, new Date(todayStart).getTime()),
-      month: analyticsTrafficSlice(events, new Date(monthStart).getTime()),
-      year: analyticsTrafficSlice(events, new Date(yearStart).getTime()),
-      allTime: analyticsTrafficSlice(events),
-    };
-  }
-
-  const { rows } = await db.query(
-    `WITH periods AS (SELECT $1::timestamptz AS today_start, $2::timestamptz AS month_start, $3::timestamptz AS year_start)
-     SELECT
-       COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'page_view')::int AS today_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.today_start AND e.session_id <> '')::int AS today_sessions,
-       COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'form_start')::int AS today_form_starts,
-       COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'form_submit_success')::int AS today_leads,
-       COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'page_view')::int AS month_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.month_start AND e.session_id <> '')::int AS month_sessions,
-       COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'form_start')::int AS month_form_starts,
-       COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'form_submit_success')::int AS month_leads,
-       COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'page_view')::int AS year_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.year_start AND e.session_id <> '')::int AS year_sessions,
-       COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'form_start')::int AS year_form_starts,
-       COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'form_submit_success')::int AS year_leads,
-       COUNT(*) FILTER (WHERE e.event_type = 'page_view')::int AS all_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.session_id <> '')::int AS all_sessions,
-       COUNT(*) FILTER (WHERE e.event_type = 'form_start')::int AS all_form_starts,
-       COUNT(*) FILTER (WHERE e.event_type = 'form_submit_success')::int AS all_leads
-     FROM analytics_events e, periods p`,
-    [todayStart, monthStart, yearStart],
-  );
-  const row = rows[0] ?? {};
-  const number = (value: unknown) => Number(value ?? 0);
-  return {
-    today: { pageViews: number(row.today_page_views), sessions: number(row.today_sessions), formStarts: number(row.today_form_starts), leads: number(row.today_leads) },
-    month: { pageViews: number(row.month_page_views), sessions: number(row.month_sessions), formStarts: number(row.month_form_starts), leads: number(row.month_leads) },
-    year: { pageViews: number(row.year_page_views), sessions: number(row.year_sessions), formStarts: number(row.year_form_starts), leads: number(row.year_leads) },
-    allTime: { pageViews: number(row.all_page_views), sessions: number(row.all_sessions), formStarts: number(row.all_form_starts), leads: number(row.all_leads) },
   };
 }
 

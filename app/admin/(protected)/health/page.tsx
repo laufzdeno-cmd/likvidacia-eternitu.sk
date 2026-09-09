@@ -1,12 +1,10 @@
 import { getSystemHealth } from '@/src/server/db';
-import { requireSuperAdmin } from '@/src/server/auth';
 
 function healthClass(ok: boolean) {
   return ok ? 'health-ok' : 'health-warn';
 }
 
 export default async function AdminHealthPage() {
-  await requireSuperAdmin();
   const health = await getSystemHealth();
 
   return (

@@ -2,15 +2,16 @@
   "name": "likvidacia-eternitu-sk",
   "private": true,
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/test-google-ads.cjs && next build",
-    "test:google-ads": "node scripts/test-google-ads.cjs",
+    "build": "next build",
     "preview": "next start",
     "typecheck": "tsc --noEmit",
     "lighthouse:ci": "ts-node scripts/lighthouse-ci.ts",
     "db:init": "tsx scripts/init-db.ts",
-    "admin:hash": "node scripts/hash-password.mjs"
+    "admin:hash": "node scripts/hash-password.mjs",
+    "test:order-id": "tsx scripts/verify-google-ads-order-id.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",

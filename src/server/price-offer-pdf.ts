@@ -238,7 +238,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
       <h2 class="section-title">Obchodné podmienky</h2>
       <p>Všetko vybavíme za Vás — cena je kompletná, vrátane demontáže, dopravy, vypracovania potrebných podkladov a všetkých správnych poplatkov. Ak by výmera bola menšia alebo väčšia, cena bude upravená.</p>
       <p>Sme platcami DPH. Lehota splatnosti faktúry je 14 dní od dodania služby. Všetky podklady (originál SLNO s kópiou vážneho lístka, záverečnú správu, ako aj potvrdenie spoločnosti ASTANA, s.r.o. o zneškodnení odpadu) zasielame až po úhrade faktúry.</p>
-      <p>V prípade záujmu Vás žiadame o potvrdenie cenovej ponuky objednávkou min. 30 dní pred začiatkom realizačných prác, nakoľko RÚVZ a OÚ má zákonnú mesačnú lehotu na vydanie rozhodnutia. V prípade zrušenia objednávky zo strany objednávateľa si spoločnosť ASTANA, s.r.o. vyhradzuje právo zaúčtovania nákladov spojených s vybavením administratívy na úradoch vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.</p>
+      <p>V prípade záujmu Vás žiadame o potvrdenie cenovej ponuky objednávkou min. 30 dní pred začiatkom realizačných prác. Bežné odstraňovanie azbestu oznamuje oprávnená firma príslušnému RÚVZ najneskôr 30 dní pred začatím prác. Potrebný úradný postup pripravíme podľa konkrétnej zákazky. V prípade zrušenia objednávky zo strany objednávateľa si spoločnosť ASTANA, s.r.o. vyhradzuje právo zaúčtovania nákladov spojených s vybavením administratívy na úradoch vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.</p>
       <p>Firma ASTANA, s.r.o. má oprávnenie na likvidáciu a manipuláciu s nebezpečným odpadom č. ${escapeHtml(c.authorization)} udelené Úradom verejného zdravotníctva Slovenskej republiky.</p>
     </main>
 

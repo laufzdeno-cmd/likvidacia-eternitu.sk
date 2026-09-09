@@ -10,7 +10,13 @@ import {
 import { getSiteContentMap } from '@/src/server/db';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
-import { site } from '@/src/content/site';
+
+
+const heroCounters = [
+  { value: 80000, suffix: '+', label: 'm2 zlikvidovaných', start: 0, format: 'locale' },
+  { value: 500, suffix: '+', label: 'zákazníkov', start: 0, format: 'locale' },
+  { value: 2011, suffix: '', label: 'pôsobíme od roku', start: 1990, format: 'plain' },
+] as const;
 
 const heroImage = {
   mobileWebp: '/assets/azbest/hero/azbest-087-mobile-480.webp',
@@ -31,6 +37,9 @@ const realizationFilters = [
   { value: 'garaz', label: 'Garáž' },
   { value: 'priemyselny-objekt', label: 'Priemyselný objekt' },
 ] as const;
+
+const formatHeroCounterValue = (counter: (typeof heroCounters)[number]) =>
+  `${counter.value === 2011 ? counter.value.toString() : counter.value.toLocaleString('sk-SK')}${counter.suffix}`;
 
 const whyCardMeta = [
   { icon: 'shield', title: 'Bezpečný postup' },
@@ -147,7 +156,7 @@ const defaultRooferItems = [
   ['Zladenie termínu', 'Na stavbu chodíme skoro ráno podľa dohody, aby mohli strechári nadviazať prácou v ten istý deň.'],
   ['Sledujeme počasie', 'Termín plánujeme s ohľadom na počasie, rozsah prác a nadväznosť strechárskych prác.'],
   ['Bez zhadzovania eternitu', 'Materiál demontujeme kontrolovane. Nezhadzujeme eternit zo strechy a nevytvárame zbytočný chaos na stavbe.'],
-  ['Stabilizácia materiálu', 'Pred manipuláciou sa materiál stabilizuje, aby sa znížilo riziko uvoľňovania prachu.'],
+  ['Špeciálny prípravok na azbest', 'Pred manipuláciou materiál stabilizujeme špeciálnym prípravkom určeným na azbest, aby sa znížilo riziko uvoľňovania prachu.'],
   ['Pomoc so strechárom', 'Ak nemáte svojho strechára, môžete si vybrať partnera podľa regiónu alebo o odporúčanie požiadať v cenovej ponuke.'],
   ['Platba po dokončení', 'Pri bežných zákazkách nevyžadujeme platbu vopred za samotnú realizáciu. Platba prebieha po dokončení podľa dohodnutého rozsahu.'],
 ] satisfies [string, string][];
@@ -172,7 +181,7 @@ const defaultFaq = [
   ],
   [
     'Aké doklady si mám vypýtať pred začiatkom prác?',
-    'Pýtajte si doklady k vašej konkrétnej stavbe. Podľa typu zákazky môže ísť najmä o podklady alebo posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie.',
+    'Pýtajte si doklady k vašej konkrétnej stavbe. Podľa typu zákazky môže ísť najmä o písomné oznámenie príslušnému RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie.',
   ],
   [
     'Stačí, že firma má všeobecné oprávnenie na azbest?',
@@ -226,6 +235,44 @@ function buildJsonLd(faq: [string, string][]) {
     '@context': 'https://schema.org',
     '@graph': [
       {
+        '@type': 'Organization',
+        '@id': 'https://likvidacia-eternitu.sk/#organization',
+        name: 'ASTANA',
+        legalName: 'ASTANA, s.r.o.',
+        url: 'https://likvidacia-eternitu.sk/',
+        telephone: '+421905217946',
+        email: 'astana@astana.sk',
+        foundingDate: '2011',
+        taxID: '46 157 701',
+        vatID: 'SK2023253771',
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: 'Scherffelova 1364/28',
+          postalCode: '058 01',
+          addressLocality: 'Poprad',
+          addressCountry: 'SK',
+        },
+        sameAs: ['https://astana.sk'],
+      },
+      {
+        '@type': 'ProfessionalService',
+        '@id': 'https://likvidacia-eternitu.sk/#business',
+        name: 'ASTANA - likvidácia azbestu a eternitu',
+        url: 'https://likvidacia-eternitu.sk/',
+        telephone: '+421905217946',
+        email: 'astana@astana.sk',
+        taxID: '46 157 701',
+        vatID: 'SK2023253771',
+        areaServed: { '@type': 'Country', name: 'Slovensko' },
+        address: {
+          '@type': 'PostalAddress',
+          streetAddress: 'Scherffelova 1364/28',
+          postalCode: '058 01',
+          addressLocality: 'Poprad',
+          addressCountry: 'SK',
+        },
+      },
+      {
         '@type': 'Service',
         '@id': 'https://likvidacia-eternitu.sk/#service',
         name: 'Likvidácia azbestu a eternitu',
@@ -249,10 +296,21 @@ function buildJsonLd(faq: [string, string][]) {
         '@id': 'https://likvidacia-eternitu.sk/#breadcrumbs',
         itemListElement: [{ '@type': 'ListItem', position: 1, name: 'Úvod', item: 'https://likvidacia-eternitu.sk/' }],
       },
+      {
+        '@type': 'WebSite',
+        '@id': 'https://likvidacia-eternitu.sk/#website',
+        name: 'Likvidácia azbestu a eternitu ASTANA',
+        url: 'https://likvidacia-eternitu.sk/',
+        publisher: { '@id': 'https://likvidacia-eternitu.sk/#organization' },
+      },
     ],
   };
 }
 
+// Homepage content is editable from the admin area and is read from PostgreSQL.
+// Rendering it at request time keeps Vercel's read-only build transaction from
+// attempting database schema initialization during static prerendering.
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
 export default async function HomePage() {
@@ -263,12 +321,11 @@ export default async function HomePage() {
   const content: typeof homeContentDefaults = {
     ...homeContentDefaults,
     ...normalizedContent,
-    heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
-    heroClaim:
-      'Vy nám pošlete približnú výmeru a obec. My sa postaráme o potrebné doklady, bezpečnú demontáž, zabalenie aj odvoz.',
+    heroTitle: 'Vy riešite novú strechu. My všetko okolo azbestu.',
+    heroClaim: 'S nami strechári nestratia deň, azbestový odpad nezostane na vašom dvore a vy dostanete doklady.',
     heroText:
-      'ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
-    ctaPrimary: 'Chcem cenovú ponuku',
+      'Cenovú ponuku pripravíme do 24 hodín. Bez záväzku. Stačí približná výmera, lokalita a kontakt.',
+    ctaPrimary: 'Získať cenovú ponuku',
     ctaPhone: 'Zavolať 0905 217 946',
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
   };
@@ -353,29 +410,25 @@ export default async function HomePage() {
               <a className="button button-primary" href="#dopyt">
                 {content.ctaPrimary}
               </a>
-            <a className="button button-outline" href="tel:+421905217946">
-                <span className="button-phone" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 2.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L6.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 20 16.92z" />
-                  </svg>
-                </span>
-                {content.ctaPhone}
+              <a className="button button-outline" href="tel:+421905217946">
+                <span className="button-phone" aria-hidden="true"></span>{content.ctaPhone}
               </a>
             </div>
-            <p className="hero-microcopy">Fotky sú voliteľné · Bez záväzku</p>
-            <div className="hero-counters" aria-label="Základné údaje o ASTANA">
-              <div className="hero-counter-item">
-                <strong>Od 2011</strong>
-                <span>pôsobíme na trhu</span>
-              </div>
-              <div className="hero-counter-item">
-                <strong>Celé Slovensko</strong>
-                <span>pôsobnosť</span>
-              </div>
-              <div className="hero-counter-item">
-                <strong>ÚVZ SR</strong>
-                <span>verejný register</span>
-              </div>
+            <div className="hero-counters" data-hero-counters aria-label="Výsledky ASTANA v číslach">
+              {heroCounters.map((counter) => (
+                <div className="hero-counter-item" key={counter.label}>
+                  <strong
+                    data-hero-counter
+                    data-counter-target={counter.value}
+                    data-counter-start={counter.start}
+                    data-counter-suffix={counter.suffix}
+                    data-counter-format={counter.format}
+                  >
+                    {formatHeroCounterValue(counter)}
+                  </strong>
+                  <span>{counter.label}</span>
+                </div>
+              ))}
             </div>
             <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
           </div>
@@ -423,9 +476,9 @@ export default async function HomePage() {
             <div className="quote-info-panel">
               <div className="quote-panel-main">
               <p className="eyebrow">Rýchle nacenenie</p>
-              <h2>Čo bude nasledovať po odoslaní dopytu?</h2>
+              <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
               <p>
-                Dopyt si skontrolujeme. Ak bude treba, doplníme s vami detaily a potom vám pripravíme konkrétnu cenovú ponuku.
+                Formulár zostáva krátky. Najdôležitejšia je približná výmera v m2, lokalita a kontakt, aby sme vedeli pripraviť reálnu ponuku.
               </p>
               <ul>
                 <li><VisualIcon name="check" className="quote-panel-icon" />Bez záväzku a bez automatickej objednávky</li>
@@ -450,18 +503,8 @@ export default async function HomePage() {
               <span></span>
               <span></span>
             </div>
-            <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data" noValidate>
-              <input
-                className="hp-field"
-                type="text"
-                name="companyWebsite"
-                tabIndex={-1}
-                autoComplete="new-password"
-                aria-hidden="true"
-                data-submit-disabled="true"
-                disabled
-              />
-              <input id="submissionId" type="hidden" name="submissionId" value="" />
+            <form className="lead-form" action="/api/lead/" method="post" encType="multipart/form-data" noValidate>
+              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
               <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
               <div className="form-stage form-stage-priority">
                 <p className="form-stage-title">1. Výmera a lokalita</p>
@@ -716,9 +759,12 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="transport-banner" aria-label="Doprava zdarma nad 100 metrov štvorcových">
+        <section className="transport-banner" aria-label="Podmienky akcie pre zákazky nad 100 metrov štvorcových">
           <span className="transport-icon"><VisualIcon name="truck" /></span>
-          <strong>Dopravu pri zákazkách nad 100 m2 neúčtujeme!</strong>
+          <div>
+            <strong>Pri kompletnej likvidácii azbestovej alebo eternitovej strechy nad 100 m² máte dopravu po celom Slovensku zdarma a úradné vybavenie za 0 €.</strong>
+            <small>Platí pri kompletnej realizácii strechy nad 100 m² firmou ASTANA. Výmera a rozsah služby sa potvrdia v cenovej ponuke.</small>
+          </div>
         </section>
 
         <TrustComplianceSection />

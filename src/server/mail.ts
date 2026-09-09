@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import { cleanSlovakText } from './slovak-text';
 import type { BusinessJob, Lead, PriceOffer, PriceOfferSettings } from './types';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
@@ -50,19 +49,15 @@ function dateSk(value: string) {
 }
 
 function escapeHtml(value: string | number | undefined) {
-  return cleanSlovakText(String(value ?? ''))
+  return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;');
 }
 
-function plainText(value: string | number | undefined) {
-  return cleanSlovakText(String(value ?? ''));
-}
-
 function mailErrorMessage(error: unknown) {
-  return error instanceof Error ? cleanSlovakText(error.message) : 'Email sa nepodarilo odoslať.';
+  return error instanceof Error ? error.message : 'Email sa nepodarilo odoslat.';
 }
 
 function normalizePhoneHref(phone: string) {
@@ -165,10 +160,10 @@ function customerLeadEmailHtml(lead: Lead) {
             <a href="https://likvidacia-eternitu.sk" style="display:block;margin-top:4px;color:#C86432;font-size:14px;font-weight:600;text-decoration:none;">likvidacia-eternitu.sk</a>
           </div>
         </td></tr>
-        <tr><td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:20px 32px;text-align:center;color:#334155;">
-          <div style="font-size:11px;color:#334155;line-height:1.6;">ASTANA, s.r.o. · Scherffelova 1364/28, Poprad 058 01 · IČO: 46 157 701</div>
-          <div style="margin-top:4px;font-size:11px;color:#64748B;">© 2026 ASTANA, s.r.o.</div>
-          <div style="font-size:11px;color:#64748B;">Email odoslaný z likvidacia-eternitu.sk</div>
+        <tr><td style="background:#18243B;padding:20px 32px;text-align:center;color:rgba(255,255,255,0.5);">
+          <div style="font-size:11px;color:rgba(255,255,255,0.62);line-height:1.6;">ASTANA, s.r.o. · Scherffelova 1364/28, Poprad 058 01 · IČO: 46 157 701</div>
+          <div style="margin-top:4px;font-size:11px;color:rgba(255,255,255,0.42);">© 2026 ASTANA, s.r.o.</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.42);">Email odoslaný z likvidacia-eternitu.sk</div>
         </td></tr>
       </table>
     </td></tr>
@@ -177,17 +172,17 @@ function customerLeadEmailHtml(lead: Lead) {
 
 function customerLeadEmailText(lead: Lead) {
   return [
-    `Dobrý deň ${plainText(lead.fullName)},`,
+    `Dobrý deň ${lead.fullName},`,
     '',
     'váš dopyt z likvidacia-eternitu.sk sme prijali.',
     'Cenovú ponuku vám pošleme do 24 hodín na tento email.',
     '',
     'Súhrn vášho dopytu:',
-    `Lokalita: ${plainText(lead.city)}`,
-    `Výmera: ${plainText(lead.areaEstimate)} m2`,
-    `Materiál: ${plainText(lead.materialType)}`,
-    `Typ objektu: ${plainText(lead.objectType)}`,
-    `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
+    `Lokalita: ${lead.city}`,
+    `Výmera: ${lead.areaEstimate} m2`,
+    `Materiál: ${lead.materialType}`,
+    `Typ objektu: ${lead.objectType}`,
+    `Kontakt: ${lead.preferredContact || 'Zavolajte mi'}`,
     '',
     'Máte otázky? Zavolajte 0905 217 946 (Po-Pia 7:00-18:00).',
     'likvidacia-eternitu.sk',
@@ -198,6 +193,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
   const adminUrl = `${siteUrl()}/admin/zakazky/${businessJobId || lead.id}/`;
   const contact = contactMeta(lead.preferredContact);
   const phoneHref = normalizePhoneHref(lead.phone);
+  const attribution = (lead.rawData?.attribution || {}) as Record<string, unknown>;
   const rows: Array<[string, string]> = [
     ['Meno', escapeHtml(lead.fullName)],
     ['Telefón', `<a href="tel:${escapeHtml(phoneHref)}" style="color:#C86432;font-weight:700;text-decoration:none;font-size:16px;">${escapeHtml(lead.phone)}</a>`],
@@ -210,6 +206,17 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
     ['Kontakt', `<span style="display:inline-block;background:${contact.bg};color:${contact.color};border:1px solid ${contact.border};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;">${contact.label}</span>`],
     ['Termín', escapeHtml(lead.term || '—')],
     ['Poznámka', escapeHtml(lead.note || '—')],
+    ['Interné ID leadu', escapeHtml(lead.id)],
+    ['Referencia dopytu', escapeHtml(lead.googleAdsOrderId || '—')],
+    ['Zdroj', escapeHtml([attribution.utmSource, attribution.utmMedium].filter(Boolean).join(' / ') || 'priamy alebo neuvedený')],
+    ['Kampaň', escapeHtml(String(attribution.utmCampaign || attribution.campaignId || '—'))],
+    ['Reklamná skupina', escapeHtml(String(attribution.utmAdGroup || attribution.adGroupId || '—'))],
+    ['Matched keyword', escapeHtml(String(attribution.utmTerm || '—'))],
+    ['Zhoda', escapeHtml(String(attribution.matchType || '—'))],
+    ['Zariadenie', escapeHtml(String(attribution.device || '—'))],
+    ['Landing', escapeHtml(String(attribution.firstLandingPage || attribution.landingPage || '—'))],
+    ['GCLID', escapeHtml(String(attribution.gclid || '—'))],
+    ['GBRAID / WBRAID', escapeHtml(String(attribution.gbraid || attribution.wbraid || '—'))],
   ];
   return `
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#F7F4EE;font-family:Arial,sans-serif;">
@@ -219,7 +226,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
             <tr>
               <td style="color:#ffffff;font-size:20px;font-weight:700;">🔔 Nový dopyt</td>
-              <td align="right" style="font-size:12px;color:#E2E8F0;line-height:1.5;">${escapeHtml(leadSubmittedAt(lead))}<br /><span style="color:#F2B24A;font-size:11px;font-weight:600;">likvidacia-eternitu.sk</span></td>
+              <td align="right" style="font-size:12px;color:rgba(255,255,255,0.5);line-height:1.5;">${escapeHtml(leadSubmittedAt(lead))}<br /><span style="color:#C86432;font-size:11px;font-weight:600;">likvidacia-eternitu.sk</span></td>
             </tr>
           </table>
         </td></tr>
@@ -237,28 +244,40 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
           <a href="${adminUrl}" style="display:inline-block;background:#C86432;color:#ffffff;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Otvoriť v admin →</a>
           <div style="margin-top:10px;font-size:11px;color:#687284;">alebo prejdi na: ${escapeHtml(siteUrl())}/admin/</div>
         </td></tr>
-        <tr><td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 28px;text-align:center;color:#475569;font-size:11px;">ASTANA admin systém · likvidacia-eternitu.sk</td></tr>
+        <tr><td style="background:#18243B;padding:16px 28px;text-align:center;color:rgba(255,255,255,0.5);font-size:11px;">ASTANA admin systém · likvidacia-eternitu.sk</td></tr>
       </table>
     </td></tr>
   </table>`;
 }
 
 function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
+  const attribution = (lead.rawData?.attribution || {}) as Record<string, unknown>;
   return [
     'Nový dopyt z likvidacia-eternitu.sk',
     '',
-    `Meno: ${plainText(lead.fullName)}`,
-    `Telefón: ${plainText(lead.phone)}`,
-    `Email: ${plainText(lead.email)}`,
-    `Lokalita: ${plainText(lead.city)}`,
-    `Okres: ${plainText(lead.district || '—')}`,
-    `Výmera: ${plainText(lead.areaEstimate)} m2`,
-    `Materiál: ${plainText(lead.materialType)}`,
-    `Objekt: ${plainText(lead.objectType)}`,
-    `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
-    `Termín: ${plainText(lead.term || '—')}`,
-    `Poznámka: ${plainText(lead.note || '—')}`,
+    `Meno: ${lead.fullName}`,
+    `Telefón: ${lead.phone}`,
+    `Email: ${lead.email}`,
+    `Lokalita: ${lead.city}`,
+    `Okres: ${lead.district || '—'}`,
+    `Výmera: ${lead.areaEstimate} m2`,
+    `Materiál: ${lead.materialType}`,
+    `Objekt: ${lead.objectType}`,
+    `Kontakt: ${lead.preferredContact || 'Zavolajte mi'}`,
+    `Termín: ${lead.term || '—'}`,
+    `Poznámka: ${lead.note || '—'}`,
     `Fotky: ${fileCount}`,
+    `Interné ID leadu: ${lead.id}`,
+    `Referencia dopytu: ${lead.googleAdsOrderId || '—'}`,
+    `Zdroj: ${[attribution.utmSource, attribution.utmMedium].filter(Boolean).join(' / ') || 'priamy alebo neuvedený'}`,
+    `Kampaň: ${attribution.utmCampaign || attribution.campaignId || '—'}`,
+    `Reklamná skupina: ${attribution.utmAdGroup || attribution.adGroupId || '—'}`,
+    `Matched keyword: ${attribution.utmTerm || '—'}`,
+    `Zhoda: ${attribution.matchType || '—'}`,
+    `Zariadenie: ${attribution.device || '—'}`,
+    `Landing: ${attribution.firstLandingPage || attribution.landingPage || '—'}`,
+    `GCLID: ${attribution.gclid || '—'}`,
+    `GBRAID / WBRAID: ${attribution.gbraid || attribution.wbraid || '—'}`,
     '',
     `Admin: ${siteUrl()}/admin/zakazky/${businessJobId || lead.id}/`,
   ].join('\n');
@@ -274,7 +293,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobI
     from: namedFromHeader('ASTANA systém'),
     to: leadRecipient(),
     replyTo: leadRecipient(),
-    subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
+    subject: `🔔 ${lead.city} | ${lead.areaEstimate}m2 | ${lead.fullName} | likvidacia-eternitu.sk`,
     text: adminLeadEmailText(lead, businessJobId, fileCount),
     html: adminHtml,
   });
@@ -300,19 +319,19 @@ export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUnt
     from: namedFromHeader('ASTANA likvidácia azbestu'),
     to: job.customerEmail,
     replyTo: leadRecipient(),
-    subject: `ASTANA — cenová ponuka pre ${plainText(job.location)}`,
+    subject: `ASTANA — cenová ponuka pre ${job.location}`,
     text: [
-      `Dobrý deň ${plainText(job.customerName)},`,
+      `Dobrý deň ${job.customerName},`,
       '',
       'na základe vášho dopytu sme pripravili cenovú ponuku:',
       '',
-      `Lokalita: ${plainText(job.location)}`,
-      `Výmera: ${plainText(job.m2)} m2`,
+      `Lokalita: ${job.location}`,
+      `Výmera: ${job.m2} m2`,
       `Cena za m2: ${euro(input.pricePerM2)}`,
       `Celková cena: ${euro(input.totalPrice)}`,
       `Platnosť ponuky do: ${dateSk(input.validUntil)}`,
       '',
-      input.note ? plainText(input.note) : '',
+      input.note ? input.note : '',
       input.note ? '' : '',
       'Pre potvrdenie zavolajte: 0905 217 946',
       'alebo odpovedzte na tento email.',
@@ -418,11 +437,11 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
               <div style="color:#ffffff;font-size:17px;font-weight:600;">Vaša cenová ponuka je pripravená</div>
-              <div style="margin-top:4px;color:#FFF7E6;font-size:12px;">Platná do: ${escapeHtml(validUntil)}</div>
+              <div style="margin-top:4px;color:rgba(255,255,255,0.7);font-size:12px;">Platná do: ${escapeHtml(validUntil)}</div>
             </td>
             <td align="right" style="vertical-align:middle;">
               <div style="color:#FFF2C4;font-size:26px;font-weight:700;">${euro(offer.totalWithVat)}</div>
-              <div style="color:#FFF7E6;font-size:11px;">vrátane DPH ${settings.vatRate}%</div>
+              <div style="color:rgba(255,255,255,0.6);font-size:11px;">vrátane DPH ${settings.vatRate}%</div>
             </td>
           </tr></table>
         </td></tr>
@@ -486,7 +505,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
             <div style="margin-top:10px;color:#687284;font-size:13px;">alebo zavolajte: 0905 217 946</div>
           </div>
 
-          <div style="margin-bottom:20px;background:#FFFBEB;border-left:3px solid #D4B56A;border-radius:6px;padding:14px 18px;color:#92400E;font-size:13px;line-height:1.6;">⚠ Pre začatie prác je potrebné potvrdiť objednávku min. 30 dní vopred. RÚVZ a OÚ majú zákonnú mesačnú lehotu na vydanie rozhodnutia.</div>
+          <div style="margin-bottom:20px;background:#FFFBEB;border-left:3px solid #D4B56A;border-radius:6px;padding:14px 18px;color:#92400E;font-size:13px;line-height:1.6;">⚠ Pre začatie prác je potrebné potvrdiť objednávku min. 30 dní vopred. Bežné odstraňovanie azbestu oznamuje oprávnená firma príslušnému RÚVZ najneskôr 30 dní pred začatím prác. Potrebný úradný postup pripravíme podľa konkrétnej zákazky.</div>
         </td></tr>
         <tr><td style="border-top:1px solid #E2E8F0;padding:20px 32px;">
           <div style="font-size:14px;color:#374151;">S pozdravom a prianím pekného dňa</div>
@@ -498,8 +517,8 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
           </td></tr></table>
         </td></tr>
         <tr><td style="background:#EEF2F7;border-top:1px solid #D7DDEA;padding:16px 32px;text-align:center;">
-          <div style="color:#475569;font-size:11px;">Táto cenová ponuka platí do ${escapeHtml(validUntil)}. · ${escapeHtml(settings.company.name)} · ${escapeHtml(settings.company.street)}, ${escapeHtml(settings.company.city)} ${escapeHtml(settings.company.postalCode)}</div>
-          <div style="margin-top:4px;color:#475569;font-size:11px;">© 2026 ASTANA, s.r.o. · <span style="color:#263451;">likvidacia-eternitu.sk</span></div>
+          <div style="color:#94A3B8;font-size:11px;">Táto cenová ponuka platí do ${escapeHtml(validUntil)}. · ${escapeHtml(settings.company.name)} · ${escapeHtml(settings.company.street)}, ${escapeHtml(settings.company.city)} ${escapeHtml(settings.company.postalCode)}</div>
+          <div style="margin-top:4px;color:#94A3B8;font-size:11px;">© 2026 ASTANA, s.r.o. · <span style="color:#263451;">likvidacia-eternitu.sk</span></div>
         </td></tr>
       </table>
     </td></tr>
@@ -556,121 +575,14 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
 }
 
 export type RooferRegistrationEmail = {
-  id?: string;
-  submissionId: string;
-  businessType: 'sro' | 'szco' | 'other';
-  companyName: string;
-  companyId?: string;
-  contactPerson: string;
+  fullName: string;
+  companyName?: string;
   phone: string;
   email: string;
-  website?: string;
-  serviceRegions: string[];
-  specializations: string[];
-  otherSpecialization?: string;
-  canBuildRoofTruss: 'yes' | 'no' | 'by_scope';
-  acceptCustomerReferrals: boolean;
-  consentPublicProfile: boolean;
-  privacyConsent: boolean;
-  note?: string;
+  regions: string[];
+  jobTypes: string[];
+  message?: string;
 };
-
-const rooferBusinessTypeLabels = {
-  sro: 's.r.o.',
-  szco: 'živnostník / SZČO',
-  other: 'iné',
-} as const;
-
-const rooferTrussLabels = {
-  yes: 'áno',
-  no: 'nie',
-  by_scope: 'podľa rozsahu zákazky',
-} as const;
-
-function rooferRegistrationRows(input: RooferRegistrationEmail) {
-  return [
-    ['Forma podnikania', rooferBusinessTypeLabels[input.businessType]],
-    ['Firma / obchodné meno', input.companyName],
-    ['IČO', input.companyId || 'neuvedené'],
-    ['Kontaktná osoba', input.contactPerson],
-    ['Telefón', input.phone],
-    ['Email', input.email],
-    ['Web', input.website || 'neuvedený'],
-    ['Kraje pôsobenia', input.serviceRegions.join(', ')],
-    ['Špecializácie', input.specializations.join(', ')],
-    ['Iná špecializácia', input.otherSpecialization || 'neuvedená'],
-    ['Nový krov', rooferTrussLabels[input.canBuildRoofTruss]],
-    ['Posielať zákazníkov', input.acceptCustomerReferrals ? 'áno' : 'nie'],
-    ['Verejný profil', input.consentPublicProfile ? 'áno' : 'nie'],
-    ['Spracovanie údajov', input.privacyConsent ? 'áno' : 'nie'],
-    ['Poznámka', input.note || 'bez poznámky'],
-  ] as const;
-}
-
-function rooferRegistrationEmailHtml(input: RooferRegistrationEmail) {
-  const rows = rooferRegistrationRows(input);
-  const adminUrl = `${siteUrl()}/admin/strechari/`;
-  return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#f4f7f8;font-family:Arial,sans-serif;">
-    <tr><td style="padding:24px 12px;">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;border:1px solid #dce7ec;">
-        <tr><td style="background:#0f1f3d;padding:24px 28px;color:#ffffff;">
-          <div style="font-size:22px;font-weight:700;line-height:1.2;">Nová registrácia strechára</div>
-          <div style="margin-top:6px;color:#c9d5e8;font-size:13px;line-height:1.5;">ASTANA partnerská sieť · ${escapeHtml(input.companyName)}</div>
-        </td></tr>
-        <tr><td style="background:#eaf7ed;border-left:5px solid #2d7a3a;padding:14px 20px;color:#175b2a;font-size:14px;font-weight:700;line-height:1.45;">Registrácia bola uložená a čaká na internú kontrolu.</td></tr>
-        <tr><td style="padding:24px 28px;">
-          <div style="margin-bottom:14px;color:#687284;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">Údaje registrácie</div>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
-            ${rows.map(([label, value]) => `
-              <tr>
-                <td style="padding:9px 14px 9px 0;width:36%;border-bottom:1px solid #edf1f3;color:#687284;font-size:13px;vertical-align:top;">${escapeHtml(label)}</td>
-                <td style="padding:9px 0;border-bottom:1px solid #edf1f3;color:#1f2d3d;font-size:14px;font-weight:600;line-height:1.45;vertical-align:top;">${escapeHtml(value)}</td>
-              </tr>`).join('')}
-          </table>
-        </td></tr>
-        <tr><td style="background:#f7f4ee;padding:20px 28px;text-align:center;">
-          <a href="${adminUrl}" style="display:inline-block;background:#d34a22;color:#ffffff;padding:13px 24px;border-radius:7px;font-size:15px;font-weight:700;text-decoration:none;">Otvoriť registrácie v admine</a>
-          <div style="margin-top:10px;color:#687284;font-size:11px;line-height:1.5;">Registráciu nájdete v sekcii Strechári.</div>
-        </td></tr>
-        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 28px;text-align:center;color:#64748b;font-size:11px;line-height:1.5;">ASTANA, s.r.o. · likvidacia-eternitu.sk</td></tr>
-      </table>
-    </td></tr>
-  </table>`;
-}
-
-function rooferRegistrationConfirmationEmailHtml(input: RooferRegistrationEmail) {
-  return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#f4f7f8;font-family:Arial,sans-serif;">
-    <tr><td style="padding:24px 12px;">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;border:1px solid #dce7ec;">
-        <tr><td style="background:#0f1f3d;padding:26px 28px;color:#ffffff;">
-          <div style="font-size:24px;font-weight:700;line-height:1.2;">ASTANA</div>
-          <div style="margin-top:6px;color:#c9d5e8;font-size:12px;letter-spacing:.06em;text-transform:uppercase;">partnerská sieť strechárov</div>
-        </td></tr>
-        <tr><td style="padding:28px;">
-          <div style="display:inline-block;background:#eaf7ed;color:#175b2a;padding:8px 12px;border-radius:6px;font-size:13px;font-weight:700;">✓ Registráciu sme prijali</div>
-          <h1 style="margin:20px 0 12px;color:#0f1f3d;font-size:24px;line-height:1.25;">Ďakujeme, ${escapeHtml(input.contactPerson)}.</h1>
-          <p style="margin:0;color:#374151;font-size:15px;line-height:1.65;">Vaše údaje sme prijali. Najprv ich interne skontrolujeme a potom sa vám ozveme ohľadom možností spolupráce.</p>
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;border-collapse:collapse;background:#f7f4ee;border-left:4px solid #d34a22;">
-            <tr><td style="padding:16px 18px;color:#263451;font-size:14px;line-height:1.7;">
-              <strong>Čo bude nasledovať</strong><br />
-              1. Skontrolujeme údaje o vašej firme a pôsobnosti.<br />
-              2. Ozveme sa vám, ak bude spolupráca dávať zmysel pre obe strany.
-            </td></tr>
-          </table>
-          <div style="margin-top:24px;color:#687284;font-size:12px;line-height:1.5;">Registrovaná firma</div>
-          <div style="margin-top:4px;color:#0f1f3d;font-size:16px;font-weight:700;">${escapeHtml(input.companyName)}</div>
-        </td></tr>
-        <tr><td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 28px;text-align:center;color:#475569;font-size:12px;line-height:1.6;">
-          <div style="font-weight:700;color:#263451;">Máte otázky?</div>
-          <a href="tel:+421905217946" style="display:inline-block;margin-top:5px;color:#263451;font-size:18px;font-weight:700;text-decoration:none;">0905 217 946</a>
-          <div style="margin-top:5px;">ASTANA, s.r.o. · likvidacia-eternitu.sk</div>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>`;
-}
 
 export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail) {
   const client = transporter();
@@ -679,33 +591,22 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
   const adminText = [
     'Prišla nová registrácia strechára z webu likvidacia-eternitu.sk.',
     '',
-    `Registrácia: ${input.id || 'bez ID'}`,
-    `Submission ID: ${input.submissionId}`,
-    `Forma podnikania: ${rooferBusinessTypeLabels[input.businessType]}`,
-    `Firma / obchodné meno: ${input.companyName}`,
-    `IČO: ${input.companyId || 'neuvedené'}`,
-    `Konajúca osoba: ${input.contactPerson}`,
+    `Meno: ${input.fullName}`,
+    `Firma / živnosť: ${input.companyName || 'neuvedené'}`,
     `Telefón: ${input.phone}`,
     `Email: ${input.email}`,
-    `Web: ${input.website || 'neuvedený'}`,
-    `Kraje pôsobenia: ${input.serviceRegions.join(', ')}`,
-    `Špecializácie: ${input.specializations.join(', ')}`,
-    `Iná špecializácia: ${input.otherSpecialization || 'neuvedená'}`,
-    `Nový krov: ${rooferTrussLabels[input.canBuildRoofTruss]}`,
-    `Posielať zákazníkov: ${input.acceptCustomerReferrals ? 'áno' : 'nie'}`,
-    `Súhlas s verejným profilom: ${input.consentPublicProfile ? 'áno' : 'nie'}`,
-    `Súhlas so spracovaním údajov: ${input.privacyConsent ? 'áno' : 'nie'}`,
+    `Regióny: ${input.regions.join(', ')}`,
+    `Typ zákaziek: ${input.jobTypes.length ? input.jobTypes.join(', ') : 'neuvedené'}`,
     '',
-    `Poznámka: ${input.note || 'bez poznámky'}`,
+    `Poznámka: ${input.message || 'bez poznámky'}`,
   ].join('\n');
 
   await client.sendMail({
     from: namedFromHeader('ASTANA systém'),
     to: leadRecipient(),
     replyTo: input.email,
-    subject: `[STRECHÁR] Nová registrácia — ${input.companyName}`,
+    subject: `[STRECHÁR] Nová registrácia — ${input.fullName}`,
     text: adminText,
-    html: rooferRegistrationEmailHtml(input),
   });
 
   await client.sendMail({
@@ -714,15 +615,14 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
     replyTo: leadRecipient(),
     subject: 'Prijali sme vašu registráciu — ASTANA',
     text: [
-      `Dobrý deň, ${input.contactPerson},`,
+      `Dobrý deň, ${input.fullName},`,
       '',
-      'Ďakujeme za registráciu do partnerskej siete ASTANA. Údaje si najprv interne skontrolujeme a následne sa vám ozveme ohľadom možností spolupráce.',
+      'Ďakujeme za registráciu do siete ASTANA. Ozveme sa vám do 48 hodín na zadané telefónne číslo a prejdeme si možnosti spolupráce.',
       '',
       'ASTANA, s.r.o.',
       '0905 217 946',
       'astana@astana.sk',
     ].join('\n'),
-    html: rooferRegistrationConfirmationEmailHtml(input),
   });
 
   return { sent: true };

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { articles, commonProcessSteps, locationPages, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
+import { articles, commonProcessSteps, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
 import { companyAddressLine, emailLink, phoneLink, serviceOffer, site } from '@/src/content/site';
 import { PublicPageShell } from './public-layout';
 import { JsonLd, buildBreadcrumbJsonLd, buildFaqJsonLd, buildServiceJsonLd } from './seo-json-ld';
@@ -65,6 +65,8 @@ export function SummaryBox({ items }: { items: Array<readonly [string, string]> 
 export function TrustBox() {
   const stats = [
     site.claimedStats.foundedOrActiveSince.confirmed ? ['Od roku', site.claimedStats.foundedOrActiveSince.value] : null,
+    site.claimedStats.disposedArea.confirmed ? ['Zlikvidovaných', site.claimedStats.disposedArea.value] : null,
+    site.claimedStats.customers.confirmed ? ['Zákazníkov', site.claimedStats.customers.value] : null,
   ].filter(Boolean) as Array<[string, string]>;
 
   return (
@@ -105,7 +107,7 @@ export function TrustComplianceSection() {
         Pri legálnej likvidácii azbestu nestačí, že firma príde, rozoberie strechu a odvezie dosky. Odborný postup začína ešte pred príchodom na stavbu.
       </p>
       <p>
-        ASTANA, s.r.o. je vedená v zozname ÚVZ SR medzi oprávnenými spoločnosťami na odstraňovanie azbestu a materiálov obsahujúcich azbest zo stavieb pre exteriér aj interiér. Pri konkrétnej zákazke sa rieši rozhodnutie príslušného RÚVZ k danej stavbe a zákonný postup nakladania s odpadom s obsahom azbestu.
+        ASTANA, s.r.o. je vedená v zozname ÚVZ SR medzi oprávnenými spoločnosťami na odstraňovanie azbestu a materiálov obsahujúcich azbest zo stavieb pre exteriér aj interiér. Bežné odstraňovanie azbestu oznamuje oprávnená firma príslušnému RÚVZ najneskôr 30 dní pred začatím prác. Preto je dobré riešiť termín likvidácie spolu s novou strechou včas.
       </p>
       <p>Bez potrebného úradného postupu sa do demontáže nepúšťame.</p>
       <p>
@@ -211,29 +213,21 @@ export function InternalLinks({
           ['/likvidacia-azbestu/', 'Likvidácia azbestu'],
           ['/likvidacia-eternitu/', 'Likvidácia eternitu'],
           ['/cena-likvidacie-azbestu/', 'Cena likvidácie'],
-          ['/o-firme/', 'O firme ASTANA'],
           ['/kontakt/', 'Kontakt'],
         ]
       : context === 'location'
         ? [
-            ['/likvidacia-azbestu/', 'Likvidácia azbestu'],
+            ['/likvidacia-azbestu/', 'Hlavná služba: azbest'],
             ['/likvidacia-eternitu/', 'Likvidácia eternitu'],
             ['/cena-likvidacie-azbestu/', 'Cena'],
             ['/postup/', 'Postup'],
-            ['/o-firme/', 'O firme ASTANA'],
-            ['/realizacie/', 'Ukážky realizácií'],
-            ['/poradna/ako-zmerat-strechu-pre-cenovu-ponuku/', 'Ako odhadnúť výmeru strechy'],
-            ['/poradna/ake-doklady-dostanete-po-likvidacii-azbestu/', 'Doklady po likvidácii'],
             ['/kontakt/', 'Kontakt'],
           ]
         : [
-            ['/likvidacia-azbestu/', 'Likvidácia azbestu'],
-            ['/likvidacia-eternitu/', 'Likvidácia eternitu'],
             ['/cena-likvidacie-azbestu/', 'Cena'],
             ['/postup/', 'Postup'],
             ['/faq/', 'FAQ'],
             ['/realizacie/', 'Realizácie'],
-            ['/o-firme/', 'O firme ASTANA'],
             ['/kontakt/', 'Kontakt'],
           ];
 
@@ -245,19 +239,6 @@ export function InternalLinks({
           <a key={href} href={href}>{label}</a>
         ))}
       </div>
-      {context === 'service' ? (
-        <nav aria-label="Likvidácia azbestu podľa regiónu">
-          <h3>Kde zabezpečujeme likvidáciu</h3>
-          <p>Vyberte si región. Termín a rozsah prác dohodneme podľa vašej zákazky.</p>
-          <ul>
-            {locationPages.map((location) => (
-              <li key={location.slug}>
-                <a href={`/likvidacia-azbestu-${location.slug}/`}>{location.name} a okolie</a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      ) : null}
     </section>
   );
 }
@@ -321,9 +302,9 @@ export function LocationPage({
 }) {
   const path = `/likvidacia-azbestu-${location.slug}/`;
   const h1 = `Likvidácia azbestu a eternitu - ${location.name}`;
-  const quickAnswer = `ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu v ${location.area} vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o likvidácii.`;
+  const quickAnswer = `ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu v lokalite ${location.area} vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o likvidácii.`;
   const faqs: FaqItem[] = [
-    { question: `Riešite likvidáciu azbestu aj v ${location.area}?`, answer: `Áno, ${site.legalName} zabezpečuje zákazky aj v ${location.area}. Sídlime v Poprade a termín výjazdu dohodneme podľa rozsahu prác a dostupnej kapacity.` },
+    { question: `Riešite likvidáciu azbestu v lokalite ${location.name}?`, answer: `Áno, ${site.legalName} pôsobí po celom Slovensku vrátane lokality ${location.area}.` },
     { question: `Čo poslať pre cenovú ponuku v lokalite ${location.name}?`, answer: 'Pošlite približnú výmeru v m2, obec alebo okres, fotky materiálu, typ objektu a informáciu o prístupe.' },
     { question: 'Od čoho závisí cena v tejto lokalite?', answer: 'Od výmery, typu materiálu, výšky objektu, prístupu, objemu odpadu, termínu a potrebnej dokumentácie.' },
   ];
@@ -341,8 +322,9 @@ export function LocationPage({
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
         </section>
+        <QuickAnswer>{quickAnswer}</QuickAnswer>
         <section className="seo-section">
-          <h2>Čo nám pomôže pripraviť ponuku pre váš región</h2>
+          <h2>Služby v lokalite</h2>
           <p className="seo-lead">{location.localNote}</p>
           <div className="seo-included-list">
             {serviceOffer.map((item) => <span key={item}>✓ {item}</span>)}

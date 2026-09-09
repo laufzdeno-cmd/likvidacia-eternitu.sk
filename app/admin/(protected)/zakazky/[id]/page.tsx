@@ -69,8 +69,8 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
         </div>
         <div className="admin-workflow-action">
           {activeStatus === 'PONUKA_POTVRDENA' ? <p>✅ Zákazník potvrdil ponuku. Doplňte dátum potvrdenia a prejdite na úrady.</p> : null}
-          {activeStatus === 'URADY_PODANE' ? <p>Žiadosť RÚVZ a OÚ ŽP je podaná. Sledujte rozhodnutia a dátumy zapisujte do poznámky.</p> : null}
-          {activeStatus === 'URADY_SCHVALENE' ? <p>Úrady sú schválené. Ďalší krok je plánovanie demontáže v plánovači.</p> : null}
+          {activeStatus === 'URADY_PODANE' ? <p>Oznámenie a potrebné podklady sú podané. Sledujte stav úradného postupu a dátumy zapisujte do poznámky.</p> : null}
+          {activeStatus === 'URADY_SCHVALENE' ? <p>Úradné povinnosti sú vybavené. Ďalší krok je plánovanie demontáže v plánovači.</p> : null}
           {activeStatus === 'DEMONT_NAPLANOVANA' ? <p>Demontáž je naplánovaná. Skontrolujte tím, adresu a termín v plánovači.</p> : null}
           {activeStatus === 'DEMONT_DOKONCENA' ? <p>Demontáž je hotová. Prejdite na vyúčtovanie a doplňte presné m2, náklady a odmeny.</p> : null}
           {activeStatus === 'VYUCTOVANIE' ? <p>Vyúčtovanie zákazky je v editovateľnom formulári nižšie. Po uložení nastavte stav Dokončená.</p> : null}

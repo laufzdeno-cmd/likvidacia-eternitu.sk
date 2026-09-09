@@ -1,11 +1,4 @@
-import { initializeDatabase } from '../src/server/db';
+import { listLeads } from '../src/server/db';
 
-async function main() {
-  await initializeDatabase();
-  console.log('Databázové tabuľky sú pripravené.');
-}
-
-void main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+await listLeads();
+console.log('Databázové tabuľky sú pripravené.');

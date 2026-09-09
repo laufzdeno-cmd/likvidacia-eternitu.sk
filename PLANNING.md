@@ -91,3 +91,19 @@ Long-tail témy:
 - Ktoré sociálne profily alebo Google Business Profile URL použiť v `sameAs`.
 - Či pridať externý tracking typu Google Analytics, alebo zostať iba pri first-party analytike.
 - Či nasadiť plnú 2FA politiku pre všetkých admin používateľov.
+
+## Brána 2 — landing pages a meranie (2026-08-13)
+
+- Zachovať existujúcu informačnú architektúru, formuláre, admin a databázový model; meniť iba texty, atribúciu a meranie potrebné pred spustením kampaní.
+- Hlavná landing page používa finálne posolstvo o koordinácii so strechárom, ponuke do 24 hodín a transparentné podmienky akcie nad 100 m².
+- Nesprávny claim o rozhodnutí RÚVZ nahrádza presné vysvetlenie písomného oznámenia najmenej 30 dní pred bežnými prácami.
+- Lead ukladá GCLID/GBRAID/WBRAID, UTM a identifikátory kampane, reklamnej skupiny, kreatívy, zariadenia a vstupnej stránky bez zásahu do existujúcich tabuliek.
+- Konverzná udalosť sa odošle až po úspešnom uložení leadu a používa serverové lead ID ako transaction/reference ID; session deduplikácia bráni opakovanému eventu.
+- Google meranie používa Consent Mode a cross-domain linker pre astana.sk a oba pomocné weby; súhlas možno rovnako jednoducho udeliť, odmietnuť aj zmeniť.
+- Pred produkciou sú povinné typecheck/build, preview QA na desktop/mobile, kontrola URL, formulára, cookies a dátového eventu. Produkčný formulár sa nesmie skúšať bez jasne označeného QA leadu.
+# Vizuálny hotfix Brány 2 — 13. 8. 2026
+
+- Cieľ: opraviť iba rozbitú šírku bloku „Ako rozoznať legálnu likvidáciu azbestu“ bez zásahu do formulára, merania alebo dát.
+- Riešenie: z bloku vytvoriť samostatnú, centrovanú a responzívnu informačnú kartu s čitateľnou dĺžkou riadkov.
+- Bezpečnosť zmeny: iba CSS; žiadna zmena API, databázy, uploadov, e-mailov ani analytických udalostí.
+- Overenie: typecheck, produkčný build a vizuálna kontrola desktopu aj mobilu.

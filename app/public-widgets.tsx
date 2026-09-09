@@ -1,40 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { cookieConsentStorageKey, saveMarketingConsent } from '@/src/lib/marketing-consent';
 
 export default function PublicWidgets() {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin');
-  const [showCookieBanner, setShowCookieBanner] = useState(false);
-
-  useEffect(() => {
-    if (isAdmin) return;
-    try {
-      let stored = window.localStorage.getItem(cookieConsentStorageKey);
-      if (!stored) {
-        const legacy = window.localStorage.getItem('astana-cookies-v1');
-        if (legacy === 'all') {
-          saveMarketingConsent('granted');
-          stored = 'marketing';
-        } else if (legacy === 'necessary') {
-          saveMarketingConsent('denied');
-          stored = 'necessary';
-        }
-      }
-      setShowCookieBanner(!stored);
-    } catch {
-      setShowCookieBanner(false);
-    }
-  }, [isAdmin]);
 
   if (isAdmin) return null;
-
-  const acceptCookies = (value: 'all' | 'necessary') => {
-    saveMarketingConsent(value === 'all' ? 'granted' : 'denied');
-    setShowCookieBanner(false);
-  };
 
   return (
     <>
@@ -50,18 +22,6 @@ export default function PublicWidgets() {
           <path d="M12 0C5.373 0 0 5.373 0 12c0 2.124.558 4.17 1.542 5.961L0 24l6.178-1.617A11.94 11.94 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 0 1-5.007-1.371l-.36-.214-3.666.96.977-3.574-.234-.369A9.818 9.818 0 1 1 12 21.818z" />
         </svg>
       </a>
-      {showCookieBanner ? (
-        <div className="cookie-banner" role="region" aria-label="Cookies">
-          <p>
-            Táto stránka používa cookies na zlepšenie vášho zážitku. Viac info v{' '}
-            <a href="/cookies/">Zásadách cookies</a>.
-          </p>
-          <div>
-            <button type="button" onClick={() => acceptCookies('all')}>Prijať všetky</button>
-            <button type="button" onClick={() => acceptCookies('necessary')}>Len nevyhnutné</button>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }

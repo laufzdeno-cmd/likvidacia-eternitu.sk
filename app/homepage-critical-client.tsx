@@ -1,16 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { trackGoogleAdsConversion } from '@/src/lib/google-ads';
-import {
-  hasMarketingConsent,
-  rememberPendingMetaLead,
-  takePendingMetaLead,
-  type PendingMetaLead,
-} from '@/src/lib/marketing-consent';
-
-const metaLeadEventName = 'astana:meta-lead';
-const hasMetaPixelId = Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim());
+import { leadAttribution, trackStoredLead } from './measurement';
 
 export default function HomepageCriticalClient() {
   useEffect(() => {
@@ -19,40 +10,25 @@ export default function HomepageCriticalClient() {
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
     const fileInput = document.querySelector<HTMLInputElement>('#photos');
-    const submissionIdInput = document.querySelector<HTMLInputElement>('#submissionId');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
     const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
-    const materialSelect = document.querySelector<HTMLSelectElement>('#materialType');
     const fileDrop = document.querySelector<HTMLElement>('.file-drop');
     const preview = document.querySelector<HTMLElement>('.file-preview');
     const status = document.querySelector<HTMLElement>('.form-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
     const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     const quoteSection = document.getElementById('dopyt');
-    const heroSection = document.querySelector<HTMLElement>('main > .hero');
+    const heroCounterRoot = document.querySelector<HTMLElement>('[data-hero-counters]');
     const heroCounters = Array.from(document.querySelectorAll<HTMLElement>('[data-hero-counter]'));
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     let selectedFiles: File[] = [];
-    let isHeroSectionVisible = true;
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
-    const dispatchMetaLead = (event: PendingMetaLead) => {
-      if (!hasMetaPixelId || !hasMarketingConsent()) return;
-      rememberPendingMetaLead(event);
-      window.dispatchEvent(new CustomEvent(metaLeadEventName, { detail: event }));
-    };
 
-    const ensureSubmissionId = () => {
-      if (!submissionIdInput) return;
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionIdInput.value)) return;
-      const id = window.crypto?.randomUUID?.();
-      if (id) submissionIdInput.value = id;
-    };
-
-    const getAnalyticsSessionId = () => {
+    const analyticsSessionId = (() => {
       const key = 'astana_analytics_session';
       try {
         const existing = window.localStorage.getItem(key);
@@ -63,7 +39,7 @@ export default function HomepageCriticalClient() {
       } catch {
         return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
-    };
+    })();
 
     const analyticsDevice = () => {
       if (window.innerWidth < 768) return 'mobile';
@@ -81,8 +57,6 @@ export default function HomepageCriticalClient() {
     };
 
     const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
-      if (!hasMarketingConsent()) return;
-      const analyticsSessionId = getAnalyticsSessionId();
       const payload = JSON.stringify({
         sessionId: analyticsSessionId,
         eventType,
@@ -134,19 +108,6 @@ export default function HomepageCriticalClient() {
       if (selectedRooferId || wantsRoofer) rooferSelect.value = 'Chcem odporučiť strechára podľa regiónu';
     };
 
-    const applyMaterialFromUrl = () => {
-      if (!form || !materialSelect) return;
-      const material = new URLSearchParams(window.location.search).get('material');
-      const materialValues: Record<string, string> = {
-        vlnity: 'Vlnitý eternit',
-        plocha: 'Hladký / štvorcový eternit',
-      };
-      const selectedValue = material ? materialValues[material] : undefined;
-      if (selectedValue && Array.from(materialSelect.options).some((option) => option.value === selectedValue)) {
-        materialSelect.value = selectedValue;
-      }
-    };
-
     const setStatus = (message: string, type?: 'success' | 'error' | 'loading', variant?: 'submit', email?: string) => {
       if (!status) return;
       status.classList.toggle('is-submit-success', type === 'success' && variant === 'submit');
@@ -162,8 +123,8 @@ export default function HomepageCriticalClient() {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
-          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Overíme chýbajúce údaje</span><span>3. Ozveme sa vám s ďalším postupom</span></div>',
+          `<span>Cenovú ponuku vám pošleme do 24 hodín na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
+          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Pripravíme cenovú ponuku</span><span>3. Pošleme vám ju do 24 hodín</span></div>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
           '<small>Po-Pia 7:00-18:00</small>',
@@ -171,31 +132,6 @@ export default function HomepageCriticalClient() {
         return;
       }
       status.textContent = message;
-    };
-
-    const applyNativeSubmitResult = () => {
-      if (!form) return;
-      const url = new URL(window.location.href);
-      const submitted = url.searchParams.get('odoslane') === '1';
-      const errorMessage = url.searchParams.get('chyba');
-      if (!submitted && !errorMessage) return;
-      if (submitted) {
-        form.classList.add('is-submitted');
-        setStatus('Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
-        const eventId = url.searchParams.get('meta_lead') || '';
-        const material = url.searchParams.get('meta_material');
-        if (/^[A-Za-z0-9._:-]{16,128}$/.test(eventId) && material && ['vlnity', 'plocha', 'iny', 'neviem'].includes(material)) {
-          dispatchMetaLead({ eventId, material: material as PendingMetaLead['material'] });
-        }
-      } else if (errorMessage) {
-        setStatus(errorMessage, 'error');
-        takePendingMetaLead();
-      }
-      url.searchParams.delete('odoslane');
-      url.searchParams.delete('chyba');
-      url.searchParams.delete('meta_lead');
-      url.searchParams.delete('meta_material');
-      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     };
 
     const renderFiles = () => {
@@ -276,7 +212,7 @@ export default function HomepageCriticalClient() {
       form.classList.toggle('is-submitting', submitting);
       Array.from(form.elements).forEach((element) => {
         const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
-        control.disabled = submitting || control.hasAttribute('data-submit-disabled');
+        control.disabled = submitting;
       });
       if (button) {
         button.disabled = submitting;
@@ -297,84 +233,46 @@ export default function HomepageCriticalClient() {
       status.textContent = '';
     };
 
-    const submitLeadForm = async (payload: FormData) => {
-      const endpoints = ['/api/dopyt/'];
-      let lastError: Error | null = null;
-
-      for (const endpoint of endpoints) {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 30000);
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: payload,
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-            signal: controller.signal,
-          });
-          const contentType = response.headers.get('content-type') || '';
-          const result = contentType.includes('application/json')
-            ? ((await response.json()) as { ok?: boolean; message?: string; metaLead?: PendingMetaLead })
-            : { ok: false, message: (await response.text()).trim().slice(0, 180) };
-          if (!response.ok || !result.ok) {
-            const responseError = new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.') as Error & { responseReceived?: boolean };
-            responseError.responseReceived = true;
-            throw responseError;
-          }
-          return result;
-        } catch (error) {
-          if (error instanceof Error && 'responseReceived' in error) throw error;
-          lastError = error instanceof Error ? error : new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-        } finally {
-          window.clearTimeout(timeoutId);
-        }
-      }
-
-      throw lastError || new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-    };
-
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
-      if (form.classList.contains('is-submitting')) {
-        event.preventDefault();
-        return;
-      }
-      if (!form.checkValidity()) {
-        event.preventDefault();
-        form.reportValidity();
-        return;
-      }
-      ensureSubmissionId();
       event.preventDefault();
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
+      Object.entries(leadAttribution()).forEach(([key, value]) => payload.set(key, value));
+      const submissionKey = 'astana_lead_submission_id_v1';
+      let submissionId = window.sessionStorage.getItem(submissionKey);
+      if (!submissionId) {
+        submissionId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        window.sessionStorage.setItem(submissionKey, submissionId);
+      }
+      payload.set('submissionId', submissionId);
       const submittedEmail = String(payload.get('email') || '').trim();
       if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
       setFormSubmitting(true, button);
 
       try {
-        const result = await submitLeadForm(payload);
-        trackGoogleAdsConversion(String(payload.get('submissionId') || ''));
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: payload,
+          headers: { Accept: 'application/json' },
+        });
+        const result = (await response.json()) as { ok?: boolean; message?: string; leadId?: string; orderId?: string; conversionEligible?: boolean };
+        if (!response.ok || !result.ok) throw new Error(result.message || 'Dopyt sa nepodarilo odoslať.');
+        if (!result.leadId || !result.orderId) throw new Error('Dopyt bol uložený, ale chýba jeho referenčné číslo. Zavolajte nám prosím.');
         form.reset();
         selectedFiles = [];
         updateFileInput();
         if (preview) preview.innerHTML = '';
-        trackAnalytics('form_submit_success', { form: 'lead' });
-        if (result.metaLead) dispatchMetaLead(result.metaLead);
+        if (result.conversionEligible) trackStoredLead(result.leadId, result.orderId, 'lead');
+        window.sessionStorage.removeItem(submissionKey);
+        trackAnalytics('form_submit_success', { form: 'lead', leadId: result.leadId });
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
+        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odoslať.', 'error');
+        trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
         setFormSubmitting(false, button);
-        setStatus(
-          error instanceof Error && error.name === 'AbortError'
-            ? 'Server neodpovedal včas. Formulár zostal vyplnený, skúste to prosím znova alebo zavolajte 0905 217 946.'
-            : error instanceof Error
-              ? error.message
-              : 'Dopyt sa nepodarilo odoslať. Skontrolujte pripojenie a skúste to znova alebo zavolajte 0905 217 946.',
-          'error',
-        );
-        return;
       } finally {
         if (form.classList.contains('is-submitted')) button?.setAttribute('disabled', 'true');
       }
@@ -403,30 +301,42 @@ export default function HomepageCriticalClient() {
     const formatCounterValue = (value: number, suffix: string, format?: string) =>
       `${format === 'plain' ? String(value) : new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(value)}${suffix}`;
 
-    const isCookieBannerVisible = () => {
-      const cookieBanner = document.querySelector<HTMLElement>('.cookie-banner');
-      if (!cookieBanner) return false;
-      const style = window.getComputedStyle(cookieBanner);
-      const rect = cookieBanner.getBoundingClientRect();
-      return style.display !== 'none' && style.visibility !== 'hidden' && rect.height > 0 && rect.bottom > 0;
+    const runHeroCounters = () => {
+      heroCounters.forEach((counter) => {
+        const target = Number(counter.dataset.counterTarget || 0);
+        const start = Number(counter.dataset.counterStart || 0);
+        const suffix = counter.dataset.counterSuffix || '';
+        const format = counter.dataset.counterFormat || 'locale';
+        const duration = 1500;
+        const startedAt = performance.now();
+        const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+        const tick = (now: number) => {
+          const progress = Math.min(Math.max((now - startedAt) / duration, 0), 1);
+          const value = Math.round(start + (target - start) * easeOutQuart(progress));
+          counter.textContent = formatCounterValue(value, suffix, format);
+          if (progress < 1) requestAnimationFrame(tick);
+        };
+
+        counter.textContent = formatCounterValue(start, suffix, format);
+        requestAnimationFrame(tick);
+      });
     };
 
     const onScroll = () => {
       header?.classList.toggle('is-compact', window.scrollY > 28);
       const isMobile = window.innerWidth <= 760;
+      whatsappButton?.classList.toggle('is-hidden-over-form', isMobile && isQuoteSectionVisible);
       if (!stickyCta) return;
-      const cookieBannerVisible = isCookieBannerVisible();
-      const shouldShow = isMobile && !isHeroSectionVisible && !isQuoteSectionVisible && !cookieBannerVisible;
+      const shouldShow = form
+        ? isMobile && !isQuoteSectionVisible && form.getBoundingClientRect().bottom < 120
+        : isMobile && window.scrollY > 280;
       stickyCta.classList.toggle('is-visible', shouldShow);
-      whatsappButton?.classList.toggle('is-hidden-over-form', isMobile && (isQuoteSectionVisible || shouldShow));
-      whatsappButton?.classList.toggle('is-hidden-by-cookie', isMobile && cookieBannerVisible);
     };
 
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
-    applyMaterialFromUrl();
     applyRooferSelectionFromUrl();
-    applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
       event.preventDefault();
@@ -447,24 +357,6 @@ export default function HomepageCriticalClient() {
     document.addEventListener('click', onAnalyticsClick);
     trackAnalytics('page_view');
 
-    let heroSectionObserver: IntersectionObserver | null = null;
-    if (heroSection && stickyCta && 'IntersectionObserver' in window) {
-      heroSectionObserver = new IntersectionObserver(
-        ([entry]) => {
-          isHeroSectionVisible = entry.isIntersecting;
-          onScroll();
-        },
-        { threshold: 0.12 },
-      );
-      heroSectionObserver.observe(heroSection);
-    }
-
-    let cookieBannerObserver: MutationObserver | null = null;
-    if (stickyCta && 'MutationObserver' in window) {
-      cookieBannerObserver = new MutationObserver(onScroll);
-      cookieBannerObserver.observe(document.body, { childList: true, subtree: true });
-    }
-
     let quoteSectionObserver: IntersectionObserver | null = null;
     if (quoteSection && stickyCta) {
       quoteSectionObserver = new IntersectionObserver(
@@ -481,13 +373,31 @@ export default function HomepageCriticalClient() {
       quoteSectionObserver.observe(quoteSection);
     }
 
+    let counterObserver: IntersectionObserver | undefined;
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (heroCounters.length) {
-      heroCounters.forEach((counter) => {
-        const target = Number(counter.dataset.counterTarget || 0);
-        const suffix = counter.dataset.counterSuffix || '';
-        const format = counter.dataset.counterFormat || 'locale';
-        counter.textContent = formatCounterValue(target, suffix, format);
-      });
+      if (prefersReducedMotion) {
+        heroCounters.forEach((counter) => {
+          const target = Number(counter.dataset.counterTarget || 0);
+          const suffix = counter.dataset.counterSuffix || '';
+          const format = counter.dataset.counterFormat || 'locale';
+          counter.textContent = formatCounterValue(target, suffix, format);
+        });
+      } else if ('IntersectionObserver' in window && heroCounterRoot) {
+        counterObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              runHeroCounters();
+              counterObserver?.disconnect();
+            });
+          },
+          { threshold: 0.35 },
+        );
+        counterObserver.observe(heroCounterRoot);
+      } else {
+        runHeroCounters();
+      }
     }
 
     const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
@@ -529,13 +439,8 @@ export default function HomepageCriticalClient() {
       const targetId = decodeURIComponent(rawHash.slice(1));
       const target = document.getElementById(targetId);
       if (!target) return;
-      const mobileFormTarget =
-        targetId === 'dopyt' && window.matchMedia('(max-width: 760px)').matches
-          ? document.getElementById('quote-title')
-          : null;
-      const scrollTarget = mobileFormTarget || target;
       const headerHeight = header?.getBoundingClientRect().height || 118;
-      const targetTop = scrollTarget.getBoundingClientRect().top + window.scrollY - headerHeight - 18;
+      const targetTop = target.getBoundingClientRect().top + window.scrollY - headerHeight - 18;
       window.scrollTo({ top: Math.max(0, targetTop), behavior: 'auto' });
       setActiveNav(rawHash);
     };
@@ -562,9 +467,8 @@ export default function HomepageCriticalClient() {
       form?.removeEventListener('focusin', onFormStart);
       form?.removeEventListener('input', onFormStart);
       document.removeEventListener('click', onAnalyticsClick);
-      heroSectionObserver?.disconnect();
-      cookieBannerObserver?.disconnect();
       quoteSectionObserver?.disconnect();
+      counterObserver?.disconnect();
       sectionObserver?.disconnect();
       hashScrollTimers.forEach((timer) => window.clearTimeout(timer));
       window.removeEventListener('scroll', onScroll);

@@ -13,7 +13,6 @@ const navGroups = [
       { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
       { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
       { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
-      { href: '/admin/strechari', label: 'Strechári', icon: 'users' },
     ],
   },
   {
@@ -28,8 +27,6 @@ const navGroups = [
     items: [
       { href: '/admin/reviews', label: 'Recenzie', icon: 'star' },
       { href: '/admin/reviews/request', label: 'Žiadosť o recenziu', icon: 'chat' },
-      { href: '/admin/realizacie', label: 'Realizácie', icon: 'image' },
-      { href: '/admin/referencie', label: 'Referencie', icon: 'badge' },
     ],
   },
   {
@@ -39,9 +36,6 @@ const navGroups = [
       { href: '/admin/profil', label: 'Profil', icon: 'user' },
       { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
       { href: '/admin/users', label: 'Používatelia', icon: 'users', superOnly: true },
-      { href: '/admin/audit', label: 'Audit aktivít', icon: 'shield', superOnly: true },
-      { href: '/admin/obsah', label: 'Texty webu', icon: 'doc' },
-      { href: '/admin/health', label: 'Kontrola systému', icon: 'shield', superOnly: true },
     ],
   },
 ];
@@ -61,9 +55,6 @@ function Icon({ name }: { name: string }) {
     mail: <><path d="M4 6h16v12H4z" /><path d="m4 7 8 6 8-6" /></>,
     user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
     users: <><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" /><circle cx="9.5" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></>,
-    image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="m21 15-5-5L5 20" /></>,
-    badge: <><path d="m12 3 2.2 2.2 3.1-.2.9 3 2.6 1.7-1.5 2.7.6 3-3 1-1.3 2.8-3-1-2.7 1.5-1.8-2.6-3-.6.2-3-2.2-2.1 2.1-2.2-.2-3 3-.8z" /><path d="m9 12 2 2 4-4" /></>,
-    shield: <><path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6z" /><path d="m8.5 12 2.2 2.2 4.8-4.8" /></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" {...common}>{paths[name]}</svg>;
 }

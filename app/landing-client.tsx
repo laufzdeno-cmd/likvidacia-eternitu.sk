@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { hasMarketingConsent } from '@/src/lib/marketing-consent';
+import { leadAttribution, trackStoredLead } from './measurement';
 
 export default function LandingClient() {
   useEffect(() => {
@@ -51,9 +51,8 @@ export default function LandingClient() {
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
-    let rooferRegistrationSubmitting = false;
 
-    const getAnalyticsSessionId = () => {
+    const analyticsSessionId = (() => {
       const key = 'astana_analytics_session';
       try {
         const existing = window.localStorage.getItem(key);
@@ -64,7 +63,7 @@ export default function LandingClient() {
       } catch {
         return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       }
-    };
+    })();
 
     const analyticsDevice = () => {
       if (window.innerWidth < 768) return 'mobile';
@@ -82,8 +81,6 @@ export default function LandingClient() {
     };
 
     const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
-      if (!hasMarketingConsent()) return;
-      const analyticsSessionId = getAnalyticsSessionId();
       const payload = JSON.stringify({
         sessionId: analyticsSessionId,
         eventType,
@@ -158,7 +155,7 @@ export default function LandingClient() {
     };
 
     const trackRooferEvent = (rooferId: string, eventType: 'card_viewed' | 'contact_revealed' | 'quote_selected', region?: string) => {
-      if (!rooferId || !hasMarketingConsent()) return;
+      if (!rooferId) return;
       const payload = JSON.stringify({
         rooferId,
         eventType,
@@ -310,97 +307,54 @@ export default function LandingClient() {
       status.textContent = message;
     };
 
-    const applyNativeSubmitResult = () => {
-      if (!form) return;
-      const url = new URL(window.location.href);
-      const submitted = url.searchParams.get('odoslane') === '1';
-      const errorMessage = url.searchParams.get('chyba');
-      if (!submitted && !errorMessage) return;
-      if (submitted) {
-        form.classList.add('is-submitted');
-        setStatus('Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
-      } else if (errorMessage) {
-        setStatus(errorMessage, 'error');
-      }
-      url.searchParams.delete('odoslane');
-      url.searchParams.delete('chyba');
-      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-    };
-
     const clearStatus = () => {
       if (!status) return;
       status.classList.remove('is-submit-success', 'is-success', 'is-error', 'is-loading');
       status.textContent = '';
     };
 
-    const submitLeadForm = async (payload: FormData) => {
-      const endpoints = ['/api/dopyt/'];
-      let lastError: Error | null = null;
-
-      for (const endpoint of endpoints) {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 4000);
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: payload,
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-            signal: controller.signal,
-          });
-          const contentType = response.headers.get('content-type') || '';
-          const result = contentType.includes('application/json')
-            ? ((await response.json()) as { ok?: boolean; message?: string })
-            : { ok: false, message: (await response.text()).trim().slice(0, 180) };
-          if (!response.ok || !result.ok) {
-            throw new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-          }
-          return result;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-        } finally {
-          window.clearTimeout(timeoutId);
-        }
-      }
-
-      throw lastError || new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-    };
-
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
-      if (!form.checkValidity()) {
-        event.preventDefault();
-        form.reportValidity();
-        return;
-      }
-      if (/OPR\//i.test(navigator.userAgent)) {
-        form.dataset.nativeSubmit = 'true';
-        HTMLFormElement.prototype.submit.call(form);
-        return;
-      }
       event.preventDefault();
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
+      Object.entries(leadAttribution()).forEach(([key, value]) => payload.set(key, value));
+      const submissionKey = 'astana_lead_submission_id_v1';
+      let submissionId = window.sessionStorage.getItem(submissionKey);
+      if (!submissionId) {
+        submissionId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        window.sessionStorage.setItem(submissionKey, submissionId);
+      }
+      payload.set('submissionId', submissionId);
       const submittedEmail = String(payload.get('email') || '').trim();
       if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
       setFormSubmitting(true, button);
 
       try {
-        const result = await submitLeadForm(payload);
+        const response = await fetch(form.action, {
+          method: 'POST',
+          body: payload,
+          headers: { Accept: 'application/json' },
+        });
+        const result = (await response.json()) as { ok?: boolean; message?: string; leadId?: string; orderId?: string; conversionEligible?: boolean };
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || 'Dopyt sa nepodarilo odosla\u0165.');
+        }
+        if (!result.leadId || !result.orderId) throw new Error('Dopyt bol uložený, ale chýba jeho referenčné číslo. Zavolajte nám prosím.');
         form.reset();
         selectedFiles = [];
         updateFileInput();
         if (preview) preview.innerHTML = '';
-        trackAnalytics('form_submit_success', { form: 'lead' });
+        if (result.conversionEligible) trackStoredLead(result.leadId, result.orderId, 'lead');
+        window.sessionStorage.removeItem(submissionKey);
+        trackAnalytics('form_submit_success', { form: 'lead', leadId: result.leadId });
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa v\u00e1m s \u010fal\u0161\u00edm postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        // Keep native POST available for Opera privacy/VPN filters that block fetch.
+        setStatus(error instanceof Error ? error.message : 'Dopyt sa nepodarilo odosla\u0165.', 'error');
+        trackAnalytics('form_submit_error', { form: 'lead', message: error instanceof Error ? error.message : 'unknown' });
         setFormSubmitting(false, button);
-        form.dataset.nativeSubmit = 'true';
-        HTMLFormElement.prototype.submit.call(form);
-        return;
       } finally {
         if (form.classList.contains('is-submitted')) {
           button?.setAttribute('disabled', 'true');
@@ -464,38 +418,10 @@ export default function LandingClient() {
     const onRooferRegistrationSubmit = async (event: SubmitEvent) => {
       if (!rooferRegistrationForm) return;
       event.preventDefault();
-      if (rooferRegistrationSubmitting) return;
       if (rooferRegistrationStatus) {
         rooferRegistrationStatus.textContent = '';
         rooferRegistrationStatus.classList.remove('is-success', 'is-error');
       }
-      if (!rooferRegistrationForm.checkValidity()) {
-        rooferRegistrationForm.reportValidity();
-        return;
-      }
-      const selectedRegions = rooferRegistrationForm.querySelectorAll<HTMLInputElement>('input[name="serviceRegions[]"]:checked');
-      if (!selectedRegions.length) {
-        if (rooferRegistrationStatus) {
-          rooferRegistrationStatus.textContent = 'Vyberte aspoň jeden kraj, v ktorom pracujete.';
-          rooferRegistrationStatus.classList.add('is-error');
-        }
-        rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="serviceRegions[]"]')?.focus();
-        return;
-      }
-      const selectedSpecializations = rooferRegistrationForm.querySelectorAll<HTMLInputElement>('input[name="specializations[]"]:checked');
-      if (!selectedSpecializations.length) {
-        if (rooferRegistrationStatus) {
-          rooferRegistrationStatus.textContent = 'Vyberte aspoň jednu špecializáciu.';
-          rooferRegistrationStatus.classList.add('is-error');
-        }
-        rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="specializations[]"]')?.focus();
-        return;
-      }
-      const submissionIdInput = rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="submissionId"]');
-      if (submissionIdInput && !submissionIdInput.value) {
-        submissionIdInput.value = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      }
-      rooferRegistrationSubmitting = true;
       const button = rooferRegistrationForm.querySelector<HTMLButtonElement>('button[type="submit"]');
       button?.setAttribute('disabled', 'true');
 
@@ -512,7 +438,7 @@ export default function LandingClient() {
         rooferRegistrationForm.reset();
         if (rooferRegistrationStatus) {
           rooferRegistrationStatus.textContent =
-            result.message || 'Ďakujeme! Registráciu sme prijali a najprv si ju interne skontrolujeme.';
+            result.message || 'Ďakujeme! Vaša registrácia bola prijatá.\nOzveme sa vám do 48 hodín na zadané telefónne číslo.';
           rooferRegistrationStatus.classList.add('is-success');
         }
         trackAnalytics('roofer_registration_success', { form: 'roofer_registration' });
@@ -522,7 +448,6 @@ export default function LandingClient() {
           rooferRegistrationStatus.classList.add('is-error');
         }
       } finally {
-        rooferRegistrationSubmitting = false;
         button?.removeAttribute('disabled');
       }
     };
@@ -700,7 +625,6 @@ export default function LandingClient() {
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     applyRooferSelectionFromUrl();
-    applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     fileDrop?.addEventListener('dragover', (event) => {
       event.preventDefault();
@@ -719,35 +643,6 @@ export default function LandingClient() {
     trackAnalytics('page_view');
     testimonialForm?.addEventListener('submit', onTestimonialSubmit);
     rooferRegistrationForm?.addEventListener('submit', onRooferRegistrationSubmit);
-    const rooferRegionInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="serviceRegions[]"]'));
-    const allRegionsInput = rooferRegionInputs.find((input) => input.dataset.allRegions !== undefined);
-    const individualRegionInputs = rooferRegionInputs.filter((input) => input !== allRegionsInput);
-    const syncRooferRegions = (changed: HTMLInputElement) => {
-      if (!allRegionsInput) return;
-      if (changed === allRegionsInput && allRegionsInput.checked) {
-        individualRegionInputs.forEach((input) => { input.checked = true; });
-        return;
-      }
-      if (changed === allRegionsInput && !allRegionsInput.checked) {
-        individualRegionInputs.forEach((input) => { input.checked = false; });
-        return;
-      }
-      if (!changed.checked) allRegionsInput.checked = false;
-      if (individualRegionInputs.length && individualRegionInputs.every((input) => input.checked)) allRegionsInput.checked = true;
-    };
-    rooferRegionInputs.forEach((input) => input.addEventListener('change', () => syncRooferRegions(input)));
-    const otherSpecialization = document.querySelector<HTMLElement>('[data-other-specialization]');
-    const otherSpecializationInput = document.querySelector<HTMLInputElement>('input[data-specialization="Iné"]');
-    const syncOtherSpecialization = () => {
-      if (!otherSpecialization || !otherSpecializationInput) return;
-      otherSpecialization.hidden = !otherSpecializationInput.checked;
-      if (!otherSpecializationInput.checked) {
-        const input = otherSpecialization.querySelector<HTMLInputElement>('input[name="otherSpecialization"]');
-        if (input) input.value = '';
-      }
-    };
-    otherSpecializationInput?.addEventListener('change', syncOtherSpecialization);
-    syncOtherSpecialization();
     const contactButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-roofer-contact]'));
     const quoteLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('[data-roofer-quote]'));
     const rooferCards = Array.from(document.querySelectorAll<HTMLElement>('[data-roofer-card]'));

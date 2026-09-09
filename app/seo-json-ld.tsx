@@ -77,13 +77,7 @@ export function buildOrganizationJsonLd() {
         email: site.email,
         logo: `${SITE_URL}/assets/astana-logo.png`,
         address,
-        foundingDate: site.claimedStats.foundedOrActiveSince.value,
-        identifier: {
-          '@type': 'PropertyValue',
-          propertyID: 'IČO',
-          value: site.ico,
-        },
-        taxID: site.dic,
+        taxID: site.ico,
         vatID: site.icDph,
         sameAs: site.sameAs,
       },
@@ -96,12 +90,7 @@ export function buildOrganizationJsonLd() {
         telephone: site.phoneHref,
         email: site.email,
         address,
-        identifier: {
-          '@type': 'PropertyValue',
-          propertyID: 'IČO',
-          value: site.ico,
-        },
-        taxID: site.dic,
+        taxID: site.ico,
         vatID: site.icDph,
         areaServed: { '@type': 'Country', name: site.areaServed },
         openingHoursSpecification: [

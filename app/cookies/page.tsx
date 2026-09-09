@@ -24,16 +24,11 @@ export default function CookiesPage() {
           </article>
           <article>
             <h2>Aké cookies používame</h2>
-            <p>Používame nevyhnutné uloženie voľby cookie súhlasu. Po voľbe „Prijať všetky“ sa môže zapnúť first-party analytika a marketingové meranie; po voľbe „Len nevyhnutné“ zostáva vypnuté. Analytické záznamy neobsahujú uloženú IP adresu.</p>
-            <p>Po marketingovom súhlase načítame Google tag na meranie úspešných dopytov z Google Ads. Konverziu zaznamenáme až po prijatí dopytu serverom, nie pri kliknutí na tlačidlo. Odovzdávame technický identifikátor odoslania; meno, email ani telefón do tejto konverznej udalosti nepridávame. Google pri načítaní tagu spracúva aj technické údaje spojenia. Bez súhlasu tag nenačítame. Rozšírené konverzie nezapíname.</p>
+            <p>Používame nevyhnutné úložisko pre bezpečné fungovanie stránky a formulára. Po vašom súhlase môžeme zapnúť Google Analytics a reklamné meranie na vyhodnotenie kampaní a úspešne uložených dopytov.</p>
           </article>
           <article>
-            <h2>Vaša voľba</h2>
-            <p>Voľbu môžete zmeniť vymazaním uloženia stránky v prehliadači a opätovným načítaním webu. Pri zmene na „Len nevyhnutné“ sa voliteľné meranie ďalej nespúšťa. Nové marketingové alebo analytické nástroje dopĺňame iba s aktualizovanou informáciou.</p>
-          </article>
-          <article>
-            <h2>Ako ich vypnúť</h2>
-            <p>Cookies môžete obmedziť v nastaveniach svojho prehliadača. Niektoré funkcie stránky však potom nemusia fungovať pohodlne.</p>
+            <h2>Ako zmeniť súhlas</h2>
+            <p>Súhlas môžete kedykoľvek zmeniť tlačidlom „Nastavenie cookies“ v ľavom dolnom rohu. Formulár a telefonický kontakt fungujú aj bez analytických a reklamných cookies.</p>
           </article>
           <article>
             <h2>Kontakt</h2>

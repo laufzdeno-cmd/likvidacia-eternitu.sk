@@ -19,7 +19,7 @@ export const jobStatusLabels: Record<BusinessJobStatus, string> = {
   PRIJATA: 'Ponuka potvrdená',
   PONUKA_POTVRDENA: 'Ponuka potvrdená',
   URADY_PODANE: 'Úrady podané',
-  URADY_SCHVALENE: 'Úrady schválené',
+  URADY_SCHVALENE: 'Úradné povinnosti vybavené',
   V_REALIZACII: 'Demontáž naplánovaná',
   DEMONT_NAPLANOVANA: 'Demontáž naplánovaná',
   DEMONT_DOKONCENA: 'Demontáž dokončená',
