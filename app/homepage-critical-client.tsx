@@ -48,11 +48,12 @@ export default function HomepageCriticalClient() {
     };
 
     const analyticsParams = () => {
-      const params = new URLSearchParams(window.location.search);
+      const attribution = leadAttribution();
+      const googleClick = Boolean(attribution.gclid || attribution.gbraid || attribution.wbraid);
       return {
-        utmSource: params.get('utm_source') || '',
-        utmMedium: params.get('utm_medium') || '',
-        utmCampaign: params.get('utm_campaign') || '',
+        utmSource: attribution.utmSource || (googleClick ? 'google' : ''),
+        utmMedium: attribution.utmMedium || (googleClick ? 'cpc' : ''),
+        utmCampaign: attribution.utmCampaign || attribution.campaignId || '',
       };
     };
 
