@@ -325,6 +325,10 @@ export default async function HomePage() {
     heroClaim: 'S nami strechári nestratia deň, azbestový odpad nezostane na vašom dvore a vy dostanete doklady.',
     heroText:
       'Cenovú ponuku pripravíme do 24 hodín. Bez záväzku. Stačí približná výmera, lokalita a kontakt.',
+    quoteTitle:
+      normalizedContent.quoteTitle === 'Vyplňte m2 a získajte cenovú ponuku'
+        ? homeContentDefaults.quoteTitle
+        : normalizedContent.quoteTitle,
     ctaPrimary: 'Získať cenovú ponuku',
     ctaPhone: 'Zavolať 0905 217 946',
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
