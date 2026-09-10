@@ -303,6 +303,8 @@ export type BusinessJobCosts = {
 };
 
 export type BusinessJobInput = {
+  /** Optional source lead for jobs created from the public inquiry flow. */
+  leadId?: string;
   demolitionDate: string;
   customerName: string;
   customerPhone?: string;
@@ -328,6 +330,7 @@ export type BusinessJobInput = {
 
 export type BusinessJob = {
   id: string;
+  leadId?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
