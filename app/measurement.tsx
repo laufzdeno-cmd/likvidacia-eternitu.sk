@@ -7,13 +7,73 @@ const consentKey = 'astana_cookie_consent_v2';
 const attributionStorageKey = 'astana_paid_attribution_v2';
 const googleAdsConversionId = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID?.trim() || '';
 const googleAdsConversionLabel = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL?.trim() || '';
+const metaPixelId = '1374474630885790';
+const metaPixelScriptId = 'astana-meta-pixel';
 type ConsentChoice = 'accepted' | 'rejected';
+
+type MetaPixelFunction = {
+  (...args: unknown[]): void;
+  callMethod?: (...args: unknown[]) => void;
+  queue?: unknown[][];
+  push?: (...args: unknown[]) => void;
+  loaded?: boolean;
+  version?: string;
+};
 
 declare global {
   interface Window {
     dataLayer?: Array<Record<string, unknown> | IArguments>;
     gtag?: (...args: unknown[]) => void;
+    fbq?: MetaPixelFunction;
+    _fbq?: MetaPixelFunction;
+    astanaMetaPixelId?: string;
+    astanaMetaPageViewPath?: string;
   }
+}
+
+const trackedMetaLeadIds = new Set<string>();
+
+function ensureMetaPixel(pathname: string) {
+  if (!hasLocalMarketingConsent()) return false;
+
+  if (!window.fbq) {
+    const fbq: MetaPixelFunction = (...args: unknown[]) => {
+      if (fbq.callMethod) fbq.callMethod(...args);
+      else (fbq.queue ||= []).push(args);
+    };
+    fbq.push = fbq;
+    fbq.loaded = true;
+    fbq.version = '2.0';
+    fbq.queue = [];
+    window.fbq = fbq;
+    window._fbq = fbq;
+  }
+
+  window.fbq('consent', 'grant');
+  if (window.astanaMetaPixelId !== metaPixelId) {
+    window.fbq('init', metaPixelId);
+    window.astanaMetaPixelId = metaPixelId;
+  }
+
+  if (!document.getElementById(metaPixelScriptId)) {
+    const script = document.createElement('script');
+    script.id = metaPixelScriptId;
+    script.async = true;
+    script.src = 'https://connect.facebook.net/en_US/fbevents.js';
+    document.head.appendChild(script);
+  }
+
+  const pageViewPath = pathname || window.location.pathname;
+  if (window.astanaMetaPageViewPath !== pageViewPath) {
+    window.fbq('track', 'PageView');
+    window.astanaMetaPageViewPath = pageViewPath;
+  }
+  return true;
+}
+
+function revokeMetaConsent() {
+  window.fbq?.('consent', 'revoke');
+  window.astanaMetaPageViewPath = undefined;
 }
 
 function updateConsent(choice: ConsentChoice) {
@@ -25,6 +85,7 @@ function updateConsent(choice: ConsentChoice) {
     ad_personalization: granted,
   });
   window.dataLayer?.push({ event: 'astana_consent_update', consent_choice: choice });
+  if (choice === 'rejected') revokeMetaConsent();
 }
 
 async function persistMarketingConsent(choice: ConsentChoice) {
@@ -120,7 +181,10 @@ export function MeasurementConsent() {
     if (stored === 'accepted' || stored === 'rejected') {
       updateConsent(stored);
       void persistMarketingConsent(stored);
-      if (stored === 'accepted') captureLeadAttribution();
+      if (stored === 'accepted') {
+        captureLeadAttribution();
+        ensureMetaPixel(pathname || window.location.pathname);
+      }
     }
     else setVisible(true);
   }, [isAdmin]);
@@ -129,9 +193,17 @@ export function MeasurementConsent() {
     window.localStorage.setItem(consentKey, choice);
     updateConsent(choice);
     await persistMarketingConsent(choice);
-    if (choice === 'accepted') captureLeadAttribution();
+    if (choice === 'accepted') {
+      captureLeadAttribution();
+      ensureMetaPixel(pathname || window.location.pathname);
+    }
     setVisible(false);
   }
+
+  useEffect(() => {
+    if (isAdmin || !hasLocalMarketingConsent()) return;
+    ensureMetaPixel(pathname || window.location.pathname);
+  }, [isAdmin, pathname]);
 
   if (isAdmin) return null;
   if (!visible) {
@@ -180,19 +252,24 @@ export function leadAttribution() {
 
 export function trackStoredLead(leadId: string, orderId: string, formName = 'lead') {
   if (!hasLocalMarketingConsent()) return;
+  if (trackedMetaLeadIds.has(leadId)) return;
   const dedupeKey = 'astana_tracked_lead_ids_v1';
   try {
     const tracked = JSON.parse(window.sessionStorage.getItem(dedupeKey) || '[]') as string[];
     if (tracked.includes(leadId)) return;
     window.sessionStorage.setItem(dedupeKey, JSON.stringify([...tracked.slice(-19), leadId]));
   } catch { /* Meranie pokračuje aj v režime bez sessionStorage. */ }
+  trackedMetaLeadIds.add(leadId);
   window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event: 'astana_lead_saved', lead_id: leadId, lead_reference: orderId, form_name: formName });
+  window.dataLayer.push({ event: 'astana_lead_saved', lead_id: leadId, lead_reference: orderId, form_name: formName, meta_event_id: leadId });
   window.gtag?.('event', 'generate_lead', { lead_reference: orderId, form_name: formName });
   if (googleAdsConversionId && googleAdsConversionLabel) {
     window.gtag?.('event', 'conversion', {
       send_to: `${googleAdsConversionId}/${googleAdsConversionLabel}`,
       transaction_id: orderId,
     });
+  }
+  if (ensureMetaPixel(window.location.pathname)) {
+    window.fbq?.('track', 'Lead', { content_name: formName }, { eventID: leadId });
   }
 }

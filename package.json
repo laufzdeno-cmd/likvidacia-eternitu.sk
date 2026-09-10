@@ -11,7 +11,8 @@
     "lighthouse:ci": "ts-node scripts/lighthouse-ci.ts",
     "db:init": "tsx scripts/init-db.ts",
     "admin:hash": "node scripts/hash-password.mjs",
-    "test:order-id": "tsx scripts/verify-google-ads-order-id.ts"
+    "test:order-id": "tsx scripts/verify-google-ads-order-id.ts",
+    "test:meta-pixel": "node scripts/verify-meta-pixel.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
