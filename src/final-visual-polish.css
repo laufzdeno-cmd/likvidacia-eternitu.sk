@@ -10666,9 +10666,23 @@ main .quote-card .form-submit {
 
 /* Mobile quote spacing; transport and validation remain unchanged. */
 /* Field feedback supplements color with an accessible error message. */
+#dopyt .quote-card > .quote-form-intro {
+  display: block !important;
+  margin: 0 0 18px !important;
+  color: #40566f !important;
+  font-size: 15px !important;
+  line-height: 1.45 !important;
+}
+#dopyt .quote-card #quote-title {
+  margin-bottom: 6px !important;
+  font-size: 28px !important;
+  line-height: 1.1 !important;
+  text-align: center !important;
+}
+#dopyt .quote-card [data-field-state] { transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease; }
 #dopyt .quote-card [data-field-state="neutral"] { border-color: #b9cfdd !important; box-shadow: none !important; }
-#dopyt .quote-card [data-field-state="valid"] { --field-border: #198754; --field-background: #f3fff7; border-color: #198754 !important; background-color: #f3fff7 !important; box-shadow: 0 0 0 1px #198754 !important; }
-#dopyt .quote-card [data-field-state="invalid"] { --field-border: #c92a2a; --field-background: #fff5f5; border-color: #c92a2a !important; background-color: #fff5f5 !important; box-shadow: 0 0 0 1px #c92a2a !important; }
+#dopyt .quote-card [data-field-state="valid"] { --field-border: #198754; --field-background: #f3fff7; border-color: #198754 !important; background-color: #f3fff7 !important; box-shadow: inset 0 0 0 1px #198754, 0 0 0 3px rgba(25, 135, 84, 0.18) !important; }
+#dopyt .quote-card [data-field-state="invalid"] { --field-border: #c92a2a; --field-background: #fff5f5; border-color: #c92a2a !important; background-color: #fff5f5 !important; box-shadow: inset 0 0 0 1px #c92a2a, 0 0 0 3px rgba(201, 42, 42, 0.16) !important; }
 #dopyt .field-validation-message { display: block; color: #a51d25; font-size: 12px; line-height: 1.35; margin-top: 4px; }
 #dopyt .field-validation-message[hidden] { display: none; }
 #dopyt .consent { flex-wrap: wrap; }
@@ -10695,30 +10709,32 @@ main .quote-card .form-submit {
   .quote-mobile-intro p { margin: 0 !important; font-size: 14px !important; line-height: 1.3 !important; }
   #dopyt .quote-section-inner > .quote-card {
     padding: 12px !important;
-    background: #fff !important;
+    background:
+      radial-gradient(circle at 0% 0%, rgba(210, 232, 255, 0.8), transparent 18rem),
+      linear-gradient(135deg, #eef7ff 0%, #f8fcff 52%, #ffffff 100%) !important;
     border: 1px solid #cbdde8 !important;
     box-shadow: none !important;
   }
-  #dopyt .quote-card #quote-title { margin: 0 0 8px !important; font-size: 22px !important; line-height: 1.2 !important; }
+  #dopyt .quote-card #quote-title { margin: 0 0 6px !important; font-size: 20px !important; line-height: 1.15 !important; text-align: center !important; }
+  #dopyt .quote-card > .quote-form-intro { margin-bottom: 10px !important; font-size: 14px !important; line-height: 1.35 !important; }
   #dopyt .quote-card .lead-form { gap: 6px !important; }
   #dopyt .quote-card .form-stage,
   #dopyt .quote-card .form-stage:not(.form-stage-priority) {
-    padding: 8px 0 0 !important;
+    padding: 10px 12px !important;
     margin: 0 !important;
     gap: 6px !important;
     border: 0 !important;
     border-top: 1px solid #deebf3 !important;
-    background: #fff !important;
     box-shadow: none !important;
   }
-  #dopyt .quote-card .form-stage:first-of-type { padding-top: 0 !important; border-top: 0 !important; }
+  #dopyt .quote-card .form-stage:first-of-type { padding-top: 10px !important; border-top: 0 !important; }
   #dopyt .quote-card .form-stage-title { margin: 0 !important; padding: 0 !important; font-size: 16px !important; line-height: 1.2 !important; }
   #dopyt .quote-card .field,
-  #dopyt .quote-card .area-field { margin: 0 !important; padding: 0 !important; gap: 2px !important; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+  #dopyt .quote-card .area-field { margin: 0 !important; padding: 0 !important; gap: 2px !important; border: 0 !important; box-shadow: none !important; }
   #dopyt .quote-card .field > label { margin: 0 !important; font-size: 13px !important; line-height: 1.25 !important; }
   #dopyt .quote-card input:not(.hp-field):not([type="radio"]):not([type="checkbox"]):not([type="file"]):not([type="hidden"]),
-  #dopyt .quote-card select { height: 50px !important; min-height: 50px !important; padding: 10px 12px !important; font-size: 16px !important; line-height: 20px !important; border-color: var(--field-border, #b9cfdd) !important; background-color: var(--field-background, #fff) !important; }
-  #dopyt .quote-card textarea { min-height: 64px !important; padding: 10px 12px !important; border-color: var(--field-border, #b9cfdd) !important; background-color: var(--field-background, #fff) !important; font-size: 16px !important; line-height: 20px !important; }
+  #dopyt .quote-card select { height: 50px !important; min-height: 50px !important; padding: 10px 12px !important; font-size: 16px !important; line-height: 20px !important; border-color: var(--field-border, #b9cfdd) !important; background-color: var(--field-background, #fffdf5) !important; }
+  #dopyt .quote-card textarea { min-height: 64px !important; padding: 10px 12px !important; border-color: var(--field-border, #b9cfdd) !important; background-color: var(--field-background, #fffdf5) !important; font-size: 16px !important; line-height: 20px !important; }
   #dopyt .quote-card .field-help { margin: 0 !important; font-size: 12px !important; line-height: 15px !important; }
   #dopyt .quote-card .contact-preference { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
   #dopyt .quote-card .contact-preference label { height: 48px !important; min-height: 48px !important; padding: 6px 8px !important; }
@@ -10733,7 +10749,6 @@ main .quote-card .form-submit {
     height: 56px !important;
     padding: 3px 12px !important;
     border: 1px solid #b9cfdd !important;
-    background: #f1f9ff !important;
   }
   #dopyt .quote-card .file-drop-icon { display: none !important; }
   #dopyt .quote-card .file-mobile-label { display: grid; gap: 2px; text-align: left; }
@@ -10743,8 +10758,12 @@ main .quote-card .form-submit {
   #dopyt .quote-card .file-selection-count { margin: 0; font-size: 13px; color: #176347; }
   #dopyt .quote-card .file-preview:empty { display: none; }
   #dopyt .quote-card .file-chip button { min-height: 48px; min-width: 48px; }
-  #dopyt .quote-card .consent { margin: 0 !important; padding: 6px 8px !important; min-height: 48px; line-height: 1.25 !important; border-color: #b9cfdd !important; background: #fff !important; }
+  #dopyt .quote-card .consent { margin: 0 !important; padding: 6px 8px !important; min-height: 48px; line-height: 1.25 !important; border-color: #b9cfdd !important; }
   #dopyt .quote-card .form-submit { min-height: 52px !important; margin: 0 !important; }
   #dopyt .quote-card .form-security { margin: 0 !important; padding: 2px 0 !important; font-size: 12px !important; line-height: 15px !important; }
   #dopyt .quote-card .form-status:empty { display: none; }
+}
+
+@media (max-width: 340px) {
+  #dopyt .quote-card #quote-title { font-size: 18px !important; }
 }

@@ -7,7 +7,7 @@ export const homeContentDefaults = {
   heroText:
     'Zadajte približnú výmeru v m2, lokalitu a typ materiálu. Pripravíme cenovú ponuku a postaráme sa o dokumentáciu, demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.',
   quoteKicker: 'm2 je základ ceny',
-  quoteTitle: 'Vyplňte m2 a získajte cenovú ponuku',
+  quoteTitle: 'Nezáväzná cenová ponuka',
   quoteIntro: 'Uveďte približnú výmeru, lokalitu a typ materiálu. Fotky sú pomocné, pomôžu nám spresniť prístup a náročnosť.',
   quoteHandled: 'Vy riešite výmeru. My riešime zvyšok.',
   quotePriorityTitle: 'm2 je hlavný údaj',

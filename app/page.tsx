@@ -474,10 +474,6 @@ export default async function HomePage() {
         <section className="quote-section" id="dopyt" aria-labelledby="quote-title">
           <div className="quote-section-inner">
             <div className="quote-info-panel">
-              <div className="quote-mobile-intro">
-                <h2>Stačí výmera, obec a kontakt</h2>
-                <p>Fotky môžete pridať, ak ich máte. Podľa údajov pripravíme cenovú ponuku.</p>
-              </div>
               <div className="quote-panel-main">
               <p className="eyebrow">Rýchle nacenenie</p>
               <h2>Pošlite nám výmeru a fotky. Ozveme sa s ďalším postupom.</h2>
@@ -496,6 +492,7 @@ export default async function HomePage() {
           <aside className="quote-card" aria-labelledby="quote-title">
             <p className="quote-kicker">{content.quoteKicker}</p>
             <h2 id="quote-title">{content.quoteTitle}</h2>
+            <p className="quote-form-intro">Aby sme mohli urobiť čo najpresnejšiu ponuku, stačí vyplniť jednoduchý formulár.</p>
             <p>{content.quoteIntro}</p>
             <div className="quote-handled">{content.quoteHandled}</div>
             <div className="quote-priority">
