@@ -651,6 +651,7 @@ async function ensureSchema() {
 
     CREATE TABLE IF NOT EXISTS business_jobs (
       id uuid PRIMARY KEY,
+      lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       deleted_at timestamptz,
@@ -675,6 +676,7 @@ async function ensureSchema() {
       status text NOT NULL DEFAULT 'DOPYT',
       note text NOT NULL DEFAULT ''
     );
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES leads(id) ON DELETE SET NULL;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_phone text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS material_type text NOT NULL DEFAULT '';
@@ -1058,6 +1060,7 @@ function enrichBusinessJob(
   const grossProfit = totalPrice - rewardsTotal - jobCosts.total;
   return {
     id: String(row.id),
+    leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : undefined,
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
@@ -2646,6 +2649,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
 
   const baseRow = {
     id: jobId,
+    leadId: input.leadId?.trim() || undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
     demolitionDate: input.demolitionDate,
@@ -2690,13 +2694,14 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     await db.query(
       `INSERT INTO business_jobs (
         id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
-        material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+        material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note, lead_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
       ON CONFLICT (id) DO UPDATE SET
         updated_at = $3, demolition_date = $4, customer_name = $5, customer_phone = $6, customer_email = $7,
         location = $8, district = $9, material_type = $10, object_type = $11, term = $12, lead_source = $13,
         preferovany_kontakt = $14, m2 = $15, price_per_m2 = $16, total_price = $17, payment_type = $18,
-        work_type = $19, waste_kg = $20, landfill = $21, status = $22, note = $23`,
+        work_type = $19, waste_kg = $20, landfill = $21, status = $22, note = $23,
+        lead_id = COALESCE(EXCLUDED.lead_id, business_jobs.lead_id)`,
       [
         jobId,
         timestamp,
@@ -2721,6 +2726,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
         baseRow.landfill,
         baseRow.status,
         baseRow.note,
+        baseRow.leadId ?? null,
       ],
     );
     await db.query('DELETE FROM business_job_workers WHERE job_id = $1', [jobId]);
@@ -2756,6 +2762,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
   const settings = await getBusinessSettings();
   const job = await saveBusinessJob(
     {
+      leadId: lead.id,
       demolitionDate: new Date().toISOString().slice(0, 10),
       customerName: lead.fullName,
       customerPhone: lead.phone,
