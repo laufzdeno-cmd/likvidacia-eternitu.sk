@@ -270,6 +270,9 @@ export default async function HomePage() {
       'ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
     ctaPrimary: 'Chcem cenovú ponuku',
     ctaPhone: 'Zavolať 0905 217 946',
+    quoteKicker: 'Rýchla cenová ponuka',
+    quoteTitle: 'Jednoduchý formulár',
+    quoteIntro: 'Stačí približná výmera, lokalita a kontakt. Ozveme sa do 24 hodín.',
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
   };
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
@@ -422,7 +425,7 @@ export default async function HomePage() {
           <div className="quote-section-inner">
             <div className="quote-info-panel">
               <div className="quote-panel-main">
-              <p className="eyebrow">Rýchle nacenenie</p>
+              <p className="eyebrow">Rýchla cenová ponuka</p>
               <h2>Čo bude nasledovať po odoslaní dopytu?</h2>
               <p>
                 Dopyt si skontrolujeme. Ak bude treba, doplníme s vami detaily a potom vám pripravíme konkrétnu cenovú ponuku.
