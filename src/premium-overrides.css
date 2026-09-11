@@ -521,7 +521,29 @@ body::before {
 @media (min-width: 1024px) {
   main .quote-section .quote-card h2#quote-title {
     max-width: none !important;
+    text-align: center !important;
     white-space: nowrap !important;
+  }
+
+  main .hero-counters .hero-counter-item:nth-child(2) {
+    align-items: center !important;
+    justify-items: center !important;
+    padding-inline: 12px !important;
+    text-align: center !important;
+  }
+
+  main .hero-counters .hero-counter-item:nth-child(2) strong,
+  main .hero-counters .hero-counter-item:nth-child(2) span {
+    display: block !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    max-width: 132px !important;
+    text-align: center !important;
+  }
+
+  main .hero-counters .hero-counter-item:nth-child(2) strong {
+    font-size: clamp(30px, 2.1vw, 34px) !important;
+    line-height: 0.95 !important;
   }
 }
 
