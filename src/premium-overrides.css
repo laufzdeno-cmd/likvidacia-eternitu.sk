@@ -518,6 +518,13 @@ body::before {
   }
 }
 
+@media (min-width: 1024px) {
+  main .quote-section .quote-card h2#quote-title {
+    max-width: none !important;
+    white-space: nowrap !important;
+  }
+}
+
 /* Absolute mobile QA override: no horizontal overflow, calmer H2s, sticky CTA never covers content. */
 @media (max-width: 760px) {
   html,
