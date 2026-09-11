@@ -6,7 +6,9 @@ import type {
   AuditLog,
   AnalyticsEvent,
   AnalyticsEventInput,
+  AnalyticsAttributionMode,
   AnalyticsReport,
+  AnalyticsReportFilters,
   AnalyticsTrafficSlice,
   AnalyticsTrafficSummary,
   AdminRole,
@@ -556,6 +558,7 @@ async function ensureSchema() {
 
     CREATE TABLE IF NOT EXISTS business_jobs (
       id uuid PRIMARY KEY,
+      lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       deleted_at timestamptz,
@@ -580,6 +583,7 @@ async function ensureSchema() {
       status text NOT NULL DEFAULT 'DOPYT',
       note text NOT NULL DEFAULT ''
     );
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES leads(id) ON DELETE SET NULL;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_phone text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS material_type text NOT NULL DEFAULT '';
@@ -987,6 +991,7 @@ function enrichBusinessJob(
   const grossProfit = totalPrice - rewardsTotal - jobCosts.total;
   return {
     id: String(row.id),
+    leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : undefined,
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
@@ -2511,6 +2516,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
 
   const baseRow = {
     id: jobId,
+    leadId: input.leadId?.trim() || undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
     demolitionDate: input.demolitionDate,
@@ -2555,13 +2561,14 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     await db.query(
       `INSERT INTO business_jobs (
         id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
-        material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+        material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note, lead_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
       ON CONFLICT (id) DO UPDATE SET
         updated_at = $3, demolition_date = $4, customer_name = $5, customer_phone = $6, customer_email = $7,
         location = $8, district = $9, material_type = $10, object_type = $11, term = $12, lead_source = $13,
         preferovany_kontakt = $14, m2 = $15, price_per_m2 = $16, total_price = $17, payment_type = $18,
-        work_type = $19, waste_kg = $20, landfill = $21, status = $22, note = $23`,
+        work_type = $19, waste_kg = $20, landfill = $21, status = $22, note = $23,
+        lead_id = COALESCE(EXCLUDED.lead_id, business_jobs.lead_id)`,
       [
         jobId,
         timestamp,
@@ -2586,6 +2593,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
         baseRow.landfill,
         baseRow.status,
         baseRow.note,
+        baseRow.leadId ?? null,
       ],
     );
     await db.query('DELETE FROM business_job_workers WHERE job_id = $1', [jobId]);
@@ -2621,6 +2629,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
   const settings = await getBusinessSettings();
   const job = await saveBusinessJob(
     {
+      leadId: lead.id,
       demolitionDate: new Date().toISOString().slice(0, 10),
       customerName: lead.fullName,
       customerPhone: lead.phone,
@@ -3898,6 +3907,61 @@ function sourceFromEvent(event: Pick<AnalyticsEvent, 'utmSource' | 'referrer'>) 
   }
 }
 
+type AnalyticsTouch = { source: string; medium: string; campaign: string };
+
+function metadataTouch(event: AnalyticsEvent, mode: AnalyticsAttributionMode): AnalyticsTouch | null {
+  const attribution = event.metadata?.attribution;
+  if (!attribution || typeof attribution !== 'object' || Array.isArray(attribution)) return null;
+  const touch = (attribution as Record<string, unknown>)[mode];
+  if (!touch || typeof touch !== 'object' || Array.isArray(touch)) return null;
+  const values = touch as Record<string, unknown>;
+  return {
+    source: clampText(values.source, 120),
+    medium: clampText(values.medium, 120),
+    campaign: clampText(values.campaign, 160),
+  };
+}
+
+function analyticsTouch(event: AnalyticsEvent, mode: AnalyticsAttributionMode): AnalyticsTouch {
+  const stored = metadataTouch(event, mode);
+  return stored ?? {
+    source: clampText(event.utmSource, 120),
+    medium: clampText(event.utmMedium, 120),
+    campaign: clampText(event.utmCampaign, 160),
+  };
+}
+
+export function analyticsEventDimensions(event: AnalyticsEvent, mode: AnalyticsAttributionMode = 'last') {
+  const touch = analyticsTouch(event, mode);
+  return {
+    source: touch.source || sourceFromEvent(event),
+    campaign: touch.campaign || 'Bez kampane',
+    device: event.device || 'unknown',
+  };
+}
+
+export function filterAnalyticsEvents(events: AnalyticsEvent[], filters: AnalyticsReportFilters = {}) {
+  const source = filters.source?.trim();
+  const campaign = filters.campaign?.trim();
+  const device = filters.device?.trim();
+  const mode = filters.attribution === 'first' ? 'first' : 'last';
+  return events.filter((event) => {
+    const dimensions = analyticsEventDimensions(event, mode);
+    return (!source || dimensions.source === source) && (!campaign || dimensions.campaign === campaign) && (!device || dimensions.device === device);
+  });
+}
+
+function analyticsFilterOptions(events: AnalyticsEvent[], mode: AnalyticsAttributionMode) {
+  const dimensions = events
+    .filter((event) => event.eventType === 'page_view' || event.eventType === 'form_submit_success')
+    .map((event) => analyticsEventDimensions(event, mode));
+  return {
+    sources: [...new Set(dimensions.map((item) => item.source))].sort((a, b) => a.localeCompare(b)),
+    campaigns: [...new Set(dimensions.map((item) => item.campaign))].sort((a, b) => a.localeCompare(b)),
+    devices: [...new Set(dimensions.map((item) => item.device))].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
 export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
   await ensureSchema();
   const event: AnalyticsEvent = {
@@ -3947,30 +4011,54 @@ export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
   return event;
 }
 
-export async function listAnalyticsEvents(days = 30): Promise<AnalyticsEvent[]> {
+export async function listAnalyticsEvents(days = 30, options: { endMs?: number } = {}): Promise<AnalyticsEvent[]> {
   await ensureSchema();
   const rangeDays = Math.min(365, Math.max(1, Math.round(days)));
-  const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000).toISOString();
+  const endMs = options.endMs ?? Date.now();
+  const since = new Date(endMs - rangeDays * 24 * 60 * 60 * 1000).toISOString();
+  const until = new Date(endMs).toISOString();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     return local.analyticsEvents
-      .filter((event) => event.createdAt >= since)
+      .filter((event) => event.createdAt >= since && event.createdAt < until)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
-  const { rows } = await db.query('SELECT * FROM analytics_events WHERE created_at >= $1 ORDER BY created_at DESC LIMIT 20000', [since]);
+  const { rows } = await db.query(
+    'SELECT * FROM analytics_events WHERE created_at >= $1 AND created_at < $2 ORDER BY created_at DESC LIMIT 20000',
+    [since, until],
+  );
   return rows.map(toAnalyticsEvent);
 }
 
-export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
+export async function getAnalyticsReport(
+  days = 30,
+  options: { endMs?: number; filters?: AnalyticsReportFilters } = {},
+): Promise<AnalyticsReport> {
   const rangeDays = Math.min(365, Math.max(1, Math.round(days)));
-  const sinceMs = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
-  const [events, leads, quotes] = await Promise.all([listAnalyticsEvents(rangeDays), listLeadSummaries(), listQuotes()]);
-  const recentLeads = leads.filter((lead) => new Date(lead.createdAt).getTime() >= sinceMs);
-  const recentQuotes = quotes.filter((quote) => new Date(quote.createdAt).getTime() >= sinceMs);
+  const endMs = options.endMs ?? Date.now();
+  const sinceMs = endMs - rangeDays * 24 * 60 * 60 * 1000;
+  const filters = options.filters ?? {};
+  const attributionMode: AnalyticsAttributionMode = filters.attribution === 'first' ? 'first' : 'last';
+  const [allEvents, leads, quotes] = await Promise.all([listAnalyticsEvents(rangeDays, { endMs }), listLeadSummaries(), listQuotes()]);
+  const availableFilters = analyticsFilterOptions(allEvents, attributionMode);
+  const events = filterAnalyticsEvents(allEvents, filters);
+  const recentLeads = leads.filter((lead) => {
+    const createdAt = new Date(lead.createdAt).getTime();
+    return createdAt >= sinceMs && createdAt < endMs;
+  });
+  const recentQuotes = quotes.filter((quote) => {
+    const createdAt = new Date(quote.createdAt).getTime();
+    return createdAt >= sinceMs && createdAt < endMs;
+  });
   const pageViews = events.filter((event) => event.eventType === 'page_view');
-  const sessionIds = new Set(events.map((event) => event.sessionId).filter(Boolean));
-  const leadSessions = new Set(events.filter((event) => event.eventType === 'form_submit_success').map((event) => event.sessionId).filter(Boolean));
+  const quoteViewEvents = events.filter((event) => event.eventType === 'quote_section_view');
+  const formStartEvents = events.filter((event) => event.eventType === 'form_start');
+  const leadEvents = events.filter((event) => event.eventType === 'form_submit_success');
+  const sessionIds = new Set(pageViews.map((event) => event.sessionId).filter(Boolean));
+  const quoteViewSessions = new Set(quoteViewEvents.map((event) => event.sessionId).filter(Boolean));
+  const formStartSessions = new Set(formStartEvents.map((event) => event.sessionId).filter(Boolean));
+  const leadSessions = new Set(leadEvents.map((event) => event.sessionId).filter(Boolean));
 
   const byEvent = new Map<string, number>();
   for (const event of events) byEvent.set(event.eventType, (byEvent.get(event.eventType) ?? 0) + 1);
@@ -3982,7 +4070,7 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
     if (event.sessionId) item.sessions.add(event.sessionId);
     pageMap.set(event.path, item);
   }
-  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
+  for (const event of leadEvents) {
     const item = pageMap.get(event.path) ?? { path: event.path, views: 0, sessions: new Set<string>(), leads: 0 };
     item.leads += 1;
     if (event.sessionId) item.sessions.add(event.sessionId);
@@ -3991,7 +4079,7 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
 
   const sourceMap = new Map<string, { source: string; sessions: Set<string>; leads: Set<string> }>();
   for (const event of pageViews) {
-    const source = sourceFromEvent(event);
+    const source = analyticsEventDimensions(event, attributionMode).source;
     const item = sourceMap.get(source) ?? { source, sessions: new Set<string>(), leads: new Set<string>() };
     if (event.sessionId) item.sessions.add(event.sessionId);
     sourceMap.set(source, item);
@@ -3999,65 +4087,62 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
 
   const campaignMap = new Map<string, { campaign: string; source: string; sessions: Set<string>; leads: Set<string> }>();
   for (const event of pageViews) {
-    const source = sourceFromEvent(event);
-    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
+    const { source, campaign } = analyticsEventDimensions(event, attributionMode);
     const key = `${source}\u0000${campaign}`;
     const item = campaignMap.get(key) ?? { campaign, source, sessions: new Set<string>(), leads: new Set<string>() };
     if (event.sessionId) item.sessions.add(event.sessionId);
     campaignMap.set(key, item);
   }
-  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
-    const source = sourceFromEvent(event);
-    const campaign = event.utmCampaign?.trim() || 'Bez kampane';
+  for (const event of leadEvents) {
+    const { source, campaign } = analyticsEventDimensions(event, attributionMode);
     const key = `${source}\u0000${campaign}`;
     const item = campaignMap.get(key) ?? { campaign, source, sessions: new Set<string>(), leads: new Set<string>() };
-    if (event.sessionId) {
-      item.sessions.add(event.sessionId);
-      item.leads.add(event.sessionId);
-    }
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    item.leads.add(event.sessionId || event.id);
     campaignMap.set(key, item);
   }
-  for (const event of events.filter((item) => item.eventType === 'form_submit_success')) {
-    const source = sourceFromEvent(event);
+  for (const event of leadEvents) {
+    const source = analyticsEventDimensions(event, attributionMode).source;
     const item = sourceMap.get(source) ?? { source, sessions: new Set<string>(), leads: new Set<string>() };
-    if (event.sessionId) {
-      item.sessions.add(event.sessionId);
-      item.leads.add(event.sessionId);
-    }
+    if (event.sessionId) item.sessions.add(event.sessionId);
+    item.leads.add(event.sessionId || event.id);
     sourceMap.set(source, item);
   }
 
   const deviceMap = new Map<string, { device: string; sessions: Set<string>; pageViews: number; leads: Set<string> }>();
   for (const event of events) {
-    const device = event.device || 'unknown';
+    const device = analyticsEventDimensions(event, attributionMode).device;
     const item = deviceMap.get(device) ?? { device, sessions: new Set<string>(), pageViews: 0, leads: new Set<string>() };
     if (event.sessionId) item.sessions.add(event.sessionId);
     if (event.eventType === 'page_view') item.pageViews += 1;
-    if (event.eventType === 'form_submit_success' && event.sessionId) item.leads.add(event.sessionId);
+    if (event.eventType === 'form_submit_success') item.leads.add(event.sessionId || event.id);
     deviceMap.set(device, item);
   }
 
   const dailyMap = new Map<string, { date: string; pageViews: number; sessions: Set<string>; leads: number; formStarts: number; quoteViews: number }>();
   for (let index = rangeDays - 1; index >= 0; index -= 1) {
-    const date = new Date(Date.now() - index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const date = new Date(endMs - index * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     dailyMap.set(date, { date, pageViews: 0, sessions: new Set<string>(), leads: 0, formStarts: 0, quoteViews: 0 });
   }
   for (const event of events) {
     const date = eventDate(event.createdAt);
     const item = dailyMap.get(date);
     if (!item) continue;
-    if (event.eventType === 'page_view') item.pageViews += 1;
-    if (event.sessionId) item.sessions.add(event.sessionId);
+    if (event.eventType === 'page_view') {
+      item.pageViews += 1;
+      if (event.sessionId) item.sessions.add(event.sessionId);
+    }
     if (event.eventType === 'form_submit_success') item.leads += 1;
     if (event.eventType === 'form_start') item.formStarts += 1;
     if (event.eventType === 'quote_section_view') item.quoteViews += 1;
   }
 
-  const quoteViews = byEvent.get('quote_section_view') ?? 0;
-  const formStarts = byEvent.get('form_start') ?? 0;
-  const leadCount = recentLeads.length || (byEvent.get('form_submit_success') ?? 0);
+  const leadCount = filters.source || filters.campaign || filters.device ? leadEvents.length : recentLeads.length || leadEvents.length;
   const quoteCount = recentQuotes.length;
   const acceptedQuotes = recentQuotes.filter((quote) => quote.status === 'accepted').length;
+  const leadSessionCount = leadSessions.size || leadEvents.length;
+  const quoteViewSessionCount = quoteViewSessions.size || quoteViewEvents.length;
+  const formStartSessionCount = formStartSessions.size || formStartEvents.length;
 
   return {
     rangeDays,
@@ -4067,7 +4152,7 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
       leads: leadCount,
       quotes: quoteCount,
       acceptedQuotes,
-      leadConversionRate: percent(leadCount || leadSessions.size, sessionIds.size),
+      leadConversionRate: percent(leadSessionCount, sessionIds.size),
       quoteRate: percent(quoteCount, leadCount),
       acceptedQuoteRate: percent(acceptedQuotes, quoteCount),
     },
@@ -4095,22 +4180,24 @@ export async function getAnalyticsReport(days = 30): Promise<AnalyticsReport> {
       formStarts: item.formStarts,
       quoteViews: item.quoteViews,
     })),
+    availableFilters,
     funnel: [
-      { label: 'Návštevy', count: sessionIds.size, rateFromPrevious: 100 },
-      { label: 'Videný dotazník', count: quoteViews, rateFromPrevious: percent(quoteViews, sessionIds.size) },
-      { label: 'Začaté vypĺňanie', count: formStarts, rateFromPrevious: percent(formStarts, quoteViews) },
-      { label: 'Odoslané dopyty', count: leadCount, rateFromPrevious: percent(leadCount, formStarts) },
-      { label: 'Vytvorené ponuky', count: quoteCount, rateFromPrevious: percent(quoteCount, leadCount) },
-      { label: 'Prijaté ponuky', count: acceptedQuotes, rateFromPrevious: percent(acceptedQuotes, quoteCount) },
+      { label: 'Návštevy', count: sessionIds.size, countLabel: 'Relácie', eventCount: pageViews.length, rateFromPrevious: 100 },
+      { label: 'Videný dotazník', count: quoteViewSessionCount, countLabel: 'Relácie', eventCount: quoteViewEvents.length, rateFromPrevious: percent(quoteViewSessionCount, sessionIds.size) },
+      { label: 'Začaté vypĺňanie', count: formStartSessionCount, countLabel: 'Relácie', eventCount: formStartEvents.length, rateFromPrevious: percent(formStartSessionCount, quoteViewSessionCount) },
+      { label: 'Odoslané dopyty', count: leadSessionCount, countLabel: 'Relácie', eventCount: leadEvents.length, rateFromPrevious: percent(leadSessionCount, formStartSessionCount) },
+      { label: 'Vytvorené ponuky', count: quoteCount, countLabel: 'CRM záznamy', eventCount: quoteCount, rateFromPrevious: percent(quoteCount, leadSessionCount) },
+      { label: 'Prijaté ponuky', count: acceptedQuotes, countLabel: 'CRM záznamy', eventCount: acceptedQuotes, rateFromPrevious: percent(acceptedQuotes, quoteCount) },
     ],
   };
 }
 
 function analyticsTrafficSlice(events: AnalyticsEvent[], sinceMs?: number): AnalyticsTrafficSlice {
   const filtered = sinceMs === undefined ? events : events.filter((event) => new Date(event.createdAt).getTime() >= sinceMs);
+  const pageViews = filtered.filter((event) => event.eventType === 'page_view');
   return {
-    pageViews: filtered.filter((event) => event.eventType === 'page_view').length,
-    sessions: new Set(filtered.map((event) => event.sessionId).filter(Boolean)).size,
+    pageViews: pageViews.length,
+    sessions: new Set(pageViews.map((event) => event.sessionId).filter(Boolean)).size,
     formStarts: filtered.filter((event) => event.eventType === 'form_start').length,
     leads: filtered.filter((event) => event.eventType === 'form_submit_success').length,
   };
@@ -4159,19 +4246,19 @@ export async function getAnalyticsTrafficSummary(): Promise<AnalyticsTrafficSumm
     `WITH periods AS (SELECT $1::timestamptz AS today_start, $2::timestamptz AS month_start, $3::timestamptz AS year_start)
      SELECT
        COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'page_view')::int AS today_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.today_start AND e.session_id <> '')::int AS today_sessions,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'page_view' AND e.session_id <> '')::int AS today_sessions,
        COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'form_start')::int AS today_form_starts,
        COUNT(*) FILTER (WHERE e.created_at >= p.today_start AND e.event_type = 'form_submit_success')::int AS today_leads,
        COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'page_view')::int AS month_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.month_start AND e.session_id <> '')::int AS month_sessions,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'page_view' AND e.session_id <> '')::int AS month_sessions,
        COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'form_start')::int AS month_form_starts,
        COUNT(*) FILTER (WHERE e.created_at >= p.month_start AND e.event_type = 'form_submit_success')::int AS month_leads,
        COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'page_view')::int AS year_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.year_start AND e.session_id <> '')::int AS year_sessions,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'page_view' AND e.session_id <> '')::int AS year_sessions,
        COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'form_start')::int AS year_form_starts,
        COUNT(*) FILTER (WHERE e.created_at >= p.year_start AND e.event_type = 'form_submit_success')::int AS year_leads,
        COUNT(*) FILTER (WHERE e.event_type = 'page_view')::int AS all_page_views,
-       COUNT(DISTINCT e.session_id) FILTER (WHERE e.session_id <> '')::int AS all_sessions,
+       COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_type = 'page_view' AND e.session_id <> '')::int AS all_sessions,
        COUNT(*) FILTER (WHERE e.event_type = 'form_start')::int AS all_form_starts,
        COUNT(*) FILTER (WHERE e.event_type = 'form_submit_success')::int AS all_leads
      FROM analytics_events e, periods p`,

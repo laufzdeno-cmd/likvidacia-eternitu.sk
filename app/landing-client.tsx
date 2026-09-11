@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { getAnalyticsAttribution } from '@/src/lib/analytics-attribution';
 
 export default function LandingClient() {
   useEffect(() => {
@@ -71,16 +72,8 @@ export default function LandingClient() {
       return 'desktop';
     };
 
-    const analyticsParams = () => {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        utmSource: params.get('utm_source') || '',
-        utmMedium: params.get('utm_medium') || '',
-        utmCampaign: params.get('utm_campaign') || '',
-      };
-    };
-
     const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
+      const attribution = getAnalyticsAttribution();
       const payload = JSON.stringify({
         sessionId: analyticsSessionId,
         eventType,
@@ -88,8 +81,10 @@ export default function LandingClient() {
         referrer: document.referrer || '',
         device: analyticsDevice(),
         viewportWidth: window.innerWidth,
-        ...analyticsParams(),
-        metadata,
+        utmSource: attribution.lastTouch.source,
+        utmMedium: attribution.lastTouch.medium,
+        utmCampaign: attribution.lastTouch.campaign,
+        metadata: { ...metadata, attribution },
       });
       if (navigator.sendBeacon) {
         const sent = navigator.sendBeacon('/api/analytics/', new Blob([payload], { type: 'application/json' }));

@@ -303,6 +303,8 @@ export type BusinessJobCosts = {
 };
 
 export type BusinessJobInput = {
+  /** Optional source lead for jobs created from the public inquiry flow. */
+  leadId?: string;
   demolitionDate: string;
   customerName: string;
   customerPhone?: string;
@@ -328,6 +330,7 @@ export type BusinessJobInput = {
 
 export type BusinessJob = {
   id: string;
+  leadId?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -483,6 +486,15 @@ export type AnalyticsEvent = AnalyticsEventInput & {
   createdAt: string;
 };
 
+export type AnalyticsAttributionMode = 'first' | 'last';
+
+export type AnalyticsReportFilters = {
+  source?: string;
+  campaign?: string;
+  device?: 'desktop' | 'tablet' | 'mobile';
+  attribution?: AnalyticsAttributionMode;
+};
+
 export type AnalyticsReport = {
   rangeDays: number;
   totals: {
@@ -501,7 +513,8 @@ export type AnalyticsReport = {
   campaigns: Array<{ campaign: string; source: string; sessions: number; leads: number; conversionRate: number }>;
   devices: Array<{ device: string; sessions: number; pageViews: number; leads: number; conversionRate: number }>;
   daily: Array<{ date: string; pageViews: number; sessions: number; leads: number; formStarts: number; quoteViews: number }>;
-  funnel: Array<{ label: string; count: number; rateFromPrevious: number }>;
+  funnel: Array<{ label: string; count: number; countLabel: string; eventCount: number; rateFromPrevious: number }>;
+  availableFilters: { sources: string[]; campaigns: string[]; devices: string[] };
 };
 
 export type AnalyticsTrafficSlice = {

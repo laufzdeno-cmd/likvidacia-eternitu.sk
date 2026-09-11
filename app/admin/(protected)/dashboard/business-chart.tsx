@@ -15,13 +15,13 @@ export default function BusinessChart({ data }: { data: Array<{ month: string; r
     <div className="business-chart">
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" />
+          <CartesianGrid stroke="#E3EEF5" strokeDasharray="3 3" />
           <XAxis dataKey="month" />
           <YAxis />
           <Tooltip formatter={(value) => `${Number(value).toLocaleString('sk-SK')} €`} />
           <Legend />
-          <Bar dataKey="revenue" name="Tržby" fill="#6B2D5E" />
-          <Bar dataKey="profit" name="Zisk" fill="#2d7a3a" />
+          <Bar dataKey="revenue" name="Tržby" fill="#8CC9EE" />
+          <Bar dataKey="profit" name="Zisk" fill="#FFC66D" />
           <Bar dataKey="costs" name="Náklady" fill="#C0392B" />
         </BarChart>
       </ResponsiveContainer>

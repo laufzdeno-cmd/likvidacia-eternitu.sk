@@ -152,8 +152,14 @@ test.describe.serial('ASTANA admin QA', () => {
       await expect(page.locator('body')).toContainText('Tento mesiac');
       await expect(page.locator('body')).toContainText('Tento rok');
       await expect(page.locator('body')).toContainText('Celkom');
+      await expect(page.locator('body')).toContainText('Porovnanie s predchádzajúcim obdobím');
+      await expect(page.locator('body')).toContainText('Relácie verzus udalosti');
+      await expect(page.locator('body')).toContainText('Použiť filter');
+      await expect(page.locator('body')).toContainText('Prvý kontakt');
+      await expect(page.locator('body')).toContainText('Posledný kontakt');
+      await expect(page.locator('body')).toContainText('Udalosti');
       await snap(page, '02b-analytics-pass');
-      mark('TEST 2B  ANALYTIKA', true, 'dnes, mesiac, rok a celkom sú dostupné');
+      mark('TEST 2B  ANALYTIKA', true, 'prehľad období, porovnanie, filtre a atribúcia sú dostupné');
     } catch (error) {
       await snap(page, '02b-analytics-fail');
       mark('TEST 2B  ANALYTIKA', false, String(error));
