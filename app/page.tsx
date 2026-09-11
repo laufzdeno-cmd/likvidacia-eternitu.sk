@@ -539,7 +539,6 @@ export default async function HomePage() {
                   <legend>Ako vás máme kontaktovať?</legend>
                   <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /><span>Zavolať</span></label>
                   <label><input type="radio" name="preferredContact" value="Napíšte mi email" /><span>Email</span></label>
-                  <label><input type="radio" name="preferredContact" value="WhatsApp / SMS" /><span>WhatsApp / SMS</span></label>
                 </fieldset>
                 <div className="field">
                   <label htmlFor="phone">Telefón *</label>
@@ -558,11 +557,11 @@ export default async function HomePage() {
               <div className="form-stage form-stage-files">
                 <p className="form-stage-title">4. Fotky voliteľne</p>
                 <div className="field file-field field-full">
-                  <label htmlFor="photos">Nahrajte fotky</label>
+                  <label htmlFor="photos">Fotky (voliteľné)</label>
                   <label className="file-drop" htmlFor="photos">
                     <span className="file-drop-icon" aria-hidden="true"></span>
-                    <strong>Vybrať fotky zo zariadenia</strong>
-                    <span>Fotky sú voliteľné, ale pomôžu nám spresniť typ materiálu, prístup a náročnosť.</span>
+                    <strong>Nahrať fotky</strong>
+                    <span>Voliteľné, pomôžu spresniť ponuku.</span>
                   </label>
                   <input
                     className="file-input"

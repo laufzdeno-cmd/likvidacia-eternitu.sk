@@ -525,6 +525,49 @@ body::before {
   }
 }
 
+main .quote-section .quote-card fieldset.contact-preference {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+body main .quote-section .quote-card .form-stage-files .file-field label.file-drop {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-height: 48px !important;
+  padding: 8px 12px !important;
+  gap: 10px !important;
+  border-radius: 12px !important;
+}
+
+body main .quote-section .quote-card .form-stage-files .file-field .file-drop-icon {
+  width: 24px !important;
+  height: 24px !important;
+  min-width: 24px !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+}
+
+body main .quote-section .quote-card .form-stage-files .file-field .file-drop strong {
+  font-size: 13px !important;
+  line-height: 1.1 !important;
+  white-space: nowrap !important;
+}
+
+body main .quote-section .quote-card .form-stage-files .file-field .file-drop span:last-child {
+  margin-left: auto !important;
+  max-width: none !important;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
+  text-align: right !important;
+}
+
+@media (max-width: 760px) {
+  body main .quote-section .quote-card .form-stage-files .file-field .file-drop span:last-child {
+    display: none !important;
+  }
+}
+
 /* Absolute mobile QA override: no horizontal overflow, calmer H2s, sticky CTA never covers content. */
 @media (max-width: 760px) {
   html,

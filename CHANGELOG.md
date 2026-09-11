@@ -10,3 +10,4 @@
 - Pridaná vlastná slovenská 404 stránka `app/not-found.tsx`.
 - Pridaný bezpečnostný kontakt `public/.well-known/security.txt`.
 - Upravený desktopový nadpis dopytového formulára tak, aby text `Jednoduchý formulár` zostal v jednom riadku bez zásahu do mobilnej verzie.
+- Skrátený kontaktný výber v dopytovom formulári na dve možnosti a zmenšený upload fotiek na kompaktný riadok.
