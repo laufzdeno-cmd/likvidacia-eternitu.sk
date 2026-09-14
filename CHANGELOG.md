@@ -12,3 +12,4 @@
 - Upravený desktopový nadpis dopytového formulára tak, aby text `Jednoduchý formulár` zostal v jednom riadku bez zásahu do mobilnej verzie.
 - Skrátený kontaktný výber v dopytovom formulári na dve možnosti a zmenšený upload fotiek na kompaktný riadok.
 - Vycentrovaný desktopový nadpis dopytového formulára a stredná štatistika `Celé Slovensko` v hero sekcii.
+- Opravené HTML validátorové chyby z Nu Html Checker auditu: `aria-label` už nie je na obyčajných `div` prvkoch bez vhodnej role.

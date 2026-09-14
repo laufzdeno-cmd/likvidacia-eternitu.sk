@@ -318,7 +318,7 @@ export default async function HomePage() {
               <small>Bezpečná likvidácia azbestu</small>
             </span>
           </a>
-          <div className="header-meta" aria-label="Kontaktné údaje">
+          <div className="header-meta" role="group" aria-label="Kontaktné údaje">
             <a className="header-phone" href="tel:+421905217946">
               <span className="meta-icon phone" aria-hidden="true"></span>
               <strong>0905 217 946</strong>
@@ -366,7 +366,7 @@ export default async function HomePage() {
               </a>
             </div>
             <p className="hero-microcopy">Fotky sú voliteľné · Bez záväzku</p>
-            <div className="hero-counters" aria-label="Základné údaje o ASTANA">
+            <div className="hero-counters" role="group" aria-label="Základné údaje o ASTANA">
               <div className="hero-counter-item">
                 <strong>Od 2011</strong>
                 <span>pôsobíme na trhu</span>
@@ -383,7 +383,7 @@ export default async function HomePage() {
             <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
           </div>
 
-          <div className="hero-photo real-hero-photo" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
+          <div className="hero-photo real-hero-photo" role="group" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
             <picture>
               <source media="(max-width: 767px)" srcSet={heroImage.mobileWebpSrcSet} sizes="100vw" type="image/webp" />
               <source media="(max-width: 767px)" srcSet={heroImage.mobileJpgSrcSet} sizes="100vw" type="image/jpeg" />
@@ -755,7 +755,7 @@ export default async function HomePage() {
               Plná filtrovaná galéria je na samostatnej stránke realizácií.
             </p>
           </div>
-          <div className="realization-filter-pills" data-home-gallery-filters aria-label="Filtrovať realizácie podľa typu objektu">
+          <div className="realization-filter-pills" role="group" data-home-gallery-filters aria-label="Filtrovať realizácie podľa typu objektu">
             {realizationFilters.map((filter, index) => (
               <button
                 className={index === 0 ? 'is-active' : undefined}
@@ -918,10 +918,10 @@ export default async function HomePage() {
         </div>
       </footer>
 
-      <div className="mobile-sticky-cta" aria-label="Rýchle kontakty">
+      <nav className="mobile-sticky-cta" aria-label="Rýchle kontakty">
         <a href="tel:+421905217946">Zavolať</a>
         <a href="#dopyt">Cenová ponuka</a>
-      </div>
+      </nav>
       <HomepageCriticalClient />
       <HomepageDeferredClient />
       <PublicWidgets />
