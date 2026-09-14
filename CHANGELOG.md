@@ -13,3 +13,4 @@
 - Skrátený kontaktný výber v dopytovom formulári na dve možnosti a zmenšený upload fotiek na kompaktný riadok.
 - Vycentrovaný desktopový nadpis dopytového formulára a stredná štatistika `Celé Slovensko` v hero sekcii.
 - Opravené HTML validátorové chyby z Nu Html Checker auditu: `aria-label` už nie je na obyčajných `div` prvkoch bez vhodnej role.
+- Upravený `llms.txt` do odporúčaného Markdown formátu s H1 nadpisom a explicitnými odkazmi pre agentov umelej inteligencie.
