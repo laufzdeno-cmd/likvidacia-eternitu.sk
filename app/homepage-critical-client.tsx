@@ -135,8 +135,8 @@ export default function HomepageCriticalClient() {
       if (!form || !materialSelect) return;
       const material = new URLSearchParams(window.location.search).get('material');
       const materialValues: Record<string, string> = {
-        vlnity: 'Vlnitý eternit',
-        plocha: 'Hladký / štvorcový eternit',
+        vlnity: 'Vlnitý azbest / eternit',
+        plocha: 'Plochý azbest / eternitové šablóny',
       };
       const selectedValue = material ? materialValues[material] : undefined;
       if (selectedValue && Array.from(materialSelect.options).some((option) => option.value === selectedValue)) {
@@ -160,7 +160,7 @@ export default function HomepageCriticalClient() {
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
           `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
-          '<div class="success-next"><em>Čo sa stane ďalej:</em><span>1. Skontrolujeme váš dopyt</span><span>2. Overíme chýbajúce údaje</span><span>3. Ozveme sa vám s ďalším postupom</span></div>',
+          '<span>Nezáväznú cenovú ponuku vám pošleme čo najskôr, najneskôr do 24 hodín.</span>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
           '<small>Po-Pia 7:00-18:00</small>',

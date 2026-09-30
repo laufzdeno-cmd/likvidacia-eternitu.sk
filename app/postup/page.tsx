@@ -235,6 +235,7 @@ export default function ProcessPage() {
               Ak máte strechára, povedzte nám to už v dopyte. ASTANA vyrieši odbornú demontáž, balenie a odvoz materiálu
               s možným obsahom azbestu, aby mohol strechár nadviazať svojou prácou.
             </p>
+            <p>Pri výmenách striech vyrážame z Popradu skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechár, ktorý prichádza okolo 8:00, sa tak môže pripraviť na nadväzujúcu prácu.</p>
             <p>Ak strechára ešte nemáte, uveďte to vo formulári. ASTANA sa tým nestáva strechárskou firmou.</p>
           </div>
           <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>

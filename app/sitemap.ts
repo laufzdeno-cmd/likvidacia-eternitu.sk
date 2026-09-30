@@ -24,6 +24,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/kontakt/', 0.85),
     page('/poradna/', 0.75),
     page('/strechari/', 0.55),
+    page('/kariera/', 0.45),
     page('/pre-strecharov/', 0.45),
     page('/spolupracujuci-strechari/', 0.45),
     ...locationPages.map((location) => page(`/likvidacia-azbestu-${location.slug}/`, 0.72)),

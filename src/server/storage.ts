@@ -3,9 +3,10 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { del, get, put } from '@vercel/blob';
-import type { LeadFile } from './types';
+import type { CareerApplicationCv, LeadFile } from './types';
 
 const localStorageRoot = path.join(process.cwd(), 'storage', 'lead-files');
+const localCareerStorageRoot = path.join(process.cwd(), 'storage', 'career-cv');
 
 async function webStreamToBuffer(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
@@ -151,4 +152,53 @@ export async function deleteStoredLeadFile(file: LeadFile) {
     throw new Error('Invalid file path.');
   }
   await rm(fullPath, { force: true });
+}
+
+export async function storeCareerApplicationCv(applicationId: string, file: File): Promise<CareerApplicationCv> {
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const originalName = file.name || 'zivotopis';
+  const key = `${applicationId}/${randomUUID()}${safeExtension(originalName)}`;
+  const s3 = s3Client();
+  const mimeType = file.type || 'application/octet-stream';
+
+  if (process.env.BLOB_READ_WRITE_TOKEN) {
+    const blob = await put(`career-cv/${key}`, bytes, { access: 'private', contentType: mimeType });
+    return { originalName, storageDriver: 'vercel_blob', storageKey: blob.pathname, mimeType, sizeBytes: file.size };
+  }
+  if (s3) {
+    const storageKey = `career-cv/${key}`;
+    await s3.client.send(new PutObjectCommand({
+      Bucket: s3.bucket,
+      Key: storageKey,
+      Body: bytes,
+      ContentType: mimeType,
+      Metadata: { applicationId, originalName: encodeURIComponent(originalName) },
+    }));
+    return { originalName, storageDriver: 's3', storageKey, mimeType, sizeBytes: file.size };
+  }
+  if (process.env.NODE_ENV === 'production') throw new Error('Súkromné úložisko pre životopis nie je nastavené.');
+  const localPath = path.join(localCareerStorageRoot, key);
+  await mkdir(path.dirname(localPath), { recursive: true });
+  await writeFile(localPath, bytes);
+  return { originalName, storageDriver: 'local', storageKey: key, mimeType, sizeBytes: file.size };
+}
+
+export async function readStoredCareerApplicationCv(file: CareerApplicationCv) {
+  if (file.storageDriver === 'vercel_blob') {
+    const response = await get(file.storageKey, { access: 'private', useCache: false });
+    if (!response || response.statusCode !== 200 || !response.stream) throw new Error('Životopis sa nenašiel.');
+    return webStreamToBuffer(response.stream);
+  }
+  if (file.storageDriver === 's3') {
+    const s3 = s3Client();
+    if (!s3) throw new Error('Súkromné úložisko nie je nastavené.');
+    const response = await s3.client.send(new GetObjectCommand({ Bucket: s3.bucket, Key: file.storageKey }));
+    if (!response.Body) throw new Error('Životopis je prázdny.');
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of response.Body as AsyncIterable<Uint8Array>) chunks.push(chunk);
+    return Buffer.concat(chunks);
+  }
+  const fullPath = path.normalize(path.join(localCareerStorageRoot, file.storageKey));
+  if (!fullPath.startsWith(path.normalize(localCareerStorageRoot))) throw new Error('Neplatná cesta k životopisu.');
+  return readFile(fullPath);
 }

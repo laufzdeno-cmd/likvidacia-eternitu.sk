@@ -5,6 +5,7 @@ import { buildOrganizationJsonLd } from './seo-json-ld';
 import '../src/styles.css';
 import '../src/premium-overrides.css';
 import '../src/final-visual-polish.css';
+import '../src/responsive-audit-hotfix.css';
 
 const plusJakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'latin-ext'],

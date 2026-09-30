@@ -144,7 +144,7 @@ const defaultCautionItems = [
 ] satisfies [string, string][];
 
 const defaultRooferItems = [
-  ['Zladenie termínu', 'Na stavbu chodíme skoro ráno podľa dohody, aby mohli strechári nadviazať prácou v ten istý deň.'],
+  ['Zladenie termínu', 'Z Popradu vyrážame skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na svoju prácu.'],
   ['Sledujeme počasie', 'Termín plánujeme s ohľadom na počasie, rozsah prác a nadväznosť strechárskych prác.'],
   ['Bez zhadzovania eternitu', 'Materiál demontujeme kontrolovane. Nezhadzujeme eternit zo strechy a nevytvárame zbytočný chaos na stavbe.'],
   ['Stabilizácia materiálu', 'Pred manipuláciou sa materiál stabilizuje, aby sa znížilo riziko uvoľňovania prachu.'],
@@ -196,7 +196,7 @@ const defaultFaq = [
   ],
   [
     'Pomôžete zladiť likvidáciu so strechárom?',
-    'Áno. Termín plánujeme tak, aby mohli strechári čo najplynulejšie pokračovať. Sledujeme počasie a pri výmenách striech sa snažíme prísť skoro ráno podľa dohody.',
+    'Áno. Pri výmenách striech vyrážame z Popradu skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na nadväzujúcu prácu.',
   ],
 ] satisfies [string, string][];
 
@@ -336,6 +336,7 @@ export default async function HomePage() {
           <a href="/postup/">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
           <a href="/realizacie/">Realizácie</a>
+          <a href="/kariera/">Kariéra</a>
           <a href="/faq/">FAQ</a>
           <a href="#kontakt">Kontakt</a>
           <a className="nav-mobile-phone" href="tel:+421905217946">

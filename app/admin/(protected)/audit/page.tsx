@@ -10,6 +10,7 @@ const entityLabels: Record<string, string> = {
   site_content: 'Obsah webu',
   roofer: 'Strechár',
   roofer_registration: 'Registrácia strechára',
+  career_application: 'Žiadosť o spoluprácu',
   review_request: 'Žiadosť o recenziu',
   testimonial: 'Referencia',
   realization: 'Realizácia',

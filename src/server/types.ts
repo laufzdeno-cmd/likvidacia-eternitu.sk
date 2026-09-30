@@ -101,6 +101,7 @@ export type AuditLog = {
     | 'site_content'
     | 'roofer'
     | 'roofer_registration'
+    | 'career_application'
     | 'review_request'
     | 'business_job'
     | 'admin_user'
@@ -600,4 +601,37 @@ export type RooferRegistration = {
   privacyConsent: boolean;
   note: string;
   status: RooferRegistrationStatus;
+};
+
+export type CareerApplicationStatus = 'new' | 'reviewed' | 'archived';
+export type CareerCooperationType = 'szco' | 'crew' | 'other';
+
+export type CareerApplicationCv = {
+  originalName: string;
+  storageDriver: 'vercel_blob' | 's3' | 'local';
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+export type CareerApplication = {
+  id: string;
+  submissionId: string;
+  createdAt: string;
+  updatedAt: string;
+  status: CareerApplicationStatus;
+  fullName: string;
+  phone: string;
+  email: string;
+  city: string;
+  cooperationType: CareerCooperationType;
+  workRegions: string;
+  hasTradeLicense: boolean;
+  workAtHeights: boolean;
+  hasAsbestosExperience: boolean;
+  asbestosExperience: string;
+  experience: string;
+  note: string;
+  privacyConsent: boolean;
+  cv?: CareerApplicationCv;
 };

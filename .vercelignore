@@ -1,6 +1,7 @@
 artifacts/
 .tmp-chrome-cdp/
 .git/
+.codex/
 .next/
 node_modules/
 .env

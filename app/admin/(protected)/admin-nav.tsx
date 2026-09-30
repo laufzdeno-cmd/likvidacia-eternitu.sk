@@ -14,6 +14,7 @@ const navGroups = [
       { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
       { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
       { href: '/admin/strechari', label: 'Strechári', icon: 'users' },
+      { href: '/admin/kariera', label: 'Kariéra', icon: 'users' },
     ],
   },
   {

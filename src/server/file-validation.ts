@@ -68,3 +68,17 @@ export async function validateUploadedLeadFile(file: File) {
 
   return null;
 }
+
+export async function validateCareerCvFile(file: File) {
+  const ext = extension(file.name || '');
+  if (!['.pdf', '.doc', '.docx'].includes(ext)) return 'Životopis môžete priložiť iba vo formáte PDF, DOC alebo DOCX.';
+  if (file.size <= 0) return 'Priložený životopis je prázdny.';
+  if (file.size > 5 * 1024 * 1024) return 'Životopis môže mať maximálne 5 MB.';
+
+  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+  const pdf = ext === '.pdf' && ascii(header, 0, 5) === '%PDF-';
+  const doc = ext === '.doc' && startsWith(header, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+  const docx = ext === '.docx' && startsWith(header, [0x50, 0x4b, 0x03, 0x04]);
+  if (!pdf && !doc && !docx) return 'Priložený súbor nemá platný formát PDF, DOC alebo DOCX.';
+  return null;
+}

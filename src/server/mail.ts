@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
+import { leadDeliveryMode, sendCareerApplicationThroughAstanaLocalRelay, sendLeadThroughAstanaLocalRelay, type LeadDeliveryResult } from './astana-local-relay';
 import { cleanSlovakText } from './slovak-text';
-import type { BusinessJob, Lead, PriceOffer, PriceOfferSettings } from './types';
+import type { BusinessJob, CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
@@ -264,31 +265,82 @@ function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
   ].join('\n');
 }
 
-export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobId?: string) {
+async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobId?: string): Promise<LeadDeliveryResult> {
   const client = transporter();
-  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
+  if (!client) {
+    return {
+      sent: false,
+      customerSent: false,
+      adminSent: false,
+      reason: 'SMTP nie je nastavené.',
+    };
+  }
   const adminHtml = adminLeadEmailHtml(lead, businessJobId);
   const customerHtml = customerLeadEmailHtml(lead);
 
-  await client.sendMail({
-    from: namedFromHeader('ASTANA systém'),
-    to: leadRecipient(),
-    replyTo: leadRecipient(),
-    subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
-    text: adminLeadEmailText(lead, businessJobId, fileCount),
-    html: adminHtml,
-  });
+  const customerDelivery = await client
+    .sendMail({
+      from: namedFromHeader('ASTANA likvidácia azbestu'),
+      to: lead.email,
+      replyTo: leadRecipient(),
+      subject: '✅ Prijali sme váš dopyt | likvidacia-eternitu.sk',
+      text: customerLeadEmailText(lead),
+      html: customerHtml,
+    })
+    .then(() => ({ sent: true as const }))
+    .catch((error) => ({ sent: false as const, reason: mailErrorMessage(error) }));
 
-  await client.sendMail({
-    from: namedFromHeader('ASTANA likvidácia azbestu'),
-    to: lead.email,
-    replyTo: leadRecipient(),
-    subject: '✅ Prijali sme váš dopyt | likvidacia-eternitu.sk',
-    text: customerLeadEmailText(lead),
-    html: customerHtml,
-  });
+  const adminDelivery = await client
+    .sendMail({
+      from: namedFromHeader('ASTANA systém'),
+      to: leadRecipient(),
+      replyTo: leadRecipient(),
+      subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
+      text: adminLeadEmailText(lead, businessJobId, fileCount),
+      html: adminHtml,
+    })
+    .then(() => ({ sent: true as const }))
+    .catch((error) => ({ sent: false as const, reason: mailErrorMessage(error) }));
 
-  return { sent: true };
+  const reasons = [
+    customerDelivery.sent ? '' : `Potvrdenie zákazníkovi: ${customerDelivery.reason}`,
+    adminDelivery.sent ? '' : `Interné upozornenie: ${adminDelivery.reason}`,
+  ].filter(Boolean);
+
+  return {
+    sent: customerDelivery.sent && adminDelivery.sent,
+    customerSent: customerDelivery.sent,
+    adminSent: adminDelivery.sent,
+    reason: reasons.join(' | ') || undefined,
+  };
+}
+
+export async function sendCareerApplicationEmails(application: CareerApplication): Promise<LeadDeliveryResult> {
+  return sendCareerApplicationThroughAstanaLocalRelay(application);
+}
+
+export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobId?: string): Promise<LeadDeliveryResult> {
+  const mode = leadDeliveryMode();
+  if (mode === 'local_relay') {
+    return sendLeadThroughAstanaLocalRelay(lead, fileCount, businessJobId);
+  }
+
+  const smtpResult = await sendLeadEmailsViaSmtp(lead, fileCount, businessJobId);
+  if (mode !== 'smtp_then_local_relay' || smtpResult.sent) return smtpResult;
+
+  // The legacy local sender always delivers the customer and the office together.
+  // Do not risk a duplicate customer email if SMTP has already delivered either side.
+  if (smtpResult.customerSent || smtpResult.adminSent) return smtpResult;
+
+  const relayResult = await sendLeadThroughAstanaLocalRelay(lead, fileCount, businessJobId);
+  if (relayResult.sent) return relayResult;
+
+  return {
+    sent: false,
+    customerSent: false,
+    adminSent: false,
+    reason: `SMTP: ${smtpResult.reason || 'nepotvrdilo doručenie'} | Záložný relay: ${relayResult.reason || 'nepotvrdil doručenie'}`,
+  };
 }
 
 export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUntil: string; pricePerM2: number; totalPrice: number; note?: string }) {

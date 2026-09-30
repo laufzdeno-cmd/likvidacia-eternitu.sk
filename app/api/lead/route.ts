@@ -143,16 +143,31 @@ export async function POST(request: NextRequest) {
     const fileRows = await addLeadFiles(stored);
     await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: fileRows.length });
 
-    let mailResult: Record<string, unknown>;
+    let mailResult: {
+      sent: boolean;
+      customerSent: boolean;
+      adminSent: boolean;
+      reason?: string;
+    };
     try {
       mailResult = await sendLeadEmails(lead, fileRows.length, businessJob.id);
     } catch (error) {
       mailResult = {
         sent: false,
+        customerSent: false,
+        adminSent: false,
         reason: error instanceof Error ? error.message : 'Email sa nepodarilo odoslať.',
       };
     }
     await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_error', 'system', mailResult);
+
+    if (!mailResult.customerSent) {
+      return failure(
+        request,
+        'Dopyt sme uložili, ale potvrdzovací e-mail sa momentálne nepodarilo odoslať. Zavolajte nám prosím na 0905 217 946.',
+        503,
+      );
+    }
 
     return success(request, 'Ďakujeme! Dopyt sme prijali.');
   } catch (error) {

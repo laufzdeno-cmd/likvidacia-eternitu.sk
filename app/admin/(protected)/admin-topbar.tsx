@@ -14,6 +14,7 @@ const crumbs = [
   { href: '/admin/realizacie', label: 'Realizácie' },
   { href: '/admin/referencie', label: 'Referencie' },
   { href: '/admin/strechari', label: 'Strechári' },
+  { href: '/admin/kariera', label: 'Kariéra' },
   { href: '/admin/obsah', label: 'Texty webu' },
   { href: '/admin/analytics', label: 'Analytika' },
   { href: '/admin/import', label: 'Import' },

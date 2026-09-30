@@ -20,6 +20,8 @@ import type {
   BusinessPaymentType,
   BusinessSettings,
   BusinessWorkType,
+  CareerApplication,
+  CareerApplicationCv,
   LandfillPrice,
   Lead,
   LeadDuplicateMatch,
@@ -74,6 +76,7 @@ type LocalDb = {
   realizations: Realization[];
   roofers: Roofer[];
   rooferRegistrations: RooferRegistration[];
+  careerApplications: CareerApplication[];
   siteContent: SiteContentItem[];
   analyticsEvents: AnalyticsEvent[];
   adminSettings: Record<string, string>;
@@ -479,6 +482,35 @@ async function ensureSchema() {
       status text NOT NULL DEFAULT 'new'
     );
 
+    CREATE TABLE IF NOT EXISTS career_applications (
+      id uuid PRIMARY KEY,
+      submission_id text NOT NULL UNIQUE,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      status text NOT NULL DEFAULT 'new',
+      full_name text NOT NULL,
+      phone text NOT NULL,
+      email text NOT NULL,
+      city text NOT NULL,
+      cooperation_type text NOT NULL DEFAULT 'szco',
+      work_regions text NOT NULL DEFAULT '',
+      has_trade_license boolean NOT NULL DEFAULT false,
+      work_at_heights boolean NOT NULL DEFAULT false,
+      has_asbestos_experience boolean NOT NULL DEFAULT false,
+      asbestos_experience text NOT NULL DEFAULT '',
+      experience text NOT NULL DEFAULT '',
+      note text NOT NULL DEFAULT '',
+      privacy_consent boolean NOT NULL DEFAULT false,
+      cv_original_name text NOT NULL DEFAULT '',
+      cv_storage_driver text NOT NULL DEFAULT '',
+      cv_storage_key text NOT NULL DEFAULT '',
+      cv_mime_type text NOT NULL DEFAULT '',
+      cv_size_bytes integer NOT NULL DEFAULT 0
+    );
+    ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS has_asbestos_experience boolean NOT NULL DEFAULT false;
+    ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS asbestos_experience text NOT NULL DEFAULT '';
+    CREATE INDEX IF NOT EXISTS career_applications_created_idx ON career_applications (created_at DESC);
+
     CREATE TABLE IF NOT EXISTS roofer_events (
       id uuid PRIMARY KEY,
       roofer_id uuid NOT NULL REFERENCES roofers(id) ON DELETE CASCADE,
@@ -750,6 +782,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
     rooferRegistrations: data.rooferRegistrations ?? [],
+    careerApplications: data.careerApplications ?? [],
     siteContent: data.siteContent ?? [],
     analyticsEvents: data.analyticsEvents ?? [],
     adminSettings: data.adminSettings ?? {},
@@ -861,6 +894,41 @@ function toRooferRegistration(row: Record<string, unknown>): RooferRegistration 
     privacyConsent: Boolean(row.privacy_consent ?? row.privacyConsent),
     note: String(row.note ?? row.message ?? ''),
     status: String(row.status ?? 'new') as RooferRegistrationStatus,
+  };
+}
+
+function toCareerApplication(row: Record<string, unknown>): CareerApplication {
+  const storageKey = String(row.cv_storage_key ?? row.cvStorageKey ?? '');
+  const storageDriver = String(row.cv_storage_driver ?? row.cvStorageDriver ?? '');
+  const cv = storageKey && ['vercel_blob', 's3', 'local'].includes(storageDriver)
+    ? {
+        originalName: String(row.cv_original_name ?? row.cvOriginalName ?? 'životopis'),
+        storageDriver: storageDriver as CareerApplicationCv['storageDriver'],
+        storageKey,
+        mimeType: String(row.cv_mime_type ?? row.cvMimeType ?? 'application/octet-stream'),
+        sizeBytes: Number(row.cv_size_bytes ?? row.cvSizeBytes ?? 0),
+      }
+    : undefined;
+  return {
+    id: String(row.id),
+    submissionId: String(row.submission_id ?? row.submissionId ?? ''),
+    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
+    status: String(row.status ?? 'new') as CareerApplication['status'],
+    fullName: cleanSlovakText(String(row.full_name ?? row.fullName ?? '')),
+    phone: String(row.phone ?? ''),
+    email: String(row.email ?? ''),
+    city: cleanSlovakText(String(row.city ?? '')),
+    cooperationType: String(row.cooperation_type ?? row.cooperationType ?? 'szco') as CareerApplication['cooperationType'],
+    workRegions: cleanSlovakText(String(row.work_regions ?? row.workRegions ?? '')),
+    hasTradeLicense: Boolean(row.has_trade_license ?? row.hasTradeLicense),
+    workAtHeights: Boolean(row.work_at_heights ?? row.workAtHeights),
+    hasAsbestosExperience: Boolean(row.has_asbestos_experience ?? row.hasAsbestosExperience),
+    asbestosExperience: cleanSlovakText(String(row.asbestos_experience ?? row.asbestosExperience ?? '')),
+    experience: cleanSlovakText(String(row.experience ?? '')),
+    note: cleanSlovakText(String(row.note ?? '')),
+    privacyConsent: Boolean(row.privacy_consent ?? row.privacyConsent),
+    cv,
   };
 }
 
@@ -1056,6 +1124,7 @@ async function readLocalDb(): Promise<LocalDb> {
       realizations: [],
       roofers: [],
       rooferRegistrations: [],
+      careerApplications: [],
       siteContent: [],
       analyticsEvents: [],
       adminSettings: {},
@@ -3190,6 +3259,111 @@ export async function createRooferRegistration(input: Omit<RooferRegistration, '
   } finally {
     if (rooferRegistrationWrites.get(input.submissionId) === write) rooferRegistrationWrites.delete(input.submissionId);
   }
+}
+
+type CareerApplicationCreateResult = {
+  application: CareerApplication;
+  duplicate: boolean;
+};
+
+const careerApplicationWrites = new Map<string, Promise<CareerApplicationCreateResult>>();
+
+export async function listCareerApplications(): Promise<CareerApplication[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.careerApplications
+      .map((application) => toCareerApplication(application as unknown as Record<string, unknown>))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query('SELECT * FROM career_applications ORDER BY created_at DESC LIMIT 300');
+  return rows.map(toCareerApplication);
+}
+
+export async function getCareerApplication(id: string): Promise<CareerApplication | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const application = local.careerApplications.find((item) => item.id === id);
+    return application ? toCareerApplication(application as unknown as Record<string, unknown>) : null;
+  }
+  const { rows } = await db.query('SELECT * FROM career_applications WHERE id = $1 LIMIT 1', [id]);
+  return rows[0] ? toCareerApplication(rows[0]) : null;
+}
+
+export async function createCareerApplication(
+  input: Omit<CareerApplication, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'cv'>,
+): Promise<CareerApplicationCreateResult> {
+  const existingWrite = careerApplicationWrites.get(input.submissionId);
+  if (existingWrite) return { application: (await existingWrite).application, duplicate: true };
+
+  const write = (async () => {
+    await ensureSchema();
+    const db = getPool();
+    if (!db) {
+      const local = await readLocalDb();
+      const existing = local.careerApplications.find((item) => item.submissionId === input.submissionId);
+      if (existing) return { application: toCareerApplication(existing as unknown as Record<string, unknown>), duplicate: true };
+      const timestamp = now();
+      const application: CareerApplication = { ...input, id: randomUUID(), createdAt: timestamp, updatedAt: timestamp, status: 'new' };
+      local.careerApplications.unshift(application);
+      await writeLocalDb(local);
+      await addAuditLog('career_application', application.id, 'career_application_created', 'public', { cooperationType: application.cooperationType });
+      return { application, duplicate: false };
+    }
+
+    const timestamp = now();
+    const { rows } = await db.query(
+      `INSERT INTO career_applications (
+        id, submission_id, created_at, updated_at, status, full_name, phone, email, city, cooperation_type,
+        work_regions, has_trade_license, work_at_heights, has_asbestos_experience, asbestos_experience, experience, note, privacy_consent
+      ) VALUES ($1,$2,$3,$4,'new',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+      ON CONFLICT (submission_id) DO NOTHING RETURNING *`,
+      [randomUUID(), input.submissionId, timestamp, timestamp, input.fullName, input.phone, input.email, input.city, input.cooperationType,
+        input.workRegions, input.hasTradeLicense, input.workAtHeights, input.hasAsbestosExperience, input.asbestosExperience,
+        input.experience, input.note, input.privacyConsent],
+    );
+    if (rows[0]) {
+      const application = toCareerApplication(rows[0]);
+      await addAuditLog('career_application', application.id, 'career_application_created', 'public', { cooperationType: application.cooperationType });
+      return { application, duplicate: false };
+    }
+    const duplicate = await db.query('SELECT * FROM career_applications WHERE submission_id = $1 LIMIT 1', [input.submissionId]);
+    if (!duplicate.rows[0]) throw new Error('Career application was not persisted.');
+    return { application: toCareerApplication(duplicate.rows[0]), duplicate: true };
+  })();
+
+  careerApplicationWrites.set(input.submissionId, write);
+  try {
+    return await write;
+  } finally {
+    if (careerApplicationWrites.get(input.submissionId) === write) careerApplicationWrites.delete(input.submissionId);
+  }
+}
+
+export async function attachCareerApplicationCv(id: string, cv: CareerApplicationCv): Promise<CareerApplication | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const application = local.careerApplications.find((item) => item.id === id);
+    if (!application) return null;
+    application.cv = cv;
+    application.updatedAt = now();
+    await writeLocalDb(local);
+    await addAuditLog('career_application', id, 'career_cv_uploaded', 'public', { sizeBytes: cv.sizeBytes });
+    return application;
+  }
+  const { rows } = await db.query(
+    `UPDATE career_applications SET cv_original_name=$1, cv_storage_driver=$2, cv_storage_key=$3, cv_mime_type=$4, cv_size_bytes=$5, updated_at=now()
+     WHERE id=$6 RETURNING *`,
+    [cv.originalName, cv.storageDriver, cv.storageKey, cv.mimeType, cv.sizeBytes, id],
+  );
+  if (!rows[0]) return null;
+  await addAuditLog('career_application', id, 'career_cv_uploaded', 'public', { sizeBytes: cv.sizeBytes });
+  return toCareerApplication(rows[0]);
 }
 
 export async function listMatchingRoofers(lead: Pick<Lead, 'city' | 'district'>, limit = 5) {

@@ -118,7 +118,7 @@ export default function LandingClient() {
 
     const priceRates: Record<string, { min: number; max: number }> = {
       vlnity: { min: 8, max: 14 },
-      hladky: { min: 9, max: 15 },
+      plocha: { min: 9, max: 15 },
       boleticky: { min: 11, max: 18 },
       neviem: { min: 8, max: 16 },
     };

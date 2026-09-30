@@ -27,6 +27,7 @@ export function PublicHeader() {
         <a href="/likvidacia-eternitu/">Eternit</a>
         <a href="/postup/">Postup</a>
         <a href="/realizacie/">Realizácie</a>
+        <a href="/kariera/">Kariéra</a>
         <a href="/faq/">FAQ</a>
         <a href="/kontakt/">Kontakt</a>
         <a className="nav-mobile-phone" href={phoneLink}>
@@ -71,6 +72,7 @@ export function PublicFooter() {
         <a href="/realizacie/">Realizácie</a>
         <a href="/recenzie/">Recenzie</a>
         <a href="/strechari/">Pre strechárov</a>
+        <a href="/kariera/">Kariéra</a>
         <a href="/spolupracujuci-strechari/">Spolupracujúci strechári</a>
         <a href="/poradna/">Poradňa</a>
         <span>IČO: {site.ico}</span>

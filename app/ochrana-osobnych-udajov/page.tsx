@@ -21,11 +21,11 @@ export default function PrivacyPage() {
         },
         {
           title: 'Aké údaje zbierame',
-          text: 'Meno, telefón a email z formulára dopytu. Výmeru, lokalitu, typ materiálu, typ objektu a termín z formulára. Fotky strechy sú voliteľné. Analytické dáta spracúvame anonymne, bez ukladania IP adries.',
+          text: 'Meno, telefón a email z formulára dopytu alebo žiadosti o spoluprácu. Pri cenovom dopyte aj výmeru, lokalitu, typ materiálu, typ objektu a termín. Pri žiadosti o spoluprácu údaje o skúsenostiach a dobrovoľne priložený životopis. Fotky strechy a životopis sú súkromné a nie sú verejne prístupné. Analytické dáta spracúvame anonymne, bez ukladania IP adries.',
         },
         {
           title: 'Prečo ich zbierame',
-          text: 'Údaje používame na spracovanie cenovej ponuky, komunikáciu so zákazníkom, plánovanie realizácie a zlepšovanie služieb formou first-party anonymnej analytiky bez IP adries.',
+          text: 'Údaje používame na spracovanie cenovej ponuky, komunikáciu so zákazníkom, plánovanie realizácie, posúdenie možnej spolupráce so živnostníkom alebo partiou a zlepšovanie služieb formou first-party anonymnej analytiky bez IP adries.',
         },
         {
           title: 'Ako dlho ich uchovávame',
