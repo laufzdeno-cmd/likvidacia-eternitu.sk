@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { upload } from '@vercel/blob/client';
 import {
   hasMarketingConsent,
   rememberPendingMetaLead,
@@ -36,6 +37,14 @@ export default function HomepageCriticalClient() {
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
+    const maxLeadFileSize = 10 * 1024 * 1024;
+    const validPhotoExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
+    const photoContentType = (fileName: string, declaredType: string) => {
+      if (['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(declaredType)) return declaredType;
+      const extension = fileName.toLowerCase().match(/\.[a-z0-9]{1,8}$/)?.[0] || '';
+      return ({ '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heif' } as Record<string, string>)[extension] || '';
+    };
+    const photoExtension = (fileName: string) => fileName.toLowerCase().match(/\.[a-z0-9]{1,8}$/)?.[0] || '';
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
     const dispatchMetaLead = (event: PendingMetaLead) => {
@@ -225,7 +234,7 @@ export default function HomepageCriticalClient() {
           setStatus('Nahrať môžete maximálne 10 súborov.', 'error');
           break;
         }
-        if (file.size > 10 * 1024 * 1024) {
+        if (file.size > maxLeadFileSize) {
           setStatus(`Súbor ${file.name} je väčší ako 10 MB.`, 'error');
           continue;
         }
@@ -330,6 +339,33 @@ export default function HomepageCriticalClient() {
       throw lastError || new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
     };
 
+    const uploadLeadPhotos = async () => {
+      if (!selectedFiles.length) return [];
+      const submissionId = submissionIdInput?.value || '';
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
+        throw new Error('Fotky sa nepodarilo pripraviť na nahratie. Skúste formulár odoslať znova.');
+      }
+
+      return Promise.all(selectedFiles.map(async (file) => {
+        const extension = photoExtension(file.name);
+        const contentType = photoContentType(file.name, file.type);
+        if (!validPhotoExtensions.has(extension) || !contentType) {
+          throw new Error('Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.');
+        }
+        if (file.size <= 0 || file.size > maxLeadFileSize) {
+          throw new Error(`Súbor ${file.name} môže mať maximálne 10 MB.`);
+        }
+        const blob = await upload(`lead-drafts/${submissionId}/${crypto.randomUUID()}${extension}`, file, {
+          access: 'private',
+          contentType,
+          handleUploadUrl: '/api/lead-upload/',
+          clientPayload: JSON.stringify({ submissionId }),
+          multipart: file.size > 5 * 1024 * 1024,
+        });
+        return { pathname: blob.pathname, originalName: file.name, submissionId };
+      }));
+    };
+
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
       if (form.classList.contains('is-submitting')) {
@@ -351,6 +387,11 @@ export default function HomepageCriticalClient() {
       setFormSubmitting(true, button);
 
       try {
+        const uploadedPhotos = await uploadLeadPhotos();
+        if (uploadedPhotos.length) {
+          payload.delete('photos');
+          payload.set('uploadedPhotos', JSON.stringify(uploadedPhotos));
+        }
         const result = await submitLeadForm(payload);
         form.reset();
         selectedFiles = [];

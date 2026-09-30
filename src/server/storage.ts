@@ -24,6 +24,24 @@ function safeExtension(fileName: string) {
   return ext && ext.length <= 8 ? ext : '';
 }
 
+export type DirectLeadUpload = {
+  originalName: string;
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+export function attachDirectLeadUpload(leadId: string, upload: DirectLeadUpload): Omit<LeadFile, 'id' | 'createdAt'> {
+  return {
+    leadId,
+    originalName: upload.originalName,
+    storageDriver: 'vercel_blob',
+    storageKey: upload.storageKey,
+    mimeType: upload.mimeType,
+    sizeBytes: upload.sizeBytes,
+  };
+}
+
 function s3Client() {
   const bucket = process.env.S3_BUCKET;
   const accessKeyId = process.env.S3_ACCESS_KEY_ID;

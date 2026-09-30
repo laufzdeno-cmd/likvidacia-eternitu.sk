@@ -37,7 +37,21 @@ function fallbackTypeFromExtension(ext: string) {
   }
 }
 
-export async function validateUploadedLeadFile(file: File) {
+type LeadFileInput = {
+  name: string;
+  size: number;
+  type: string;
+};
+
+function leadContentType(file: LeadFileInput) {
+  const ext = extension(file.name || '');
+  const declaredType = file.type || '';
+  return allowedFileTypes.has(declaredType) && declaredType !== 'application/octet-stream'
+    ? declaredType
+    : fallbackTypeFromExtension(ext);
+}
+
+export function validateLeadFileMetadata(file: LeadFileInput) {
   const ext = extension(file.name || '');
   if (!allowedFileExtensions.has(ext)) {
     return 'Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.';
@@ -46,17 +60,14 @@ export async function validateUploadedLeadFile(file: File) {
   if (file.size > maxLeadFileSize) {
     return 'Jeden súbor môže mať maximálne 10 MB.';
   }
-
-  const declaredType = file.type || '';
-  const contentType =
-    allowedFileTypes.has(declaredType) && declaredType !== 'application/octet-stream'
-      ? declaredType
-      : fallbackTypeFromExtension(ext);
-  if (!allowedFileTypes.has(contentType)) {
+  if (!allowedFileTypes.has(leadContentType(file))) {
     return 'Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.';
   }
+  return null;
+}
 
-  const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
+export function validateLeadFileHeader(file: LeadFileInput, header: Uint8Array) {
+  const contentType = leadContentType(file);
   const isJpeg = contentType === 'image/jpeg' && startsWith(header, [0xff, 0xd8, 0xff]);
   const isPng = contentType === 'image/png' && startsWith(header, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const isWebp = contentType === 'image/webp' && ascii(header, 0, 4) === 'RIFF' && ascii(header, 8, 12) === 'WEBP';
@@ -65,8 +76,15 @@ export async function validateUploadedLeadFile(file: File) {
   if (!isJpeg && !isPng && !isWebp && !isHeic) {
     return 'Súbor nevyzerá ako povolený typ. Skúste nahrať fotku vo formáte JPG, JPEG, PNG, WEBP alebo HEIC.';
   }
-
   return null;
+}
+
+export async function validateUploadedLeadFile(file: File) {
+  const metadataError = validateLeadFileMetadata(file);
+  if (metadataError) return metadataError;
+
+  const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
+  return validateLeadFileHeader(file, header);
 }
 
 export async function validateCareerCvFile(file: File) {

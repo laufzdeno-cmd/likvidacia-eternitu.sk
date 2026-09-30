@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { get, head } from '@vercel/blob';
+import { z } from 'zod';
 import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLead } from '@/src/server/db';
-import { validateUploadedLeadFile } from '@/src/server/file-validation';
+import { validateLeadFileHeader, validateLeadFileMetadata, validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
-import { storeLeadFile } from '@/src/server/storage';
+import { attachDirectLeadUpload, storeLeadFile, type DirectLeadUpload } from '@/src/server/storage';
 import { leadSchema, maxLeadFiles } from '@/src/server/validation';
 
 export const runtime = 'nodejs';
@@ -10,6 +12,14 @@ export const runtime = 'nodejs';
 const buckets = new Map<string, { count: number; resetAt: number }>();
 const rateLimitWindowMs = 10 * 60_000;
 const maxSubmissionsPerWindow = 30;
+
+const directLeadPhotoSchema = z.object({
+  pathname: z.string().trim().min(1).max(512),
+  originalName: z.string().trim().min(1).max(255),
+  submissionId: z.string().uuid(),
+});
+
+type DirectLeadPhoto = z.infer<typeof directLeadPhotoSchema>;
 
 function clientIp(request: NextRequest) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
@@ -52,6 +62,68 @@ function success(request: NextRequest, message: string) {
     return NextResponse.redirect(new URL('/?odoslane=1#dopyt', request.url), { status: 303 });
   }
   return NextResponse.json({ ok: true, message });
+}
+
+function validDirectLeadPhotoPath(photo: DirectLeadPhoto) {
+  const prefix = `lead-drafts/${photo.submissionId}/`;
+  if (!photo.pathname.startsWith(prefix)) return false;
+  const filename = photo.pathname.slice(prefix.length);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|heic|heif)$/i.test(filename);
+}
+
+function safeOriginalName(name: string) {
+  return name.replace(/[\u0000-\u001f\\/:*?"<>|]/g, '_').trim().slice(0, 180) || 'fotka';
+}
+
+async function readPrivateBlobHeader(pathname: string) {
+  const response = await get(pathname, {
+    access: 'private',
+    useCache: false,
+  });
+  if (!response || response.statusCode !== 200 || !response.stream) throw new Error('Nahraná fotka sa nenašla.');
+  const reader = response.stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (length < 32) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      length += value.length;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  const bytes = new Uint8Array(Math.min(length, 32));
+  let offset = 0;
+  for (const chunk of chunks) {
+    const remaining = bytes.length - offset;
+    if (remaining <= 0) break;
+    bytes.set(chunk.slice(0, remaining), offset);
+    offset += Math.min(chunk.length, remaining);
+  }
+  return bytes;
+}
+
+async function verifyDirectLeadPhotos(photos: DirectLeadPhoto[]): Promise<DirectLeadUpload[]> {
+  const verified: DirectLeadUpload[] = [];
+  for (const photo of photos) {
+    if (!validDirectLeadPhotoPath(photo)) throw new Error('Nahraná fotka nemá platnú cestu. Vyberte ju prosím znova.');
+    const metadata = await head(photo.pathname);
+    if (metadata.pathname !== photo.pathname) throw new Error('Nahraná fotka sa nenašla. Vyberte ju prosím znova.');
+    const file = { name: photo.originalName, size: metadata.size, type: metadata.contentType };
+    const metadataError = validateLeadFileMetadata(file);
+    if (metadataError) throw new Error(metadataError);
+    const headerError = validateLeadFileHeader(file, await readPrivateBlobHeader(photo.pathname));
+    if (headerError) throw new Error(headerError);
+    verified.push({
+      originalName: safeOriginalName(photo.originalName),
+      storageKey: metadata.pathname,
+      mimeType: metadata.contentType,
+      sizeBytes: metadata.size,
+    });
+  }
+  return verified;
 }
 
 export async function POST(request: NextRequest) {
@@ -101,13 +173,35 @@ export async function POST(request: NextRequest) {
     .getAll('photos')
     .filter((item): item is File => item instanceof File && item.size > 0);
 
-  if (uploadedFiles.length > maxLeadFiles) {
+  const rawDirectPhotos = formData.get('uploadedPhotos');
+  let directPhotos: DirectLeadPhoto[] = [];
+  if (typeof rawDirectPhotos === 'string' && rawDirectPhotos.trim()) {
+    try {
+      const parsedDirectPhotos = directLeadPhotoSchema.array().max(maxLeadFiles).safeParse(JSON.parse(rawDirectPhotos));
+      if (!parsedDirectPhotos.success) return failure(request, 'Fotky sa nepodarilo overiť. Vyberte ich prosím znova.');
+      if (new Set(parsedDirectPhotos.data.map((photo) => photo.pathname)).size !== parsedDirectPhotos.data.length) {
+        return failure(request, 'Rovnakú fotku môžete priložiť iba raz.');
+      }
+      directPhotos = parsedDirectPhotos.data;
+    } catch {
+      return failure(request, 'Fotky sa nepodarilo overiť. Vyberte ich prosím znova.');
+    }
+  }
+
+  if (uploadedFiles.length + directPhotos.length > maxLeadFiles) {
     return failure(request, `Nahrať môžete maximálne ${maxLeadFiles} súborov.`);
   }
 
   for (const file of uploadedFiles) {
     const fileError = await validateUploadedLeadFile(file);
     if (fileError) return failure(request, fileError);
+  }
+
+  let verifiedDirectPhotos: DirectLeadUpload[];
+  try {
+    verifiedDirectPhotos = await verifyDirectLeadPhotos(directPhotos);
+  } catch (error) {
+    return failure(request, error instanceof Error ? error.message : 'Fotky sa nepodarilo overiť. Vyberte ich prosím znova.');
   }
 
   try {
@@ -139,6 +233,9 @@ export async function POST(request: NextRequest) {
     const stored = [];
     for (const file of uploadedFiles) {
       stored.push(await storeLeadFile(lead.id, file));
+    }
+    for (const photo of verifiedDirectPhotos) {
+      stored.push(attachDirectLeadUpload(lead.id, photo));
     }
     const fileRows = await addLeadFiles(stored);
     await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: fileRows.length });
