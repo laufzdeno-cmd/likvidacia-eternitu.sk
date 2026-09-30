@@ -2613,6 +2613,7 @@ body {
 }
 
 .hero-real-note {
+  display: block;
   color: #06324a !important;
   font-weight: 900 !important;
   background: linear-gradient(135deg, rgba(234, 247, 252, 0.86), rgba(255, 255, 255, 0.92)) !important;

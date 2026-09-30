@@ -381,7 +381,7 @@ export default async function HomePage() {
                 <span>verejný register</span>
               </div>
             </div>
-            <p className="hero-real-note">Ukážky reálnych striech ASTANA.</p>
+            <a className="hero-real-note" href="/realizacie/">Ukážky reálnych striech ASTANA.</a>
           </div>
 
           <div className="hero-photo real-hero-photo" role="group" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
