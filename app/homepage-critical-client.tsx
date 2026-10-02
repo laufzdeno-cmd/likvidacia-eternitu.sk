@@ -153,7 +153,7 @@ export default function HomepageCriticalClient() {
       }
     };
 
-    const setStatus = (message: string, type?: 'success' | 'error' | 'loading', variant?: 'submit', email?: string) => {
+    const setStatus = (message: string, type?: 'success' | 'error' | 'loading', variant?: 'submit', email?: string, emailSent = true) => {
       if (!status) return;
       status.classList.toggle('is-submit-success', type === 'success' && variant === 'submit');
       status.classList.toggle('is-success', type === 'success');
@@ -168,7 +168,9 @@ export default function HomepageCriticalClient() {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
+          emailSent
+            ? `<span>Potvrdenie sme odovzdali e-mailovému serveru pre:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`
+            : '<span>Dopyt už máme uložený. Potvrdzovací e-mail sa teraz nepodarilo odovzdať; formulár neposielajte znova.</span>',
           '<span>Nezáväznú cenovú ponuku vám pošleme čo najskôr, najneskôr do 24 hodín.</span>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
@@ -320,7 +322,7 @@ export default function HomepageCriticalClient() {
           });
           const contentType = response.headers.get('content-type') || '';
           const result = contentType.includes('application/json')
-            ? ((await response.json()) as { ok?: boolean; message?: string; metaLead?: PendingMetaLead })
+            ? ((await response.json()) as { ok?: boolean; message?: string; emailSent?: boolean; metaLead?: PendingMetaLead })
             : { ok: false, message: (await response.text()).trim().slice(0, 180) };
           if (!response.ok || !result.ok) {
             const responseError = new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.') as Error & { responseReceived?: boolean };
@@ -400,7 +402,7 @@ export default function HomepageCriticalClient() {
         trackAnalytics('form_submit_success', { form: 'lead' });
         if (result.metaLead) dispatchMetaLead(result.metaLead);
         form.classList.add('is-submitted');
-        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail);
+        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail, result.emailSent !== false);
       } catch (error) {
         setFormSubmitting(false, button);
         setStatus(

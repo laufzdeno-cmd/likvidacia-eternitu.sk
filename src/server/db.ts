@@ -134,6 +134,8 @@ function dateOnly(value: unknown) {
 function toLead(row: Record<string, unknown>): Lead {
   return {
     id: String(row.id),
+    submissionId: row.submission_id ? String(row.submission_id) : undefined,
+    submissionHash: row.submission_hash ? String(row.submission_hash) : undefined,
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
     status: String(row.status) as LeadStatus,
@@ -309,9 +311,13 @@ async function ensureSchema() {
       followup_note text NOT NULL DEFAULT '',
       followup_notif_odoslana boolean NOT NULL DEFAULT false,
       deleted_at timestamptz,
-      raw_data jsonb NOT NULL DEFAULT '{}'::jsonb
+      raw_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+      submission_id uuid,
+      submission_hash text
     );
 
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS submission_id uuid;
+    ALTER TABLE leads ADD COLUMN IF NOT EXISTS submission_hash text;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS wants_roofer_recommendation boolean NOT NULL DEFAULT false;
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS selected_roofer_id text NOT NULL DEFAULT '';
     ALTER TABLE leads ADD COLUMN IF NOT EXISTS preferovany_kontakt text NOT NULL DEFAULT 'Zavolajte mi';
@@ -588,6 +594,7 @@ async function ensureSchema() {
 
     CREATE TABLE IF NOT EXISTS business_jobs (
       id uuid PRIMARY KEY,
+      lead_id uuid REFERENCES leads(id) ON DELETE SET NULL,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       deleted_at timestamptz,
@@ -612,6 +619,7 @@ async function ensureSchema() {
       status text NOT NULL DEFAULT 'DOPYT',
       note text NOT NULL DEFAULT ''
     );
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES leads(id) ON DELETE SET NULL;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_phone text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS material_type text NOT NULL DEFAULT '';
@@ -706,6 +714,7 @@ async function ensureSchema() {
     );
 
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS leads_submission_id_uq ON leads (submission_id);
     CREATE INDEX IF NOT EXISTS leads_owner_followup_idx ON leads (owner_email, followup_date, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
     CREATE INDEX IF NOT EXISTS audit_logs_entity_created_at_idx ON audit_logs (entity_id, created_at DESC);
@@ -720,6 +729,7 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
+    CREATE UNIQUE INDEX IF NOT EXISTS business_jobs_lead_id_uq ON business_jobs (lead_id);
     CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
     CREATE INDEX IF NOT EXISTS price_offers_created_status_idx ON price_offers (created_at DESC, status);
     CREATE INDEX IF NOT EXISTS price_offers_job_idx ON price_offers (job_id);
@@ -1055,6 +1065,7 @@ function enrichBusinessJob(
   const grossProfit = totalPrice - rewardsTotal - jobCosts.total;
   return {
     id: String(row.id),
+    leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : undefined,
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
@@ -1205,6 +1216,135 @@ export async function createLead(input: LeadInput): Promise<Lead> {
   );
   await addAuditLog('lead', id, 'lead_created', 'system', { status: 'novy' });
   return lead;
+}
+
+/** A caller reused one browser submission id with different contents. */
+export class LeadSubmissionConflictError extends Error {
+  constructor() {
+    super('Tento formulár bol už odoslaný s inými údajmi. Obnovte stránku a odošlite dopyt znova.');
+    this.name = 'LeadSubmissionConflictError';
+  }
+}
+
+export type LeadSubmissionResult = {
+  lead: Lead;
+  duplicate: boolean;
+  businessJobId?: string;
+};
+
+/**
+ * Creates the CRM lead exactly once for a browser submission id.  A repeat of
+ * the same request returns the original lead instead of creating a second one.
+ */
+export async function createLeadSubmission(
+  input: LeadInput & { submissionId: string; submissionHash: string },
+): Promise<LeadSubmissionResult> {
+  await ensureSchema();
+  const timestamp = now();
+  const settings = await getBusinessSettings();
+  const lead: Lead = {
+    ...input,
+    id: randomUUID(),
+    status: 'novy',
+    internalNote: '',
+    district: input.district ?? '',
+    roofer: input.roofer ?? '',
+    term: input.term ?? '',
+    note: input.note ?? '',
+    source: input.source ?? 'web',
+    preferredContact: input.preferredContact ?? 'Zavolajte mi',
+    wantsRooferRecommendation: Boolean(input.wantsRooferRecommendation),
+    selectedRooferId: input.selectedRooferId ?? '',
+    ownerEmail: '',
+    nextAction: '',
+    rawData: input.rawData ?? {},
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const existing = local.leads.find((item) => item.submissionId === input.submissionId);
+    if (existing) {
+      if (existing.submissionHash !== input.submissionHash) throw new LeadSubmissionConflictError();
+      return { lead: existing, duplicate: true };
+    }
+    local.leads.unshift(lead);
+    await writeLocalDb(local);
+    await addAuditLog('lead', lead.id, 'lead_created', 'system', { status: 'novy', submissionId: input.submissionId });
+    const job = await createBusinessJobFromLead(lead);
+    return { lead, duplicate: false, businessJobId: job.id };
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const inserted = await client.query(
+      `INSERT INTO leads (
+        id, submission_id, submission_hash, created_at, updated_at, status, full_name, phone, email, city, district,
+        object_type, material_type, area_estimate, preferovany_kontakt, roofer, term, note, gdpr, source,
+        internal_note, raw_data, wants_roofer_recommendation, selected_roofer_id
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+      ON CONFLICT (submission_id) DO NOTHING
+      RETURNING *`,
+      [
+        lead.id, lead.submissionId, lead.submissionHash, lead.createdAt, lead.updatedAt, lead.status, lead.fullName,
+        lead.phone, lead.email, lead.city, lead.district, lead.objectType, lead.materialType, lead.areaEstimate,
+        lead.preferredContact, lead.roofer, lead.term, lead.note, lead.gdpr, lead.source, lead.internalNote,
+        lead.rawData, lead.wantsRooferRecommendation, lead.selectedRooferId,
+      ],
+    );
+
+    if (!inserted.rows[0]) {
+      const existing = await client.query('SELECT * FROM leads WHERE submission_id = $1 FOR UPDATE', [input.submissionId]);
+      const row = existing.rows[0] as Record<string, unknown> | undefined;
+      if (!row) throw new Error('Dopyt sa nepodarilo overiť po opakovanom odoslaní.');
+      if (String(row.submission_hash ?? '') !== input.submissionHash) throw new LeadSubmissionConflictError();
+      const existingJob = await client.query('SELECT id FROM business_jobs WHERE lead_id = $1 LIMIT 1', [String(row.id)]);
+      await client.query('COMMIT');
+      return { lead: toLead(row), duplicate: true, businessJobId: existingJob.rows[0]?.id ? String(existingJob.rows[0].id) : undefined };
+    }
+
+    const businessJobId = randomUUID();
+    const demolitionDate = new Date().toISOString().slice(0, 10);
+    const pricePerM2 = money(settings.defaultPricePerM2);
+    const totalPrice = money(lead.areaEstimate * pricePerM2);
+    await client.query(
+      `INSERT INTO business_jobs (
+        id, lead_id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
+        material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
+      ) VALUES ($1,$2,$3,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'FAKTURA','DEMONTAZ_A_ODVOZ',0,'INA','DOPYT',$18)`,
+      [
+        businessJobId, lead.id, timestamp, demolitionDate, lead.fullName, lead.phone, lead.email, lead.city, lead.district,
+        lead.materialType, lead.objectType, lead.term, lead.source || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
+        lead.preferredContact, lead.areaEstimate, pricePerM2, totalPrice, lead.note,
+      ],
+    );
+    await client.query(
+      `INSERT INTO business_job_costs (job_id, fuel, suits, gloves, penetrant, landfill_cost, other_name, other_amount, total)
+       VALUES ($1,0,0,0,0,0,'',0,0)`,
+      [businessJobId],
+    );
+
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'lead',$2,'lead_created','system',$3,$4)`,
+      [randomUUID(), lead.id, { status: 'novy', submissionId: input.submissionId }, timestamp],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'business_job',$2,'business_job_lead_received','system',$3,$4)`,
+      [randomUUID(), businessJobId, { leadId: lead.id }, timestamp],
+    );
+    await client.query('COMMIT');
+    return { lead: toLead(inserted.rows[0] as Record<string, unknown>), duplicate: false, businessJobId };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function addLeadFiles(files: Omit<LeadFile, 'id' | 'createdAt'>[]) {
@@ -2457,6 +2597,19 @@ export async function getBusinessJob(id: string): Promise<BusinessJob | null> {
   return jobs[0] ?? null;
 }
 
+export async function getBusinessJobByLeadId(leadId: string): Promise<BusinessJob | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.businessJobs.find((job) => job.leadId === leadId && !job.deletedAt) ?? null;
+  }
+  const { rows } = await db.query('SELECT * FROM business_jobs WHERE lead_id = $1 AND deleted_at IS NULL LIMIT 1', [leadId]);
+  if (!rows[0]) return null;
+  const jobs = await hydrateBusinessJobs(rows);
+  return jobs[0] ?? null;
+}
+
 export async function getBusinessJobWithActivity(id: string): Promise<BusinessJobWithActivity | null> {
   const job = await getBusinessJob(id);
   if (!job) return null;
@@ -2580,6 +2733,7 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
 
   const baseRow = {
     id: jobId,
+    leadId: input.leadId?.trim() || undefined,
     createdAt: timestamp,
     updatedAt: timestamp,
     demolitionDate: input.demolitionDate,
@@ -2607,6 +2761,8 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
+    const existingForLead = baseRow.leadId ? local.businessJobs.find((job) => job.leadId === baseRow.leadId && !job.deletedAt) : undefined;
+    if (existingForLead && existingForLead.id !== jobId) return existingForLead;
     const previous = local.businessJobs.find((job) => job.id === jobId);
     const job = enrichBusinessJob(baseRow, jobWorkers, { ...costs, jobId });
     job.createdAt = previous?.createdAt ?? timestamp;
@@ -2619,20 +2775,23 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     return job;
   }
 
-  await db.query('BEGIN');
+  const client = await db.connect();
   try {
-    await db.query(
+    await client.query('BEGIN');
+    await client.query(
       `INSERT INTO business_jobs (
-        id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
+        id, lead_id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
         material_type, object_type, term, lead_source, preferovany_kontakt, m2, price_per_m2, total_price, payment_type, work_type, waste_kg, landfill, status, note
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
       ON CONFLICT (id) DO UPDATE SET
-        updated_at = $3, demolition_date = $4, customer_name = $5, customer_phone = $6, customer_email = $7,
-        location = $8, district = $9, material_type = $10, object_type = $11, term = $12, lead_source = $13,
-        preferovany_kontakt = $14, m2 = $15, price_per_m2 = $16, total_price = $17, payment_type = $18,
-        work_type = $19, waste_kg = $20, landfill = $21, status = $22, note = $23`,
+        lead_id = COALESCE(business_jobs.lead_id, EXCLUDED.lead_id), updated_at = $4, demolition_date = $5,
+        customer_name = $6, customer_phone = $7, customer_email = $8, location = $9, district = $10,
+        material_type = $11, object_type = $12, term = $13, lead_source = $14, preferovany_kontakt = $15,
+        m2 = $16, price_per_m2 = $17, total_price = $18, payment_type = $19, work_type = $20,
+        waste_kg = $21, landfill = $22, status = $23, note = $24`,
       [
         jobId,
+        baseRow.leadId || null,
         timestamp,
         timestamp,
         baseRow.demolitionDate,
@@ -2657,25 +2816,27 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
         baseRow.note,
       ],
     );
-    await db.query('DELETE FROM business_job_workers WHERE job_id = $1', [jobId]);
+    await client.query('DELETE FROM business_job_workers WHERE job_id = $1', [jobId]);
     for (const worker of jobWorkers) {
-      await db.query(
+      await client.query(
         `INSERT INTO business_job_workers (id, job_id, worker_id, worker_name, m2_share, rate, reward, manually_edited)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [worker.id, jobId, worker.workerId, worker.workerName, worker.m2Share, worker.rate, worker.reward, worker.manuallyEdited],
       );
     }
-    await db.query(
+    await client.query(
       `INSERT INTO business_job_costs (job_id, fuel, suits, gloves, penetrant, landfill_cost, other_name, other_amount, total)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT (job_id) DO UPDATE SET fuel = $2, suits = $3, gloves = $4, penetrant = $5,
        landfill_cost = $6, other_name = $7, other_amount = $8, total = $9`,
       [jobId, costs.fuel, costs.suits, costs.gloves, costs.penetrant, costs.landfillCost, costs.otherName, costs.otherAmount, costs.total],
     );
-    await db.query('COMMIT');
+    await client.query('COMMIT');
   } catch (error) {
-    await db.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => undefined);
     throw error;
+  } finally {
+    client.release();
   }
   await addAuditLog('business_job', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: input.status });
   if (previousJob?.status && previousJob.status !== input.status) {
@@ -2687,33 +2848,43 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
 }
 
 export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob> {
+  const existing = await getBusinessJobByLeadId(lead.id);
+  if (existing) return existing;
   const settings = await getBusinessSettings();
-  const job = await saveBusinessJob(
-    {
-      demolitionDate: new Date().toISOString().slice(0, 10),
-      customerName: lead.fullName,
-      customerPhone: lead.phone,
-      customerEmail: lead.email,
-      location: lead.city,
-      district: lead.district,
-      materialType: lead.materialType,
-      objectType: lead.objectType,
-      term: lead.term,
-      leadSource: lead.source || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
-      preferredContact: lead.preferredContact || 'Zavolajte mi',
-      m2: lead.areaEstimate,
-      pricePerM2: settings.defaultPricePerM2,
-      paymentType: 'FAKTURA',
-      workType: 'DEMONTAZ_A_ODVOZ',
-      wasteKg: 0,
-      landfill: 'INA',
-      status: 'DOPYT',
-      note: lead.note,
-      workers: [],
-      costs: { fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0 },
-    },
-    'system',
-  );
+  let job: BusinessJob;
+  try {
+    job = await saveBusinessJob(
+      {
+        leadId: lead.id,
+        demolitionDate: new Date().toISOString().slice(0, 10),
+        customerName: lead.fullName,
+        customerPhone: lead.phone,
+        customerEmail: lead.email,
+        location: lead.city,
+        district: lead.district,
+        materialType: lead.materialType,
+        objectType: lead.objectType,
+        term: lead.term,
+        leadSource: lead.source || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
+        preferredContact: lead.preferredContact || 'Zavolajte mi',
+        m2: lead.areaEstimate,
+        pricePerM2: settings.defaultPricePerM2,
+        paymentType: 'FAKTURA',
+        workType: 'DEMONTAZ_A_ODVOZ',
+        wasteKg: 0,
+        landfill: 'INA',
+        status: 'DOPYT',
+        note: lead.note,
+        workers: [],
+        costs: { fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0 },
+      },
+      'system',
+    );
+  } catch (error) {
+    const racedJob = await getBusinessJobByLeadId(lead.id);
+    if (racedJob) return racedJob;
+    throw error;
+  }
   await addAuditLog('business_job', job.id, 'business_job_lead_received', 'system', { leadId: lead.id });
   return job;
 }

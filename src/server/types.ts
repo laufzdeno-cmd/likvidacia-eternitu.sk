@@ -12,6 +12,10 @@ export type LeadStatus =
   | 'archivovane';
 
 export type LeadInput = {
+  /** Stable browser-generated id used to make a form retry idempotent. */
+  submissionId?: string;
+  /** A non-reversible snapshot of the submitted fields for retry validation. */
+  submissionHash?: string;
   fullName: string;
   phone: string;
   email: string;
@@ -304,6 +308,8 @@ export type BusinessJobCosts = {
 };
 
 export type BusinessJobInput = {
+  /** Present only when a job was created from a public lead. */
+  leadId?: string;
   demolitionDate: string;
   customerName: string;
   customerPhone?: string;
@@ -329,6 +335,7 @@ export type BusinessJobInput = {
 
 export type BusinessJob = {
   id: string;
+  leadId?: string;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;

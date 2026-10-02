@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 export const leadSchema = z.object({
+  submissionId: z.string().uuid('Odoslanie formulára sa nepodarilo bezpečne pripraviť. Obnovte stránku a skúste to znova.'),
   fullName: z.string().trim().min(2, 'Zadajte meno a priezvisko.').max(120),
   phone: z.string().trim().min(7, 'Zadajte telefónne číslo.').max(40),
   email: z.string().trim().email('Zadajte platný email.').max(160),

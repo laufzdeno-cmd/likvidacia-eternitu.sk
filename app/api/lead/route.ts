@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHash } from 'node:crypto';
 import { get, head } from '@vercel/blob';
 import { z } from 'zod';
-import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLead } from '@/src/server/db';
+import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLeadSubmission, LeadSubmissionConflictError } from '@/src/server/db';
 import { validateLeadFileHeader, validateLeadFileMetadata, validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
 import { attachDirectLeadUpload, storeLeadFile, type DirectLeadUpload } from '@/src/server/storage';
@@ -57,11 +58,24 @@ function failure(request: NextRequest, message: string, status = 400) {
   return NextResponse.json({ ok: false, message }, { status });
 }
 
-function success(request: NextRequest, message: string) {
+function success(request: NextRequest, message: string, details: { emailSent?: boolean; duplicate?: boolean } = {}) {
   if (wantsHtml(request)) {
     return NextResponse.redirect(new URL('/?odoslane=1#dopyt', request.url), { status: 303 });
   }
-  return NextResponse.json({ ok: true, message });
+  return NextResponse.json({ ok: true, message, ...details });
+}
+
+function submissionFingerprint(input: {
+  fullName: string; phone: string; email: string; city: string; district: string; objectType: string; materialType: string;
+  areaEstimate: number; preferredContact: string; roofer: string; selectedRooferId: string; term: string; note: string;
+}) {
+  const value = JSON.stringify({
+    fullName: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim().toLowerCase(), city: input.city.trim(),
+    district: input.district.trim(), objectType: input.objectType.trim(), materialType: input.materialType.trim(),
+    areaEstimate: input.areaEstimate, preferredContact: input.preferredContact.trim(), roofer: input.roofer.trim(),
+    selectedRooferId: input.selectedRooferId.trim(), term: input.term.trim(), note: input.note.trim(),
+  });
+  return createHash('sha256').update(value).digest('hex');
 }
 
 function validDirectLeadPhotoPath(photo: DirectLeadPhoto) {
@@ -139,6 +153,7 @@ export async function POST(request: NextRequest) {
   }
 
   const parsed = leadSchema.safeParse({
+    submissionId: formData.get('submissionId'),
     fullName: formData.get('fullName'),
     phone: formData.get('phone'),
     email: formData.get('email'),
@@ -208,7 +223,14 @@ export async function POST(request: NextRequest) {
     const rooferValue = parsed.data.roofer || '';
     const wantsRooferRecommendation = rooferValue === 'Chcem odporučiť strechára podľa regiónu';
     const selectedRooferId = parsed.data.selectedRooferId || '';
-    const lead = await createLead({
+    const input = {
+      submissionId: parsed.data.submissionId,
+      submissionHash: submissionFingerprint({
+        fullName: parsed.data.fullName, phone: parsed.data.phone, email: parsed.data.email, city: parsed.data.city,
+        district: parsed.data.district || '', objectType: parsed.data.objectType, materialType: parsed.data.materialType,
+        areaEstimate: parsed.data.areaEstimate, preferredContact: parsed.data.preferredContact || 'Zavolajte mi',
+        roofer: rooferValue, selectedRooferId, term: parsed.data.term || '', note: parsed.data.note || '',
+      }),
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       email: parsed.data.email,
@@ -226,9 +248,17 @@ export async function POST(request: NextRequest) {
       wantsRooferRecommendation,
       selectedRooferId,
       rawData: { userAgent: request.headers.get('user-agent') || undefined, wantsRooferRecommendation, selectedRooferId },
-    });
+    };
+    const submission = await createLeadSubmission(input);
+    const lead = submission.lead;
 
-    const businessJob = await createBusinessJobFromLead(lead);
+    const businessJob = submission.businessJobId
+      ? { id: submission.businessJobId }
+      : await createBusinessJobFromLead(lead);
+
+    if (submission.duplicate) {
+      return success(request, 'Dopyt už máme uložený. Nemusíte ho odosielať znova.', { duplicate: true, emailSent: false });
+    }
 
     const stored = [];
     for (const file of uploadedFiles) {
@@ -259,15 +289,12 @@ export async function POST(request: NextRequest) {
     await addAuditLog('lead', lead.id, mailResult.sent ? 'lead_email_sent' : 'lead_email_error', 'system', mailResult);
 
     if (!mailResult.customerSent) {
-      return failure(
-        request,
-        'Dopyt sme uložili, ale potvrdzovací e-mail sa momentálne nepodarilo odoslať. Zavolajte nám prosím na 0905 217 946.',
-        503,
-      );
+      return success(request, 'Dopyt sme prijali. Potvrdzovací e-mail sa momentálne nepodarilo odovzdať e-mailovému serveru; dopyt už neposielajte znova.', { emailSent: false });
     }
 
-    return success(request, 'Ďakujeme! Dopyt sme prijali.');
+    return success(request, 'Ďakujeme! Dopyt sme prijali.', { emailSent: true });
   } catch (error) {
+    if (error instanceof LeadSubmissionConflictError) return failure(request, error.message, 409);
     console.error('Lead submit failed', error);
     return failure(request, 'Dopyt sa nepodarilo uložiť. Skúste to prosím znova alebo zavolajte.', 500);
   }
