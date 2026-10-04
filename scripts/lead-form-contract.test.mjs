@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 
-const [route, db, client, validation] = await Promise.all([
+const [route, db, client, validation, mail] = await Promise.all([
   readFile(new URL('../app/api/lead/route.ts', import.meta.url), 'utf8'),
   readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8'),
   readFile(new URL('../app/homepage-critical-client.tsx', import.meta.url), 'utf8'),
   readFile(new URL('../src/server/validation.ts', import.meta.url), 'utf8'),
+  readFile(new URL('../src/server/mail.ts', import.meta.url), 'utf8'),
 ]);
 
 function includes(source, text, message) {
@@ -24,5 +25,11 @@ includes(db, 'CREATE UNIQUE INDEX IF NOT EXISTS leads_submission_id_uq', 'Datab�
 includes(db, 'CREATE UNIQUE INDEX IF NOT EXISTS business_jobs_lead_id_uq', 'Databáza musí mať maximálne jednu zákazku na dopyt.');
 includes(db, 'lead_id uuid REFERENCES leads(id)', 'Zákazka musí odkazovať na konkrétny dopyt.');
 includes(db, 'const client = await db.connect();', 'Kritický zápis musí používať jednu databázovú transakciu.');
+includes(mail, "customerLeadEmailSubject = '✅ ASTANA, s.r.o. prijala váš dopyt | likvidacia-eternitu.sk'", 'Predmet musí jasne pomenovať firmu ASTANA, s.r.o.');
+includes(mail, "customerLeadLogoUrl = 'https://likvidacia-eternitu.sk/assets/astana-logo-dark.png'", 'Zákaznícky email musí používať oficiálne logo ASTANA.');
+includes(mail, 'alt="ASTANA, s.r.o."', 'Logo musí mať zrozumiteľný náhradný text.');
+includes(mail, '>ASTANA, s.r.o.</div>', 'Názov firmy musí zostať viditeľný aj pri zablokovaných obrázkoch.');
+includes(mail, 'ASTANA, s.r.o. – odborná likvidácia azbestu a eternitu', 'Textová verzia emailu musí pomenovať firmu.');
+await access(new URL('../public/assets/astana-logo-dark.png', import.meta.url));
 
 console.log('lead-form contract: PASS');

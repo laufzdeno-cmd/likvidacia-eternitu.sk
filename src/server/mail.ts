@@ -6,6 +6,8 @@ import type { BusinessJob, CareerApplication, Lead, PriceOffer, PriceOfferSettin
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
 const fromEmail = () => process.env.FROM_EMAIL || process.env.MAIL_FROM || 'astana@astana.sk';
+const customerLeadEmailSubject = '✅ ASTANA, s.r.o. prijala váš dopyt | likvidacia-eternitu.sk';
+const customerLeadLogoUrl = 'https://likvidacia-eternitu.sk/assets/astana-logo-dark.png';
 
 function namedFromHeader(name: string) {
   const from = fromEmail();
@@ -111,12 +113,13 @@ function customerLeadEmailHtml(lead: Lead) {
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
         <tr>
-          <td style="background:linear-gradient(135deg,#263451 0%,#18243B 100%);padding:28px 32px;">
+          <td style="background-color:#263451;background-image:linear-gradient(135deg,#263451 0%,#18243B 100%);padding:24px 32px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
               <tr>
                 <td style="vertical-align:middle;">
-                  <div style="color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1;">ASTANA</div>
-                  <div style="margin-top:6px;color:rgba(255,255,255,0.75);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">likvidácia azbestu a eternitu</div>
+                  <img src="${customerLeadLogoUrl}" width="190" alt="ASTANA, s.r.o." style="display:block;width:190px;max-width:100%;height:auto;border:0;" />
+                  <div style="margin-top:8px;color:#ffffff;font-size:14px;font-weight:700;line-height:1.2;">ASTANA, s.r.o.</div>
+                  <div style="margin-top:4px;color:#D8E0ED;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">odborná likvidácia azbestu a eternitu</div>
                 </td>
                 <td align="right" style="vertical-align:middle;">
                   <span style="display:inline-block;background:#2D7A3A;color:#ffffff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;">✓ Dopyt prijatý</span>
@@ -178,6 +181,8 @@ function customerLeadEmailHtml(lead: Lead) {
 
 function customerLeadEmailText(lead: Lead) {
   return [
+    'ASTANA, s.r.o. – odborná likvidácia azbestu a eternitu',
+    '',
     `Dobrý deň ${plainText(lead.fullName)},`,
     '',
     'váš dopyt z likvidacia-eternitu.sk sme prijali.',
@@ -283,7 +288,7 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
       from: namedFromHeader('ASTANA likvidácia azbestu'),
       to: lead.email,
       replyTo: leadRecipient(),
-      subject: '✅ Prijali sme váš dopyt | likvidacia-eternitu.sk',
+      subject: customerLeadEmailSubject,
       text: customerLeadEmailText(lead),
       html: customerHtml,
     })
