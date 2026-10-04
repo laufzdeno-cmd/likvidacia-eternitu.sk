@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { addAuditLog, addLeadFiles, createBusinessJobFromLead, createLeadSubmission, LeadSubmissionConflictError } from '@/src/server/db';
 import { validateLeadFileHeader, validateLeadFileMetadata, validateUploadedLeadFile } from '@/src/server/file-validation';
 import { sendLeadEmails } from '@/src/server/mail';
-import { attachDirectLeadUpload, storeLeadFile, type DirectLeadUpload } from '@/src/server/storage';
+import { storeLeadFile, type DirectLeadUpload } from '@/src/server/storage';
 import { leadSchema, maxLeadFiles } from '@/src/server/validation';
 
 export const runtime = 'nodejs';
@@ -68,12 +68,16 @@ function success(request: NextRequest, message: string, details: { emailSent?: b
 function submissionFingerprint(input: {
   fullName: string; phone: string; email: string; city: string; district: string; objectType: string; materialType: string;
   areaEstimate: number; preferredContact: string; roofer: string; selectedRooferId: string; term: string; note: string;
+  photos: DirectLeadPhoto[];
 }) {
   const value = JSON.stringify({
     fullName: input.fullName.trim(), phone: input.phone.trim(), email: input.email.trim().toLowerCase(), city: input.city.trim(),
     district: input.district.trim(), objectType: input.objectType.trim(), materialType: input.materialType.trim(),
     areaEstimate: input.areaEstimate, preferredContact: input.preferredContact.trim(), roofer: input.roofer.trim(),
     selectedRooferId: input.selectedRooferId.trim(), term: input.term.trim(), note: input.note.trim(),
+    photos: input.photos
+      .map((photo) => ({ pathname: photo.pathname, originalName: photo.originalName.trim() }))
+      .sort((a, b) => a.pathname.localeCompare(b.pathname)),
   });
   return createHash('sha256').update(value).digest('hex');
 }
@@ -230,6 +234,7 @@ export async function POST(request: NextRequest) {
         district: parsed.data.district || '', objectType: parsed.data.objectType, materialType: parsed.data.materialType,
         areaEstimate: parsed.data.areaEstimate, preferredContact: parsed.data.preferredContact || 'Zavolajte mi',
         roofer: rooferValue, selectedRooferId, term: parsed.data.term || '', note: parsed.data.note || '',
+        photos: directPhotos,
       }),
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
@@ -249,7 +254,7 @@ export async function POST(request: NextRequest) {
       selectedRooferId,
       rawData: { userAgent: request.headers.get('user-agent') || undefined, wantsRooferRecommendation, selectedRooferId },
     };
-    const submission = await createLeadSubmission(input);
+    const submission = await createLeadSubmission(input, verifiedDirectPhotos);
     const lead = submission.lead;
 
     const businessJob = submission.businessJobId
@@ -264,11 +269,12 @@ export async function POST(request: NextRequest) {
     for (const file of uploadedFiles) {
       stored.push(await storeLeadFile(lead.id, file));
     }
-    for (const photo of verifiedDirectPhotos) {
-      stored.push(attachDirectLeadUpload(lead.id, photo));
+    const storedFileRows = await addLeadFiles(stored);
+    if (storedFileRows.length) {
+      await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: storedFileRows.length });
     }
-    const fileRows = await addLeadFiles(stored);
-    await addAuditLog('lead', lead.id, 'files_uploaded', 'system', { count: fileRows.length });
+    const directFileRows = submission.files;
+    const fileRows = [...storedFileRows, ...directFileRows];
 
     let mailResult: {
       sent: boolean;

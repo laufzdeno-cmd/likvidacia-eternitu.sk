@@ -1,7 +1,13 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
-import { Pool } from 'pg';
+import { createHash, randomUUID } from 'node:crypto';
+import { Pool, type PoolClient } from 'pg';
+import {
+  assertAttachableLeadUploadDraft,
+  assertLeadUploadCapacity,
+  assertReusableLeadUploadDraft,
+} from './lead-upload-policy';
+import { leadUploadSchemaSql } from './lead-upload-schema';
 import type {
   AuditLog,
   AnalyticsEvent,
@@ -338,6 +344,8 @@ async function ensureSchema() {
       size_bytes integer NOT NULL,
       created_at timestamptz NOT NULL DEFAULT now()
     );
+
+    ${leadUploadSchemaSql}
 
     CREATE TABLE IF NOT EXISTS audit_logs (
       id uuid PRIMARY KEY,
@@ -1230,7 +1238,321 @@ export type LeadSubmissionResult = {
   lead: Lead;
   duplicate: boolean;
   businessJobId?: string;
+  files: LeadFile[];
 };
+
+type LeadUploadDraftReservation = {
+  storageKey: string;
+  status: 'uploading' | 'uploaded';
+};
+
+type LeadUploadAttachment = {
+  originalName: string;
+  storageKey: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+function requireLeadUploadDatabase() {
+  const db = getPool();
+  if (!db) throw new Error('Prednahrávanie fotiek vyžaduje databázu PostgreSQL.');
+  return db;
+}
+
+export async function consumeLeadUploadRateLimit(bucketKey: string, windowStartedAt: Date, maxHits: number) {
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  const { rows } = await db.query(
+    `INSERT INTO api_rate_limit_buckets (bucket_key, window_started_at, hit_count)
+     VALUES ($1, $2, 1)
+     ON CONFLICT (bucket_key, window_started_at) DO UPDATE
+       SET hit_count = api_rate_limit_buckets.hit_count + 1
+     RETURNING hit_count`,
+    [bucketKey, windowStartedAt],
+  );
+  await db.query(`DELETE FROM api_rate_limit_buckets WHERE window_started_at < now() - interval '20 minutes'`);
+  return Number(rows[0]?.hit_count ?? maxHits + 1) > maxHits;
+}
+
+export async function reserveLeadUploadDraft(input: {
+  submissionId: string;
+  clientFileId: string;
+  extension: string;
+  contentType: string;
+  sizeBytes: number;
+}): Promise<LeadUploadDraftReservation> {
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  return reserveLeadUploadDraftWithPool(db, input);
+}
+
+/** @internal Exported so concurrency can be tested against an isolated database adapter. */
+export async function reserveLeadUploadDraftWithPool(
+  db: Pick<Pool, 'connect'>,
+  input: {
+    submissionId: string;
+    clientFileId: string;
+    extension: string;
+    contentType: string;
+    sizeBytes: number;
+  },
+): Promise<LeadUploadDraftReservation> {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [input.submissionId]);
+    const existing = await client.query(
+      `SELECT storage_key, content_type, size_bytes, status
+       FROM lead_upload_drafts
+       WHERE submission_id = $1 AND client_file_id = $2
+       FOR UPDATE`,
+      [input.submissionId, input.clientFileId],
+    );
+    if (existing.rows[0]) {
+      const row = existing.rows[0];
+      assertReusableLeadUploadDraft({
+        contentType: String(row.content_type),
+        sizeBytes: Number(row.size_bytes),
+        status: String(row.status),
+      }, input);
+      await client.query(
+        `UPDATE lead_upload_drafts SET updated_at = now()
+         WHERE submission_id = $1 AND client_file_id = $2`,
+        [input.submissionId, input.clientFileId],
+      );
+      await client.query('COMMIT');
+      return { storageKey: String(row.storage_key), status: String(row.status) as LeadUploadDraftReservation['status'] };
+    }
+
+    const count = await client.query(
+      `SELECT COUNT(*)::int AS count FROM lead_upload_drafts
+       WHERE submission_id = $1 AND status IN ('uploading', 'uploaded', 'attached')`,
+      [input.submissionId],
+    );
+    assertLeadUploadCapacity(Number(count.rows[0]?.count ?? 0));
+
+    const storageKey = `lead-drafts/${input.submissionId}/${randomUUID()}${input.extension}`;
+    await client.query(
+      `INSERT INTO lead_upload_drafts (
+         storage_key, submission_id, client_file_id, content_type, size_bytes, status
+       ) VALUES ($1,$2,$3,$4,$5,'uploading')`,
+      [storageKey, input.submissionId, input.clientFileId, input.contentType, input.sizeBytes],
+    );
+    await client.query('COMMIT');
+    return { storageKey, status: 'uploading' };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function confirmLeadUploadDraft(input: {
+  submissionId: string;
+  clientFileId: string;
+  storageKey: string;
+  contentType: string;
+  sizeBytes: number;
+  blobEtag: string;
+}) {
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  const { rows } = await db.query(
+    `UPDATE lead_upload_drafts SET
+       status = 'uploaded', blob_etag = $6,
+       uploaded_at = COALESCE(uploaded_at, now()), updated_at = now()
+     WHERE submission_id = $1 AND client_file_id = $2 AND storage_key = $3
+       AND content_type = $4 AND size_bytes = $5 AND status IN ('uploading', 'uploaded')
+     RETURNING storage_key`,
+    [input.submissionId, input.clientFileId, input.storageKey, input.contentType, input.sizeBytes, input.blobEtag],
+  );
+  if (!rows[0]) throw new Error('Rezervácia fotky sa nenašla alebo už bola uzavretá.');
+  return true;
+}
+
+/** @internal Exported for deterministic state-machine tests; callers use attachLeadUploadDrafts/createLeadSubmission. */
+export async function attachLeadUploadDraftsInTransaction(
+  client: PoolClient,
+  leadId: string,
+  submissionId: string,
+  files: LeadUploadAttachment[],
+) {
+  if (!files.length) return [];
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [submissionId]);
+  const keys = files.map((file) => file.storageKey);
+  const drafts = await client.query(
+    `SELECT storage_key, submission_id, content_type, size_bytes, status, lead_id
+     FROM lead_upload_drafts WHERE storage_key = ANY($1::text[])
+     ORDER BY storage_key FOR UPDATE`,
+    [keys],
+  );
+  if (drafts.rows.length !== keys.length) throw new Error('Niektorá nahraná fotka nemá platnú rezerváciu.');
+
+  const byKey = new Map(files.map((file) => [file.storageKey, file]));
+  const created: LeadFile[] = [];
+  let newlyAttached = 0;
+  for (const draft of drafts.rows) {
+    const file = byKey.get(String(draft.storage_key));
+    if (!file) {
+      throw new Error('Niektorú fotografiu sa nepodarilo bezpečne priradiť k dopytu.');
+    }
+    assertAttachableLeadUploadDraft({
+      submissionId: String(draft.submission_id),
+      contentType: String(draft.content_type),
+      sizeBytes: Number(draft.size_bytes),
+      status: String(draft.status),
+      leadId: draft.lead_id ? String(draft.lead_id) : null,
+    }, {
+      submissionId,
+      leadId,
+      contentType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+    });
+    if (String(draft.status) === 'attached') {
+      const existing = await client.query(
+        `SELECT * FROM lead_files WHERE lead_id = $1 AND storage_driver = 'vercel_blob' AND storage_key = $2 LIMIT 1`,
+        [leadId, file.storageKey],
+      );
+      if (!existing.rows[0]) throw new Error('Pripojená fotka nemá databázový záznam.');
+      created.push(toLeadFile(existing.rows[0]));
+      continue;
+    }
+
+    const row: LeadFile = {
+      id: randomUUID(),
+      leadId,
+      originalName: file.originalName,
+      storageDriver: 'vercel_blob',
+      storageKey: file.storageKey,
+      mimeType: file.mimeType,
+      sizeBytes: file.sizeBytes,
+      createdAt: now(),
+    };
+    await client.query(
+      `INSERT INTO lead_files (id, lead_id, original_name, storage_driver, storage_key, mime_type, size_bytes, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [row.id, row.leadId, row.originalName, row.storageDriver, row.storageKey, row.mimeType, row.sizeBytes, row.createdAt],
+    );
+    const updatedDraft = await client.query(
+      `UPDATE lead_upload_drafts SET status = 'attached', lead_id = $2,
+         attached_at = now(), updated_at = now()
+       WHERE storage_key = $1 AND submission_id = $3 AND status = 'uploaded'`,
+      [row.storageKey, leadId, submissionId],
+    );
+    if (updatedDraft.rowCount !== 1) {
+      throw new Error('Fotografiu sa nepodarilo atomicky priradiť k dopytu.');
+    }
+    newlyAttached += 1;
+    created.push(row);
+  }
+  if (newlyAttached > 0) {
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'lead',$2,'files_uploaded','system',$3::jsonb,now())`,
+      [randomUUID(), leadId, JSON.stringify({ count: newlyAttached })],
+    );
+  }
+  return created;
+}
+
+export async function attachLeadUploadDrafts(
+  leadId: string,
+  submissionId: string,
+  files: LeadUploadAttachment[],
+) {
+  if (!files.length) return [];
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const created = await attachLeadUploadDraftsInTransaction(client, leadId, submissionId, files);
+    await client.query('COMMIT');
+    return created;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function claimExpiredLeadUploadDrafts(limit = 50) {
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  const claimId = randomUUID();
+  const { rows } = await db.query(
+    `WITH candidates AS (
+       SELECT draft.storage_key FROM lead_upload_drafts AS draft
+       WHERE ((draft.status = 'deleting' AND (draft.deletion_claimed_until IS NULL OR draft.deletion_claimed_until < now()))
+          OR (draft.status IN ('uploading', 'uploaded', 'superseded') AND draft.updated_at < now() - interval '24 hours'))
+         AND draft.lead_id IS NULL
+         AND NOT EXISTS (SELECT 1 FROM lead_files WHERE storage_key = draft.storage_key)
+       ORDER BY draft.updated_at ASC LIMIT $1 FOR UPDATE OF draft SKIP LOCKED
+     )
+     UPDATE lead_upload_drafts AS draft SET
+       status = 'deleting', deletion_claim_id = $2,
+       deletion_claimed_until = now() + interval '15 minutes', updated_at = now()
+     FROM candidates WHERE draft.storage_key = candidates.storage_key
+     RETURNING draft.storage_key, draft.blob_etag, draft.deletion_claim_id`,
+    [Math.max(1, Math.min(200, Math.floor(limit))), claimId],
+  );
+  return rows.map((row) => ({
+    storageKey: String(row.storage_key),
+    blobEtag: String(row.blob_etag || ''),
+    claimId: String(row.deletion_claim_id),
+  }));
+}
+
+export async function mayDeleteClaimedLeadUploadDraft(storageKey: string, claimId: string) {
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  const { rows } = await db.query(
+    `SELECT 1 FROM lead_upload_drafts AS draft
+     WHERE draft.storage_key = $1 AND draft.status = 'deleting'
+       AND draft.deletion_claim_id = $2 AND draft.deletion_claimed_until > now()
+       AND draft.lead_id IS NULL
+       AND NOT EXISTS (SELECT 1 FROM lead_files WHERE storage_key = draft.storage_key)`,
+    [storageKey, claimId],
+  );
+  return Boolean(rows[0]);
+}
+
+export async function completeLeadUploadDraftDeletion(storageKey: string, claimId: string) {
+  await ensureSchema();
+  const db = requireLeadUploadDatabase();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE lead_upload_drafts AS draft SET
+         status = 'deleted', deletion_claim_id = NULL,
+         deletion_claimed_until = NULL, updated_at = now()
+       WHERE draft.storage_key = $1 AND draft.status = 'deleting' AND draft.deletion_claim_id = $2
+         AND draft.lead_id IS NULL
+         AND NOT EXISTS (SELECT 1 FROM lead_files WHERE storage_key = draft.storage_key)
+       RETURNING draft.submission_id`,
+      [storageKey, claimId],
+    );
+    if (!rows[0]) {
+      await client.query('COMMIT');
+      return false;
+    }
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'system',$2,'lead_upload_retention_deleted','cron:lead-upload-retention',$3::jsonb,now())`,
+      [randomUUID(), rows[0].submission_id, JSON.stringify({ storageKeyHash: createHash('sha256').update(storageKey).digest('hex') })],
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
 
 /**
  * Creates the CRM lead exactly once for a browser submission id.  A repeat of
@@ -1238,6 +1560,7 @@ export type LeadSubmissionResult = {
  */
 export async function createLeadSubmission(
   input: LeadInput & { submissionId: string; submissionHash: string },
+  uploadAttachments: LeadUploadAttachment[] = [],
 ): Promise<LeadSubmissionResult> {
   await ensureSchema();
   const timestamp = now();
@@ -1268,13 +1591,13 @@ export async function createLeadSubmission(
     const existing = local.leads.find((item) => item.submissionId === input.submissionId);
     if (existing) {
       if (existing.submissionHash !== input.submissionHash) throw new LeadSubmissionConflictError();
-      return { lead: existing, duplicate: true };
+      return { lead: existing, duplicate: true, files: [] };
     }
     local.leads.unshift(lead);
     await writeLocalDb(local);
     await addAuditLog('lead', lead.id, 'lead_created', 'system', { status: 'novy', submissionId: input.submissionId });
     const job = await createBusinessJobFromLead(lead);
-    return { lead, duplicate: false, businessJobId: job.id };
+    return { lead, duplicate: false, businessJobId: job.id, files: [] };
   }
 
   const client = await db.connect();
@@ -1302,8 +1625,14 @@ export async function createLeadSubmission(
       if (!row) throw new Error('Dopyt sa nepodarilo overiť po opakovanom odoslaní.');
       if (String(row.submission_hash ?? '') !== input.submissionHash) throw new LeadSubmissionConflictError();
       const existingJob = await client.query('SELECT id FROM business_jobs WHERE lead_id = $1 LIMIT 1', [String(row.id)]);
+      const files = await attachLeadUploadDraftsInTransaction(client, String(row.id), input.submissionId, uploadAttachments);
       await client.query('COMMIT');
-      return { lead: toLead(row), duplicate: true, businessJobId: existingJob.rows[0]?.id ? String(existingJob.rows[0].id) : undefined };
+      return {
+        lead: toLead(row),
+        duplicate: true,
+        businessJobId: existingJob.rows[0]?.id ? String(existingJob.rows[0].id) : undefined,
+        files,
+      };
     }
 
     const businessJobId = randomUUID();
@@ -1337,8 +1666,9 @@ export async function createLeadSubmission(
        VALUES ($1,'business_job',$2,'business_job_lead_received','system',$3,$4)`,
       [randomUUID(), businessJobId, { leadId: lead.id }, timestamp],
     );
+    const files = await attachLeadUploadDraftsInTransaction(client, lead.id, input.submissionId, uploadAttachments);
     await client.query('COMMIT');
-    return { lead: toLead(inserted.rows[0] as Record<string, unknown>), duplicate: false, businessJobId };
+    return { lead: toLead(inserted.rows[0] as Record<string, unknown>), duplicate: false, businessJobId, files };
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
     throw error;
