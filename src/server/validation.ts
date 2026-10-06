@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
 
 export const leadSchema = z.object({
+  submissionId: z.union([z.string().uuid().refine(isValidLeadSubmissionId, 'Neplatné ID dopytu.'), z.literal('')]).optional(),
   fullName: z.string().trim().min(2, 'Zadajte meno a priezvisko.').max(120),
   phone: z.string().trim().min(7, 'Zadajte telefónne číslo.').max(40),
   email: z.string().trim().email('Zadajte platný email.').max(160),
@@ -34,10 +36,8 @@ export const allowedFileTypes = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
-  'image/heic',
-  'image/heif',
 ]);
 
-export const allowedFileExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
+export const allowedFileExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 export const maxLeadFiles = 10;
 export const maxLeadFileSize = 10 * 1024 * 1024;

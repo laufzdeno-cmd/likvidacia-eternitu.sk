@@ -1,4 +1,10 @@
+import type { Metadata } from 'next';
 import { PublicPageShell } from './public-layout';
+
+export const metadata: Metadata = {
+  title: 'Stránka sa nenašla | ASTANA',
+  robots: { index: false, follow: false },
+};
 
 export default function NotFoundPage() {
   return (

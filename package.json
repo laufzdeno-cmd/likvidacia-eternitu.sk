@@ -7,6 +7,16 @@
     "build": "next build",
     "preview": "next start",
     "typecheck": "tsc --noEmit",
+    "test:lead-form": "node --import tsx --test scripts/lead-form-contract.test.mjs scripts/lead-form-snapshot.test.mjs scripts/lead-attribution.test.mjs scripts/lead-attribution.behavior.mjs scripts/lead-file-validation.behavior.mjs scripts/lead-receipt-route.behavior.mjs scripts/lead-mail-health.behavior.mjs",
+    "test:analytics": "node --import tsx --test scripts/lead-attribution.behavior.mjs scripts/lead-attribution-report.behavior.mjs scripts/marketing-consent.behavior.mjs scripts/analytics-metrics.behavior.mjs scripts/analytics-client.behavior.mjs scripts/deferred-public-client-engine.behavior.mjs",
+    "test:unit": "node --test scripts/*.test.mjs && tsx --test scripts/article-faq-content.test.ts scripts/article-social-metadata.test.ts scripts/price-offer-vertical-slice.test.ts scripts/site-content-local-concurrency.test.ts scripts/preview-isolation.test.ts",
+    "test:seo-rendered": "node scripts/seo-rendered-metadata-check.mjs",
+    "test:seo-content": "node scripts/seo-rendered-content-check.mjs",
+    "test:site-content-build-policy": "tsx --test scripts/site-content-build-policy.test.ts",
+    "test:price-calculator": "node --import tsx --test scripts/price-calculator.behavior.mjs",
+    "test:map-locality": "node --import tsx --test scripts/published-realization-locality-points.behavior.mjs",
+    "test:map-visual": "node --import tsx scripts/approved-case-map.visual.mjs",
+    "test:db-integration": "node --import tsx --test scripts/lead-submission-postgres.integration.mjs scripts/career-admin-local.integration.mjs scripts/lead-email-safety.local.integration.mjs scripts/lead-email-relay-manual-retry.local.integration.mjs scripts/lead-email-unconfigured.local.integration.mjs scripts/two-factor-totp-atomicity.integration.mjs scripts/price-offer-email-state.integration.mjs",
     "lighthouse:ci": "ts-node scripts/lighthouse-ci.ts",
     "db:init": "tsx scripts/init-db.ts",
     "admin:hash": "node scripts/hash-password.mjs"
@@ -14,6 +24,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@sparticuz/chromium": "^148.0.0",
     "@vercel/blob": "^2.3.3",
     "next": "^16.2.6",
@@ -26,12 +37,15 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^3.8.1",
+    "sharp": "^0.34.5",
     "zod": "^4.4.3"
   },
   "overrides": {
     "postcss": "^8.5.10"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@electric-sql/pglite-socket": "^0.2.11",
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.7.0",
     "@types/nodemailer": "^8.0.0",

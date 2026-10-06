@@ -1,5 +1,8 @@
 import { Fragment } from 'react';
-import { listLeadSummaries, listRooferRegistrations, listRoofers } from '@/src/server/db';
+import { listApplicationNotificationStatuses, listLeadSummaries, listRooferRegistrations, listRoofers } from '@/src/server/db';
+import NotificationStatuses from '../notifications/notification-statuses';
+import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+import type { ApplicationNotification } from '@/src/server/types';
 import { getLeadInsight } from '@/src/server/lead-insights';
 import { createRooferAction, importRoofersAction, updateRooferFlagsAction } from './actions';
 
@@ -17,9 +20,17 @@ const regions = [
 const businessTypeLabels = { sro: 's.r.o.', szco: 'živnostník / SZČO', other: 'iné' } as const;
 const trussLabels = { yes: 'áno', no: 'nie', by_scope: 'podľa rozsahu' } as const;
 const registrationStatusLabels = { new: 'nová', reviewed: 'skontrolovaná', archived: 'archivovaná' } as const;
-
 export default async function RoofersAdminPage() {
+  const admin = await requireAdminUser();
+  const csrfToken = csrfTokenForEmail(admin.email);
   const [roofers, leads, registrations] = await Promise.all([listRoofers(), listLeadSummaries(), listRooferRegistrations()]);
+  const notifications = await listApplicationNotificationStatuses('roofer_registration', registrations.map((registration) => registration.id));
+  const notificationsByRegistration = new Map<string, ApplicationNotification[]>();
+  for (const notification of notifications) {
+    const current = notificationsByRegistration.get(notification.entityId) ?? [];
+    current.push(notification);
+    notificationsByRegistration.set(notification.entityId, current);
+  }
   const wantsRooferLeads = leads.filter((lead) => getLeadInsight(lead, lead.fileCount, lead.quoteCount).tags.includes('potrebuje_strechara'));
 
   return (
@@ -92,6 +103,7 @@ export default async function RoofersAdminPage() {
                           <div><dt>Spracovanie údajov</dt><dd>{registration.privacyConsent ? 'áno' : 'nie'}</dd></div>
                           <div><dt>Poznámka</dt><dd>{registration.note || 'bez poznámky'}</dd></div>
                           <div><dt>Submission ID</dt><dd>{registration.submissionId}</dd></div>
+                          <div><dt>Notifikácie</dt><dd><NotificationStatuses entityType="roofer_registration" csrfToken={csrfToken} notifications={notificationsByRegistration.get(registration.id) ?? []} /></dd></div>
                         </dl>
                       </details>
                     </td>

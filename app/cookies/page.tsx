@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { PublicPageShell } from '../public-layout';
+import { CookieSettingsTrigger } from '../public-widgets';
+import { buildPageMetadata } from '../seo-components';
 
 export const metadata: Metadata = {
-  title: 'Zásady cookies | ASTANA likvidácia azbestu',
-  description: 'Informácie o používaní cookies na likvidacia-eternitu.sk.',
-  alternates: { canonical: '/cookies/' },
+  ...buildPageMetadata({
+    title: 'Zásady cookies | ASTANA likvidácia azbestu',
+    description: 'Informácie o používaní cookies na likvidacia-eternitu.sk.',
+    path: '/cookies/',
+  }),
   robots: { index: true, follow: true },
 };
 
@@ -23,12 +27,21 @@ export default function CookiesPage() {
             <p>Cookies sú malé súbory ukladané v prehliadači. Pomáhajú stránke fungovať správne a zapamätať si základné nastavenia.</p>
           </article>
           <article>
-            <h2>Aké cookies používame</h2>
-            <p>Používame funkčné cookies potrebné pre bezpečné fungovanie stránky a formulára. Analytické údaje spracúvame first-party spôsobom bez IP adries.</p>
+            <h2>Nevyhnutné úložisko</h2>
+            <p>Bezpečnostné a technické úložisko môže byť potrebné na fungovanie webu, formulárov a ochranu pred zneužitím. Toto úložisko nemožno vypnúť cez tento panel.</p>
           </article>
           <article>
-            <h2>Ako ich vypnúť</h2>
-            <p>Cookies môžete obmedziť v nastaveniach svojho prehliadača. Niektoré funkcie stránky však potom nemusia fungovať pohodlne.</p>
+            <h2>Analytika a marketingové meranie</h2>
+            <p>Analytika sa zapne iba po vašom súhlase. Používa pseudonymné ID relácie a môže zaznamenať navštívenú cestu, šírku obrazovky, doménu odkazujúcej stránky a UTM zdroj kampane. Pri súhlase s marketingovým meraním sa reklamné značky Google Ads alebo Meta načítajú počas návštevy stránky. Poskytovatelia môžu pri načítaní spracovať technické údaje prehliadača a pripojenia. Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu. Obsahuje pseudonymné ID a Meta dostane aj obmedzenú kategóriu materiálu; neposielame meno, telefón, email, poznámku ani fotografie. Značky sa nenačítajú pri odmietnutí marketingového merania.</p>
+          </article>
+          <article>
+            <h2 id="nastavenia">Zmena voľby</h2>
+            <p>Voľbu analytiky a marketingového merania môžete kedykoľvek zmeniť. Odmietnutie nemá vplyv na odoslanie dopytu.</p>
+            <CookieSettingsTrigger />
+          </article>
+          <article>
+            <h2>Uloženie voľby</h2>
+            <p>Vaša voľba sa uloží v prehliadači na najviac 12 mesiacov. Pri odmietnutí alebo odvolaní súhlasu sa odstránia analytické identifikátory a údaje o kampani uložené v tomto prehliadači. Ak ste už odoslali dopyt so súhlasom, povolené údaje o jeho zdroji sú pripojené k dopytu v administrácii a spracúvajú sa spolu s ním; zmena cookies ich spätne z dopytu nevymaže. Identifikátory reklamných kliknutí sa v administrácii nezobrazujú.</p>
           </article>
           <article>
             <h2>Kontakt</h2>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
-export default function BusinessChart({ data }: { data: Array<{ month: string; revenue: number; costs: number; profit: number }> }) {
+export default function BusinessChart({ data }: { data: Array<{ month: string; orderValue: number; costs: number }> }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -20,9 +20,8 @@ export default function BusinessChart({ data }: { data: Array<{ month: string; r
           <YAxis />
           <Tooltip formatter={(value) => `${Number(value).toLocaleString('sk-SK')} €`} />
           <Legend />
-          <Bar dataKey="revenue" name="Tržby" fill="#6B2D5E" />
-          <Bar dataKey="profit" name="Zisk" fill="#2d7a3a" />
-          <Bar dataKey="costs" name="Náklady" fill="#C0392B" />
+          <Bar dataKey="orderValue" name="Evidovaná suma (vrátane dopytov)" fill="#6B2D5E" />
+          <Bar dataKey="costs" name="Zadané priame náklady a odmeny" fill="#C0392B" />
         </BarChart>
       </ResponsiveContainer>
     </div>

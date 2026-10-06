@@ -1,9 +1,11 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { del, get, put } from '@vercel/blob';
+import { markLeadUploadDraftUploaded, reserveLeadUploadDraft } from './db';
 import type { CareerApplicationCv, LeadFile } from './types';
+import { isCareerCvUploadPath } from './career-cv-policy';
 
 const localStorageRoot = path.join(process.cwd(), 'storage', 'lead-files');
 const localCareerStorageRoot = path.join(process.cwd(), 'storage', 'career-cv');
@@ -62,17 +64,26 @@ function s3Client() {
   };
 }
 
-export async function storeLeadFile(leadId: string, file: File): Promise<Omit<LeadFile, 'id' | 'createdAt'>> {
+export async function storeLeadFile(leadId: string, file: File, retryPosition = 0): Promise<Omit<LeadFile, 'id' | 'createdAt'>> {
   const bytes = Buffer.from(await file.arrayBuffer());
   const originalName = file.name || 'subor';
-  const key = `${leadId}/${randomUUID()}${safeExtension(originalName)}`;
+  const key = `lead-drafts/${leadId}/${randomUUID()}${safeExtension(originalName)}`;
   const s3 = s3Client();
+  const storageDriver = process.env.BLOB_READ_WRITE_TOKEN ? 'vercel_blob' : s3 ? 's3' : undefined;
+
+  if (storageDriver) {
+    const secret = process.env.AUTH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-auth-secret-change-me');
+    if (!secret) throw new Error('AUTH_SECRET is required to fingerprint private lead attachments.');
+    const fileFingerprint = createHmac('sha256', secret).update(`multipart:${retryPosition}:`).update(bytes).digest('hex');
+    await reserveLeadUploadDraft(leadId, key, undefined, storageDriver, fileFingerprint);
+  }
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
     const blob = await put(key, bytes, {
       access: 'private',
       contentType: file.type || 'application/octet-stream',
     });
+    await markLeadUploadDraftUploaded(leadId, blob.pathname);
     return {
       leadId,
       originalName,
@@ -96,6 +107,7 @@ export async function storeLeadFile(leadId: string, file: File): Promise<Omit<Le
         },
       }),
     );
+    await markLeadUploadDraftUploaded(leadId, key);
     return {
       leadId,
       originalName,
@@ -152,9 +164,9 @@ export async function readStoredLeadFile(file: LeadFile) {
   return readFile(fullPath);
 }
 
-export async function deleteStoredLeadFile(file: LeadFile) {
+export async function deleteStoredLeadFile(file: Pick<LeadFile, 'storageDriver' | 'storageKey'> & { blobEtag?: string }) {
   if (file.storageDriver === 'vercel_blob') {
-    await del(file.storageKey);
+    await del(file.storageKey, file.blobEtag ? { ifMatch: file.blobEtag } : undefined);
     return;
   }
 
@@ -199,6 +211,22 @@ export async function storeCareerApplicationCv(applicationId: string, file: File
   await mkdir(path.dirname(localPath), { recursive: true });
   await writeFile(localPath, bytes);
   return { originalName, storageDriver: 'local', storageKey: key, mimeType, sizeBytes: file.size };
+}
+
+export async function storeCareerApplicationCvAtReservedPath(submissionId: string, pathname: string, file: File): Promise<CareerApplicationCv> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN || !isCareerCvUploadPath(submissionId, pathname)) {
+    throw new Error('Súkromná rezervácia životopisu nie je dostupná.');
+  }
+  const bytes = Buffer.from(await file.arrayBuffer());
+  if (bytes.length !== file.size || bytes.length <= 0 || bytes.length > 5 * 1024 * 1024) {
+    throw new Error('Neplatná veľkosť životopisu.');
+  }
+  const mimeType = file.type || 'application/octet-stream';
+  const blob = await put(pathname, bytes, {
+    access: 'private', contentType: mimeType, addRandomSuffix: false, allowOverwrite: false,
+  });
+  if (blob.pathname !== pathname) throw new Error('Životopis bol uložený pod nesprávnou cestou.');
+  return { originalName: file.name, storageDriver: 'vercel_blob', storageKey: pathname, mimeType, sizeBytes: bytes.length };
 }
 
 export async function readStoredCareerApplicationCv(file: CareerApplicationCv) {

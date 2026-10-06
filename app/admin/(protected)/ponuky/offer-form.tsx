@@ -1,7 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import type { BusinessJob, PriceOffer, PriceOfferMaterialType, PriceOfferSettings } from '@/src/server/types';
+import { calculatePriceOfferPricing } from '@/src/lib/price-offer-pricing';
+import { MAX_PRICE_OFFER_NOTE_LENGTH } from '@/src/lib/price-offer-note';
+import { calculateTransportDistanceAction } from './actions';
 import { euro, priceOfferMaterialLabels } from './constants';
 
 type Props = {
@@ -33,16 +36,46 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
   const [area, setArea] = useState(offer?.areaM2 ?? selectedJob?.m2 ?? 0);
   const [price, setPrice] = useState(offer?.pricePerM2WithoutVat ?? settings.materialPrices[initialMaterial]);
   const [includeDocumentation, setIncludeDocumentation] = useState(offer?.includeDocumentation ?? true);
+  const [documentationPromotion, setDocumentationPromotion] = useState(offer?.documentationPromotion ?? false);
+  const [includeTransport, setIncludeTransport] = useState(offer?.includeTransport ?? false);
+  const [transportFrom, setTransportFrom] = useState(offer?.transportFrom || 'Poprad');
+  const [transportTo, setTransportTo] = useState(offer?.transportTo || selectedJob?.location || '');
+  const [transportRoundTripKm, setTransportRoundTripKm] = useState(offer?.transportRoundTripKm ?? 0);
+  const [transportPricePerKm, setTransportPricePerKm] = useState(offer?.transportPricePerKm ?? 0.7);
+  const [routeError, setRouteError] = useState('');
+  const [routePending, startRouteTransition] = useTransition();
+  const routeRequestId = useRef(0);
   const [documentation, setDocumentation] = useState(offer?.documentationFeeWithoutVat ?? settings.documentationFee);
   const [validUntil, setValidUntil] = useState(initialValidUntil);
+  const vatRate = offer?.vatRate ?? settings.vatRate;
 
   const totals = useMemo(() => {
-    const material = Math.round(area * price * 100) / 100;
-    const docs = includeDocumentation ? documentation : 0;
-    const withoutVat = Math.round((material + docs) * 100) / 100;
-    const vat = Math.round(withoutVat * (settings.vatRate / 100) * 100) / 100;
-    return { material, docs, withoutVat, vat, withVat: Math.round((withoutVat + vat) * 100) / 100 };
-  }, [area, documentation, includeDocumentation, price, settings.vatRate]);
+    const pricing = calculatePriceOfferPricing({ areaM2: area, pricePerM2WithoutVat: price,
+      documentationFeeWithoutVat: documentation, includeDocumentation, documentationPromotion,
+      includeTransport, transportRoundTripKm, transportPricePerKm }, vatRate);
+    return { material: pricing.materialPriceWithoutVat, docs: pricing.documentationWithoutVat,
+      transport: pricing.transportWithoutVat, withoutVat: pricing.totalWithoutVat,
+      vat: Math.round((pricing.totalWithVat - pricing.totalWithoutVat) * 100) / 100, withVat: pricing.totalWithVat };
+  }, [area, documentation, documentationPromotion, includeDocumentation, includeTransport, price, vatRate, transportPricePerKm, transportRoundTripKm]);
+
+  useEffect(() => () => { routeRequestId.current += 1; }, []);
+
+  function calculateRoute() {
+    setRouteError('');
+    const requestId = ++routeRequestId.current;
+    const origin = transportFrom;
+    const destination = transportTo;
+    startRouteTransition(async () => {
+      const formData = new FormData();
+      formData.set('_csrf', document.getElementById('admin-csrf-token')?.getAttribute('data-token') || '');
+      formData.set('origin', origin);
+      formData.set('destination', destination);
+      const result = await calculateTransportDistanceAction(formData);
+      if (requestId !== routeRequestId.current) return;
+      if (result.distanceKm !== undefined) setTransportRoundTripKm(result.distanceKm);
+      else setRouteError(result.error || 'Kilometre sa nepodarilo vypočítať.');
+    });
+  }
 
   return (
     <div className="price-offer-layout">
@@ -98,7 +131,23 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
             <label>Výmera m2<input name="areaM2" type="number" step="0.01" value={area || ''} onChange={(event) => setArea(n(event.target.value))} required /></label>
             <label>Cena za m2 bez DPH<input name="pricePerM2WithoutVat" type="number" step="0.01" value={price || ''} onChange={(event) => setPrice(n(event.target.value))} required /></label>
             <label className="admin-checkbox"><input name="includeDocumentation" type="checkbox" checked={includeDocumentation} onChange={(event) => setIncludeDocumentation(event.target.checked)} /> Zahrnúť dokumentáciu</label>
-            <label>Cena dokumentácia bez DPH<input name="documentationFeeWithoutVat" type="number" step="0.01" value={documentation || ''} onChange={(event) => setDocumentation(n(event.target.value))} /></label>
+            <label>Cena dokumentácia bez DPH<input name="documentationFeeWithoutVat" type="number" step="0.01" value={documentation || ''} onChange={(event) => setDocumentation(n(event.target.value))} readOnly={!includeDocumentation || documentationPromotion} /></label>
+            {includeDocumentation ? <label className="admin-checkbox"><input name="documentationPromotion" type="checkbox" checked={documentationPromotion} onChange={(event) => setDocumentationPromotion(event.target.checked)} /> Akcia: dokumentácia za 0 €</label> : null}
+            <label className="admin-checkbox"><input name="includeTransport" type="checkbox" checked={includeTransport} onChange={(event) => setIncludeTransport(event.target.checked)} /> Účtovať dopravu</label>
+            {includeTransport ? <>
+              <label>Odkiaľ<input name="transportFrom" value={transportFrom} onChange={(event) => { routeRequestId.current += 1; setTransportFrom(event.target.value); }} maxLength={250} required /></label>
+              <label>Kam<input name="transportTo" value={transportTo} onChange={(event) => { routeRequestId.current += 1; setTransportTo(event.target.value); }} maxLength={250} required /></label>
+              <div className="admin-form-wide" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'end', gap: 12 }}>
+                <button className="admin-secondary-link" type="button" onClick={calculateRoute} disabled={routePending || !transportFrom.trim() || !transportTo.trim()}>{routePending ? 'Počítam trasu…' : 'Vypočítať km tam aj späť'}</button>
+                <span className="muted">Vzdialenosť a sadzbu môžete upraviť ručne.</span>
+              </div>
+              {routeError ? <p className="admin-alert is-error admin-form-wide" role="status">{routeError}</p> : null}
+              <label>Celkom tam aj späť (km)<input name="transportRoundTripKm" type="number" min="0" max="4000" step="0.01" value={transportRoundTripKm || ''} onChange={(event) => { routeRequestId.current += 1; setTransportRoundTripKm(n(event.target.value)); }} required /></label>
+              <label>Cena za km bez DPH<input name="transportPricePerKm" type="number" min="0" max="100" step="0.01" value={transportPricePerKm} onChange={(event) => setTransportPricePerKm(n(event.target.value))} required /></label>
+            </> : <>
+              <input type="hidden" name="transportFrom" value={transportFrom} /><input type="hidden" name="transportTo" value={transportTo} />
+              <input type="hidden" name="transportRoundTripKm" value={transportRoundTripKm} /><input type="hidden" name="transportPricePerKm" value={transportPricePerKm} />
+            </>}
           </div>
         </section>
 
@@ -110,7 +159,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
               <input name="validUntil" type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required />
               <small>Zobrazí sa ako: {displayDate(validUntil)}</small>
             </label>
-            <label className="admin-form-wide">Poznámka do ponuky<textarea name="offerNote" rows={4} defaultValue={offer?.offerNote || ''} /></label>
+            <label className="admin-form-wide">Poznámka do ponuky<textarea name="offerNote" rows={4} maxLength={MAX_PRICE_OFFER_NOTE_LENGTH} defaultValue={offer?.offerNote || ''} /><small>Najviac {MAX_PRICE_OFFER_NOTE_LENGTH} znakov.</small></label>
             <label className="admin-form-wide">Interná poznámka<textarea name="internalNote" rows={4} defaultValue={offer?.internalNote || ''} /></label>
             <input type="hidden" name="sourceInquiry" value={offer?.sourceInquiry || selectedJob?.leadSource || 'likvidacia-eternitu.sk'} />
           </div>
@@ -125,10 +174,11 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
           <dt>Materiál</dt>
           <dd>{area} m2 × {euro(price)} = {euro(totals.material)}</dd>
           <dt>Dokumentácia</dt>
-          <dd>{euro(totals.docs)}</dd>
+          <dd>{includeDocumentation && documentationPromotion ? <><del>{euro(documentation)}</del> AKCIA 0,00 €</> : euro(totals.docs)}</dd>
+          {includeTransport ? <><dt>Doprava ({transportRoundTripKm} km × {euro(transportPricePerKm)}/km)</dt><dd>{euro(totals.transport)}</dd></> : null}
           <dt>Bez DPH</dt>
           <dd>{euro(totals.withoutVat)}</dd>
-          <dt>DPH {settings.vatRate}%</dt>
+          <dt>DPH {vatRate}%</dt>
           <dd>{euro(totals.vat)}</dd>
         </dl>
         <div className="price-offer-total">

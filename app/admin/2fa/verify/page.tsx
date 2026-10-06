@@ -24,7 +24,7 @@ export default async function TwoFactorVerifyPage({ searchParams }: { searchPara
         <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>Overenie 2FA</h1>
         <p>Zadajte 6-ciferný kód z Google Authenticator alebo jednorazový zálohovací kód.</p>
-        {params?.error ? <div className="admin-alert">Kód nie je platný.</div> : null}
+        {params?.error ? <div className="admin-alert">{params.error === 'limited' ? 'Príliš veľa pokusov. Skúste to znova o 10 minút.' : params.error === 'unavailable' ? 'Overenie je dočasne nedostupné. Skúste to o chvíľu znova.' : 'Kód nie je platný.'}</div> : null}
         <label className="admin-field">
           Kód
           <input name="token" inputMode="numeric" autoComplete="one-time-code" required />

@@ -1,16 +1,20 @@
 'use client';
 
 import { useEffect } from 'react';
-import { upload } from '@vercel/blob/client';
+import { getAnalyticsSessionId, getLeadAttribution, trackAnalyticsEvent } from '@/src/lib/analytics-client';
+import { publishAcceptedLeadConversion } from '@/src/lib/ad-conversion-tracking.mjs';
+import { leadPhotoUploadErrorMessage } from '@/src/lib/lead-upload-error';
+import { leadPhotoContentType, leadPhotoExtension } from '@/src/lib/lead-photo-content-type';
+import { settleLeadPhotoUploadBatch } from '@/src/lib/lead-photo-upload-batch';
+import { createLeadFormSnapshot, fingerprintLeadPhoto, fingerprintLeadUploadGroup } from '@/src/lib/lead-form-snapshot';
+import { leadMaterialFromCampaignParam } from '@/src/lib/lead-material-query';
+import { addUniqueLeadPhotos, resetMissingLeadPhotoUpload } from '@/src/lib/lead-photo-selection';
+import { initializePriceCalculators } from '@/src/lib/price-calculator';
+import { applyPriceQuoteDraft, takePriceQuoteDraft } from '@/src/lib/price-quote-prefill';
 import {
   hasMarketingConsent,
-  rememberPendingMetaLead,
-  takePendingMetaLead,
   type PendingMetaLead,
 } from '@/src/lib/marketing-consent';
-
-const metaLeadEventName = 'astana:meta-lead';
-const hasMetaPixelId = Boolean(process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim());
 
 export default function HomepageCriticalClient() {
   useEffect(() => {
@@ -29,28 +33,28 @@ export default function HomepageCriticalClient() {
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
     const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     const quoteSection = document.getElementById('dopyt');
+    const priceCalculatorCard = document.querySelector<HTMLElement>('[data-price-calculator]');
     const heroSection = document.querySelector<HTMLElement>('main > .hero');
     const heroCounters = Array.from(document.querySelectorAll<HTMLElement>('[data-hero-counter]'));
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     let selectedFiles: File[] = [];
+    type CachedPhotoUpload = { submissionId: string; pathname: string; previousPathnames: string[]; replacedPathname?: string; promise?: Promise<{ pathname: string; originalName: string; submissionId: string }> };
+    const uploadedFilesByFingerprint = new Map<string, CachedPhotoUpload>();
+    let lastLeadSnapshot = '';
+    let lastLeadSubmissionId = '';
+    let leadSnapshotInProgress = false;
+    let fileSelectionInProgress = false;
+    let nativeReceiptCheckId = 0;
     let isHeroSectionVisible = true;
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
     const maxLeadFileSize = 10 * 1024 * 1024;
-    const validPhotoExtensions = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
-    const photoContentType = (fileName: string, declaredType: string) => {
-      if (['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'].includes(declaredType)) return declaredType;
-      const extension = fileName.toLowerCase().match(/\.[a-z0-9]{1,8}$/)?.[0] || '';
-      return ({ '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.heic': 'image/heic', '.heif': 'image/heif' } as Record<string, string>)[extension] || '';
-    };
-    const photoExtension = (fileName: string) => fileName.toLowerCase().match(/\.[a-z0-9]{1,8}$/)?.[0] || '';
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
     const dispatchMetaLead = (event: PendingMetaLead) => {
-      if (!hasMetaPixelId || !hasMarketingConsent()) return;
-      rememberPendingMetaLead(event);
-      window.dispatchEvent(new CustomEvent(metaLeadEventName, { detail: event }));
+      if (!hasMarketingConsent()) return;
+      publishAcceptedLeadConversion(event);
     };
 
     const ensureSubmissionId = () => {
@@ -60,56 +64,8 @@ export default function HomepageCriticalClient() {
       if (id) submissionIdInput.value = id;
     };
 
-    const analyticsSessionId = (() => {
-      const key = 'astana_analytics_session';
-      try {
-        const existing = window.localStorage.getItem(key);
-        if (existing) return existing;
-        const created = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        window.localStorage.setItem(key, created);
-        return created;
-      } catch {
-        return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      }
-    })();
-
-    const analyticsDevice = () => {
-      if (window.innerWidth < 768) return 'mobile';
-      if (window.innerWidth < 1024) return 'tablet';
-      return 'desktop';
-    };
-
-    const analyticsParams = () => {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        utmSource: params.get('utm_source') || '',
-        utmMedium: params.get('utm_medium') || '',
-        utmCampaign: params.get('utm_campaign') || '',
-      };
-    };
-
-    const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
-      const payload = JSON.stringify({
-        sessionId: analyticsSessionId,
-        eventType,
-        path: `${window.location.pathname}${window.location.hash || ''}`,
-        referrer: document.referrer || '',
-        device: analyticsDevice(),
-        viewportWidth: window.innerWidth,
-        ...analyticsParams(),
-        metadata,
-      });
-      if (navigator.sendBeacon) {
-        const sent = navigator.sendBeacon('/api/analytics/', new Blob([payload], { type: 'application/json' }));
-        if (sent) return;
-      }
-      void fetch('/api/analytics/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: payload,
-        keepalive: true,
-      }).catch(() => undefined);
-    };
+    const trackAnalytics = trackAnalyticsEvent;
+    const cleanupPriceCalculators = initializePriceCalculators(trackAnalytics);
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -143,17 +99,13 @@ export default function HomepageCriticalClient() {
     const applyMaterialFromUrl = () => {
       if (!form || !materialSelect) return;
       const material = new URLSearchParams(window.location.search).get('material');
-      const materialValues: Record<string, string> = {
-        vlnity: 'Vlnitý azbest / eternit',
-        plocha: 'Plochý azbest / eternitové šablóny',
-      };
-      const selectedValue = material ? materialValues[material] : undefined;
+      const selectedValue = leadMaterialFromCampaignParam(material);
       if (selectedValue && Array.from(materialSelect.options).some((option) => option.value === selectedValue)) {
         materialSelect.value = selectedValue;
       }
     };
 
-    const setStatus = (message: string, type?: 'success' | 'error' | 'loading', variant?: 'submit', email?: string) => {
+    const setStatus = (message: string, type?: 'success' | 'error' | 'loading', variant?: 'submit', email?: string, emailSent = false) => {
       if (!status) return;
       status.classList.toggle('is-submit-success', type === 'success' && variant === 'submit');
       status.classList.toggle('is-success', type === 'success');
@@ -161,14 +113,16 @@ export default function HomepageCriticalClient() {
       status.classList.toggle('is-loading', type === 'loading');
       if (type === 'loading') {
         status.innerHTML =
-          '<span class="form-loading-bar" aria-hidden="true"></span><strong>Odosielame dopyt...</strong><span>Chvíľu počkajte, ukladáme údaje a posielame potvrdenie.</span>';
+          '<span class="form-loading-bar" aria-hidden="true"></span><strong>Odosielame dopyt...</strong><span>Chvíľu počkajte, ukladáme dopyt a pripravujeme potvrdenie.</span>';
         return;
       }
       if (type === 'success' && variant === 'submit') {
         status.innerHTML = [
           '<span class="success-check" aria-hidden="true">&#10003;</span>',
           '<strong>Dopyt sme prijali</strong>',
-          `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`,
+          emailSent
+            ? `<span>Potvrdenie sme poslali na email:<br><b>${escapeHtml(email || 'zadaný email')}</b></span>`
+            : '<span>Dopyt máme uložený. Potvrdenie emailom ešte overujeme; nemusíte ho odosielať znova.</span>',
           '<span>Nezáväznú cenovú ponuku vám pošleme čo najskôr, najneskôr do 24 hodín.</span>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
@@ -179,25 +133,58 @@ export default function HomepageCriticalClient() {
       status.textContent = message;
     };
 
-    const applyNativeSubmitResult = () => {
+    const applyNativeSubmitResult = async () => {
       if (!form) return;
       const url = new URL(window.location.href);
       const submitted = url.searchParams.get('odoslane') === '1';
+      const receiptToken = url.searchParams.get('dopyt_receipt') || '';
       const errorMessage = url.searchParams.get('chyba');
-      if (!submitted && !errorMessage) return;
+      if (!submitted && !errorMessage && !receiptToken) return;
       if (submitted) {
-        form.classList.add('is-submitted');
-        setStatus('Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success');
-        const eventId = url.searchParams.get('meta_lead') || '';
-        const material = url.searchParams.get('meta_material');
-        if (/^[A-Za-z0-9._:-]{16,128}$/.test(eventId) && material && ['vlnity', 'plocha', 'iny', 'neviem'].includes(material)) {
-          dispatchMetaLead({ eventId, material: material as PendingMetaLead['material'] });
+        const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
+        setFormSubmitting(true, button);
+        setStatus('Overujeme výsledok odoslania…', 'loading');
+        const receiptCheckId = ++nativeReceiptCheckId;
+        const receiptController = new AbortController();
+        const receiptTimeoutId = window.setTimeout(() => receiptController.abort(), 10_000);
+        let verifiedReceipt: { accepted?: boolean; emailSent?: boolean } | null = null;
+        if (receiptToken.length <= 512) {
+          try {
+            const response = await fetch(`/api/lead/receipt/?token=${encodeURIComponent(receiptToken)}`, {
+              headers: { Accept: 'application/json' },
+              cache: 'no-store',
+              credentials: 'same-origin',
+              signal: receiptController.signal,
+            });
+            if (response.ok && (response.headers.get('content-type') || '').includes('application/json')) {
+              verifiedReceipt = await response.json();
+            }
+          } catch {
+            // An unverifiable native result must never be presented as an accepted lead.
+          } finally {
+            window.clearTimeout(receiptTimeoutId);
+          }
+        } else {
+          window.clearTimeout(receiptTimeoutId);
+        }
+        if (receiptCheckId !== nativeReceiptCheckId) return;
+        setFormSubmitting(false, button);
+        if (verifiedReceipt?.accepted === true) {
+          form.classList.add('is-submitted');
+          button?.setAttribute('disabled', 'true');
+          setStatus(verifiedReceipt.emailSent === true
+            ? 'Dopyt sme prijali a potvrdenie sme odoslali.'
+            : 'Dopyt sme prijali. Potvrdenie emailom ešte overujeme; nemusíte ho odosielať znova.', 'success');
+        } else {
+          setStatus('Výsledok odoslania sa nepodarilo bezpečne overiť. Dopyt zatiaľ neposielajte znova; zavolajte nám na 0905 217 946.', 'error');
         }
       } else if (errorMessage) {
         setStatus(errorMessage, 'error');
-        takePendingMetaLead();
       }
       url.searchParams.delete('odoslane');
+      url.searchParams.delete('potvrdenie');
+      url.searchParams.delete('dopyt_receipt');
       url.searchParams.delete('chyba');
       url.searchParams.delete('meta_lead');
       url.searchParams.delete('meta_material');
@@ -214,9 +201,11 @@ export default function HomepageCriticalClient() {
         label.textContent = `${file.name} (${Math.round(file.size / 1024)} kB)`;
         const remove = document.createElement('button');
         remove.type = 'button';
+        remove.disabled = fileSelectionInProgress || Boolean(form?.classList.contains('is-submitting'));
         remove.setAttribute('aria-label', `Odstrániť ${file.name}`);
         remove.textContent = '×';
         remove.addEventListener('click', () => {
+          if (fileSelectionInProgress || form?.classList.contains('is-submitting')) return;
           selectedFiles.splice(index, 1);
           updateFileInput();
           renderFiles();
@@ -226,28 +215,68 @@ export default function HomepageCriticalClient() {
       });
     };
 
-    const addFiles = (files: FileList | File[]) => {
-      const incoming = Array.from(files);
-      const accepted: File[] = [];
-      for (const file of incoming) {
-        if (selectedFiles.length + accepted.length >= 10) {
-          setStatus('Nahrať môžete maximálne 10 súborov.', 'error');
-          break;
-        }
-        if (file.size > maxLeadFileSize) {
-          setStatus(`Súbor ${file.name} je väčší ako 10 MB.`, 'error');
-          continue;
-        }
-        accepted.push(file);
+    const addFiles = async (files: FileList | File[]) => {
+      if (form?.classList.contains('is-submitting') || leadSnapshotInProgress) {
+        setStatus('Dopyt sa už odosiela. Počkajte na výsledok; vybrané fotky počas odosielania nemeníme.', 'error');
+        return;
       }
-      selectedFiles = [...selectedFiles, ...accepted];
-      updateFileInput();
+      if (fileSelectionInProgress) {
+        setStatus('Počkajte chvíľu, kým overíme vybrané fotky.', 'error');
+        return;
+      }
+
+      fileSelectionInProgress = true;
       renderFiles();
-      if (accepted.length) setStatus(`Vybrané fotky: ${selectedFiles.length}.`, 'success');
+      if (fileInput) fileInput.disabled = true;
+      fileInput?.setAttribute('aria-busy', 'true');
+      try {
+        const incoming = Array.from(files);
+        const eligible: File[] = [];
+        const rejected: string[] = [];
+        for (const file of incoming) {
+          if (file.size <= 0) {
+            rejected.push(`${file.name}: súbor je prázdny.`);
+            continue;
+          }
+          if (file.size > maxLeadFileSize) {
+            rejected.push(`${file.name}: súbor môže mať najviac 10 MB.`);
+            continue;
+          }
+          if (!leadPhotoContentType(file.name, file.type)) {
+            rejected.push(`${file.name}: povolené sú iba JPG, JPEG, PNG alebo WEBP fotky. Fotku z iPhonu uložte ako JPG.`);
+            continue;
+          }
+          eligible.push(file);
+        }
+        const previousCount = selectedFiles.length;
+        const selection = await addUniqueLeadPhotos(selectedFiles, eligible, fingerprintLeadPhoto, 10);
+        selectedFiles = selection.files;
+        updateFileInput();
+        renderFiles();
+
+        if (selection.duplicateFiles.length) {
+          rejected.push('Rovnaká fotka už je vybraná; priložte ju iba raz.');
+        }
+        if (selection.overflowFiles.length) {
+          rejected.push('Nahrať môžete maximálne 10 rôznych súborov.');
+        }
+        if (rejected.length) {
+          setStatus(rejected.join(' '), 'error');
+        } else if (selectedFiles.length > previousCount) {
+          setStatus(`Vybrané fotky: ${selectedFiles.length}.`, 'success');
+        }
+      } catch {
+        setStatus('Vybrané fotky sa nepodarilo bezpečne overiť. Skúste ich vybrať znova.', 'error');
+      } finally {
+        fileSelectionInProgress = false;
+        if (fileInput) fileInput.disabled = form?.classList.contains('is-submitting') || false;
+        fileInput?.removeAttribute('aria-busy');
+        renderFiles();
+      }
     };
 
     const onFilesChange = () => {
-      if (fileInput?.files) addFiles(fileInput.files);
+      if (fileInput?.files) void addFiles(fileInput.files);
     };
 
     const loadingIcon =
@@ -320,55 +349,100 @@ export default function HomepageCriticalClient() {
           });
           const contentType = response.headers.get('content-type') || '';
           const result = contentType.includes('application/json')
-            ? ((await response.json()) as { ok?: boolean; message?: string; metaLead?: PendingMetaLead })
+            ? ((await response.json()) as { ok?: boolean; message?: string; emailSent?: boolean; metaLead?: PendingMetaLead; retryPhotoPathname?: string })
             : { ok: false, message: (await response.text()).trim().slice(0, 180) };
           if (!response.ok || !result.ok) {
-            const responseError = new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.') as Error & { responseReceived?: boolean };
+            const responseError = new Error(result.message || 'Výsledok odoslania sa nepodarilo potvrdiť. Neobnovujte stránku; zachovajte vyplnený formulár a skúste to znova alebo zavolajte 0905 217 946.') as Error & { responseReceived?: boolean; retryPhotoPathname?: string };
             responseError.responseReceived = true;
+            responseError.retryPhotoPathname = result.retryPhotoPathname;
             throw responseError;
           }
           return result;
         } catch (error) {
           if (error instanceof Error && 'responseReceived' in error) throw error;
-          lastError = error instanceof Error ? error : new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
+          lastError = error instanceof Error ? error : new Error('Výsledok odoslania sa nepodarilo potvrdiť. Neobnovujte stránku; zachovajte vyplnený formulár a skúste to znova alebo zavolajte 0905 217 946.');
         } finally {
           window.clearTimeout(timeoutId);
         }
       }
 
-      throw lastError || new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
+      throw lastError || new Error('Výsledok odoslania sa nepodarilo potvrdiť. Neobnovujte stránku; zachovajte vyplnený formulár a skúste to znova alebo zavolajte 0905 217 946.');
     };
 
     const uploadLeadPhotos = async () => {
       if (!selectedFiles.length) return [];
+      const { upload } = await import('@vercel/blob/client');
       const submissionId = submissionIdInput?.value || '';
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
         throw new Error('Fotky sa nepodarilo pripraviť na nahratie. Skúste formulár odoslať znova.');
       }
 
-      return Promise.all(selectedFiles.map(async (file) => {
-        const extension = photoExtension(file.name);
-        const contentType = photoContentType(file.name, file.type);
-        if (!validPhotoExtensions.has(extension) || !contentType) {
-          throw new Error('Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.');
+      const controllers: AbortController[] = [];
+      let cancelling = false;
+      const uploads = selectedFiles.map(async (file) => {
+        const extension = leadPhotoExtension(file.name);
+        const contentType = leadPhotoContentType(file.name, file.type);
+        if (!contentType) {
+          throw new Error('Povolené sú iba JPG, JPEG, PNG alebo WEBP súbory. Fotku z iPhonu uložte ako JPG.');
         }
         if (file.size <= 0 || file.size > maxLeadFileSize) {
           throw new Error(`Súbor ${file.name} môže mať maximálne 10 MB.`);
         }
-        const blob = await upload(`lead-drafts/${submissionId}/${crypto.randomUUID()}${extension}`, file, {
+        const fileFingerprint = await fingerprintLeadPhoto(file);
+        if (cancelling) throw new Error('Prerušené nahrávanie fotografií. Skúste odoslanie znova.');
+        const uploadGroup = await fingerprintLeadUploadGroup(file);
+        if (cancelling) throw new Error('Prerušené nahrávanie fotografií. Skúste odoslanie znova.');
+        const cached = uploadedFilesByFingerprint.get(fileFingerprint);
+        if (cached?.submissionId === submissionId && cached.promise) return cached.promise;
+        const state: CachedPhotoUpload = cached?.submissionId === submissionId
+          ? cached
+          : { submissionId, pathname: `lead-drafts/${submissionId}/${crypto.randomUUID()}${extension}`, previousPathnames: [] };
+        if (cached?.submissionId === submissionId && !cached.promise && cached.pathname) {
+          if (!state.previousPathnames.includes(cached.pathname)) state.previousPathnames.push(cached.pathname);
+          state.replacedPathname = cached.pathname;
+          state.pathname = `lead-drafts/${submissionId}/${crypto.randomUUID()}${extension}`;
+        }
+        const controller = new AbortController();
+        controllers.push(controller);
+        const timeoutId = window.setTimeout(() => controller.abort(), 120_000);
+        const promise = upload(state.pathname, file, {
           access: 'private',
           contentType,
           handleUploadUrl: '/api/lead-upload/',
-          clientPayload: JSON.stringify({ submissionId }),
+          clientPayload: JSON.stringify({ submissionId, replacesPathname: state.replacedPathname, replacesPathnames: state.previousPathnames, fileFingerprint: uploadGroup }),
           multipart: file.size > 5 * 1024 * 1024,
-        });
-        return { pathname: blob.pathname, originalName: file.name, submissionId };
-      }));
+          abortSignal: controller.signal,
+        }).then((blob) => ({ pathname: blob.pathname, originalName: file.name, submissionId }));
+        state.promise = promise;
+        uploadedFilesByFingerprint.set(fileFingerprint, state);
+        try {
+          const uploaded = await promise;
+          state.replacedPathname = undefined;
+          return uploaded;
+        } catch (error) {
+          if (uploadedFilesByFingerprint.get(fileFingerprint) === state && state.promise === promise) {
+            state.promise = undefined;
+            state.replacedPathname = state.pathname;
+          }
+          throw new Error(leadPhotoUploadErrorMessage(error, file.name, controller.signal.aborted));
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      });
+      return settleLeadPhotoUploadBatch(uploads, () => {
+        cancelling = true;
+        controllers.forEach((controller) => controller.abort());
+      });
     };
 
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
-      if (form.classList.contains('is-submitting')) {
+      if (fileSelectionInProgress) {
+        event.preventDefault();
+        setStatus('Počkajte chvíľu, kým dokončíme overenie vybraných fotiek.', 'error');
+        return;
+      }
+      if (form.classList.contains('is-submitting') || leadSnapshotInProgress) {
         event.preventDefault();
         return;
       }
@@ -382,11 +456,25 @@ export default function HomepageCriticalClient() {
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
+      payload.set('leadAttribution', JSON.stringify(getLeadAttribution()));
+      const analyticsSessionId = getAnalyticsSessionId();
+      if (analyticsSessionId) payload.set('analyticsSessionId', analyticsSessionId);
       const submittedEmail = String(payload.get('email') || '').trim();
       if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
       setFormSubmitting(true, button);
 
       try {
+        leadSnapshotInProgress = true;
+        const leadSnapshot = await createLeadFormSnapshot(payload, selectedFiles);
+        let submissionId = submissionIdInput?.value || '';
+        if (lastLeadSnapshot && leadSnapshot !== lastLeadSnapshot && submissionId === lastLeadSubmissionId) {
+          submissionId = window.crypto?.randomUUID?.() || '';
+          if (!submissionId) throw new Error('Bezpečné odoslanie nie je v tomto prehliadači dostupné. Obnovte stránku alebo zavolajte 0905 217 946.');
+          if (submissionIdInput) submissionIdInput.value = submissionId;
+          payload.set('submissionId', submissionId);
+        }
+        lastLeadSnapshot = leadSnapshot;
+        lastLeadSubmissionId = submissionId;
         const uploadedPhotos = await uploadLeadPhotos();
         if (uploadedPhotos.length) {
           payload.delete('photos');
@@ -395,13 +483,18 @@ export default function HomepageCriticalClient() {
         const result = await submitLeadForm(payload);
         form.reset();
         selectedFiles = [];
+        uploadedFilesByFingerprint.clear();
+        lastLeadSnapshot = '';
+        lastLeadSubmissionId = '';
         updateFileInput();
         if (preview) preview.innerHTML = '';
-        trackAnalytics('form_submit_success', { form: 'lead' });
         if (result.metaLead) dispatchMetaLead(result.metaLead);
         form.classList.add('is-submitted');
-        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail);
+        setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail, result.emailSent === true);
       } catch (error) {
+        if (error instanceof Error && 'retryPhotoPathname' in error && typeof error.retryPhotoPathname === 'string') {
+          resetMissingLeadPhotoUpload(uploadedFilesByFingerprint, error.retryPhotoPathname);
+        }
         setFormSubmitting(false, button);
         setStatus(
           error instanceof Error && error.name === 'AbortError'
@@ -413,6 +506,7 @@ export default function HomepageCriticalClient() {
         );
         return;
       } finally {
+        leadSnapshotInProgress = false;
         if (form.classList.contains('is-submitted')) button?.setAttribute('disabled', 'true');
       }
     };
@@ -453,17 +547,27 @@ export default function HomepageCriticalClient() {
       const isMobile = window.innerWidth <= 760;
       if (!stickyCta) return;
       const cookieBannerVisible = isCookieBannerVisible();
-      const shouldShow = isMobile && !isHeroSectionVisible && !isQuoteSectionVisible && !cookieBannerVisible;
+      const calculatorRect = priceCalculatorCard?.getBoundingClientRect();
+      const calculatorVisible = Boolean(calculatorRect && calculatorRect.top < window.innerHeight && calculatorRect.bottom > 0);
+      const shouldShow = isMobile && !isHeroSectionVisible && !isQuoteSectionVisible && !calculatorVisible && !cookieBannerVisible;
       stickyCta.classList.toggle('is-visible', shouldShow);
+      stickyCta.inert = !shouldShow;
       whatsappButton?.classList.toggle('is-hidden-over-form', isMobile && (isQuoteSectionVisible || shouldShow));
       whatsappButton?.classList.toggle('is-hidden-by-cookie', isMobile && cookieBannerVisible);
+      if (whatsappButton) whatsappButton.inert = isMobile && (isQuoteSectionVisible || shouldShow || cookieBannerVisible);
     };
 
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     applyMaterialFromUrl();
+    if (form) {
+      try {
+        const priceDraft = takePriceQuoteDraft(window.sessionStorage);
+        if (priceDraft) applyPriceQuoteDraft(form, priceDraft);
+      } catch { /* Browser storage may be unavailable; leave the form untouched. */ }
+    }
     applyRooferSelectionFromUrl();
-    applyNativeSubmitResult();
+    void applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
       event.preventDefault();
@@ -473,7 +577,7 @@ export default function HomepageCriticalClient() {
     const onFileDrop = (event: DragEvent) => {
       event.preventDefault();
       fileDrop?.classList.remove('is-dragging');
-      if (event.dataTransfer?.files?.length) addFiles(event.dataTransfer.files);
+      if (event.dataTransfer?.files?.length) void addFiles(event.dataTransfer.files);
     };
     fileDrop?.addEventListener('dragover', onFileDragOver);
     fileDrop?.addEventListener('dragleave', onFileDragLeave);
@@ -590,6 +694,7 @@ export default function HomepageCriticalClient() {
 
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
+      cleanupPriceCalculators();
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
       fileInput?.removeEventListener('change', onFilesChange);
       fileDrop?.removeEventListener('dragover', onFileDragOver);

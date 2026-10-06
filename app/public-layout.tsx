@@ -1,4 +1,3 @@
-import LandingClient from './landing-client';
 import PublicBaseClient from './public-base-client';
 import PublicWidgets from './public-widgets';
 import { companyAddressLine, emailLink, phoneLink, site } from '@/src/content/site';
@@ -79,11 +78,15 @@ export function PublicFooter() {
       </div>
       <div>
         <h2>Lokality</h2>
+        <a href="/kde-posobime/">Celé Slovensko – výjazdy a plánovanie</a>
         <a href="/likvidacia-azbestu-poprad/">Poprad</a>
         <a href="/likvidacia-azbestu-kosice/">Košice</a>
         <a href="/likvidacia-azbestu-presov/">Prešov</a>
         <a href="/likvidacia-azbestu-zilina/">Žilina</a>
         <a href="/likvidacia-azbestu-bratislava/">Bratislava</a>
+        <a href="/likvidacia-azbestu-banska-bystrica/">Banská Bystrica</a>
+        <a href="/likvidacia-azbestu-nitra/">Nitra</a>
+        <a href="/likvidacia-azbestu-trnava/">Trnava</a>
       </div>
       <div>
         <h2>Právne</h2>
@@ -99,20 +102,22 @@ export function PublicFooter() {
 export function PublicPageShell({
   children,
   breadcrumb,
-  client = 'base',
+  breadcrumbParents = [],
+  hideWhatsappOnMobile = false,
 }: {
   children: React.ReactNode;
   breadcrumb?: { name: string; path: string };
-  client?: 'base' | 'full';
+  breadcrumbParents?: Array<{ name: string; path: string }>;
+  hideWhatsappOnMobile?: boolean;
 }) {
   return (
     <>
-      {breadcrumb ? <BreadcrumbJsonLd name={breadcrumb.name} path={breadcrumb.path} /> : null}
+      {breadcrumb ? <BreadcrumbJsonLd name={breadcrumb.name} path={breadcrumb.path} parents={breadcrumbParents} /> : null}
       <PublicHeader />
       {children}
       <PublicFooter />
-      {client === 'full' ? <LandingClient /> : <PublicBaseClient />}
-      <PublicWidgets />
+      <PublicBaseClient />
+      <PublicWidgets hideWhatsappOnMobile={hideWhatsappOnMobile} />
     </>
   );
 }

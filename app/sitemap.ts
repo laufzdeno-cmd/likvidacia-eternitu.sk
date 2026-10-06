@@ -3,10 +3,8 @@ import { articles, locationPages } from '@/src/content/seo-content';
 import { site } from '@/src/content/site';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const lastModified = new Date();
   const page = (path: string, priority: number, changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency'] = 'monthly') => ({
     url: `${site.website}${path}`,
-    lastModified,
     changeFrequency,
     priority,
   });
@@ -17,6 +15,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/likvidacia-eternitu/', 0.95),
     page('/cena-likvidacie-azbestu/', 0.9),
     page('/postup/', 0.85),
+    page('/kde-posobime/', 0.82),
     page('/faq/', 0.8),
     page('/realizacie/', 0.8),
     page('/recenzie/', 0.55),
@@ -25,7 +24,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     page('/poradna/', 0.75),
     page('/strechari/', 0.55),
     page('/kariera/', 0.45),
-    page('/pre-strecharov/', 0.45),
     page('/spolupracujuci-strechari/', 0.45),
     ...locationPages.map((location) => page(`/likvidacia-azbestu-${location.slug}/`, 0.72)),
     ...articles.map((article) => page(`/poradna/${article.slug}/`, 0.65)),

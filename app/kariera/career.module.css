@@ -1,0 +1,70 @@
+/* Route-owned presentation for the public career application page. */
+.page {
+  --career-route-css: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(32px, 6vw, 76px) 24px 84px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(300px, .8fr);
+  gap: clamp(28px, 6vw, 76px);
+  align-items: start;
+}
+
+.intro h1,
+.sectionHeading h2,
+.faq h2,
+.expectations h2 {
+  color: #10284a;
+}
+
+.intro h1 { max-width: 760px; margin: 10px 0 18px; font-size: clamp(2.2rem, 5vw, 4.35rem); line-height: 1.04; letter-spacing: -.045em; }
+.lead { font-size: clamp(1.15rem, 2vw, 1.42rem); font-weight: 650; line-height: 1.5; color: #263d5b; }
+.intro > p:not(:global(.eyebrow)):not(.lead) { max-width: 720px; color: #53657c; font-size: 1.05rem; line-height: 1.7; }
+.benefits { display: grid; gap: 11px; margin: 28px 0; padding: 0; list-style: none; font-weight: 650; color: #263d5b; }
+.benefits li::before { content: '✓'; display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 10px; border-radius: 50%; background: #e8f5e8; color: #39703d; }
+
+.expectations { border: 1px solid #d8e3ea; border-top: 5px solid #d4492c; border-radius: 16px; padding: 30px; background: linear-gradient(145deg, #10284a, #18365e); box-shadow: 0 18px 42px rgba(16, 40, 74, .16); color: #e5edf7; }
+.expectations :global(.eyebrow) { color: #f4b19f; }
+.expectations h2 { margin: 8px 0 19px; color: #fff; font-size: 1.55rem; }
+.expectations ul { display: grid; gap: 14px; margin: 0 0 24px; padding: 0; list-style: none; }
+.expectations li { position: relative; padding-left: 25px; line-height: 1.5; }
+.expectations li::before { content: '•'; position: absolute; left: 5px; top: -2px; color: #f4b19f; font-size: 1.4rem; }
+.expectations p:last-child { margin: 0; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.2); color: #d1deee; font-size: .93rem; line-height: 1.55; }
+
+.applicationSection { display: grid; grid-template-columns: minmax(230px, .52fr) minmax(0, 1fr); gap: clamp(30px, 7vw, 100px); margin-top: clamp(58px, 9vw, 115px); padding-top: clamp(46px, 7vw, 76px); border-top: 1px solid #dbe4ea; scroll-margin-top: 30px; }
+.sectionHeading p:not(:global(.eyebrow)) { color: #5d6e81; line-height: 1.65; }
+.applicationForm { padding: clamp(22px, 4vw, 38px); border: 1px solid #d5e0e8; border-radius: 16px; background: #f8fbfd; box-shadow: 0 15px 38px rgba(17, 44, 73, .08); }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px; }
+.formGrid label { display: grid; gap: 7px; color: #263d5b; font-size: .94rem; font-weight: 700; }
+.formGrid input, .formGrid select, .formGrid textarea { width: 100%; box-sizing: border-box; border: 1px solid #bfd0df; border-radius: 9px; padding: 12px 13px; background: #fff; color: #172d4a; font: inherit; font-weight: 500; }
+.formGrid textarea { resize: vertical; min-height: 88px; }
+.formGrid input:focus, .formGrid select:focus, .formGrid textarea:focus { outline: 3px solid rgba(58, 120, 173, .25); border-color: #3976ad; }
+.formWide { grid-column: 1 / -1; }
+.fileField small { color: #60748a; font-size: .8rem; font-weight: 500; line-height: 1.45; }
+.checks { display: grid; gap: 12px; margin: 22px 0; }
+.checks label { display: flex; align-items: flex-start; gap: 10px; color: #30455f; font-size: .91rem; line-height: 1.42; }
+.checks input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: #cc4128; flex: 0 0 auto; }
+.submit { width: 100%; justify-content: center; }
+.submit:disabled { opacity: .7; cursor: wait; }
+.formHelp { margin: 12px 0 0; color: #68798c; font-size: .84rem; text-align: center; }
+.formMessage { margin: 18px 0 0; padding: 13px 15px; border-radius: 8px; font-weight: 650; line-height: 1.45; }
+.formMessage.success { border: 1px solid #a9d9ad; background: #edf9ee; color: #23612a; }
+.formMessage.error { border: 1px solid #edb4a9; background: #fff5f2; color: #9b3221; }
+.formMessage.warning { border: 1px solid #dec276; background: #fff8e8; color: #654d14; }
+.honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+.faq { max-width: 800px; margin: clamp(56px, 9vw, 110px) auto 0; }
+.faq details { border-bottom: 1px solid #dbe4ea; }
+.faq summary { padding: 19px 0; color: #1d3656; cursor: pointer; font-weight: 700; }
+.faq details p { margin: 0 0 19px; color: #52657b; line-height: 1.65; }
+
+@media (max-width: 760px) {
+  .page { padding-inline: 18px; }
+  .hero, .applicationSection { grid-template-columns: 1fr; gap: 32px; }
+  .applicationSection { margin-top: 58px; }
+  .formGrid { grid-template-columns: 1fr; }
+  .formWide { grid-column: auto; }
+  .expectations, .applicationForm { padding: 23px 19px; }
+}

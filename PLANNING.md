@@ -1,5 +1,9 @@
 # PLANNING.md
 
+## Upgrade na základe auditov z 30. 9. 2026
+
+Aktuálny etapový plán, porovnanie auditov, architektúra obsahu a merateľné akceptačné podmienky sú v [docs/upgrade-2026-09-30/PLAN.md](docs/upgrade-2026-09-30/PLAN.md). Stav realizácie je v [STATUS.md](docs/upgrade-2026-09-30/STATUS.md). Historické plánovanie nižšie zostáva zachované; nový balík výslovne odlišuje plán od overenia a produkčného nasadenia.
+
 ## Alfa kontext
 
 Zdroj pravidiel: `CLAUDE.md` v koreňovom priečinku projektu.

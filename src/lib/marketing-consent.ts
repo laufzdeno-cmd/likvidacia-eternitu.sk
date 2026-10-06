@@ -1,10 +1,22 @@
-export const cookieConsentStorageKey = 'astana-cookies-v2';
+export const analyticsConsentCookieName = 'astana_analytics_consent';
 export const marketingConsentCookieName = 'astana_marketing_consent';
-export const marketingConsentSubjectCookieName = 'astana_marketing_consent_subject';
 export const marketingConsentChangedEvent = 'astana:marketing-consent';
-export const pendingMetaLeadStorageKey = 'astana:pending-meta-lead';
 
 export type MarketingConsent = 'granted' | 'denied';
+export type ConsentPreferences = { analytics: boolean; marketing: boolean };
+
+const consentMaxAge = 31536000;
+const analyticsSessionStorageKey = 'astana_analytics_session';
+const analyticsAttributionStorageKey = 'astana_analytics_attribution';
+const analyticsLastActivityStorageKey = 'astana_analytics_last_activity';
+
+function removeSessionItem(key: string) {
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    // Storage may be disabled by the browser; consent changes must still complete.
+  }
+}
 
 function readBrowserCookie(name: string) {
   if (typeof document === 'undefined') return '';
@@ -16,110 +28,72 @@ function readBrowserCookie(name: string) {
     ?.slice(prefix.length) || '';
 }
 
-function isConsentSubject(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+function readConsentCookie(name: string): boolean | null {
+  const value = readBrowserCookie(name);
+  if (value === 'granted') return true;
+  if (value === 'denied') return false;
+  return null;
 }
 
-export function marketingConsentSubject() {
-  return readBrowserCookie(marketingConsentSubjectCookieName);
+export function readConsentPreferences(): ConsentPreferences | null {
+  if (typeof window === 'undefined') return null;
+  const analytics = readConsentCookie(analyticsConsentCookieName);
+  const marketing = readConsentCookie(marketingConsentCookieName);
+  return analytics === null || marketing === null ? null : { analytics, marketing };
 }
 
-export function ensureMarketingConsentSubject() {
-  if (typeof window === 'undefined') return '';
-  const existing = marketingConsentSubject();
-  if (isConsentSubject(existing)) return existing;
-  const subject = window.crypto?.randomUUID?.();
-  if (!subject || !isConsentSubject(subject)) return '';
-  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `${encodeURIComponent(marketingConsentSubjectCookieName)}=${subject}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
-  return subject;
+export function hasAnalyticsConsent() {
+  return readConsentPreferences()?.analytics === true;
 }
 
 export function marketingConsent(): MarketingConsent {
-  if (typeof window === 'undefined') return 'denied';
-  try {
-    const stored = window.localStorage.getItem(cookieConsentStorageKey);
-    if (stored === 'marketing') return 'granted';
-    if (stored === 'necessary') return 'denied';
-  } catch {
-    // Strict browser privacy modes can block localStorage; no marketing tracking is the safe default.
-  }
-  return readBrowserCookie(marketingConsentCookieName) === 'granted' ? 'granted' : 'denied';
+  return readConsentPreferences()?.marketing === true ? 'granted' : 'denied';
 }
 
 export function hasMarketingConsent() {
   return marketingConsent() === 'granted';
 }
 
-export function saveMarketingConsent(value: MarketingConsent) {
+export function saveConsentPreferences(preferences: ConsentPreferences) {
   if (typeof window === 'undefined') return;
-  const stored = value === 'granted' ? 'marketing' : 'necessary';
-  try {
-    window.localStorage.setItem(cookieConsentStorageKey, stored);
-  } catch {
-    // The cookie below is enough for the server-side gate when localStorage is unavailable.
-  }
+  const normalized = { analytics: Boolean(preferences.analytics), marketing: Boolean(preferences.marketing) };
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-  document.cookie = `${encodeURIComponent(marketingConsentCookieName)}=${value}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
-  if (value === 'granted') ensureMarketingConsentSubject();
-  window.dispatchEvent(new CustomEvent(marketingConsentChangedEvent, { detail: { value } }));
+  document.cookie = `${encodeURIComponent(analyticsConsentCookieName)}=${normalized.analytics ? 'granted' : 'denied'}; Path=/; Max-Age=${consentMaxAge}; SameSite=Lax${secure}`;
+  document.cookie = `${encodeURIComponent(marketingConsentCookieName)}=${normalized.marketing ? 'granted' : 'denied'}; Path=/; Max-Age=${consentMaxAge}; SameSite=Lax${secure}`;
+  if (!normalized.analytics) {
+    removeSessionItem(analyticsSessionStorageKey);
+    removeSessionItem(analyticsAttributionStorageKey);
+    removeSessionItem(analyticsLastActivityStorageKey);
+    try {
+      window.localStorage.removeItem(analyticsSessionStorageKey);
+      window.localStorage.removeItem(analyticsAttributionStorageKey);
+    } catch {
+      // Storage cleanup is best-effort; all analytics reads remain consent-gated.
+    }
+  }
+  if (!normalized.marketing) {
+    try {
+      const stored = window.sessionStorage.getItem(analyticsAttributionStorageKey);
+      const attribution = stored ? JSON.parse(stored) as Record<string, unknown> : {};
+      delete attribution.gclid;
+      delete attribution.fbclid;
+      delete attribution.gbraid;
+      delete attribution.wbraid;
+      if (Object.keys(attribution).length) window.sessionStorage.setItem(analyticsAttributionStorageKey, JSON.stringify(attribution));
+      else window.sessionStorage.removeItem(analyticsAttributionStorageKey);
+    } catch {
+      removeSessionItem(analyticsAttributionStorageKey);
+    }
+  }
+  window.dispatchEvent(new CustomEvent(marketingConsentChangedEvent, { detail: normalized }));
 }
 
-export function revokePendingMetaCapiOutbox() {
-  if (typeof window === 'undefined' || !isConsentSubject(marketingConsentSubject())) return;
-  void fetch('/api/marketing-consent/revoke/', {
-    method: 'POST',
-    headers: { Accept: 'application/json' },
-    credentials: 'same-origin',
-    cache: 'no-store',
-    keepalive: true,
-  }).catch(() => undefined);
+export function saveMarketingConsent(value: MarketingConsent) {
+  const current = readConsentPreferences() ?? { analytics: false, marketing: false };
+  saveConsentPreferences({ ...current, marketing: value === 'granted' });
 }
 
 export type PendingMetaLead = {
   eventId: string;
   material: 'vlnity' | 'plocha' | 'iny' | 'neviem';
 };
-
-export function rememberPendingMetaLead(event: PendingMetaLead) {
-  try {
-    window.sessionStorage.setItem(pendingMetaLeadStorageKey, JSON.stringify(event));
-  } catch {
-    // Session storage is an enhancement only; the server event can still be sent independently.
-  }
-}
-
-function parsePendingMetaLead(raw: string | null): PendingMetaLead | null {
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<PendingMetaLead>;
-    if (
-      typeof parsed.eventId !== 'string' ||
-      !/^[A-Za-z0-9._:-]{16,128}$/.test(parsed.eventId) ||
-      !['vlnity', 'plocha', 'iny', 'neviem'].includes(String(parsed.material))
-    ) {
-      return null;
-    }
-    return parsed as PendingMetaLead;
-  } catch {
-    return null;
-  }
-}
-
-export function peekPendingMetaLead(): PendingMetaLead | null {
-  try {
-    return parsePendingMetaLead(window.sessionStorage.getItem(pendingMetaLeadStorageKey));
-  } catch {
-    return null;
-  }
-}
-
-export function takePendingMetaLead(): PendingMetaLead | null {
-  try {
-    const event = parsePendingMetaLead(window.sessionStorage.getItem(pendingMetaLeadStorageKey));
-    window.sessionStorage.removeItem(pendingMetaLeadStorageKey);
-    return event;
-  } catch {
-    return null;
-  }
-}

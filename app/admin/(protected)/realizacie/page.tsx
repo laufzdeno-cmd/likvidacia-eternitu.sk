@@ -1,4 +1,5 @@
 import { listRealizations } from '@/src/server/db';
+import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import type { RealizationStatus } from '@/src/server/types';
 import { createRealizationAction, updateRealizationStatusAction } from './actions';
 
@@ -8,8 +9,10 @@ const statusLabels: Record<RealizationStatus, string> = {
   hidden: 'skrytá',
 };
 
-export default async function RealizationsPage() {
-  const realizations = await listRealizations();
+export default async function RealizationsPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
+  const [realizations, admin] = await Promise.all([listRealizations(), requireAdminUser()]);
+  const params = await searchParams;
+  const csrfToken = csrfTokenForEmail(admin.email);
 
   return (
     <main className="admin-page">
@@ -18,12 +21,16 @@ export default async function RealizationsPage() {
           <p>Fotogaléria</p>
           <h1>Realizácie</h1>
         </div>
+        <a className="admin-secondary-link" href="/admin/realizacie/fotky">Súkromné fotky z terénu</a>
       </div>
 
       <section className="admin-card">
         <h2>Pridať realizáciu</h2>
-        <p>Verejne sa zobrazia iba realizácie so stavom zverejnená. Používajte len schválené fotky bez súkromných údajov zákazníka.</p>
+        {params?.error === 'fotky' ? <p role="alert">Fotky sa neuložili. Použite iba cestu k verejnej fotke na tomto webe, ktorá začína na <code>/assets/</code>.</p> : null}
+        {params?.error === 'schvalenie' ? <p role="alert">Pred zverejnením potvrďte oprávnenie použiť fotografie, skontrolovanú približnú lokalitu a zadajte internú evidenciu podkladu.</p> : null}
+        <p>Nové realizácie sa ukladajú ako rozpracované. Používajte len schválené fotografie bez súkromných údajov zákazníka; verejné fotky vkladajte ako cestu z webu začínajúcu na <code>/assets/</code>. Pred zverejnením treba potvrdiť práva k fotografiám, skontrolovať približnú lokalitu a zaznamenať interný podklad; existujúce verejné položky zostávajú bez zmeny.</p>
         <form className="admin-quote-form" action={createRealizationAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <label>
             Názov akcie
             <input name="title" placeholder="napr. Demontáž eternitovej strechy" required />
@@ -40,14 +47,7 @@ export default async function RealizationsPage() {
             Výmera v m2
             <input name="areaEstimate" type="number" step="0.01" placeholder="napr. 180" />
           </label>
-          <label>
-            Stav
-            <select name="status" defaultValue="draft">
-              <option value="draft">rozpracovaná</option>
-              <option value="published">zverejnená</option>
-              <option value="hidden">skrytá</option>
-            </select>
-          </label>
+          <p className="admin-form-wide">Nová položka sa uloží ako rozpracovaná a nebude verejná.</p>
           <label className="admin-checkbox">
             <input name="featured" type="checkbox" /> Odporúčaná realizácia
           </label>
@@ -56,11 +56,11 @@ export default async function RealizationsPage() {
             <textarea name="description" rows={4} placeholder="Krátko popíšte rozsah, materiál, priebeh a výsledok..." required />
           </label>
           <label className="admin-form-wide">
-            Fotky ASTANA, ideálne 2–3 URL na samostatný riadok
+            Fotky ASTANA, ideálne 2–3 cesty z webu na samostatný riadok
             <textarea
               name="imageUrls"
               rows={4}
-              placeholder={'https://.../stabilizacia.webp\nhttps://.../balenie.webp\nhttps://.../odvoz.webp'}
+              placeholder={'/assets/azbest/webp/azbest-087.webp\n/assets/azbest/webp/azbest-164.webp'}
             />
           </label>
           <button className="admin-primary-button" type="submit">
@@ -103,11 +103,20 @@ export default async function RealizationsPage() {
                     <div className="admin-action-row">
                       {(['published', 'draft', 'hidden'] as RealizationStatus[]).map((status) => (
                         <form key={status} action={updateRealizationStatusAction}>
+                          <input type="hidden" name="_csrf" value={csrfToken} />
                           <input type="hidden" name="id" value={realization.id} />
                           <input type="hidden" name="status" value={status} />
-                          <button type="submit" disabled={realization.status === status}>
-                            {statusLabels[status]}
-                          </button>
+                          {status === 'published' && realization.status !== 'published' ? (
+                            <details>
+                              <summary>Zverejniť po kontrole</summary>
+                              <label><input type="checkbox" name="publicationRightsConfirmed" required /> Potvrdzujem právo použiť zobrazené fotografie.</label>
+                              <label><input type="checkbox" name="publicationLocationConfirmed" required /> Overil som obec/okres a odstránenie presnej adresy/GPS.</label>
+                              <label>Interná referencia zdroja alebo súhlasu<textarea name="publicationEvidence" minLength={4} maxLength={500} required placeholder="Napr. číslo zákazky alebo názov uloženého dokladu; bez osobných údajov" /></label>
+                              <button type="submit">Zverejniť</button>
+                            </details>
+                          ) : (
+                            <button type="submit" disabled={realization.status === status}>{statusLabels[status]}</button>
+                          )}
                         </form>
                       ))}
                     </div>

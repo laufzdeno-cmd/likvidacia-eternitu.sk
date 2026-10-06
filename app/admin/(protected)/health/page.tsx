@@ -19,6 +19,11 @@ export default async function AdminHealthPage() {
       </div>
 
       <section className="admin-stat-grid health-grid">
+        <article className={health.leadMail.level === 'ok' ? 'health-ok' : health.leadMail.level === 'warning' ? 'health-caution' : 'health-warn'}>
+          <span>Dopytové emaily</span>
+          <strong>{health.leadMail.label}</strong>
+          <small>{health.leadMail.detail}</small>
+        </article>
         <article className={healthClass(health.database.ok)}>
           <span>Databáza</span>
           <strong>{health.database.ok ? 'OK' : 'Pozor'}</strong>
@@ -30,8 +35,8 @@ export default async function AdminHealthPage() {
           <small>{health.storage.detail}</small>
         </article>
         <article className={healthClass(health.smtp.ok)}>
-          <span>SMTP</span>
-          <strong>{health.smtp.ok ? 'OK' : 'Chýba'}</strong>
+          <span>SMTP spojenie</span>
+          <strong>{health.smtp.ok ? 'Odpovedá' : 'Neoverené'}</strong>
           <small>{health.smtp.detail}</small>
         </article>
         <article>
@@ -68,7 +73,7 @@ export default async function AdminHealthPage() {
               ? `${health.lastEmailSent.entityId.slice(0, 8)} · ${new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastEmailSent.createdAt))}`
               : 'Zatiaľ bez úspešne odoslaného emailu.'}
           </dd>
-          <dt>Posledný email error/skip</dt>
+          <dt>Posledná zaznamenaná chyba e-mailu (historická)</dt>
           <dd>
             {health.lastEmailError
               ? `${health.lastEmailError.action} · ${new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastEmailError.createdAt))}`

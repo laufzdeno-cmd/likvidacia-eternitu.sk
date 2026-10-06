@@ -1,11 +1,17 @@
 import nodemailer from 'nodemailer';
-import { leadDeliveryMode, sendCareerApplicationThroughAstanaLocalRelay, sendLeadThroughAstanaLocalRelay, type LeadDeliveryResult } from './astana-local-relay';
+import { canSafelyFallbackToLocalRelay, isAstanaLocalRelayConfigured, leadDeliveryMode, sendCareerApplicationThroughAstanaLocalRelay, sendLeadThroughAstanaLocalRelay, type LeadDeliveryMode, type LeadDeliveryResult, type LeadRecipientDeliveryRecorder } from './astana-local-relay';
 import { cleanSlovakText } from './slovak-text';
+import { classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } from './email-delivery-policy';
+import type { ApplicationNotificationRecipient } from './types';
 import type { BusinessJob, CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
+import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
+import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
 const fromEmail = () => process.env.FROM_EMAIL || process.env.MAIL_FROM || 'astana@astana.sk';
+const customerLeadEmailSubject = '✅ ASTANA, s.r.o. prijala váš dopyt | likvidacia-eternitu.sk';
+const customerLeadLogoUrl = 'https://likvidacia-eternitu.sk/assets/astana-logo-dark.png';
 
 function namedFromHeader(name: string) {
   const from = fromEmail();
@@ -17,6 +23,28 @@ function mailConfigured() {
   return Boolean(process.env.SMTP_HOST && fromEmail() && process.env.LEAD_TO_EMAIL);
 }
 
+export function isLeadSmtpConfigured() {
+  return mailConfigured();
+}
+
+export function hasUsableLeadSmtpConfiguration() {
+  if (!process.env.SMTP_HOST?.trim() || !process.env.LEAD_TO_EMAIL?.trim()) return false;
+  if (/[;,]/.test(leadRecipient())) return false;
+  if (process.env.SMTP_USER?.trim() && !process.env.SMTP_PASS?.trim()) return false;
+  try {
+    assertAstanaSender();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function hasLeadEmailTransportConfiguration(mode: LeadDeliveryMode = leadDeliveryMode()) {
+  if (mode === 'local_relay') return isAstanaLocalRelayConfigured();
+  if (hasUsableLeadSmtpConfiguration()) return true;
+  return mode === 'smtp_then_local_relay' && !mailConfigured() && isAstanaLocalRelayConfigured();
+}
+
 function assertAstanaSender() {
   const from = fromEmail();
   const match = from.match(/<([^>]+)>/)?.[1] || from;
@@ -26,8 +54,11 @@ function assertAstanaSender() {
   }
 }
 
-function transporter() {
+function transporter(options: { applicationNotification?: boolean } = {}) {
   if (!mailConfigured()) return null;
+  if (/[;,]/.test(leadRecipient())) {
+    throw new Error('LEAD_TO_EMAIL musí obsahovať iba jednu internú adresu; viac adries vyžaduje samostatné sledovanie doručenia.');
+  }
   assertAstanaSender();
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
@@ -39,6 +70,11 @@ function transporter() {
           pass: process.env.SMTP_PASS,
         }
       : undefined,
+    ...(options.applicationNotification ? {
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000,
+    } : {}),
   });
 }
 
@@ -111,12 +147,13 @@ function customerLeadEmailHtml(lead: Lead) {
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
         <tr>
-          <td style="background:linear-gradient(135deg,#263451 0%,#18243B 100%);padding:28px 32px;">
+          <td style="background-color:#263451;background-image:linear-gradient(135deg,#263451 0%,#18243B 100%);padding:24px 32px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
               <tr>
                 <td style="vertical-align:middle;">
-                  <div style="color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;line-height:1;">ASTANA</div>
-                  <div style="margin-top:6px;color:rgba(255,255,255,0.75);font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">likvidácia azbestu a eternitu</div>
+                  <img src="${customerLeadLogoUrl}" width="190" alt="ASTANA, s.r.o." style="display:block;width:190px;max-width:100%;height:auto;border:0;" />
+                  <div style="margin-top:8px;color:#ffffff;font-size:14px;font-weight:700;line-height:1.2;">ASTANA, s.r.o.</div>
+                  <div style="margin-top:4px;color:#D8E0ED;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;">odborná likvidácia azbestu a eternitu</div>
                 </td>
                 <td align="right" style="vertical-align:middle;">
                   <span style="display:inline-block;background:#2D7A3A;color:#ffffff;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;">✓ Dopyt prijatý</span>
@@ -178,6 +215,8 @@ function customerLeadEmailHtml(lead: Lead) {
 
 function customerLeadEmailText(lead: Lead) {
   return [
+    'ASTANA, s.r.o. – odborná likvidácia azbestu a eternitu',
+    '',
     `Dobrý deň ${plainText(lead.fullName)},`,
     '',
     'váš dopyt z likvidacia-eternitu.sk sme prijali.',
@@ -195,8 +234,11 @@ function customerLeadEmailText(lead: Lead) {
   ].join('\n');
 }
 
-function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
-  const adminUrl = `${siteUrl()}/admin/zakazky/${businessJobId || lead.id}/`;
+function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0) {
+  const leadUrl = `${siteUrl()}/admin/dopyty/${encodeURIComponent(lead.id)}/`;
+  const businessJobUrl = businessJobId
+    ? `${siteUrl()}/admin/zakazky/${encodeURIComponent(businessJobId)}/`
+    : '';
   const contact = contactMeta(lead.preferredContact);
   const phoneHref = normalizePhoneHref(lead.phone);
   const rows: Array<[string, string]> = [
@@ -209,6 +251,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
     ['Materiál', escapeHtml(lead.materialType)],
     ['Objekt', escapeHtml(lead.objectType)],
     ['Kontakt', `<span style="display:inline-block;background:${contact.bg};color:${contact.color};border:1px solid ${contact.border};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;">${contact.label}</span>`],
+    ['Fotky', fileCount === 1 ? '1 fotografia' : `${escapeHtml(fileCount)} fotografie`],
     ['Termín', escapeHtml(lead.term || '—')],
     ['Poznámka', escapeHtml(lead.note || '—')],
   ];
@@ -235,7 +278,8 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string) {
           </table>
         </td></tr>
         <tr><td style="background:#F7F4EE;padding:20px 28px;text-align:center;">
-          <a href="${adminUrl}" style="display:inline-block;background:#C86432;color:#ffffff;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Otvoriť v admin →</a>
+          <a href="${leadUrl}" style="display:inline-block;background:#C86432;color:#ffffff;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Otvoriť dopyt a prílohy →</a>
+          ${businessJobUrl ? `<div style="margin-top:10px;font-size:11px;color:#687284;">Súvisiaca zákazka: <a href="${businessJobUrl}" style="color:#185FA5;">otvoriť v admine</a></div>` : ''}
           <div style="margin-top:10px;font-size:11px;color:#687284;">alebo prejdi na: ${escapeHtml(siteUrl())}/admin/</div>
         </td></tr>
         <tr><td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 28px;text-align:center;color:#475569;font-size:11px;">ASTANA admin systém · likvidacia-eternitu.sk</td></tr>
@@ -261,36 +305,55 @@ function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
     `Poznámka: ${plainText(lead.note || '—')}`,
     `Fotky: ${fileCount}`,
     '',
-    `Admin: ${siteUrl()}/admin/zakazky/${businessJobId || lead.id}/`,
+    `Dopyt a prílohy: ${siteUrl()}/admin/dopyty/${encodeURIComponent(lead.id)}/`,
+    ...(businessJobId ? [`Súvisiaca zákazka: ${siteUrl()}/admin/zakazky/${encodeURIComponent(businessJobId)}/`] : []),
   ].join('\n');
 }
 
-async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobId?: string): Promise<LeadDeliveryResult> {
+async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobId?: string, recordRecipient?: LeadRecipientDeliveryRecorder): Promise<LeadDeliveryResult> {
   const client = transporter();
   if (!client) {
     return {
       sent: false,
       customerSent: false,
       adminSent: false,
+      customerStatus: 'failed',
+      adminStatus: 'failed',
       reason: 'SMTP nie je nastavené.',
     };
   }
-  const adminHtml = adminLeadEmailHtml(lead, businessJobId);
+  const adminHtml = adminLeadEmailHtml(lead, businessJobId, fileCount);
   const customerHtml = customerLeadEmailHtml(lead);
 
-  const customerDelivery = await client
+  const customerClaim = recordRecipient ? await recordRecipient.claim('customer') : undefined;
+  const customerDelivery = customerClaim === false
+    ? { sent: false as const, status: 'failed' as const, messageId: '', retryable: false, reason: 'Zákaznícky email už spracúva iný pokus.' }
+    : await client
     .sendMail({
       from: namedFromHeader('ASTANA likvidácia azbestu'),
       to: lead.email,
       replyTo: leadRecipient(),
-      subject: '✅ Prijali sme váš dopyt | likvidacia-eternitu.sk',
+      subject: customerLeadEmailSubject,
       text: customerLeadEmailText(lead),
       html: customerHtml,
     })
-    .then(() => ({ sent: true as const }))
-    .catch((error) => ({ sent: false as const, reason: mailErrorMessage(error) }));
+    .then((info) => {
+      const status = classifySmtpAcceptance(info);
+      return { sent: status === 'sent', status, messageId: info.messageId || '', retryable: status === 'failed' && isRetryableSmtpFailure(info), reason: status === 'sent' ? undefined : status === 'failed' ? 'SMTP odmietol zákazníckeho adresáta.' : 'SMTP prijal iba časť adresátov alebo nepotvrdil žiadneho.' };
+    })
+    .catch((error) => ({ sent: false as const, status: classifySmtpError(error), messageId: '', retryable: isRetryableSmtpFailure(error), reason: mailErrorMessage(error) }));
 
-  const adminDelivery = await client
+  if (recordRecipient && customerClaim) await recordRecipient.record('customer', {
+    status: customerDelivery.status,
+    messageId: customerDelivery.messageId,
+    retryable: customerDelivery.retryable,
+    reason: 'reason' in customerDelivery ? customerDelivery.reason : undefined,
+  }, customerClaim);
+
+  const adminClaim = recordRecipient ? await recordRecipient.claim('internal') : undefined;
+  const adminDelivery = adminClaim === false
+    ? { sent: false as const, status: 'failed' as const, messageId: '', retryable: false, reason: 'Interný email už spracúva iný pokus.' }
+    : await client
     .sendMail({
       from: namedFromHeader('ASTANA systém'),
       to: leadRecipient(),
@@ -299,8 +362,18 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
       text: adminLeadEmailText(lead, businessJobId, fileCount),
       html: adminHtml,
     })
-    .then(() => ({ sent: true as const }))
-    .catch((error) => ({ sent: false as const, reason: mailErrorMessage(error) }));
+    .then((info) => {
+      const status = classifySmtpAcceptance(info);
+      return { sent: status === 'sent', status, messageId: info.messageId || '', retryable: status === 'failed' && isRetryableSmtpFailure(info), reason: status === 'sent' ? undefined : status === 'failed' ? 'SMTP odmietol interného adresáta.' : 'SMTP prijal iba časť adresátov alebo nepotvrdil žiadneho.' };
+    })
+    .catch((error) => ({ sent: false as const, status: classifySmtpError(error), messageId: '', retryable: isRetryableSmtpFailure(error), reason: mailErrorMessage(error) }));
+
+  if (recordRecipient && adminClaim) await recordRecipient.record('internal', {
+    status: adminDelivery.status,
+    messageId: adminDelivery.messageId,
+    retryable: adminDelivery.retryable,
+    reason: 'reason' in adminDelivery ? adminDelivery.reason : undefined,
+  }, adminClaim);
 
   const reasons = [
     customerDelivery.sent ? '' : `Potvrdenie zákazníkovi: ${customerDelivery.reason}`,
@@ -311,6 +384,12 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
     sent: customerDelivery.sent && adminDelivery.sent,
     customerSent: customerDelivery.sent,
     adminSent: adminDelivery.sent,
+    customerStatus: customerDelivery.status,
+    adminStatus: adminDelivery.status,
+    customerMessageId: customerDelivery.messageId,
+    adminMessageId: adminDelivery.messageId,
+    customerReason: 'reason' in customerDelivery ? customerDelivery.reason : '',
+    adminReason: 'reason' in adminDelivery ? adminDelivery.reason : '',
     reason: reasons.join(' | ') || undefined,
   };
 }
@@ -319,28 +398,124 @@ export async function sendCareerApplicationEmails(application: CareerApplication
   return sendCareerApplicationThroughAstanaLocalRelay(application);
 }
 
-export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobId?: string): Promise<LeadDeliveryResult> {
+export function canManuallyRetryLeadEmail() {
+  if (!process.env.SMTP_HOST?.trim() || !process.env.LEAD_TO_EMAIL?.trim()
+    || !fromEmail().trim() || /[;,]/.test(leadRecipient())) return false;
+  try {
+    assertAstanaSender();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function sendCareerApplicationNotificationBatch(application: CareerApplication) {
+  const result = await sendCareerApplicationThroughAstanaLocalRelay(application);
+  const toRecipient = (status: 'sent' | 'failed' | 'unknown' | undefined, messageId?: string, reason?: string) => ({
+    status: status || 'unknown',
+    retryable: status === 'failed',
+    messageId,
+    reason: reason || (status === 'sent' ? undefined : result.reason || 'Relay nepotvrdil výsledok; automatické opakovanie je vypnuté.'),
+  } as const);
+  return {
+    applicant: toRecipient(result.customerStatus, result.customerMessageId, result.customerReason),
+    internal: toRecipient(result.adminStatus, result.adminMessageId, result.adminReason),
+  };
+}
+
+export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobId?: string, recordRecipient?: LeadRecipientDeliveryRecorder): Promise<LeadDeliveryResult> {
   const mode = leadDeliveryMode();
+  if (!hasLeadEmailTransportConfiguration(mode)) {
+    return { sent: false, customerSent: false, adminSent: false, reason: 'Odosielanie dopytových e-mailov nie je nastavené.' };
+  }
   if (mode === 'local_relay') {
-    return sendLeadThroughAstanaLocalRelay(lead, fileCount, businessJobId);
+    const relayClaim = recordRecipient ? await recordRecipient.claim() : undefined;
+    if (recordRecipient && !relayClaim) {
+      return { sent: false, customerSent: false, adminSent: false, reason: 'Obaja adresáti nemajú aktívne rezervované pokusy; relay sa preto nespustil.' };
+    }
+    const result = await sendLeadThroughAstanaLocalRelay(lead, fileCount, businessJobId);
+    if (recordRecipient) {
+      await recordRecipient.record('customer', { status: result.customerStatus || (result.customerSent ? 'sent' : 'unknown'), messageId: result.customerMessageId, reason: result.customerReason || result.reason }, relayClaim as string);
+      await recordRecipient.record('internal', { status: result.adminStatus || (result.adminSent ? 'sent' : 'unknown'), messageId: result.adminMessageId, reason: result.adminReason || result.reason }, relayClaim as string);
+    }
+    return result;
   }
 
-  const smtpResult = await sendLeadEmailsViaSmtp(lead, fileCount, businessJobId);
-  if (mode !== 'smtp_then_local_relay' || smtpResult.sent) return smtpResult;
+  const smtpResult = await sendLeadEmailsViaSmtp(lead, fileCount, businessJobId, recordRecipient);
+  if (!canSafelyFallbackToLocalRelay(mode, smtpResult)) return smtpResult;
 
-  // The legacy local sender always delivers the customer and the office together.
-  // Do not risk a duplicate customer email if SMTP has already delivered either side.
-  if (smtpResult.customerSent || smtpResult.adminSent) return smtpResult;
-
+  const relayClaim = recordRecipient ? await recordRecipient.claim() : undefined;
+  if (recordRecipient && !relayClaim) {
+    return { sent: false, customerSent: false, adminSent: false, reason: 'Obaja adresáti nemajú aktívne rezervované pokusy; relay sa preto nespustil.' };
+  }
   const relayResult = await sendLeadThroughAstanaLocalRelay(lead, fileCount, businessJobId);
+  if (recordRecipient) {
+    await recordRecipient.record('customer', { status: relayResult.customerStatus || (relayResult.customerSent ? 'sent' : 'unknown'), messageId: relayResult.customerMessageId, reason: relayResult.customerReason || relayResult.reason }, relayClaim as string);
+    await recordRecipient.record('internal', { status: relayResult.adminStatus || (relayResult.adminSent ? 'sent' : 'unknown'), messageId: relayResult.adminMessageId, reason: relayResult.adminReason || relayResult.reason }, relayClaim as string);
+  }
   if (relayResult.sent) return relayResult;
 
   return {
     sent: false,
-    customerSent: false,
-    adminSent: false,
+    customerSent: relayResult.customerSent,
+    adminSent: relayResult.adminSent,
+    customerStatus: relayResult.customerStatus,
+    adminStatus: relayResult.adminStatus,
+    customerMessageId: relayResult.customerMessageId,
+    adminMessageId: relayResult.adminMessageId,
+    customerReason: relayResult.customerReason,
+    adminReason: relayResult.adminReason,
     reason: `SMTP: ${smtpResult.reason || 'nepotvrdilo doručenie'} | Záložný relay: ${relayResult.reason || 'nepotvrdil doručenie'}`,
   };
+}
+
+export async function sendLeadEmailToRecipient(
+  lead: Lead,
+  recipientRole: 'customer' | 'internal',
+  fileCount: number,
+  businessJobId?: string,
+): Promise<{ status: 'sent' | 'failed' | 'unknown'; messageId?: string; reason?: string; retryable?: boolean }> {
+  let client: ReturnType<typeof transporter>;
+  try {
+    client = transporter();
+  } catch (error) {
+    return { status: 'failed', reason: mailErrorMessage(error) };
+  }
+  if (!client) return { status: 'failed', reason: 'SMTP nie je nastavené.' };
+
+  const isCustomer = recipientRole === 'customer';
+  try {
+    const info = await client.sendMail(isCustomer
+      ? {
+          from: namedFromHeader('ASTANA likvidácia azbestu'),
+          to: lead.email,
+          replyTo: leadRecipient(),
+          subject: customerLeadEmailSubject,
+          text: customerLeadEmailText(lead),
+          html: customerLeadEmailHtml(lead),
+        }
+      : {
+          from: namedFromHeader('ASTANA systém'),
+          to: leadRecipient(),
+          replyTo: leadRecipient(),
+          subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
+          text: adminLeadEmailText(lead, businessJobId, fileCount),
+          html: adminLeadEmailHtml(lead, businessJobId, fileCount),
+        });
+    const status = classifySmtpAcceptance(info);
+    return {
+      status,
+      messageId: info.messageId || '',
+      retryable: status === 'failed' && isRetryableSmtpFailure(info),
+      reason: status === 'sent' ? undefined : status === 'failed' ? 'SMTP odmietol zvoleného adresáta.' : 'SMTP prijal iba časť adresátov alebo nepotvrdil žiadneho.',
+    };
+  } catch (error) {
+    return {
+      status: classifySmtpError(error),
+      retryable: isRetryableSmtpFailure(error),
+      reason: mailErrorMessage(error),
+    };
+  }
 }
 
 export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUntil: string; pricePerM2: number; totalPrice: number; note?: string }) {
@@ -431,14 +606,15 @@ function calcRow(label: string, value: string, bold = false) {
     </tr>`;
 }
 
-function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
+export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   const material = priceOfferMaterialLabel(offer);
+  const vatRate = resolvePriceOfferVatRate(offer, settings.vatRate);
+  const pricing = calculatePriceOfferPricing(offer, vatRate);
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   const validUntil = dateSk(offer.validUntil);
   const confirmSubject = encodeURIComponent(`Potvrdenie objednávky č. ${offer.number}`);
   const included = [
-    'Dokumentácia pre RÚVZ a OÚ ŽP',
-    'Správne poplatky na úradoch',
+    ...(offer.includeDocumentation ? ['Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Správne poplatky na úradoch'] : []),
     'Vytvorenie ochranného pásma',
     'Stabilizácia materiálu penetračným postrekom',
     'Odborná demontáž vyškoleným personálom',
@@ -457,7 +633,8 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
         <tr><td style="background:#FFFFFF;border-bottom:3px solid #263451;padding:24px 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
-              <div style="color:#263451;font-size:26px;font-weight:800;letter-spacing:-0.5px;">ASTANA</div>
+          <img src="https://likvidacia-eternitu.sk/assets/astana-logo-dark.png" width="160" alt="ASTANA, s.r.o." style="display:block;width:160px;max-width:100%;height:auto;border:0;" />
+          <div style="margin-top:4px;color:#64748B;font-size:11px;font-weight:700;">ASTANA, s.r.o.</div>
               <div style="margin-top:6px;color:#94A3B8;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;">likvidácia azbestu a eternitu</div>
             </td>
             <td align="right" style="vertical-align:middle;">
@@ -474,7 +651,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
             </td>
             <td align="right" style="vertical-align:middle;">
               <div style="color:#FFF2C4;font-size:26px;font-weight:700;">${euro(offer.totalWithVat)}</div>
-              <div style="color:#FFF7E6;font-size:11px;">vrátane DPH ${settings.vatRate}%</div>
+              <div style="color:#FFF7E6;font-size:11px;">vrátane DPH ${vatRate}%</div>
             </td>
           </tr></table>
         </td></tr>
@@ -485,7 +662,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
         </td></tr>
         <tr><td style="background:#ffffff;padding:24px 32px;">
           <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#1E293B;">Dobrý deň p./pani ${escapeHtml(surname(offer.contactPerson))},</p>
-          <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.7;">na základe Vašej požiadavky sme pripravili cenovú ponuku na ekologickú likvidáciu azbestovej krytiny.<br><br>Naša cena je kompletná — zahŕňa dokumentáciu pre RÚVZ a OÚ, demontáž, balenie, odvoz aj všetky správne poplatky. Vy sa o nič nemusíte starať.</p>
+          <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.7;">Na základe Vašej požiadavky Vám posielame cenovú ponuku na materiál ${escapeHtml(material)} na objekte typu ${escapeHtml(offer.objectType)}.</p>
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;background:#FAFAFA;border:1px solid #D7DDEA;border-left:3px solid #263451;border-radius:6px;">
             <tr><td style="padding:16px 20px;">
@@ -495,7 +672,8 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
                 ${tableRow('🏠 Typ objektu', escapeHtml(offer.objectType))}
                 ${tableRow('📐 Výmera', `${escapeHtml(offer.areaM2)} m2`)}
                 ${tableRow('🏗 Materiál', escapeHtml(material))}
-                ${tableRow('📋 Dokumentácia', offer.includeDocumentation ? 'Áno — RÚVZ a OÚ ŽP' : 'Nie')}
+                ${tableRow('📋 Dokumentácia', offer.includeDocumentation ? offer.documentationPromotion ? 'AKCIA — 0,00 €' : 'Oznámenie prác RÚVZ a súvisiace podklady' : 'Nezahrnutá')}
+                ${offer.includeTransport ? tableRow('🚚 Doprava', `${escapeHtml(offer.transportFrom)} → ${escapeHtml(offer.transportTo)} · ${escapeHtml(offer.transportRoundTripKm)} km tam aj späť`) : ''}
                 ${tableRow('📅 Termín', escapeHtml(offer.realizationTerm || 'dohodou'))}
               </table>
             </td></tr>
@@ -505,10 +683,11 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
             <tr><td style="padding:16px 20px;">
               <div style="margin-bottom:12px;color:#94A3B8;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;">Cenová kalkulácia</div>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                ${calcRow(`Materiál (${offer.areaM2} m2 × ${euro(offer.pricePerM2WithoutVat)}/m2)`, `${euro(offer.materialPriceWithoutVat)} bez DPH`)}
-                ${offer.includeDocumentation ? calcRow('Dokumentácia RÚVZ + OÚ', `${euro(offer.documentationFeeWithoutVat)} bez DPH`) : ''}
+                ${calcRow(`Materiál (${offer.areaM2} m2 × ${euro(offer.pricePerM2WithoutVat)}/m2)`, `${euro(pricing.materialPriceWithoutVat)} bez DPH`)}
+                ${offer.includeDocumentation ? calcRow(offer.documentationPromotion ? 'Dokumentácia — AKCIA' : 'Oznámenie prác RÚVZ a súvisiace podklady', `${euro(pricing.documentationWithoutVat)} bez DPH`) : ''}
+                ${offer.includeTransport ? calcRow(`Doprava (${offer.transportRoundTripKm} km × ${euro(offer.transportPricePerKm)}/km)`, `${euro(pricing.transportWithoutVat)} bez DPH`) : ''}
                 ${calcRow('Celkom bez DPH', euro(offer.totalWithoutVat), true)}
-                ${calcRow(`DPH ${settings.vatRate}%`, euro(Math.round((offer.totalWithVat - offer.totalWithoutVat) * 100) / 100))}
+                ${calcRow(`DPH ${vatRate}%`, euro(Math.round((offer.totalWithVat - offer.totalWithoutVat) * 100) / 100))}
               </table>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;background:#263451;border-radius:6px;"><tr>
                 <td style="padding:10px 16px;color:#ffffff;font-size:14px;font-weight:700;">CELKOM S DPH:</td>
@@ -528,7 +707,7 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:20px;text-align:center;"><tr>
             ${[
               ['1', 'Potvrďte záujem', 'Odpovedzte na tento email alebo zavolajte'],
-              ['2', 'Dohodneme termín', 'Minimálne 30 dní vopred kvôli úradným lehotám'],
+              ['2', 'Dohodneme termín', 'Plánované práce vopred písomne oznámime príslušnému RÚVZ'],
               ['3', 'Realizujeme', 'Prídeme, demontujeme, odvezieme a odovzdáme doklady'],
             ].map(([num, title, text]) => `<td width="33.33%" style="padding:14px 10px;vertical-align:top;"><div style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#263451;color:#ffffff;font-weight:700;line-height:32px;">${num}</div><div style="margin-top:10px;color:#1E293B;font-size:13px;font-weight:700;">${title}</div><div style="margin-top:5px;color:#64748B;font-size:12px;line-height:1.5;">${text}</div></td>`).join('')}
           </tr></table>
@@ -538,7 +717,16 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
             <div style="margin-top:10px;color:#687284;font-size:13px;">alebo zavolajte: 0905 217 946</div>
           </div>
 
-          <div style="margin-bottom:20px;background:#FFFBEB;border-left:3px solid #D4B56A;border-radius:6px;padding:14px 18px;color:#92400E;font-size:13px;line-height:1.6;">⚠ Pre začatie prác je potrebné potvrdiť objednávku min. 30 dní vopred. RÚVZ a OÚ majú zákonnú mesačnú lehotu na vydanie rozhodnutia.</div>
+          <div style="margin-bottom:20px;background:#FFFBEB;border-left:3px solid #D4B56A;border-radius:6px;padding:14px 18px;color:#92400E;font-size:13px;line-height:1.6;">Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom. Potrebné doklady Vám odovzdáme po dokončení zákazky.</div>
+          <div style="margin:0 0 20px;color:#475569;font-size:13px;line-height:1.65;">
+            <strong style="color:#263451;">Po ukončení prác vám odovzdáme:</strong>
+            <ul style="margin:8px 0 0;padding-left:22px;">
+              <li>kópiu rozhodnutia príslušného orgánu životného prostredia,</li>
+              <li>sprievodný list nebezpečného odpadu s potvrdením skládky,</li>
+              <li>kópiu vážneho lístka,</li>
+              <li>potvrdenie o zneškodnení azbestu firmou ASTANA, s.r.o.</li>
+            </ul>
+          </div>
         </td></tr>
         <tr><td style="border-top:1px solid #E2E8F0;padding:20px 32px;">
           <div style="font-size:14px;color:#374151;">S pozdravom a prianím pekného dňa</div>
@@ -558,13 +746,13 @@ function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   </table>`;
 }
 
-function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings) {
+export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings) {
   const material = priceOfferMaterialLabel(offer);
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   return [
     `Dobrý deň p. ${surname(offer.contactPerson)},`,
     '',
-    `v prílohe posielame cenovú ponuku č. ${offer.number} na ekologickú likvidáciu azbestovej krytiny.`,
+    `v prílohe posielame cenovú ponuku č. ${offer.number} na materiál ${material} na objekte typu ${offer.objectType}.`,
     '',
     `Lokalita: ${location}`,
     `Typ objektu: ${offer.objectType}`,
@@ -573,7 +761,14 @@ function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings) {
     `Celkom s DPH: ${euro(offer.totalWithVat)}`,
     `Platná do: ${dateSk(offer.validUntil)}`,
     '',
-    'Naša cena je kompletná: dokumentácia, demontáž, balenie, odvoz aj správne poplatky.',
+    ...(offer.includeTransport ? [`Doprava: ${offer.transportFrom} – ${offer.transportTo}; ${offer.transportRoundTripKm} km tam aj späť × ${euro(offer.transportPricePerKm)}/km.`] : []),
+    ...(offer.includeDocumentation ? [offer.documentationPromotion ? 'Dokumentácia: akcia 0,00 €.' : `Dokumentácia a súvisiace podklady: ${euro(offer.documentationFeeWithoutVat)} bez DPH.`] : []),
+    'Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom.',
+    'Po ukončení prác vám odovzdáme:',
+    '- kópiu rozhodnutia príslušného orgánu životného prostredia,',
+    '- sprievodný list nebezpečného odpadu s potvrdením skládky,',
+    '- kópiu vážneho lístka,',
+    '- potvrdenie o zneškodnení azbestu firmou ASTANA, s.r.o.',
     '',
     `Pre potvrdenie odpovedzte na tento email alebo volajte 0905 217 946. Vyhotovil: ${settings.preparedByName}, tel.: ${settings.preparedByPhone}.`,
     '',
@@ -584,8 +779,8 @@ function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings) {
 
 export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: PriceOfferSettings, pdf: Buffer) {
   const client = transporter();
-  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
-  if (!offer.email) return { sent: false, reason: 'Ponuka nemá email zákazníka.' };
+  if (!client) return { status: 'not_sent' as const, reason: 'SMTP nie je nastavené.' };
+  if (!offer.email) return { status: 'not_sent' as const, reason: 'Ponuka nemá email zákazníka.' };
   const c = settings.company;
   const location = offer.municipality || offer.objectAddress || offer.district;
 
@@ -601,10 +796,10 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
       attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],
     });
   } catch (error) {
-    return { sent: false, reason: mailErrorMessage(error) };
+    return { status: 'unknown' as const, reason: mailErrorMessage(error) };
   }
 
-  return { sent: true };
+  return { status: 'sent' as const };
 }
 
 export type RooferRegistrationEmail = {
@@ -724,10 +919,20 @@ function rooferRegistrationConfirmationEmailHtml(input: RooferRegistrationEmail)
   </table>`;
 }
 
-export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail) {
-  const client = transporter();
-  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
+export async function sendRooferRegistrationNotification(
+  input: RooferRegistrationEmail,
+  recipientRole: ApplicationNotificationRecipient,
+) {
+  let client: ReturnType<typeof transporter>;
+  try {
+    client = transporter({ applicationNotification: true });
+  } catch (error) {
+    return { status: 'failed' as const, retryable: true, reason: mailErrorMessage(error) };
+  }
+  if (!client) return { status: 'failed' as const, retryable: true, reason: 'SMTP nie je nastavené.' };
 
+  try {
+    if (recipientRole === 'internal') {
   const adminText = [
     'Prišla nová registrácia strechára z webu likvidacia-eternitu.sk.',
     '',
@@ -751,16 +956,19 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
     `Poznámka: ${input.note || 'bez poznámky'}`,
   ].join('\n');
 
-  await client.sendMail({
+      const info = await client.sendMail({
     from: namedFromHeader('ASTANA systém'),
     to: leadRecipient(),
     replyTo: input.email,
     subject: `[STRECHÁR] Nová registrácia — ${input.companyName}`,
     text: adminText,
     html: rooferRegistrationEmailHtml(input),
-  });
+      });
+      const status = classifySmtpAcceptance(info);
+      return { status, retryable: status === 'failed' && isRetryableSmtpFailure(info), messageId: info.messageId || '', reason: status === 'failed' ? 'SMTP odmietol interného adresáta.' : status === 'unknown' ? 'SMTP nepotvrdilo prijatie interným adresátom.' : undefined };
+    }
 
-  await client.sendMail({
+    const info = await client.sendMail({
     from: namedFromHeader('ASTANA likvidácia azbestu'),
     to: input.email,
     replyTo: leadRecipient(),
@@ -775,7 +983,11 @@ export async function sendRooferRegistrationEmail(input: RooferRegistrationEmail
       'astana@astana.sk',
     ].join('\n'),
     html: rooferRegistrationConfirmationEmailHtml(input),
-  });
-
-  return { sent: true };
+    });
+    const status = classifySmtpAcceptance(info);
+    return { status, retryable: status === 'failed' && isRetryableSmtpFailure(info), messageId: info.messageId || '', reason: status === 'failed' ? 'SMTP odmietlo adresáta registrácie.' : status === 'unknown' ? 'SMTP nepotvrdilo prijatie adresátom registrácie.' : undefined };
+  } catch (error) {
+    const status = classifySmtpError(error);
+    return { status, retryable: status === 'failed' && isRetryableSmtpFailure(error), reason: mailErrorMessage(error) };
+  }
 }

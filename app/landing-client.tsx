@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { getAnalyticsSessionId, getLeadAttribution, preserveCampaignAttributionOnInternalLink, trackAnalyticsEvent } from '@/src/lib/analytics-client';
+import { publishAcceptedLeadResponse } from '@/src/lib/ad-conversion-tracking.mjs';
 
 export default function LandingClient() {
   useEffect(() => {
@@ -19,6 +21,7 @@ export default function LandingClient() {
     const testimonialStatus = document.querySelector<HTMLElement>('.testimonial-form-status');
     const rooferRegistrationStatus = document.querySelector<HTMLElement>('.roofer-registration-status');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
+    const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     const quoteSection = document.getElementById('dopyt');
     const galleryCards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
     const galleryFilters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
@@ -36,72 +39,34 @@ export default function LandingClient() {
     const lightboxPrev = document.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
     const lightboxNext = document.querySelector<HTMLButtonElement>('[data-lightbox-next]');
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
-    const priceArea = document.querySelector<HTMLInputElement>('[data-price-area]');
-    const priceAreaOutput = document.querySelector<HTMLOutputElement>('[data-price-area-output]');
-    const priceMin = document.querySelector<HTMLElement>('[data-price-min]');
-    const priceMax = document.querySelector<HTMLElement>('[data-price-max]');
-    const priceMaterialButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-price-material]'));
     let selectedFiles: File[] = [];
+    let disposed = false;
+    let cleanupPriceCalculators: (() => void) | undefined;
+    let leadSnapshotModulePromise: Promise<typeof import('@/src/lib/lead-form-snapshot')> | undefined;
+    const loadLeadSnapshotModule = () => {
+      if (!leadSnapshotModulePromise) {
+        leadSnapshotModulePromise = import('@/src/lib/lead-form-snapshot').catch((error: unknown) => {
+          leadSnapshotModulePromise = undefined;
+          throw error;
+        });
+      }
+      return leadSnapshotModulePromise;
+    };
     let activeGallery = galleryCards.slice(0, 12);
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
     let activeGalleryIndex = 0;
-    let activePriceMaterial = 'vlnity';
+    let galleryTrigger: HTMLButtonElement | null = null;
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
     let rooferRegistrationSubmitting = false;
+    let rooferRegistrationMayHaveSaved = false;
+    let lastLeadSnapshot = '';
+    let lastLeadSubmissionId = '';
+    let leadSnapshotInProgress = false;
 
-    const analyticsSessionId = (() => {
-      const key = 'astana_analytics_session';
-      try {
-        const existing = window.localStorage.getItem(key);
-        if (existing) return existing;
-        const created = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        window.localStorage.setItem(key, created);
-        return created;
-      } catch {
-        return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      }
-    })();
-
-    const analyticsDevice = () => {
-      if (window.innerWidth < 768) return 'mobile';
-      if (window.innerWidth < 1024) return 'tablet';
-      return 'desktop';
-    };
-
-    const analyticsParams = () => {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        utmSource: params.get('utm_source') || '',
-        utmMedium: params.get('utm_medium') || '',
-        utmCampaign: params.get('utm_campaign') || '',
-      };
-    };
-
-    const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
-      const payload = JSON.stringify({
-        sessionId: analyticsSessionId,
-        eventType,
-        path: `${window.location.pathname}${window.location.hash || ''}`,
-        referrer: document.referrer || '',
-        device: analyticsDevice(),
-        viewportWidth: window.innerWidth,
-        ...analyticsParams(),
-        metadata,
-      });
-      if (navigator.sendBeacon) {
-        const sent = navigator.sendBeacon('/api/analytics/', new Blob([payload], { type: 'application/json' }));
-        if (sent) return;
-      }
-      void fetch('/api/analytics/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: payload,
-        keepalive: true,
-      }).catch(() => undefined);
-    };
+    const trackAnalytics = trackAnalyticsEvent;
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -116,42 +81,27 @@ export default function LandingClient() {
       nav.classList.remove('is-open');
     };
 
-    const priceRates: Record<string, { min: number; max: number }> = {
-      vlnity: { min: 8, max: 14 },
-      plocha: { min: 9, max: 15 },
-      boleticky: { min: 11, max: 18 },
-      neviem: { min: 8, max: 16 },
-    };
-
-    const formatPrice = (value: number) =>
-      `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(Math.round(value / 10) * 10)} €`;
-
-    const updatePriceCalculator = () => {
-      if (!priceArea || !priceAreaOutput || !priceMin || !priceMax) return;
-      const area = Number(priceArea.value || 120);
-      const rates = priceRates[activePriceMaterial] || priceRates.vlnity;
-      priceAreaOutput.textContent = `${area} m2`;
-      priceMin.textContent = formatPrice(area * rates.min);
-      priceMax.textContent = formatPrice(area * rates.max);
-    };
-
-    const onPriceMaterialClick = (event: Event) => {
-      const button = event.currentTarget as HTMLButtonElement;
-      activePriceMaterial = button.dataset.priceMaterial || 'vlnity';
-      priceMaterialButtons.forEach((item) => {
-        const active = item === button;
-        item.classList.toggle('is-active', active);
-        item.setAttribute('aria-pressed', String(active));
-      });
-      updatePriceCalculator();
-      trackAnalytics('price_calculator_change', { material: activePriceMaterial, area: priceArea?.value || '' });
-    };
 
     const updateFileInput = () => {
       if (!fileInput) return;
       const transfer = new DataTransfer();
       selectedFiles.slice(0, 10).forEach((file) => transfer.items.add(file));
       fileInput.files = transfer.files;
+    };
+
+    const ensureLeadSubmissionId = () => {
+      if (!form) return null;
+      let input = form.querySelector<HTMLInputElement>('input[name="submissionId"]');
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'submissionId';
+        form.append(input);
+      }
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.value)) {
+        input.value = window.crypto?.randomUUID?.() || '';
+      }
+      return input;
     };
 
     const trackRooferEvent = (rooferId: string, eventType: 'card_viewed' | 'contact_revealed' | 'quote_selected', region?: string) => {
@@ -267,7 +217,7 @@ export default function LandingClient() {
       form.classList.toggle('is-submitting', submitting);
       Array.from(form.elements).forEach((element) => {
         const control = element as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement;
-        control.disabled = submitting;
+        control.disabled = submitting || control.hasAttribute('data-submit-disabled');
       });
       if (button) {
         button.disabled = submitting;
@@ -331,74 +281,86 @@ export default function LandingClient() {
     };
 
     const submitLeadForm = async (payload: FormData) => {
-      const endpoints = ['/api/dopyt/'];
-      let lastError: Error | null = null;
-
-      for (const endpoint of endpoints) {
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 4000);
-        try {
-          const response = await fetch(endpoint, {
-            method: 'POST',
-            body: payload,
-            headers: { Accept: 'application/json' },
-            cache: 'no-store',
-            signal: controller.signal,
-          });
-          const contentType = response.headers.get('content-type') || '';
-          const result = contentType.includes('application/json')
-            ? ((await response.json()) as { ok?: boolean; message?: string })
-            : { ok: false, message: (await response.text()).trim().slice(0, 180) };
-          if (!response.ok || !result.ok) {
-            throw new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-          }
-          return result;
-        } catch (error) {
-          lastError = error instanceof Error ? error : new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
-        } finally {
-          window.clearTimeout(timeoutId);
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
+      try {
+        const response = await fetch('/api/dopyt/', {
+          method: 'POST',
+          body: payload,
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const contentType = response.headers.get('content-type') || '';
+        const result = contentType.includes('application/json')
+          ? ((await response.json()) as { ok?: boolean; message?: string; metaLead?: { eventId: string; material: 'vlnity' | 'plocha' | 'iny' | 'neviem' } })
+          : { ok: false, message: (await response.text()).trim().slice(0, 180) };
+        if (!response.ok || !result.ok) {
+          throw new Error(result.message || 'Dopyt sa nepodarilo odoslať. Skúste znova alebo zavolajte 0905 217 946.');
         }
+        return result;
+      } finally {
+        window.clearTimeout(timeoutId);
       }
-
-      throw lastError || new Error('Dopyt sa nepodarilo odoslať. Skúste obnoviť stránku alebo zavolajte 0905 217 946.');
     };
 
     const onSubmit = async (event: SubmitEvent) => {
       if (!form) return;
+      if (form.classList.contains('is-submitting') || leadSnapshotInProgress) {
+        event.preventDefault();
+        return;
+      }
       if (!form.checkValidity()) {
         event.preventDefault();
         form.reportValidity();
         return;
       }
-      if (/OPR\//i.test(navigator.userAgent)) {
-        form.dataset.nativeSubmit = 'true';
-        HTMLFormElement.prototype.submit.call(form);
-        return;
-      }
       event.preventDefault();
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+      const submissionIdInput = ensureLeadSubmissionId();
+      if (!submissionIdInput?.value) {
+        setStatus('Bezpečné odoslanie nie je v tomto prehliadači dostupné. Obnovte stránku alebo zavolajte 0905 217 946.', 'error');
+        return;
+      }
       const payload = new FormData(form);
+      payload.set('leadAttribution', JSON.stringify(getLeadAttribution()));
+      const analyticsSessionId = getAnalyticsSessionId();
+      if (analyticsSessionId) payload.set('analyticsSessionId', analyticsSessionId);
       const submittedEmail = String(payload.get('email') || '').trim();
       if (button && !button.dataset.defaultLabel) button.dataset.defaultLabel = button.innerHTML;
       setFormSubmitting(true, button);
 
       try {
+        leadSnapshotInProgress = true;
+        const { createLeadFormSnapshot } = await loadLeadSnapshotModule();
+        const snapshot = await createLeadFormSnapshot(payload, selectedFiles);
+        let submissionId = submissionIdInput.value;
+        if (lastLeadSnapshot && snapshot !== lastLeadSnapshot && submissionId === lastLeadSubmissionId) {
+          submissionId = window.crypto?.randomUUID?.() || '';
+          if (!submissionId) throw new Error('Bezpečné odoslanie nie je v tomto prehliadači dostupné. Obnovte stránku alebo zavolajte 0905 217 946.');
+          submissionIdInput.value = submissionId;
+          payload.set('submissionId', submissionId);
+        }
+        lastLeadSnapshot = snapshot;
+        lastLeadSubmissionId = submissionId;
         const result = await submitLeadForm(payload);
+        if (result.metaLead) publishAcceptedLeadResponse(result);
         form.reset();
         selectedFiles = [];
         updateFileInput();
         if (preview) preview.innerHTML = '';
-        trackAnalytics('form_submit_success', { form: 'lead' });
+        lastLeadSnapshot = '';
+        lastLeadSubmissionId = '';
+        submissionIdInput.value = window.crypto?.randomUUID?.() || '';
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa v\u00e1m s \u010fal\u0161\u00edm postupom.', 'success', 'submit', submittedEmail);
       } catch (error) {
-        // Keep native POST available for Opera privacy/VPN filters that block fetch.
         setFormSubmitting(false, button);
-        form.dataset.nativeSubmit = 'true';
-        HTMLFormElement.prototype.submit.call(form);
-        return;
+        const serverMessage = error instanceof Error ? error.message : 'Nepodarilo sa overiť výsledok odoslania.';
+        setStatus(`${serverMessage} Údaje zostali vo formulári. Pri opakovaní bez úprav systém použije rovnaké ID dopytu, aby nevznikla duplicita. Ak problém trvá, zavolajte 0905 217 946.`, 'error');
       } finally {
+        leadSnapshotInProgress = false;
         if (form.classList.contains('is-submitted')) {
           button?.setAttribute('disabled', 'true');
         }
@@ -458,6 +420,17 @@ export default function LandingClient() {
       }
     };
 
+    const setRooferRegistrationId = () => {
+      const input = rooferRegistrationForm?.querySelector<HTMLInputElement>('input[name="submissionId"]');
+      if (input) input.value = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    };
+
+    const onRooferRegistrationEdit = () => {
+      if (!rooferRegistrationMayHaveSaved || rooferRegistrationSubmitting) return;
+      setRooferRegistrationId();
+      rooferRegistrationMayHaveSaved = false;
+    };
+
     const onRooferRegistrationSubmit = async (event: SubmitEvent) => {
       if (!rooferRegistrationForm) return;
       event.preventDefault();
@@ -494,19 +467,35 @@ export default function LandingClient() {
       }
       rooferRegistrationSubmitting = true;
       const button = rooferRegistrationForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+      const defaultButtonLabel = button?.textContent || '';
+      const payload = new FormData(rooferRegistrationForm);
+      const fields = Array.from(rooferRegistrationForm.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+        'input:not([type="hidden"]), select, textarea',
+      ));
+      const priorDisabledStates = fields.map((field) => field.disabled);
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 30_000);
+      rooferRegistrationMayHaveSaved = true;
+      rooferRegistrationForm.setAttribute('aria-busy', 'true');
+      fields.forEach((field) => { field.disabled = true; });
       button?.setAttribute('disabled', 'true');
+      if (button) button.textContent = 'Odosielame…';
 
       try {
         const response = await fetch(rooferRegistrationForm.action, {
           method: 'POST',
-          body: new FormData(rooferRegistrationForm),
+          body: payload,
           headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          signal: controller.signal,
         });
         const result = (await response.json()) as { ok?: boolean; message?: string };
         if (!response.ok || !result.ok) {
           throw new Error(result.message || 'Registráciu sa nepodarilo odoslať.');
         }
+        rooferRegistrationMayHaveSaved = false;
         rooferRegistrationForm.reset();
+        setRooferRegistrationId();
         if (rooferRegistrationStatus) {
           rooferRegistrationStatus.textContent =
             result.message || 'Ďakujeme! Registráciu sme prijali a najprv si ju interne skontrolujeme.';
@@ -515,12 +504,18 @@ export default function LandingClient() {
         trackAnalytics('roofer_registration_success', { form: 'roofer_registration' });
       } catch (error) {
         if (rooferRegistrationStatus) {
-          rooferRegistrationStatus.textContent = error instanceof Error ? error.message : 'Registráciu sa nepodarilo odoslať.';
+          rooferRegistrationStatus.textContent = error instanceof Error && error.name === 'AbortError'
+            ? 'Odpoveď servera neprišla do 30 sekúnd. Údaje zostali vo formulári. Bez úprav môžete skúsiť odoslanie znova bez založenia duplicitnej registrácie; ak údaje zmeníte, pôjde o novú registráciu.'
+            : error instanceof Error ? error.message : 'Registráciu sa nepodarilo odoslať.';
           rooferRegistrationStatus.classList.add('is-error');
         }
       } finally {
+        window.clearTimeout(timeoutId);
         rooferRegistrationSubmitting = false;
+        rooferRegistrationForm.removeAttribute('aria-busy');
+        fields.forEach((field, index) => { field.disabled = priorDisabledStates[index]; });
         button?.removeAttribute('disabled');
+        if (button) button.textContent = defaultButtonLabel;
       }
     };
 
@@ -532,6 +527,7 @@ export default function LandingClient() {
     const openGalleryLightbox = (card: HTMLButtonElement) => {
       if (!galleryLightbox || !lightboxImage || !lightboxCaption) return;
       refreshGalleryActiveItems();
+      galleryTrigger = card;
       activeGalleryIndex = Math.max(0, activeGallery.indexOf(card));
       const image = activeGallery[activeGalleryIndex];
       lightboxImage.src = image.dataset.galleryWebp || image.dataset.galleryJpg || '';
@@ -539,12 +535,15 @@ export default function LandingClient() {
       lightboxCaption.textContent = image.dataset.galleryTitle || '';
       galleryLightbox.hidden = false;
       document.body.classList.add('is-lightbox-open');
+      lightboxClose?.focus({ preventScroll: true });
     };
 
     const closeGalleryLightbox = () => {
       if (!galleryLightbox) return;
       galleryLightbox.hidden = true;
       document.body.classList.remove('is-lightbox-open');
+      if (galleryTrigger?.isConnected) galleryTrigger.focus({ preventScroll: true });
+      galleryTrigger = null;
     };
 
     const moveGalleryLightbox = (direction: 1 | -1) => {
@@ -562,7 +561,11 @@ export default function LandingClient() {
       const button = event.currentTarget as HTMLButtonElement;
       const category = button.dataset.galleryFilter || 'vsetko';
       let visibleMatches = 0;
-      galleryFilters.forEach((filter) => filter.classList.toggle('is-active', filter === button));
+      galleryFilters.forEach((filter) => {
+        const active = filter === button;
+        filter.classList.toggle('is-active', active);
+        filter.setAttribute('aria-pressed', String(active));
+      });
       galleryCards.forEach((card) => {
         const matches = category === 'vsetko' || card.dataset.galleryCategory === category;
         if (matches && visibleMatches < 12) {
@@ -613,6 +616,7 @@ export default function LandingClient() {
     };
 
     const onFormStart = () => {
+      void loadLeadSnapshotModule().catch(() => undefined);
       if (formStarted) return;
       formStarted = true;
       trackAnalytics('form_start', { form: 'lead' });
@@ -679,9 +683,22 @@ export default function LandingClient() {
 
     const onGalleryKeyDown = (event: KeyboardEvent) => {
       if (!galleryLightbox || galleryLightbox.hidden) return;
-      if (event.key === 'Escape') closeGalleryLightbox();
-      if (event.key === 'ArrowRight') moveGalleryLightbox(1);
-      if (event.key === 'ArrowLeft') moveGalleryLightbox(-1);
+      if (event.key === 'Tab') {
+        const controls = [lightboxClose, lightboxPrev, lightboxNext].filter((button): button is HTMLButtonElement => Boolean(button && !button.disabled));
+        if (!controls.length) return;
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if ((event.shiftKey && document.activeElement === first) || (!event.shiftKey && document.activeElement === last)) {
+          event.preventDefault();
+          (event.shiftKey ? last : first).focus();
+        } else if (!controls.includes(document.activeElement as HTMLButtonElement)) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+      if (event.key === 'Escape') { event.preventDefault(); closeGalleryLightbox(); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); moveGalleryLightbox(1); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); moveGalleryLightbox(-1); }
     };
 
     const onScroll = () => {
@@ -692,6 +709,9 @@ export default function LandingClient() {
         ? isMobile && !isQuoteSectionVisible && form.getBoundingClientRect().bottom < 120
         : isMobile && window.scrollY > 280;
       stickyCta.classList.toggle('is-visible', shouldShow);
+      stickyCta.inert = !shouldShow;
+      whatsappButton?.classList.toggle('is-hidden-by-sticky-cta', shouldShow);
+      if (whatsappButton) whatsappButton.inert = shouldShow;
     };
 
     menuToggle?.addEventListener('click', onMenuClick);
@@ -713,9 +733,12 @@ export default function LandingClient() {
     form?.addEventListener('focusin', onFormStart);
     form?.addEventListener('input', onFormStart);
     document.addEventListener('click', onAnalyticsClick);
+    document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     trackAnalytics('page_view');
     testimonialForm?.addEventListener('submit', onTestimonialSubmit);
     rooferRegistrationForm?.addEventListener('submit', onRooferRegistrationSubmit);
+    rooferRegistrationForm?.addEventListener('input', onRooferRegistrationEdit);
+    rooferRegistrationForm?.addEventListener('change', onRooferRegistrationEdit);
     const rooferRegionInputs = Array.from(document.querySelectorAll<HTMLInputElement>('input[name="serviceRegions[]"]'));
     const allRegionsInput = rooferRegionInputs.find((input) => input.dataset.allRegions !== undefined);
     const individualRegionInputs = rooferRegionInputs.filter((input) => input !== allRegionsInput);
@@ -758,11 +781,13 @@ export default function LandingClient() {
     });
     reviewsToggle?.setAttribute('aria-expanded', 'false');
     reviewsToggle?.addEventListener('click', onReviewsToggle);
-    priceArea?.addEventListener('input', updatePriceCalculator);
-    priceMaterialButtons.forEach((button, index) => {
-      button.setAttribute('aria-pressed', String(index === 0));
-      button.addEventListener('click', onPriceMaterialClick);
-    });
+    if (document.querySelector('[data-price-calculator], .price-calculator')) {
+      void import('@/src/lib/price-calculator').then(({ initializePriceCalculators }) => {
+        const cleanup = initializePriceCalculators(trackAnalytics);
+        if (disposed) cleanup();
+        else cleanupPriceCalculators = cleanup;
+      });
+    }
     let quoteSectionObserver: IntersectionObserver | null = null;
     if (quoteSection && stickyCta) {
       quoteSectionObserver = new IntersectionObserver(
@@ -778,7 +803,6 @@ export default function LandingClient() {
       );
       quoteSectionObserver.observe(quoteSection);
     }
-    updatePriceCalculator();
     galleryLoadMore?.addEventListener('click', onGalleryLoadMore);
     galleryCards.forEach((card) => card.addEventListener('click', () => openGalleryLightbox(card)));
     lightboxClose?.addEventListener('click', closeGalleryLightbox);
@@ -898,6 +922,8 @@ export default function LandingClient() {
     onScroll();
 
     return () => {
+      disposed = true;
+      cleanupPriceCalculators?.();
       menuToggle?.removeEventListener('click', onMenuClick);
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
       fileInput?.removeEventListener('change', onFilesChange);
@@ -905,17 +931,19 @@ export default function LandingClient() {
       form?.removeEventListener('focusin', onFormStart);
       form?.removeEventListener('input', onFormStart);
       document.removeEventListener('click', onAnalyticsClick);
+      document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       testimonialForm?.removeEventListener('submit', onTestimonialSubmit);
       rooferRegistrationForm?.removeEventListener('submit', onRooferRegistrationSubmit);
+      rooferRegistrationForm?.removeEventListener('input', onRooferRegistrationEdit);
+      rooferRegistrationForm?.removeEventListener('change', onRooferRegistrationEdit);
       contactButtons.forEach((button) => button.removeEventListener('click', onRooferContactClick));
       quoteLinks.forEach((link) => link.removeEventListener('click', onRooferQuoteClick));
       galleryFilters.forEach((button) => button.removeEventListener('click', onGalleryFilter));
       homeGalleryFilters.forEach((button) => button.removeEventListener('click', onHomeGalleryFilter));
       reviewsToggle?.removeEventListener('click', onReviewsToggle);
-      priceArea?.removeEventListener('input', updatePriceCalculator);
-      priceMaterialButtons.forEach((button) => button.removeEventListener('click', onPriceMaterialClick));
       galleryLoadMore?.removeEventListener('click', onGalleryLoadMore);
       lightboxClose?.removeEventListener('click', closeGalleryLightbox);
+      document.body.classList.remove('is-lightbox-open');
       window.removeEventListener('keydown', onGalleryKeyDown);
       observer?.disconnect();
       sectionObserver?.disconnect();

@@ -1,9 +1,10 @@
 import { notFound } from 'next/navigation';
-import { requireAdminUser } from '@/src/server/auth';
-import { findDuplicateLeads, getLeadWithFiles, getRoofer, listAdminUsers, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
+import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+import { canManuallyRetryLeadEmail } from '@/src/server/mail';
+import { findDuplicateLeads, getLatestPriceOffersByInquiryIds, getLeadWithFiles, getRoofer, listAdminUsers, listLeadEmailOutbox, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { getLeadInsight, statusLabels, tagLabels } from '@/src/server/lead-insights';
 import { cleanSlovakText, leadEventLabel } from '@/src/server/slovak-text';
-import { archiveLeadAction, cancelLeadFollowup, deleteLeadFileAction, destroyArchivedLeadAction, saveInternalNote, saveLeadWorkflow } from './actions';
+import { archiveLeadAction, cancelLeadFollowup, deleteLeadFileAction, destroyArchivedLeadAction, resendLeadEmailRecipientAfterReview, resolveLeadEmailDeliveryAfterReview, saveInternalNote, saveLeadWorkflow, setLeadTestDataAction } from './actions';
 
 const statuses = [
   'novy',
@@ -52,19 +53,40 @@ function workflowAuditText(changes: Record<string, unknown>) {
   return `Vlastník: ${owner} · Ďalší krok: ${action}${followup}`;
 }
 
+function leadAttribution(rawData: Record<string, unknown> | undefined) {
+  const value = rawData?.attribution;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const attribution = value as Record<string, unknown>;
+  const text = (key: string) => typeof attribution[key] === 'string' ? cleanSlovakText(attribution[key] as string) : '';
+  const utmSource = text('utmSource');
+  const utmMedium = text('utmMedium');
+  const utmCampaign = text('utmCampaign');
+  const utmContent = text('utmContent');
+  const utmTerm = text('utmTerm');
+  const utmId = text('utmId');
+  const landingPath = text('landingPath');
+  const clickSources = [attribution.gclid || attribution.gbraid || attribution.wbraid ? 'Google Ads' : '', attribution.fbclid ? 'Meta' : ''].filter(Boolean);
+  if (!utmSource && !utmMedium && !utmCampaign && !utmContent && !utmTerm && !utmId && !landingPath && !clickSources.length) return null;
+  return { utmSource, utmMedium, utmCampaign, utmContent, utmTerm, utmId, landingPath, clickSources };
+}
+
 export default async function LeadDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const adminUser = await requireAdminUser();
   const lead = await getLeadWithFiles(id, true);
   if (!lead) notFound();
-  const [defaultQuoteNumber, matchingRoofers, selectedRoofer, adminUsers, duplicateLeads] = await Promise.all([
+  const [defaultQuoteNumber, matchingRoofers, selectedRoofer, adminUsers, duplicateLeads, priceOfferMap] = await Promise.all([
     nextQuoteNumber(),
     listMatchingRoofers(lead),
     lead.selectedRooferId ? getRoofer(lead.selectedRooferId) : Promise.resolve(null),
     listAdminUsers(),
     findDuplicateLeads(id),
+    getLatestPriceOffersByInquiryIds([lead.id]),
   ]);
+  const latestPriceOffer = priceOfferMap.get(lead.id);
+  const emailOutbox = await listLeadEmailOutbox(id);
   const insight = getLeadInsight(lead, lead.files.length, lead.quotes.length);
+  const attribution = leadAttribution(lead.rawData);
   const hasProtectedQuotes = lead.quotes.some((quote) => !['draft', 'cancelled'].includes(quote.status));
   const wantsRoofer = lead.wantsRooferRecommendation || cleanSlovakText(lead.roofer).toLowerCase().includes('strechár');
 
@@ -73,7 +95,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
       <div className="admin-heading">
         <div>
           <p>Dopyt #{lead.id.slice(0, 8)}</p>
-          <h1>{cleanSlovakText(lead.fullName)}</h1>
+          <h1>{cleanSlovakText(lead.fullName)}{lead.isTestData ? ' · TEST' : ''}</h1>
         </div>
         {!lead.deletedAt ? <a className="admin-primary-link" href={`/admin/ponuky/nova?lead=${lead.id}&quote=${defaultQuoteNumber}`}>
           + Vytvoriť cenovú ponuku
@@ -123,6 +145,77 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <dt>Poznámka zákazníka</dt><dd>{cleanSlovakText(lead.note) || 'Bez poznámky'}</dd>
             </dl>
           </section>
+
+          {attribution ? <section className="admin-card" aria-labelledby="lead-attribution-title">
+            <h2 id="lead-attribution-title">Zdroj dopytu</h2>
+            <p>Údaje sa uložili iba v rozsahu povolenom súhlasom pri odoslaní formulára.</p>
+            <dl className="admin-dl">
+              {attribution.utmSource ? <><dt>Zdroj kampane</dt><dd>{attribution.utmSource}</dd></> : null}
+              {attribution.utmMedium ? <><dt>Typ kampane</dt><dd>{attribution.utmMedium}</dd></> : null}
+              {attribution.utmCampaign ? <><dt>Názov kampane</dt><dd>{attribution.utmCampaign}</dd></> : null}
+              {attribution.utmContent ? <><dt>Reklama / kreatíva</dt><dd>{attribution.utmContent}</dd></> : null}
+              {attribution.utmTerm ? <><dt>Hľadaný výraz</dt><dd>{attribution.utmTerm}</dd></> : null}
+              {attribution.utmId ? <><dt>ID kampane</dt><dd>{attribution.utmId}</dd></> : null}
+              {attribution.landingPath ? <><dt>Prvá zaznamenaná stránka</dt><dd>{attribution.landingPath}</dd></> : null}
+              {attribution.clickSources.length ? <><dt>Reklamný klik</dt><dd>{attribution.clickSources.join(', ')} · identifikátor skrytý</dd></> : null}
+            </dl>
+          </section> : null}
+
+          {emailOutbox.length ? <section className="admin-card" aria-labelledby="lead-email-status-title">
+            <h2 id="lead-email-status-title">Doručenie emailov</h2>
+            <p>Stav dopytu a stav emailov sú samostatné. Pri neistom výsledku email neposielame automaticky znova.</p>
+            {!lead.deletedAt && emailOutbox.some((delivery) => delivery.status === 'unknown' || delivery.status === 'failed')
+              ? <p className="admin-alert" role="alert">Dopyt je uložený v CRM, aj keď doručenie emailu nie je potvrdené. Spracujte ho priamo tu, nečakajte na interné upozornenie. Overte schránku a záznam poskytovateľa; ak zákazníkovi potvrdenie nedošlo, ozvite sa mu podľa preferovaného kontaktu. Odoslanie neopakujte naslepo, aby zákazník nedostal duplicitný email.</p>
+              : null}
+            <dl className="admin-dl">
+              {emailOutbox.map((delivery) => <div key={delivery.recipientRole}>
+                <dt>{delivery.recipientRole === 'customer' ? 'Potvrdenie zákazníkovi' : 'Interné upozornenie'}</dt>
+                <dd>
+                  {({ pending: 'Čaká na odoslanie', sending: 'Odosiela sa', sent: 'Odoslanie potvrdené', failed: 'Odoslanie zlyhalo', unknown: 'Doručenie treba overiť' } as const)[delivery.status]}
+                  {delivery.attempts ? ` · pokusov: ${delivery.attempts}` : ''}
+                  {delivery.messageId ? <small className="admin-muted">{delivery.messageId.startsWith('hmac-sha256:') || delivery.messageId.startsWith('sha256:') ? 'Odtlačok ID správy' : 'ID správy'}: {cleanSlovakText(delivery.messageId).slice(0, 180)}</small> : null}
+                  {delivery.lastError ? <small className="admin-muted">{cleanSlovakText(delivery.lastError).slice(0, 240)}</small> : null}
+                  {!lead.deletedAt && (delivery.status === 'unknown' || (delivery.status === 'failed' && !delivery.retryable && !delivery.manualRetryReady)) ? <form action={resolveLeadEmailDeliveryAfterReview} className="admin-form-stack">
+                    <input type="hidden" name="_csrf" value={csrfTokenForEmail(adminUser.email)} />
+                    <input type="hidden" name="id" value={lead.id} />
+                    <input type="hidden" name="recipientRole" value={delivery.recipientRole} />
+                    <label>Výsledok kontroly
+                      <select name="outcome" required defaultValue="">
+                        <option value="" disabled>Vyberte potvrdený výsledok</option>
+                        {delivery.status === 'unknown' ? <option value="sent">Doručenie je potvrdené — už neposielať</option> : null}
+                        <option value="failed">{canManuallyRetryLeadEmail() ? 'Nedoručenie je potvrdené — povoliť samostatný retry' : 'Nedoručenie je potvrdené — zaznamenať stav'}</option>
+                      </select>
+                    </label>
+                    <label>Čo kontrola potvrdila? (bez obsahu emailu a osobných údajov)
+                      <select name="evidence" required defaultValue="">
+                        <option value="" disabled>Vyberte dôkaz</option>
+                        {delivery.status === 'unknown' ? <option value="inbox_message_found">Správa sa našla v schránke</option> : null}
+                        <option value="provider_rejected">Poskytovateľ potvrdil odmietnutie</option>
+                      </select>
+                    </label>
+                    <label className="admin-checkbox"><input name="checkedDelivery" type="checkbox" value="yes" required /> Skontroloval som schránku aj záznam poskytovateľa; tento krok email neodosiela.</label>
+                    <button className="admin-primary-button" type="submit">Uložiť výsledok kontroly</button>
+                  </form> : null}
+                  {!lead.deletedAt && delivery.manualRetryReady && canManuallyRetryLeadEmail() ? <form action={resendLeadEmailRecipientAfterReview} className="admin-form-stack">
+                    <input type="hidden" name="_csrf" value={csrfTokenForEmail(adminUser.email)} />
+                    <input type="hidden" name="id" value={lead.id} />
+                    <input type="hidden" name="recipientRole" value={delivery.recipientRole} />
+                    <label className="admin-checkbox"><input name="checkedDelivery" type="checkbox" value="yes" required /> Skontroloval som schránku a log; tento konkrétny email nebol doručený.</label>
+                    <label>Čo kontrola potvrdila? (bez obsahu emailu a osobných údajov)
+                      <select name="evidence" required defaultValue="">
+                        <option value="" disabled>Vyberte dôkaz nedoručenia</option>
+                        <option value="provider_rejected">Poskytovateľ potvrdil odmietnutie</option>
+                      </select>
+                    </label>
+                    <button className="admin-primary-button" type="submit">Po kontrole zopakovať iba tento email</button>
+                  </form> : null}
+                </dd>
+              </div>)}
+            </dl>
+            {emailOutbox.some((delivery) => delivery.status === 'unknown' || delivery.status === 'failed' || delivery.status === 'sending')
+              ? <p className="admin-warning-badge">Pred opakovaným odoslaním skontrolujte doručenú poštu aj log poskytovateľa. Zamedzíte duplicitnému emailu.</p>
+              : null}
+          </section> : null}
 
           <section className="admin-card">
             <h2>Strechár</h2>
@@ -187,6 +280,25 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
         </div>
 
         <aside className="admin-lead-side">
+          {adminUser.role === 'SUPER_ADMIN' ? <section className="admin-card" aria-labelledby="lead-test-classification-title">
+            <h2 id="lead-test-classification-title">Obchodné reporty</h2>
+            <p>{lead.isTestData ? 'Tento dopyt je označený ako testovací a nezapočítava sa do obchodných dashboardov. V CRM zostáva zachovaný.' : 'Dopyt sa započítava do obchodných dashboardov. Označenie testu nič nemaže a nemení jeho stav v CRM.'}</p>
+            <form action={setLeadTestDataAction} className="admin-note-form">
+              <input type="hidden" name="_csrf" value={csrfTokenForEmail(adminUser.email)} />
+              <input type="hidden" name="id" value={lead.id} />
+              <input type="hidden" name="isTestData" value={lead.isTestData ? 'false' : 'true'} />
+              <label>Dôvod zmeny (povinný)
+                <select name="reason" required defaultValue="">
+                  <option value="" disabled>Vyberte dôvod</option>
+                  <option>Lokálny test formulára</option>
+                  <option>Test doručovania emailov</option>
+                  <option>Testovacie CRM údaje</option>
+                  <option>Iný dôvod bez osobných údajov</option>
+                </select>
+              </label>
+              <button className="admin-secondary-link" type="submit">{lead.isTestData ? 'Vrátiť do obchodných reportov' : 'Označiť ako testovací dopyt'}</button>
+            </form>
+          </section> : null}
           <section className="admin-card">
             <h2>Stav a akcie</h2>
             <div className="lead-insight-card">
@@ -247,7 +359,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                 <h3>Trvalé odstránenie</h3>
                 {hasProtectedQuotes ? <p>Trvalé odstránenie je zablokované, pretože dopyt má aktívnu alebo historickú cenovú ponuku. Najprv ju zrušte alebo archivujte.</p> : <>
                   <p>Odstráni údaje dopytu, prílohy a koncept cenovej ponuky. Auditná stopa zostane zachovaná. Táto akcia sa nedá vrátiť.</p>
-                  <form action={destroyArchivedLeadAction} data-confirm-submit="Dopyt, jeho prílohy a koncept cenovej ponuky sa trvalo odstránia. Auditná stopa zostane zachovaná. Pokračovať?">
+                  <form action={destroyArchivedLeadAction} data-confirm-submit="Dopyt, jeho prílohy a koncept cenovej ponuky sa trvalo odstránia. Zostane iba minimálny záznam o odstránení. Pokračovať?">
                     <input type="hidden" name="id" value={lead.id} />
                     <label>Dôvod odstránenia
                       <input name="reason" required minLength={3} maxLength={500} placeholder="Napr. duplicitný testovací dopyt" />
@@ -271,7 +383,11 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                   <small>{quote.status}</small>
                 </a>
               ))}
-              {!lead.quotes.length ? <p>Zatiaľ nebola vytvorená cenová ponuka.</p> : null}
+              {latestPriceOffer ? <a key={latestPriceOffer.id} href={`/admin/ponuky/${latestPriceOffer.id}`}>
+                <span>{`CP ${latestPriceOffer.number} · ${latestPriceOffer.totalWithVat.toLocaleString('sk-SK')} € s DPH`}</span>
+                <small>{latestPriceOffer.status === 'PRIPRAVENA' ? 'Pripravená · neodoslaná' : latestPriceOffer.status === 'ODOSIELA' ? 'Odosielanie' : latestPriceOffer.status === 'NEISTY_STAV' ? 'Overiť odoslanie' : latestPriceOffer.status === 'ODOSLANA' ? 'Odoslaná' : latestPriceOffer.status === 'PRIJATA' ? 'Prijatá' : latestPriceOffer.status === 'ZRUSENA' ? 'Zrušená' : latestPriceOffer.status}</small>
+              </a> : null}
+              {!lead.quotes.length && !latestPriceOffer ? <p>Zatiaľ nebola vytvorená cenová ponuka.</p> : null}
             </div>
             {!lead.deletedAt ? <a className="admin-primary-link is-plum-full" href={`/admin/ponuky/nova?lead=${lead.id}`}>+ Vytvoriť cenovú ponuku</a> : null}
           </section>

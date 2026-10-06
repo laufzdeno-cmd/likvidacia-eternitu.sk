@@ -1,5 +1,6 @@
 import { site } from '@/src/content/site';
 import type { FaqItem } from '@/src/content/seo-content';
+import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 
 const SITE_URL = site.website;
 
@@ -26,7 +27,7 @@ export function buildBreadcrumbJsonLd(items: BreadcrumbItem[]) {
   };
 }
 
-export function buildFaqJsonLd(faqs: FaqItem[]) {
+export function buildFaqJsonLd(faqs: readonly FaqItem[]) {
   return {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -55,6 +56,34 @@ export function buildServiceJsonLd(name: string, description: string, path: stri
   };
 }
 
+export function buildArticleJsonLd({
+  headline,
+  description,
+  path,
+  articleBody,
+}: {
+  headline: string;
+  description: string;
+  path: string;
+  articleBody: string;
+}) {
+  const url = absoluteUrl(path);
+  const organizationId = `${SITE_URL}/#organization`;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    '@id': `${url}#article`,
+    headline,
+    description,
+    articleBody,
+    articleSection: 'Poradňa',
+    inLanguage: 'sk-SK',
+    mainEntityOfPage: { '@type': 'WebPage', '@id': url },
+    author: { '@id': organizationId },
+    publisher: { '@id': organizationId },
+  };
+}
+
 export function buildOrganizationJsonLd() {
   const address = {
     '@type': 'PostalAddress',
@@ -68,7 +97,7 @@ export function buildOrganizationJsonLd() {
     '@context': 'https://schema.org',
     '@graph': [
       {
-        '@type': 'Organization',
+        '@type': ['Organization', 'ProfessionalService'],
         '@id': `${SITE_URL}/#organization`,
         name: site.brandName,
         legalName: site.legalName,
@@ -86,23 +115,6 @@ export function buildOrganizationJsonLd() {
         taxID: site.dic,
         vatID: site.icDph,
         sameAs: site.sameAs,
-      },
-      {
-        '@type': 'ProfessionalService',
-        '@id': `${SITE_URL}/#business`,
-        name: `${site.brandName} - likvidácia azbestu a eternitu`,
-        legalName: site.legalName,
-        url: SITE_URL,
-        telephone: site.phoneHref,
-        email: site.email,
-        address,
-        identifier: {
-          '@type': 'PropertyValue',
-          propertyID: 'IČO',
-          value: site.ico,
-        },
-        taxID: site.dic,
-        vatID: site.icDph,
         areaServed: { '@type': 'Country', name: site.areaServed },
         openingHoursSpecification: [
           {
@@ -126,14 +138,15 @@ export function buildOrganizationJsonLd() {
 }
 
 export function JsonLd({ data }: { data: unknown }) {
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }} />;
 }
 
-export function BreadcrumbJsonLd({ name, path }: { name: string; path: string }) {
+export function BreadcrumbJsonLd({ name, path, parents = [] }: { name: string; path: string; parents?: BreadcrumbItem[] }) {
   const jsonLd = buildBreadcrumbJsonLd([
     { name: 'Úvod', path: '/' },
+    ...parents,
     { name, path },
   ]);
 
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />;
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />;
 }

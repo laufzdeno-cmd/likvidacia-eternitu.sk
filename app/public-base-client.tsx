@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { preserveCampaignAttributionOnInternalLink, trackAnalyticsEvent } from '@/src/lib/analytics-client';
 
 export default function PublicBaseClient() {
   useEffect(() => {
@@ -10,56 +11,7 @@ export default function PublicBaseClient() {
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
 
-    const analyticsSessionId = (() => {
-      const key = 'astana_analytics_session';
-      try {
-        const existing = window.localStorage.getItem(key);
-        if (existing) return existing;
-        const created = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        window.localStorage.setItem(key, created);
-        return created;
-      } catch {
-        return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      }
-    })();
-
-    const analyticsDevice = () => {
-      if (window.innerWidth < 768) return 'mobile';
-      if (window.innerWidth < 1024) return 'tablet';
-      return 'desktop';
-    };
-
-    const analyticsParams = () => {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        utmSource: params.get('utm_source') || '',
-        utmMedium: params.get('utm_medium') || '',
-        utmCampaign: params.get('utm_campaign') || '',
-      };
-    };
-
-    const trackAnalytics = (eventType: string, metadata: Record<string, unknown> = {}) => {
-      const payload = JSON.stringify({
-        sessionId: analyticsSessionId,
-        eventType,
-        path: `${window.location.pathname}${window.location.hash || ''}`,
-        referrer: document.referrer || '',
-        device: analyticsDevice(),
-        viewportWidth: window.innerWidth,
-        ...analyticsParams(),
-        metadata,
-      });
-      if (navigator.sendBeacon) {
-        const sent = navigator.sendBeacon('/api/analytics/', new Blob([payload], { type: 'application/json' }));
-        if (sent) return;
-      }
-      void fetch('/api/analytics/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: payload,
-        keepalive: true,
-      }).catch(() => undefined);
-    };
+    const trackAnalytics = trackAnalyticsEvent;
 
     const onMenuClick = () => {
       if (!menuToggle || !nav) return;
@@ -76,7 +28,9 @@ export default function PublicBaseClient() {
 
     const onScroll = () => {
       header?.classList.toggle('is-compact', window.scrollY > 28);
-      stickyCta?.classList.toggle('is-visible', window.innerWidth <= 760 && window.scrollY > 280);
+      const stickyVisible = window.innerWidth <= 760 && window.scrollY > 280;
+      stickyCta?.classList.toggle('is-visible', stickyVisible);
+      if (stickyCta) stickyCta.inert = !stickyVisible;
     };
 
     const onAnalyticsClick = (event: MouseEvent) => {
@@ -139,6 +93,7 @@ export default function PublicBaseClient() {
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     document.addEventListener('click', onAnalyticsClick);
+    document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
     window.addEventListener('hashchange', onHashChange);
@@ -149,6 +104,7 @@ export default function PublicBaseClient() {
       menuToggle?.removeEventListener('click', onMenuClick);
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
       document.removeEventListener('click', onAnalyticsClick);
+      document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('hashchange', onHashChange);

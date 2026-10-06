@@ -1,25 +1,13 @@
-import { getLeadQueueCounts, getSystemHealth, listBusinessJobs, listLeadSummaries, listPlannerActions, listPriceOffers, listWorkers } from '@/src/server/db';
+import { getLeadDashboardMetrics, getLeadEmailOutboxAttention, getLeadQueueCounts, getPriceOfferEventMetrics, getSystemHealth, listBusinessJobDashboardRows, listBusinessJobs, listLeadSummaryPage, listPlannerActions, listWorkers } from '@/src/server/db';
 import { requireAdminUser } from '@/src/server/auth';
 import { statusLabels } from '@/src/server/lead-insights';
+import { businessPeriodBounds, businessTodayKey } from '@/src/lib/business-period';
+import { summarizeBusinessJobs } from '@/src/lib/business-dashboard-metrics';
 import { euro, jobStatusLabels, landfillLabels, numberSk } from '../zakazky/constants';
 import BusinessChart from './business-chart';
 
-function periodBounds(period: string, from?: string, to?: string) {
-  const now = new Date();
-  if (period === 'custom' && from && to) return { from, to, label: `${from} – ${to}` };
-  if (period === 'last-month') {
-    const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const end = new Date(now.getFullYear(), now.getMonth(), 0);
-    return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10), label: 'Minulý mesiac' };
-  }
-  if (period === 'year') return { from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31`, label: 'Tento rok' };
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10), label: 'Tento mesiac' };
-}
-
 function pct(part: number, total: number) {
-  return total ? `${Math.round((part / total) * 1000) / 10} %` : '0 %';
+  return total > 0 ? `${Math.round((part / total) * 1000) / 10} %` : '—';
 }
 
 function WorkQueues({ counts }: { counts: { newLeads: number; unassigned: number; followups: number; waiting: number; quote: number; active: number } }) {
@@ -44,72 +32,100 @@ function WorkQueues({ counts }: { counts: { newLeads: number; unassigned: number
   );
 }
 
+function MailQueueStatus({ queue }: { queue: Awaited<ReturnType<typeof getLeadEmailOutboxAttention>> }) {
+  const attentionCount = queue.overduePending + queue.staleSending + queue.failed + queue.unknown;
+  const unresolvedCount = queue.pending + queue.sending + queue.failed + queue.unknown;
+  const oldest = queue.oldestUnresolvedAt
+    ? new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Bratislava' }).format(new Date(queue.oldestUnresolvedAt))
+    : null;
+  return <section className="admin-card admin-mail-queue" aria-labelledby="mail-queue-title">
+    <div className="admin-section-heading">
+      <div><p>Doručovanie dopytov</p><h2 id="mail-queue-title">Stav emailov</h2></div>
+      <a href={queue.oldestAttentionLeadId ? `/admin/dopyty/${queue.oldestAttentionLeadId}` : '/admin/dopyty'}>
+        {queue.oldestAttentionLeadId ? 'Otvoriť najstarší problémový dopyt' : 'Otvoriť dopyty'}
+      </a>
+    </div>
+    {attentionCount > 0
+      ? <p><span className="admin-warning-badge">Vyžaduje kontrolu: {attentionCount} emailov</span></p>
+      : <p>{unresolvedCount ? 'Zatiaľ bez oneskorenia alebo potvrdenej chyby.' : 'Žiadny email nečaká na odoslanie.'}</p>}
+    <p>Čaká: {queue.pending} · Odosiela sa: {queue.sending} · Zlyhalo: {queue.failed} · Výsledok neznámy: {queue.unknown}</p>
+    {oldest ? <small>Najstarší nevyriešený záznam: {oldest}. Kontrolu vyžaduje čakanie nad 30 minút alebo odosielanie nad 15 minút.</small> : null}
+    {queue.unknown > 0 ? <p><small>Neznámy výsledok neposielajte znova bez overenia schránky a záznamu poskytovateľa.</small></p> : null}
+  </section>;
+}
+
 export default async function AdminDashboardPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const adminUser = await requireAdminUser();
   const period = params.period || 'month';
-  const bounds = periodBounds(period, params.from, params.to);
-  const today = new Date().toISOString().slice(0, 10);
-  const [jobs, allJobs, leads, workers, offers, health, todayActions, queueCounts] = await Promise.all([listBusinessJobs(bounds), listBusinessJobs(), listLeadSummaries(), listWorkers(true), listPriceOffers(), adminUser.role === 'SUPER_ADMIN' ? getSystemHealth() : Promise.resolve(null), listPlannerActions({ from: today, to: today }), getLeadQueueCounts(today)]);
-  const revenue = jobs.reduce((sum, job) => sum + job.totalPrice, 0);
-  const invoice = jobs.filter((job) => job.paymentType === 'FAKTURA').reduce((sum, job) => sum + job.totalPrice, 0);
-  const cash = jobs.filter((job) => job.paymentType === 'CASH').reduce((sum, job) => sum + job.totalPrice, 0);
-  const m2 = jobs.reduce((sum, job) => sum + job.m2, 0);
-  const wasteTons = jobs.reduce((sum, job) => sum + job.wasteKg, 0) / 1000;
-  const rewards = jobs.reduce((sum, job) => sum + job.rewardsTotal, 0);
-  const costs = jobs.reduce((sum, job) => sum + job.costs.total, 0);
-  const profit = jobs.reduce((sum, job) => sum + job.grossProfit, 0);
-  const averageM2 = m2 ? revenue / m2 : 0;
+  const bounds = businessPeriodBounds(period, params.from, params.to);
+  const today = businessTodayKey();
+  const currentMonth = today.slice(0, 7).split('-').map(Number);
+  const currentYear = String(currentMonth[0]);
+  const trailingStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 12, 1)).toISOString().slice(0, 10);
+  const allJobsFrom = trailingStart < `${currentYear}-01-01` ? trailingStart : `${currentYear}-01-01`;
+  const [jobs, chartJobs, leadMetrics, recentLeadPage, lostLeadPage, workers, offerEvents, health, todayActions, queueCounts, mailQueue] = await Promise.all([
+    bounds.valid ? listBusinessJobs({ ...bounds, limit: null, excludeTestData: true }) : Promise.resolve([]),
+    listBusinessJobDashboardRows(allJobsFrom, `${currentYear}-12-31`),
+    bounds.valid ? getLeadDashboardMetrics(bounds.from, bounds.to, today) : Promise.resolve({ receivedInPeriod: 0, newToday: 0, waitingForOffer: 0, followupsDue: 0 }),
+    listLeadSummaryPage({ page: 1, pageSize: 10, excludeTestData: true }),
+    listLeadSummaryPage({ page: 1, pageSize: 10, status: 'nevyslo', excludeTestData: true }),
+    listWorkers(true),
+    bounds.valid ? getPriceOfferEventMetrics(bounds.from, bounds.to) : Promise.resolve({ created: 0, sent: 0, accepted: 0 }),
+    adminUser.role === 'SUPER_ADMIN' ? getSystemHealth() : Promise.resolve(null),
+    listPlannerActions({ from: today, to: today }),
+    getLeadQueueCounts(today, true),
+    getLeadEmailOutboxAttention(),
+  ]);
+  const businessMetrics = summarizeBusinessJobs(jobs);
+  const { activeJobs, cancelledJobs, recordedOrderValue, cancelledValue, invoiceTypeValue, cashTypeValue, area: m2, wasteKg, rewards, directCosts: costs, preOverheadRemainder, jobsWithoutRecordedDirectCosts, averageRecordedPricePerM2: averageM2 } = businessMetrics;
+  const wasteTons = wasteKg / 1000;
   const last12 = Array.from({ length: 12 }, (_, index) => {
-    const date = new Date();
-    date.setMonth(date.getMonth() - (11 - index), 1);
-    const key = date.toISOString().slice(0, 7);
-    const monthJobs = allJobs.filter((job) => job.demolitionDate.startsWith(key));
+    const monthStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 1 - (11 - index), 1));
+    const key = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, '0')}`;
+    const monthJobs = chartJobs.filter((job) => job.status !== 'ZRUSENA' && job.demolitionDate.startsWith(key));
     return {
-      month: date.toLocaleDateString('sk-SK', { month: 'short' }),
-      revenue: Math.round(monthJobs.reduce((sum, job) => sum + job.totalPrice, 0)),
-      costs: Math.round(monthJobs.reduce((sum, job) => sum + job.costs.total + job.rewardsTotal, 0)),
-      profit: Math.round(monthJobs.reduce((sum, job) => sum + job.grossProfit, 0)),
+      month: monthStart.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit', timeZone: 'Europe/Bratislava' }),
+      orderValue: monthJobs.reduce((sum, job) => sum + job.totalPrice, 0),
+      costs: monthJobs.reduce((sum, job) => sum + job.costsTotal + job.rewardsTotal, 0),
     };
   });
   const workerRows = workers.map((worker) => {
-    const periodJobs = jobs.filter((job) => job.workers.some((item) => item.workerId === worker.id));
-    const yearJobs = allJobs.filter((job) => job.demolitionDate.startsWith(String(new Date().getFullYear())) && job.workers.some((item) => item.workerId === worker.id));
+    const periodJobs = activeJobs.filter((job) => job.workers.some((item) => item.workerId === worker.id));
+    const yearJobs = chartJobs.filter((job) => job.status !== 'ZRUSENA' && job.demolitionDate.startsWith(currentYear) && job.workers.some((item) => item.workerId === worker.id));
     const periodReward = periodJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0);
     const yearReward = yearJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0);
     return { worker, periodJobs, yearJobs, periodReward, yearReward };
   });
   const landfillRows = Object.entries(landfillLabels).map(([landfill, label]) => {
-    const rows = jobs.filter((job) => job.landfill === landfill);
+    const rows = activeJobs.filter((job) => job.landfill === landfill);
     return { label, count: rows.length, tons: rows.reduce((sum, job) => sum + job.wasteKg, 0) / 1000, cost: rows.reduce((sum, job) => sum + job.costs.landfillCost, 0) };
   });
-  const sent = jobs.filter((job) => ['PONUKA_ODOSLANA', 'PRIJATA', 'V_REALIZACII', 'DOKONCENA'].includes(job.status)).length;
-  const accepted = jobs.filter((job) => ['PRIJATA', 'V_REALIZACII', 'DOKONCENA'].includes(job.status)).length;
-  const sentOffers = offers.filter((offer) => offer.status === 'ODOSLANA' || offer.status === 'PRIJATA').length;
-  const acceptedOffers = offers.filter((offer) => offer.status === 'PRIJATA').length;
-  const done = jobs.filter((job) => job.status === 'DOKONCENA').length;
+  const leadsReceivedInPeriod = leadMetrics.receivedInPeriod;
+  const offersCreatedInPeriod = offerEvents.created;
+  const offersSentInPeriod = offerEvents.sent;
+  const offersAcceptedInPeriod = offerEvents.accepted;
+  const done = activeJobs.filter((job) => job.status === 'DOKONCENA' || job.status === 'DEMONT_DOKONCENA').length;
   if (adminUser.role === 'OPERATOR') {
-    const todayLeads = leads.filter((lead) => lead.createdAt.startsWith(today));
-    const waitingForOffer = leads.filter((lead) => ['novy', 'kontaktovany', 'naceneny'].includes(lead.status));
-    const followupsToday = leads.filter((lead) => Boolean(lead.followupDate && lead.followupDate <= today));
     return (
       <main className="admin-page">
         <div className="admin-heading">
           <div><p>Operátorský panel</p><h1>Prehľad práce</h1></div>
         </div>
         <section className="admin-stat-grid">
-          <article><span>Nové dopyty dnes</span><strong>{todayLeads.length}</strong><a href="/admin/dopyty">Otvoriť dopyty</a></article>
-          <article><span>Otvorené dopyty</span><strong>{waitingForOffer.length}</strong><a href="/admin/dopyty">Spracovať</a></article>
-          <article><span>Follow-up na vybavenie</span><strong>{followupsToday.length}</strong><a href="/admin/dopyty?queue=followup">Zavolať</a></article>
+          <article><span>Nové dopyty dnes</span><strong>{leadMetrics.newToday}</strong><a href="/admin/dopyty">Otvoriť dopyty</a></article>
+          <article><span>Otvorené dopyty</span><strong>{leadMetrics.waitingForOffer}</strong><a href="/admin/dopyty">Spracovať</a></article>
+          <article><span>Follow-up na vybavenie</span><strong>{leadMetrics.followupsDue}</strong><a href="/admin/dopyty?queue=followup">Zavolať</a></article>
           <article><span>Naplánované akcie dnes</span><strong>{todayActions.length}</strong><a href="/admin/planovac">Plánovač</a></article>
         </section>
+        <MailQueueStatus queue={mailQueue} />
         <WorkQueues counts={queueCounts} />
         <section className="admin-card">
           <h2>Rýchly prehľad</h2>
           <table className="admin-table">
             <thead><tr><th>Meno</th><th>Lokalita</th><th>m2</th><th>Tel.</th><th>Stav</th></tr></thead>
             <tbody>
-              {leads.slice(0, 10).map((lead) => (
+              {recentLeadPage.items.map((lead) => (
                 <tr key={lead.id}>
                   <td><a href={`/admin/dopyty/${lead.id}`}>{lead.fullName}</a></td>
                   <td>{lead.city}</td>
@@ -126,7 +142,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
           <table className="admin-table">
             <thead><tr><th>Meno</th><th>Lokalita</th><th>Dôvod / follow-up</th><th></th></tr></thead>
             <tbody>
-              {leads.filter((lead) => lead.status === 'nevyslo').slice(0, 10).map((lead) => (
+              {lostLeadPage.items.map((lead) => (
                 <tr key={lead.id}><td>{lead.fullName}</td><td>{lead.city}</td><td>{lead.followupNote || 'Bez poznámky'}</td><td><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a></td></tr>
               ))}
             </tbody>
@@ -158,45 +174,52 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <section className="admin-card no-print">
           <h2>Stav systému</h2>
           <div className="admin-system-health">
-            <article className={health.smtp.ok ? 'is-ok' : 'is-error'}><span>{health.smtp.ok ? '✅' : '❌'} SMTP</span><strong>{health.smtp.ok ? 'Funkčný' : 'Nedostupný'}</strong><small>{health.smtp.detail}</small></article>
+            <article className={`is-${health.leadMail.level}`}><span>{health.leadMail.level === 'ok' ? '✅' : health.leadMail.level === 'warning' ? '⚠️' : '❌'} Dopytové emaily</span><strong>{health.leadMail.label}</strong><small>{health.leadMail.detail}</small></article>
             <article className={health.database.ok ? 'is-ok' : 'is-error'}><span>{health.database.ok ? '✅' : '❌'} Databáza</span><strong>{health.database.ok ? 'Online' : 'Offline'}</strong><small>{health.database.detail}</small></article>
-            <article className={health.storage.ok ? 'is-ok' : 'is-error'}><span>{health.storage.ok ? '✅' : '❌'} Storage</span><strong>{health.storage.ok ? 'Dostupné' : 'Nedostupné'}</strong><small>{health.storage.detail}</small></article>
+            <article className={health.storage.ok ? 'is-warning' : 'is-error'}><span>{health.storage.ok ? '⚠️' : '❌'} Storage</span><strong>{health.storage.ok ? 'Nastavené' : 'Nenastavené'}</strong><small>{health.storage.detail} Dostupnosť objektov táto kontrola neoveruje.</small></article>
             <article><span>📨 Posledný dopyt</span><strong>{health.lastLead ? new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastLead.createdAt)) : '—'}</strong><small>{health.lastLead ? `${health.lastLead.fullName} · ${health.lastLead.city}` : 'Zatiaľ bez dopytu'}</small></article>
-            <article><span>📧 Posledný email</span><strong>{health.lastEmailSent ? new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastEmailSent.createdAt)) : '—'}</strong><small>{health.lastEmailError ? `Posledná chyba: ${health.lastEmailError.action}` : 'Bez evidovanej chyby'}</small></article>
+            <article><span>📧 Posledný úspešne odoslaný email</span><strong>{health.lastEmailSent ? new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastEmailSent.createdAt)) : '—'}</strong><small>{health.lastEmailError ? `Posledná zaznamenaná chyba: ${new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(health.lastEmailError.createdAt))}` : 'Bez evidovanej chyby'}</small></article>
             <article className={health.pendingLeads > 0 ? 'is-warning' : 'is-ok'}><span>⚠️ Nevybavené dopyty</span><strong>{health.pendingLeads}</strong><small>{health.pendingLeads ? 'Čakajú na spracovanie' : 'Všetko spracované'}</small></article>
           </div>
         </section>
       ) : null}
 
+      <MailQueueStatus queue={mailQueue} />
       <WorkQueues counts={queueCounts} />
 
+      {!bounds.valid ? <p className="admin-warning-badge" role="alert">Vlastné obdobie nie je platné. Zadajte oba dátumy a skontrolujte, že dátum „Od“ nie je po dátume „Do“. Pre toto obdobie sa nezobrazujú súhrnné údaje.</p> : null}
+      {bounds.valid ? <>
+      <p className="admin-muted-note">Súhrn sa riadi evidovaným dátumom demontáže. Zahrnuté sú aj nezáväzné dopyty a rozpracované práce; zrušené zákazky sú oddelené. Evidovaná suma nie je doklad o fakturácii ani prijatej platbe. Systém úhrady zatiaľ neeviduje.</p>
       <section className="admin-stat-grid">
-        <article><span>Tržby spolu</span><strong>{euro(revenue)}</strong></article>
-        <article><span>Faktúry</span><strong>{euro(invoice)}</strong><small>{pct(invoice, revenue)}</small></article>
-        <article><span>Cash</span><strong>{euro(cash)}</strong><small>{pct(cash, revenue)}</small></article>
-        <article><span>Priem. €/m2</span><strong>{euro(averageM2)}</strong></article>
-        <article><span>Zákaziek</span><strong>{jobs.length}</strong></article>
+        <article><span>Evidované ceny (vrátane dopytov a odhadov)</span><strong>{euro(recordedOrderValue)}</strong></article>
+        <article><span>Evidovaná suma — typ faktúra</span><strong>{euro(invoiceTypeValue)}</strong><small>{pct(invoiceTypeValue, recordedOrderValue)} evidovanej sumy; nejde o potvrdenú úhradu</small></article>
+        <article><span>Evidovaná suma — typ hotovosť</span><strong>{euro(cashTypeValue)}</strong><small>{pct(cashTypeValue, recordedOrderValue)} evidovanej sumy; nejde o potvrdenú úhradu</small></article>
+        <article><span>Priemerná evidovaná suma / m²</span><strong>{averageM2 === null ? '—' : euro(averageM2)}</strong></article>
+        <article><span>Prijaté úhrady</span><strong>Nezaznamenávajú sa</strong><small>Nie je možné určiť zaplatené tržby.</small></article>
+        <article><span>Aktívne a rozpracované záznamy</span><strong>{activeJobs.length}</strong></article>
+        <article><span>Zrušené záznamy, oddelene</span><strong>{cancelledJobs.length}</strong><small>{euro(cancelledValue)}</small></article>
         <article><span>m2 spolu</span><strong>{numberSk(m2, ' m2')}</strong></article>
         <article><span>Váha odpadu</span><strong>{numberSk(wasteTons, ' t')}</strong></article>
       </section>
 
-      <section className="admin-card"><h2>Porovnanie mesiacov</h2><BusinessChart data={last12} /></section>
+      <section className="admin-card"><h2>Posledných 12 mesiacov: evidované sumy a zadané náklady podľa mesiaca demontáže</h2><p className="admin-muted-note">Tento graf zobrazuje samostatne posledných 12 mesiacov bez ohľadu na zvolené obdobie vyššie. Sumy zahŕňajú aj dopyty a odhady.</p><BusinessChart data={last12} /></section>
 
       <section className="admin-card">
-        <h2>Náklady a zisk</h2>
+        <h2>Zadané priame náklady a odmeny</h2>
+        <p className="admin-muted-note">Rozdiel oproti evidovaným sumám je len orientačný: sumy môžu byť odhadmi alebo dopytmi, zadané náklady nemusia byť úplné a úhrady sa neevidujú. Nejde o zisk ani účtovný údaj. Záznamy s nulovými evidovanými priamymi nákladmi aj odmenami: {jobsWithoutRecordedDirectCosts}.</p>
         <table className="admin-table"><tbody>
           {[
             ['Odmeny spolu', rewards],
-            ['Nafta', jobs.reduce((s, j) => s + j.costs.fuel, 0)],
-            ['Obleky', jobs.reduce((s, j) => s + j.costs.suits, 0)],
-            ['Rukavice', jobs.reduce((s, j) => s + j.costs.gloves, 0)],
-            ['Penetrák', jobs.reduce((s, j) => s + j.costs.penetrant, 0)],
-            ['Skládky', jobs.reduce((s, j) => s + j.costs.landfillCost, 0)],
-            ['Ostatné', jobs.reduce((s, j) => s + j.costs.otherAmount, 0)],
+            ['Nafta', activeJobs.reduce((s, j) => s + j.costs.fuel, 0)],
+            ['Obleky', activeJobs.reduce((s, j) => s + j.costs.suits, 0)],
+            ['Rukavice', activeJobs.reduce((s, j) => s + j.costs.gloves, 0)],
+            ['Penetrák', activeJobs.reduce((s, j) => s + j.costs.penetrant, 0)],
+            ['Skládky', activeJobs.reduce((s, j) => s + j.costs.landfillCost, 0)],
+            ['Ostatné', activeJobs.reduce((s, j) => s + j.costs.otherAmount, 0)],
             ['NÁKLADY SPOLU', costs + rewards],
-            ['HRUBÝ ZISK', profit],
-          ].map(([label, value]) => <tr key={label}><td>{label}</td><td>{euro(Number(value))}</td><td>{pct(Number(value), revenue)}</td></tr>)}
-          <tr><th>MARŽA %</th><th colSpan={2}>{pct(profit, revenue)}</th></tr>
+            ['ROZDIEL PO ZADANÝCH NÁKLADOCH A ODMENÁCH (ORIENTAČNE)', preOverheadRemainder],
+          ].map(([label, value]) => <tr key={label}><td>{label}</td><td>{euro(Number(value))}</td><td>{pct(Number(value), recordedOrderValue)}</td></tr>)}
+          <tr><th>POMER ROZDIELU K EVIDOVANEJ SUME (ORIENTAČNE)</th><th colSpan={2}>{pct(preOverheadRemainder, recordedOrderValue)}</th></tr>
         </tbody></table>
       </section>
 
@@ -207,16 +230,18 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
       </section>
 
       <section className="admin-card">
-        <h2>Konverzie</h2>
+        <h2>Obchodné počty v období</h2>
+        <p className="admin-muted-note">Tieto počty majú samostatné dátumové základy; nejde o kohortný konverzný lievik. Dopyty sa rátajú podľa prijatia, zákazky podľa dátumu demontáže a ponuky podľa vytvorenia, odoslania alebo prijatia.</p>
         <div className="analytics-funnel">
           {[
-            ['Dopytov', leads.length, 100],
-            ['Ponuka odoslaná', sent, jobs.length ? (sent / jobs.length) * 100 : 0],
-            ['Ponuka prijatá', accepted, jobs.length ? (accepted / jobs.length) * 100 : 0],
-            ['Cenové ponuky odoslané', sentOffers, offers.length ? (sentOffers / offers.length) * 100 : 0],
-            ['Cenové ponuky prijaté', acceptedOffers, sentOffers ? (acceptedOffers / sentOffers) * 100 : 0],
-            ['Dokončených', done, jobs.length ? (done / jobs.length) * 100 : 0],
-          ].map(([label, count, rate], index) => <article key={String(label)}><span>{index + 1}</span><strong>{label}</strong><b>{count} · {Number(rate).toFixed(1)} %</b></article>)}
+            ['Dopyty prijaté', leadsReceivedInPeriod],
+            ['Aktívne a rozpracované záznamy', activeJobs.length],
+            ['Zrušené záznamy', cancelledJobs.length],
+            ['Dokončené zákazky', done],
+            ['Cenové ponuky vytvorené', offersCreatedInPeriod],
+          ['Cenové ponuky odoslané v období', offersSentInPeriod],
+            ['Cenové ponuky prijaté', offersAcceptedInPeriod],
+          ].map(([label, count], index) => <article key={String(label)}><span>{index + 1}</span><strong>{label}</strong><b>{Number(count)}</b></article>)}
         </div>
       </section>
 
@@ -226,9 +251,10 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
       </section>
 
       <section className="admin-card">
-        <h2>Top zákazky</h2>
-        <table className="admin-table"><thead><tr><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m2</th><th>Suma €</th><th>Zisk €</th></tr></thead><tbody>{jobs.sort((a, b) => b.totalPrice - a.totalPrice).slice(0, 5).map((job) => <tr key={job.id}><td>{job.demolitionDate}</td><td>{job.customerName}</td><td>{job.location}</td><td>{numberSk(job.m2)}</td><td>{euro(job.totalPrice)}</td><td>{euro(job.grossProfit)}</td></tr>)}</tbody></table>
+        <h2>Najvyššie evidované zákazky</h2>
+        <table className="admin-table"><thead><tr><th>Dátum demontáže</th><th>Zákazník</th><th>Lokalita</th><th>Stav</th><th>m2</th><th>Evidovaná suma €</th></tr></thead><tbody>{activeJobs.sort((a, b) => b.totalPrice - a.totalPrice).slice(0, 5).map((job) => <tr key={job.id}><td>{job.demolitionDate}</td><td>{job.customerName}</td><td>{job.location}</td><td>{jobStatusLabels[job.status] || job.status}</td><td>{numberSk(job.m2)}</td><td>{euro(job.totalPrice)}</td></tr>)}</tbody></table>
       </section>
+      </> : null}
     </main>
   );
 }

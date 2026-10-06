@@ -1,5 +1,10 @@
 import { permanentRedirect } from 'next/navigation';
+import { priceRedirectTarget } from '@/src/server/price-redirect';
 
-export default function PricePage() {
-  permanentRedirect('/cena-likvidacie-azbestu/');
+type PricePageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function PricePage({ searchParams }: PricePageProps) {
+  permanentRedirect(priceRedirectTarget(await searchParams));
 }

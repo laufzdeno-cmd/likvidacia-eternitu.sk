@@ -1,48 +1,55 @@
 import { listBusinessJobs, listWorkers } from '@/src/server/db';
 import { euro, numberSk } from '../zakazky/constants';
 import YearWorkerChart from './year-worker-chart';
+import { businessTodayKey } from '@/src/lib/business-period';
+import { summarizeBusinessJobs } from '@/src/lib/business-dashboard-metrics';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Máj', 'Jún', 'Júl', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 
 export default async function YearPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
-  const currentYear = new Date().getFullYear();
-  const year = Number(params.rok || currentYear);
-  const [jobs, workers] = await Promise.all([listBusinessJobs({ from: `${year}-01-01`, to: `${year}-12-31` }), listWorkers(true)]);
+  const currentYear = Number(businessTodayKey().slice(0, 4));
+  const requestedYear = Number(params.rok || currentYear);
+  const year = Number.isInteger(requestedYear) && requestedYear >= currentYear - 3 && requestedYear <= currentYear
+    ? requestedYear
+    : currentYear;
+  const [jobs, workers] = await Promise.all([listBusinessJobs({ from: `${year}-01-01`, to: `${year}-12-31`, limit: null, excludeTestData: true }), listWorkers(true)]);
   const rows = monthNames.map((month, index) => {
     const key = `${year}-${String(index + 1).padStart(2, '0')}`;
     const monthJobs = jobs.filter((job) => job.demolitionDate.startsWith(key));
-    const rewards = monthJobs.reduce((sum, job) => sum + job.rewardsTotal, 0);
-    const costs = monthJobs.reduce((sum, job) => sum + job.costs.total, 0);
-    const revenue = monthJobs.reduce((sum, job) => sum + job.totalPrice, 0);
+    const metrics = summarizeBusinessJobs(monthJobs);
     const workerRewards = Object.fromEntries(workers.map((worker) => [
       worker.name,
-      monthJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0),
+      metrics.activeJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0),
     ]));
     return {
       month,
       key,
-      count: monthJobs.length,
-      m2: monthJobs.reduce((sum, job) => sum + job.m2, 0),
-      revenue,
-      invoice: monthJobs.filter((job) => job.paymentType === 'FAKTURA').reduce((sum, job) => sum + job.totalPrice, 0),
-      cash: monthJobs.filter((job) => job.paymentType === 'CASH').reduce((sum, job) => sum + job.totalPrice, 0),
-      costs,
-      rewards,
-      profit: revenue - costs - rewards,
+      count: metrics.activeJobs.length,
+      m2: metrics.area,
+      recordedValue: metrics.recordedOrderValue,
+      invoiceTypeValue: metrics.invoiceTypeValue,
+      cashTypeValue: metrics.cashTypeValue,
+      costs: metrics.directCosts,
+      rewards: metrics.rewards,
+      remainder: metrics.preOverheadRemainder,
+      cancelledCount: metrics.cancelledJobs.length,
+      cancelledValue: metrics.cancelledValue,
       ...workerRewards,
     };
   });
   const total = rows.reduce((sum, row) => ({
     count: sum.count + row.count,
     m2: sum.m2 + row.m2,
-    revenue: sum.revenue + row.revenue,
-    invoice: sum.invoice + row.invoice,
-    cash: sum.cash + row.cash,
+    recordedValue: sum.recordedValue + row.recordedValue,
+    invoiceTypeValue: sum.invoiceTypeValue + row.invoiceTypeValue,
+    cashTypeValue: sum.cashTypeValue + row.cashTypeValue,
     costs: sum.costs + row.costs,
     rewards: sum.rewards + row.rewards,
-    profit: sum.profit + row.profit,
-  }), { count: 0, m2: 0, revenue: 0, invoice: 0, cash: 0, costs: 0, rewards: 0, profit: 0 });
+    remainder: sum.remainder + row.remainder,
+    cancelledCount: sum.cancelledCount + row.cancelledCount,
+    cancelledValue: sum.cancelledValue + row.cancelledValue,
+  }), { count: 0, m2: 0, recordedValue: 0, invoiceTypeValue: 0, cashTypeValue: 0, costs: 0, rewards: 0, remainder: 0, cancelledCount: 0, cancelledValue: 0 });
 
   return (
     <main className="admin-page year-report-page">
@@ -58,11 +65,14 @@ export default async function YearPage({ searchParams }: { searchParams: Promise
         </form>
       </section>
       <section className="admin-card">
+        <p className="admin-muted-note">Ide o evidované sumy pri dopytoch, odhadoch a zákazkách podľa dátumu demontáže, nie potvrdené tržby ani prijaté úhrady. Zadané priame náklady a odmeny nemusia byť úplné; orientačný rozdiel nie je zisk ani účtovná marža. Zrušené záznamy sú oddelené.</p>
+        <div className="admin-table-wrap" role="region" aria-label="Mesačný ročný prehľad, posúvateľná tabuľka" tabIndex={0}>
         <table className="admin-table">
-          <thead><tr><th>Mesiac</th><th>Zákaziek</th><th>m2</th><th>Tržby €</th><th>Faktúry €</th><th>Cash €</th><th>Náklady</th><th>Odmeny</th><th>Zisk €</th><th>Marža %</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.month}><td><a href={`/admin/zakazky?month=${row.key}`}>{row.month}</a></td><td>{row.count}</td><td>{numberSk(row.m2)}</td><td>{euro(row.revenue)}</td><td>{euro(row.invoice)}</td><td>{euro(row.cash)}</td><td>{euro(row.costs)}</td><td>{euro(row.rewards)}</td><td>{euro(row.profit)}</td><td>{row.revenue ? ((row.profit / row.revenue) * 100).toFixed(1) : '0'} %</td></tr>)}</tbody>
-          <tfoot><tr><th>SPOLU</th><th>{total.count}</th><th>{numberSk(total.m2)}</th><th>{euro(total.revenue)}</th><th>{euro(total.invoice)}</th><th>{euro(total.cash)}</th><th>{euro(total.costs)}</th><th>{euro(total.rewards)}</th><th>{euro(total.profit)}</th><th>{total.revenue ? ((total.profit / total.revenue) * 100).toFixed(1) : '0'} %</th></tr></tfoot>
+          <thead><tr><th>Mesiac</th><th>Aktívne záznamy</th><th>m²</th><th>Evidovaná suma</th><th>Typ: faktúra</th><th>Typ: hotovosť</th><th>Zadané náklady</th><th>Odmeny</th><th>Orientačný rozdiel</th><th>Podiel orientačného rozdielu</th><th>Zrušené</th><th>Evidovaná suma zrušených</th></tr></thead>
+          <tbody>{rows.map((row) => <tr key={row.month}><td><a href={`/admin/zakazky?month=${row.key}`}>{row.month}</a></td><td>{row.count}</td><td>{numberSk(row.m2)}</td><td>{euro(row.recordedValue)}</td><td>{euro(row.invoiceTypeValue)}</td><td>{euro(row.cashTypeValue)}</td><td>{euro(row.costs)}</td><td>{euro(row.rewards)}</td><td>{euro(row.remainder)}</td><td>{row.recordedValue ? `${((row.remainder / row.recordedValue) * 100).toFixed(1)} %` : '—'}</td><td>{row.cancelledCount}</td><td>{euro(row.cancelledValue)}</td></tr>)}</tbody>
+          <tfoot><tr><th>SPOLU</th><th>{total.count}</th><th>{numberSk(total.m2)}</th><th>{euro(total.recordedValue)}</th><th>{euro(total.invoiceTypeValue)}</th><th>{euro(total.cashTypeValue)}</th><th>{euro(total.costs)}</th><th>{euro(total.rewards)}</th><th>{euro(total.remainder)}</th><th>{total.recordedValue ? `${((total.remainder / total.recordedValue) * 100).toFixed(1)} %` : '—'}</th><th>{total.cancelledCount}</th><th>{euro(total.cancelledValue)}</th></tr></tfoot>
         </table>
+        </div>
       </section>
       <section className="admin-card">
         <h2>Odmeny pracovníkov po mesiacoch</h2>

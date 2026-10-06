@@ -5,10 +5,22 @@ export type LeadDeliveryResult = {
   sent: boolean;
   customerSent: boolean;
   adminSent: boolean;
+  customerStatus?: 'sent' | 'failed' | 'unknown';
+  adminStatus?: 'sent' | 'failed' | 'unknown';
+  customerMessageId?: string;
+  adminMessageId?: string;
+  customerReason?: string;
+  adminReason?: string;
   reason?: string;
 };
 
 export type LeadDeliveryMode = 'smtp' | 'local_relay' | 'smtp_then_local_relay';
+export type LeadRecipientRole = 'customer' | 'internal';
+export type LeadRecipientDelivery = { status: 'sent' | 'failed' | 'unknown'; messageId?: string; reason?: string; retryable?: boolean };
+export type LeadRecipientDeliveryRecorder = {
+  claim: (role?: LeadRecipientRole) => Promise<string | false>;
+  record: (role: LeadRecipientRole, result: LeadRecipientDelivery, attemptLockedAt: string) => Promise<void>;
+};
 
 export function leadDeliveryMode(): LeadDeliveryMode {
   const value = process.env.LEAD_EMAIL_DELIVERY_MODE?.trim().toLowerCase();
@@ -16,24 +28,47 @@ export function leadDeliveryMode(): LeadDeliveryMode {
   return 'smtp';
 }
 
-function relayResult(reason: string): LeadDeliveryResult {
-  return { sent: false, customerSent: false, adminSent: false, reason };
+export function canSafelyFallbackToLocalRelay(mode: LeadDeliveryMode, smtpResult: LeadDeliveryResult) {
+  return mode === 'smtp_then_local_relay'
+    && !smtpResult.sent
+    && !smtpResult.customerSent
+    && !smtpResult.adminSent
+    && smtpResult.reason === 'SMTP nie je nastavené.';
 }
 
-async function sendPayloadThroughAstanaLocalRelay(payloadObject: Record<string, unknown>): Promise<LeadDeliveryResult> {
+function relayResult(reason: string, definitelyNotSent = false): LeadDeliveryResult {
+  return {
+    sent: false, customerSent: false, adminSent: false, reason,
+    customerStatus: definitelyNotSent ? 'failed' : 'unknown',
+    adminStatus: definitelyNotSent ? 'failed' : 'unknown',
+  };
+}
+
+function relayConfiguration(): { endpoint: URL; secret: string } | { reason: string } {
   const url = process.env.ASTANA_RELAY_URL?.trim();
   const secret = process.env.ASTANA_RELAY_SECRET;
-  if (!url || !secret || secret.length < 32) return relayResult('Lokálny relay nie je nastavený.');
+  if (!url || !secret || secret.length < 32) return { reason: 'Lokálny relay nie je nastavený.' };
 
   let endpoint: URL;
   try {
     endpoint = new URL(url);
   } catch {
-    return relayResult('Adresa lokálneho relaya nie je platná.');
+    return { reason: 'Adresa lokálneho relaya nie je platná.' };
   }
   if (endpoint.protocol !== 'https:' || endpoint.hostname !== 'www.astana.sk') {
-    return relayResult('Adresa lokálneho relaya nie je povolená.');
+    return { reason: 'Adresa lokálneho relaya nie je povolená.' };
   }
+  return { endpoint, secret };
+}
+
+export function isAstanaLocalRelayConfigured() {
+  return 'endpoint' in relayConfiguration();
+}
+
+async function sendPayloadThroughAstanaLocalRelay(payloadObject: Record<string, unknown>): Promise<LeadDeliveryResult> {
+  const config = relayConfiguration();
+  if ('reason' in config) return relayResult(config.reason, true);
+  const { endpoint, secret } = config;
 
   const payload = JSON.stringify(payloadObject);
   const timestamp = String(Math.floor(Date.now() / 1000));
@@ -46,6 +81,10 @@ async function sendPayloadThroughAstanaLocalRelay(payloadObject: Record<string, 
       headers: { 'content-type': 'application/json', 'x-astana-relay-timestamp': timestamp, 'x-astana-relay-signature': signature },
       body: payload,
     });
+    if (!response.ok) {
+      await response.body?.cancel();
+      return relayResult(`Lokálny relay vrátil HTTP ${response.status}; výsledok odoslania nie je potvrdený.`);
+    }
     const responseBody = await response.text();
     let result: { ok?: unknown; customerSent?: unknown; adminSent?: unknown } | null = null;
     try {
@@ -53,10 +92,28 @@ async function sendPayloadThroughAstanaLocalRelay(payloadObject: Record<string, 
     } catch {
       return relayResult('Lokálny relay vrátil neplatnú odpoveď.');
     }
-    if (!response.ok || result?.ok !== true || result.customerSent !== true || result.adminSent !== true) {
+    if (!result) {
       return relayResult('Lokálny relay e-mail nepotvrdil.');
     }
-    return { sent: true, customerSent: true, adminSent: true };
+    if (result.ok !== undefined && result.ok !== true) {
+      return relayResult('Lokálny relay nepotvrdil úspešné spracovanie; výsledok odoslania nie je potvrdený.');
+    }
+    const customerSent = result.customerSent === true;
+    const adminSent = result.adminSent === true;
+    return {
+      sent: customerSent && adminSent,
+      customerSent,
+      adminSent,
+      customerStatus: customerSent ? 'sent' : 'unknown',
+      adminStatus: adminSent ? 'sent' : 'unknown',
+      customerReason: customerSent ? '' : 'Relay nepotvrdil odoslanie zákazníckeho emailu.',
+      adminReason: adminSent ? '' : 'Relay nepotvrdil odoslanie interného emailu.',
+      reason: customerSent && adminSent && response.ok
+        ? undefined
+        : customerSent || adminSent
+          ? 'Relay potvrdil iba časť emailov; preverujeme stav druhého adresáta.'
+          : 'Lokálny relay e-mail nepotvrdil.',
+    };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') return relayResult('Lokálny relay nestihol odpovedať.');
     return relayResult('Lokálny relay sa nepodarilo kontaktovať.');

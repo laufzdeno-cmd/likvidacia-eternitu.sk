@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { listDueFollowups, listPlannerActions, markLeadFollowupNotificationSent, markPlannerNotificationSent } from '@/src/server/db';
-import { sendPlannerNotificationEmail } from '@/src/server/mail';
+import { addAuditLog, claimLeadEmailOutbox, getLeadEmailOutboxHealth, listDueFollowups, listLeadEmailOutbox, listPendingLeadEmailDeliveries, listPlannerActions, markLeadFollowupNotificationSent, markPlannerNotificationSent, markStaleLeadEmailClaimsUnknown, purgeExpiredApiRateLimitBuckets, recordLeadEmailRecipientResult, recoverAcceptedLeadAnalytics } from '@/src/server/db';
+import { leadDeliveryMode } from '@/src/server/astana-local-relay';
+import { hasLeadEmailTransportConfiguration, hasUsableLeadSmtpConfiguration, sendLeadEmailToRecipient, sendLeadEmails, sendPlannerNotificationEmail } from '@/src/server/mail';
 import type { PlannerAction } from '@/src/server/types';
 
 export const runtime = 'nodejs';
@@ -95,6 +96,50 @@ function customerHtml(action: PlannerAction) {
     </div>`;
 }
 
+async function processPendingLeadEmailDelivery(
+  pendingDelivery: Awaited<ReturnType<typeof listPendingLeadEmailDeliveries>>[number],
+  mode: ReturnType<typeof leadDeliveryMode>,
+) {
+  let result: { sent: boolean; customerSent: boolean; adminSent: boolean; reason?: string } = { sent: false, customerSent: false, adminSent: false };
+  const roles = pendingDelivery.pendingRoles;
+  if ((mode === 'local_relay' || mode === 'smtp_then_local_relay') && roles.length === 2) {
+    result = await sendLeadEmails(pendingDelivery.lead, pendingDelivery.fileCount, pendingDelivery.businessJobId, {
+      claim: (role) => claimLeadEmailOutbox(pendingDelivery.lead.id, role),
+      record: async (role, delivery, token) => {
+        const saved = await recordLeadEmailRecipientResult(pendingDelivery.lead.id, role, delivery, token);
+        if (!saved) throw new Error('Výsledok odoslania už nepatrí aktívnemu pokusu.');
+      },
+    });
+  } else if (mode !== 'local_relay') {
+    for (const role of roles) {
+      const token = await claimLeadEmailOutbox(pendingDelivery.lead.id, role);
+      if (!token) continue;
+      let delivery;
+      try {
+        delivery = await sendLeadEmailToRecipient(pendingDelivery.lead, role, pendingDelivery.fileCount, pendingDelivery.businessJobId);
+      } catch (error) {
+        delivery = { status: 'unknown' as const, reason: error instanceof Error ? error.message : 'Výsledok odoslania sa nepodarilo potvrdiť.' };
+      }
+      const saved = await recordLeadEmailRecipientResult(pendingDelivery.lead.id, role, delivery, token);
+      if (!saved) throw new Error('Výsledok odoslania už nepatrí aktívnemu pokusu.');
+      result = {
+        sent: result.sent || delivery.status === 'sent',
+        customerSent: result.customerSent || (role === 'customer' && delivery.status === 'sent'),
+        adminSent: result.adminSent || (role === 'internal' && delivery.status === 'sent'),
+        reason: [result.reason, delivery.reason].filter(Boolean).join(' | '),
+      };
+    }
+  } else {
+    result.reason = 'Relay nevie bezpečne zopakovať iba jedného adresáta; skontrolujte stav pred opakovaním.';
+  }
+  const deliveryStatuses = await listLeadEmailOutbox(pendingDelivery.lead.id);
+  result.customerSent = deliveryStatuses.some((item) => item.recipientRole === 'customer' && item.status === 'sent');
+  result.adminSent = deliveryStatuses.some((item) => item.recipientRole === 'internal' && item.status === 'sent');
+  result.sent = result.customerSent && result.adminSent;
+  await addAuditLog('lead', pendingDelivery.lead.id, result.sent ? 'lead_email_sent' : 'lead_email_error', 'cron', result);
+  return result;
+}
+
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
@@ -102,42 +147,85 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  let analyticsRecovery = { recovered: 0, remaining: false, failed: false, unrecoverable: 0 };
+  try {
+    const result = await recoverAcceptedLeadAnalytics();
+    analyticsRecovery = result;
+  } catch (error) {
+    console.error('Accepted lead analytics recovery failed; lead delivery continues.', error);
+    analyticsRecovery.failed = true;
+  }
+
+  let rateLimitBucketsPurged = 0;
+  let rateLimitCleanupFailed = false;
+  try {
+    rateLimitBucketsPurged = await purgeExpiredApiRateLimitBuckets();
+  } catch (error) {
+    console.error('Expired upload-token rate limit cleanup failed.', error);
+    rateLimitCleanupFailed = true;
+  }
+
+  await markStaleLeadEmailClaimsUnknown();
+  const mode = leadDeliveryMode();
+  const transportConfigured = hasLeadEmailTransportConfiguration(mode);
+  const pairsOnly = mode === 'local_relay' || (mode === 'smtp_then_local_relay' && !hasUsableLeadSmtpConfiguration());
+  const pendingDeliveries = transportConfigured ? await listPendingLeadEmailDeliveries(25, pairsOnly) : [];
+  let leadEmailSent = false;
+  let leadEmailFailed = false;
+  for (const pendingDelivery of pendingDeliveries.slice(0, 5)) {
+    try {
+      const result = await processPendingLeadEmailDelivery(pendingDelivery, mode);
+      leadEmailSent = leadEmailSent || result.sent;
+      leadEmailFailed = leadEmailFailed || !result.sent;
+    } catch (error) {
+      console.error('Lead outbox recovery failed for a pending email.', error);
+      leadEmailFailed = true;
+    }
+  }
+
   const tomorrow = addDays(1);
   const twoDays = addDays(2);
   const actions = await listPlannerActions({ from: tomorrow, to: twoDays });
   let sent = 0;
+  let failed = 0;
 
   for (const action of actions) {
     const weather = await weatherText(action);
     if (action.date === twoDays && action.notify2Days && !action.notify2DaysSent) {
-      await sendPlannerNotificationEmail({
+      const delivery = await sendPlannerNotificationEmail({
         to: adminEmail(),
         subject: `📅 O 2 dni — ${typeLabel(action.type)} ${action.address}`,
         text: [`O 2 dni: ${typeLabel(action.type)}`, `${action.date} ${action.timeFrom}-${action.timeTo}`, action.address, `Tím: ${action.workers || '—'}`, weather].join('\n'),
         html: adminHtml(action, `📅 O 2 dni — ${typeLabel(action.type)}`, weather),
       });
-      await markPlannerNotificationSent(action.id, 'notify2DaysSent');
-      sent += 1;
+      if (delivery.sent) {
+        await markPlannerNotificationSent(action.id, 'notify2DaysSent');
+        sent += 1;
+      } else failed += 1;
     }
     if (action.date === tomorrow && action.notify1Day && !action.notify1DaySent) {
-      await sendPlannerNotificationEmail({
+      const delivery = await sendPlannerNotificationEmail({
         to: adminEmail(),
         subject: `🔔 ZAJTRA — ${action.address} o ${action.timeFrom}`,
         text: [`Zajtra: ${typeLabel(action.type)}`, `${action.date} ${action.timeFrom}-${action.timeTo}`, action.address, `Nezabudnite zavolať zákazníkovi: ${action.customerName || '—'} ${action.customerPhone || ''}`, `Tím: ${action.workers || '—'}`, weather].join('\n'),
         html: adminHtml(action, `🔔 Zajtra — ${action.address}`, weather),
       });
-      await markPlannerNotificationSent(action.id, 'notify1DaySent');
-      sent += 1;
+      if (delivery.sent) {
+        await markPlannerNotificationSent(action.id, 'notify1DaySent');
+        sent += 1;
+      } else failed += 1;
     }
     if (action.date === twoDays && action.notifyCustomer && !action.notifyCustomerSent && action.customerEmail) {
-      await sendPlannerNotificationEmail({
+      const delivery = await sendPlannerNotificationEmail({
         to: action.customerEmail,
         subject: `ASTANA — pripomienka termínu demontáže ${action.date}`,
         text: [`Dobrý deň,`, `pripomíname termín ${action.date} ${action.timeFrom}-${action.timeTo}.`, `Adresa: ${action.address}`, 'Prosíme, pripravte prístup a voľný priestor.', 'Kontakt: 0905 217 946'].join('\n'),
         html: customerHtml(action),
       });
-      await markPlannerNotificationSent(action.id, 'notifyCustomerSent');
-      sent += 1;
+      if (delivery.sent) {
+        await markPlannerNotificationSent(action.id, 'notifyCustomerSent');
+        sent += 1;
+      } else failed += 1;
     }
   }
 
@@ -145,7 +233,7 @@ export async function GET(request: Request) {
   for (const lead of followups) {
     const adminUrl = `${process.env.ADMIN_BASE_URL || new URL(request.url).origin}/admin/dopyty/${lead.id}`;
     const phoneHref = String(lead.phone || '').replace(/[^\d+]/g, '');
-    await sendPlannerNotificationEmail({
+    const delivery = await sendPlannerNotificationEmail({
       to: adminEmail(),
       subject: `📞 Dnes zavolať — ${lead.fullName} ${lead.city}`,
       text: [
@@ -169,9 +257,24 @@ export async function GET(request: Request) {
           </div>
         </div>`,
     });
-    await markLeadFollowupNotificationSent(lead.id);
-    sent += 1;
+    if (delivery.sent) {
+      await markLeadFollowupNotificationSent(lead.id);
+      sent += 1;
+    } else failed += 1;
   }
 
-  return NextResponse.json({ ok: true, checked: actions.length, sent });
+  const emailOutbox = await getLeadEmailOutboxHealth();
+  leadEmailFailed = leadEmailFailed || ((!transportConfigured || pairsOnly) && emailOutbox.pending > 0);
+  return NextResponse.json({
+    ok: failed === 0 && !leadEmailFailed && !rateLimitCleanupFailed && !analyticsRecovery.failed && !analyticsRecovery.remaining && analyticsRecovery.unrecoverable === 0 && emailOutbox.pending === 0 && emailOutbox.sending === 0 && emailOutbox.failed === 0 && emailOutbox.unknown === 0,
+    checked: actions.length,
+    sent,
+    failed,
+    leadEmailSent,
+    leadEmailFailed,
+    rateLimitBucketsPurged,
+    rateLimitCleanupFailed,
+    analyticsRecovery,
+    emailOutbox,
+  });
 }

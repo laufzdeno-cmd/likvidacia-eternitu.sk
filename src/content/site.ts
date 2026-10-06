@@ -14,7 +14,7 @@ export const site = {
   ico: '46 157 701',
   dic: '2023253771',
   icDph: 'SK2023253771',
-  openingHours: 'Po-Pia 7:00-18:00',
+  openingHours: 'Po–Pia 7:00–18:00',
   areaServed: 'Slovensko',
   brandColor: '#DA251D',
   claimedStats: {
@@ -24,19 +24,15 @@ export const site = {
   documents: {
     public: [] as Array<{ name: string; url: string }>,
     publicVerificationUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
-    note: 'Interné oprávnenia a PDF dokumenty sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie. Verejná overiteľnosť je cez zoznam ÚVZ SR.',
+    note: 'Verejný odkaz vedie na zoznam ÚVZ SR zverejnený k 19. 9. 2024; sám nepotvrdzuje zmeny po tomto dátume.',
   },
   compliance: {
     uvzAuthorizedCompaniesUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
     asbestosRemovalAuthorization: {
-      exterior: true,
-      interior: true,
-      publicVerification: 'ASTANA, s.r.o. je verejne overiteľná v zozname ÚVZ SR medzi oprávnenými spoločnosťami na odstraňovanie azbestu a materiálov obsahujúcich azbest zo stavieb.',
+      publicVerificationAsOf: '2024-09-19',
+      scopeAsPublished: ['EXT, BJ', 'INT'],
+      publicVerification: 'Zoznam ÚVZ SR zverejnený k 19. 9. 2024 uvádza ASTANA, s.r.o. s oprávneniami označenými EXT, BJ a INT. Ide o stav zachytený v tomto zozname; aktuálnosť po uvedenom dátume z neho nemožno potvrdiť.',
       internalDocumentsPublic: false,
-    },
-    googleBusinessProfile: {
-      status: 'založený',
-      urlTodo: 'TODO: doplniť verejnú URL Google Business Profile po potvrdení majiteľom.',
     },
     reviews: {
       collectedSystematically: false,

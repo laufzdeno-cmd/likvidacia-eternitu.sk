@@ -12,6 +12,7 @@ export type LeadStatus =
   | 'archivovane';
 
 export type LeadInput = {
+  submissionId?: string;
   fullName: string;
   phone: string;
   email: string;
@@ -33,6 +34,8 @@ export type LeadInput = {
 
 export type Lead = LeadInput & {
   id: string;
+  /** Explicit admin classification; absent legacy values are treated as real leads. */
+  isTestData?: boolean;
   status: LeadStatus;
   internalNote: string;
   ownerEmail?: string;
@@ -105,7 +108,8 @@ export type AuditLog = {
     | 'review_request'
     | 'business_job'
     | 'admin_user'
-    | 'planner_action';
+    | 'planner_action'
+    | 'realization_media';
   entityId: string;
   action: string;
   actorEmail: string;
@@ -142,6 +146,7 @@ export type Quote = QuoteInput & {
 export type TestimonialStatus = 'draft' | 'approved' | 'hidden';
 
 export type TestimonialInput = {
+  submissionId?: string;
   customerName: string;
   location?: string;
   objectType?: string;
@@ -151,6 +156,10 @@ export type TestimonialInput = {
   status: TestimonialStatus;
   customerEmail?: string;
   consentPublication?: boolean;
+  consentEvidence?: string;
+  consentCapturedAt?: string;
+  consentVersion?: string;
+  consentRevokedAt?: string;
   source?: 'admin' | 'public' | 'google' | 'phone' | 'whatsapp' | 'email' | 'personal';
   internalNote?: string;
   photoUrl?: string;
@@ -162,6 +171,26 @@ export type Testimonial = TestimonialInput & {
   updatedAt: string;
   approvedAt?: string;
   approvedBy?: string;
+};
+
+export type TestimonialAdminHistoryItem = {
+  id: string;
+  source: 'consent' | 'audit';
+  event: string;
+  actorEmail: string;
+  createdAt: string;
+  changes?: Record<string, unknown>;
+  snapshot?: {
+    customerName: string;
+    rating: number;
+    text: string;
+    consentPublication: boolean;
+    consentEvidence: string;
+    consentCapturedAt?: string;
+    consentVersion: string;
+    consentRevokedAt?: string;
+    publicContentHash: string;
+  };
 };
 
 export type ReviewRequestStatus = 'sent' | 'review_received';
@@ -204,7 +233,7 @@ export type BusinessJobStatus =
   | 'DOKONCENA'
   | 'ZRUSENA';
 export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
-export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSLANA' | 'PRIJATA' | 'ZRUSENA';
+export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSIELA' | 'NEISTY_STAV' | 'ODOSLANA' | 'PRIJATA' | 'ZRUSENA';
 export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR';
 
 export type AdminUser = {
@@ -216,6 +245,7 @@ export type AdminUser = {
   passwordHash: string;
   twoFactorSecret?: string;
   twoFactorEnabled: boolean;
+  twoFactorLastUsedStep?: number;
   twoFactorBackupCodeHashes: string[];
   createdAt: string;
   updatedAt: string;
@@ -329,6 +359,8 @@ export type BusinessJobInput = {
 
 export type BusinessJob = {
   id: string;
+  leadId?: string;
+  isTestData?: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
@@ -406,6 +438,12 @@ export type PriceOfferInput = {
   pricePerM2WithoutVat: number;
   documentationFeeWithoutVat: number;
   includeDocumentation: boolean;
+  documentationPromotion: boolean;
+  includeTransport: boolean;
+  transportFrom: string;
+  transportTo: string;
+  transportRoundTripKm: number;
+  transportPricePerKm: number;
   validUntil: string;
   offerNote?: string;
   internalNote?: string;
@@ -414,10 +452,15 @@ export type PriceOfferInput = {
 
 export type PriceOffer = PriceOfferInput & {
   id: string;
+  leadId?: string;
+  sourceJobIds?: string[];
+  isTestData?: boolean;
   number: string;
   createdAt: string;
+  vatRate: number;
   deletedAt?: string;
   sentAt?: string;
+  sendStartedAt?: string;
   acceptedAt?: string;
   materialPriceWithoutVat: number;
   totalWithoutVat: number;
@@ -437,6 +480,9 @@ export type RealizationInput = {
   status: RealizationStatus;
   featured?: boolean;
   createdBy: string;
+  publicationEvidence?: string;
+  publicationRightsConfirmed?: boolean;
+  publicationLocationConfirmed?: boolean;
 };
 
 export type Realization = RealizationInput & {
@@ -444,7 +490,47 @@ export type Realization = RealizationInput & {
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
+  publicationEvidence?: string;
+  publicationApprovedBy?: string;
+  publicationApprovedAt?: string;
 };
+
+export type PublishedRealization = Pick<Realization,
+  'id' | 'title' | 'location' | 'materialType' | 'areaEstimate' | 'description' | 'imageUrls' | 'featured' | 'createdAt' | 'publishedAt'
+>;
+
+export type RealizationCaseDraft = {
+  id: string;
+  businessJobId?: string;
+  businessJob?: { id: string; demolitionDate: string; district: string };
+  title: string;
+  locality: string;
+  localityPrecision: 'none' | 'municipality' | 'district';
+  lifecycle: 'draft' | 'reviewed' | 'approved' | 'published' | 'withdrawn';
+  publicationEvidence: string;
+  publicationRightsConfirmed: boolean;
+  publicationLocationConfirmed: boolean;
+  publicationContentConfirmed: boolean;
+  publicationApprovedBy: string;
+  publicationApprovedAt?: string;
+  publishedAt?: string;
+  withdrawnAt?: string;
+  objectType: string;
+  materialType: string;
+  workDescription: string;
+  resultDescription: string;
+  areaEstimate?: number;
+  workPeriod: string;
+  media: Array<{ id: string; originalName: string; locality: string; categories: string[]; createdAt: string; uploadedAt?: string }>;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+export type PublishedRealizationCase = Pick<RealizationCaseDraft,
+  'id' | 'title' | 'locality' | 'localityPrecision' | 'objectType' | 'materialType'
+  | 'workDescription' | 'resultDescription' | 'areaEstimate' | 'workPeriod'
+> & { photoIds: string[]; publishedAt: string };
 
 export type SiteContentItem = {
   key: string;
@@ -467,6 +553,10 @@ export type AnalyticsEventType =
   | 'roofer_registration_success';
 
 export type AnalyticsEventInput = {
+  /** Server-only stable key for events derived from committed records. */
+  dedupeId?: string;
+  /** Optional trusted source timestamp, used when backfilling an accepted lead. */
+  createdAt?: string;
   sessionId: string;
   eventType: AnalyticsEventType;
   path: string;
@@ -486,15 +576,29 @@ export type AnalyticsEvent = AnalyticsEventInput & {
 
 export type AnalyticsReport = {
   rangeDays: number;
+  eventCoverage: {
+    limit: number;
+    returned: number;
+    truncated: boolean;
+  };
   totals: {
     pageViews: number;
     sessions: number;
+    /** All non-deleted CRM leads created in the selected period. */
     leads: number;
+    /** Issued quote documents (not drafts/cancelled quotes) for that lead cohort. */
     quotes: number;
+    /** Accepted quote documents for that lead cohort. */
     acceptedQuotes: number;
+    measuredLeads: number;
+    /** Measured session conversion; never divided by CRM-only leads. */
     leadConversionRate: number;
+    /** Share of leads in the same CRM cohort that received at least one issued quote. */
     quoteRate: number;
+    /** Share of quoted leads in that CRM cohort that accepted a quote. */
     acceptedQuoteRate: number;
+    quotedLeads: number;
+    acceptedLeads: number;
   };
   events: Array<{ eventType: string; count: number }>;
   topPages: Array<{ path: string; views: number; sessions: number; leads: number; conversionRate: number }>;
@@ -502,7 +606,7 @@ export type AnalyticsReport = {
   campaigns: Array<{ campaign: string; source: string; sessions: number; leads: number; conversionRate: number }>;
   devices: Array<{ device: string; sessions: number; pageViews: number; leads: number; conversionRate: number }>;
   daily: Array<{ date: string; pageViews: number; sessions: number; leads: number; formStarts: number; quoteViews: number }>;
-  funnel: Array<{ label: string; count: number; rateFromPrevious: number }>;
+  funnel: Array<{ label: string; count: number; rateFromPrevious: number | null }>;
 };
 
 export type AnalyticsTrafficSlice = {
@@ -510,6 +614,18 @@ export type AnalyticsTrafficSlice = {
   sessions: number;
   formStarts: number;
   leads: number;
+};
+
+export type LeadAttributionReportRow = {
+  source: string;
+  medium: string;
+  campaign: string;
+  leads: number;
+  /** Unique leads with at least one issued offer in either CRM model. */
+  leadsWithIssuedOffer: number;
+  /** Unique leads with at least one accepted offer in either CRM model. */
+  leadsWithAcceptedOffer: number;
+  progressedLeads: number;
 };
 
 export type AnalyticsTrafficSummary = {
@@ -612,6 +728,24 @@ export type CareerApplicationCv = {
   storageKey: string;
   mimeType: string;
   sizeBytes: number;
+  sha256?: string;
+};
+
+export type ApplicationNotificationEntity = 'career_application' | 'roofer_registration';
+export type ApplicationNotificationRecipient = 'applicant' | 'internal';
+export type ApplicationNotificationStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'unknown' | 'confirmed_delivered' | 'confirmed_not_delivered';
+
+export type ApplicationNotification = {
+  entityType: ApplicationNotificationEntity;
+  entityId: string;
+  recipient: ApplicationNotificationRecipient;
+  status: ApplicationNotificationStatus;
+  attempts: number;
+  retryable: boolean;
+  attemptedAt?: string;
+  sentAt?: string;
+  messageId?: string;
+  lastError?: string;
 };
 
 export type CareerApplication = {
@@ -633,5 +767,6 @@ export type CareerApplication = {
   experience: string;
   note: string;
   privacyConsent: boolean;
+  cvExpected: boolean;
   cv?: CareerApplicationCv;
 };

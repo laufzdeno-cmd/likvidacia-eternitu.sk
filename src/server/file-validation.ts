@@ -1,4 +1,8 @@
+import sharp from 'sharp';
+import { leadPhotoContentType } from '../lib/lead-photo-content-type';
 import { allowedFileExtensions, allowedFileTypes, maxLeadFileSize } from './validation';
+
+export const maxLeadPhotoPixels = 50_000_000;
 
 function extension(fileName: string) {
   const match = fileName.toLowerCase().match(/\.[a-z0-9]{1,8}$/);
@@ -19,24 +23,6 @@ function looksLikeHeic(bytes: Uint8Array) {
   return ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'].includes(brand);
 }
 
-function fallbackTypeFromExtension(ext: string) {
-  switch (ext) {
-    case '.jpg':
-    case '.jpeg':
-      return 'image/jpeg';
-    case '.png':
-      return 'image/png';
-    case '.webp':
-      return 'image/webp';
-    case '.heic':
-      return 'image/heic';
-    case '.heif':
-      return 'image/heif';
-    default:
-      return '';
-  }
-}
-
 type LeadFileInput = {
   name: string;
   size: number;
@@ -44,24 +30,20 @@ type LeadFileInput = {
 };
 
 function leadContentType(file: LeadFileInput) {
-  const ext = extension(file.name || '');
-  const declaredType = file.type || '';
-  return allowedFileTypes.has(declaredType) && declaredType !== 'application/octet-stream'
-    ? declaredType
-    : fallbackTypeFromExtension(ext);
+  return leadPhotoContentType(file.name || '', file.type || '');
 }
 
 export function validateLeadFileMetadata(file: LeadFileInput) {
   const ext = extension(file.name || '');
   if (!allowedFileExtensions.has(ext)) {
-    return 'Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.';
+    return 'Povolené sú iba JPG, JPEG, PNG alebo WEBP súbory. Fotku z iPhonu uložte ako JPG.';
   }
   if (file.size <= 0) return 'Nahraný súbor je prázdny.';
   if (file.size > maxLeadFileSize) {
     return 'Jeden súbor môže mať maximálne 10 MB.';
   }
   if (!allowedFileTypes.has(leadContentType(file))) {
-    return 'Povolené sú iba JPG, JPEG, PNG, WEBP alebo HEIC súbory.';
+    return 'Povolené sú iba JPG, JPEG, PNG alebo WEBP súbory. Fotku z iPhonu uložte ako JPG.';
   }
   return null;
 }
@@ -74,7 +56,76 @@ export function validateLeadFileHeader(file: LeadFileInput, header: Uint8Array) 
   const isHeic = (contentType === 'image/heic' || contentType === 'image/heif') && looksLikeHeic(header);
 
   if (!isJpeg && !isPng && !isWebp && !isHeic) {
-    return 'Súbor nevyzerá ako povolený typ. Skúste nahrať fotku vo formáte JPG, JPEG, PNG, WEBP alebo HEIC.';
+    return 'Súbor nevyzerá ako povolený typ. Skúste nahrať fotku vo formáte JPG, JPEG, PNG alebo WEBP.';
+  }
+  return null;
+}
+
+function completeLeadImageContainer(file: LeadFileInput, bytes: Uint8Array) {
+  const contentType = leadContentType(file);
+  if (contentType === 'image/png') {
+    const iend = [0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
+    return bytes.length >= 20 && startsWith(bytes.subarray(bytes.length - iend.length), iend);
+  }
+  if (contentType === 'image/jpeg') {
+    return bytes.length >= 4 && bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
+  }
+  if (contentType === 'image/webp') {
+    if (bytes.length < 12) return false;
+    const declaredSize = new DataView(bytes.buffer, bytes.byteOffset + 4, 4).getUint32(0, true);
+    return declaredSize + 8 === bytes.length;
+  }
+  return true;
+}
+
+export function collectSubmittedLeadPhotos(entries: FormDataEntryValue[]) {
+  const files: File[] = [];
+  for (const entry of entries) {
+    if (!(entry instanceof File)) {
+      return { files: [], error: 'Fotky sa nepodarilo spracovať. Vyberte ich prosím znova.' };
+    }
+    // Browsers submit one nameless, empty File when an optional file input is untouched.
+    if (entry.name === '' && entry.size === 0) continue;
+    files.push(entry);
+  }
+  return { files, error: null };
+}
+
+export function detectLeadFileContentType(header: Uint8Array): string | null {
+  if (startsWith(header, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (startsWith(header, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+  if (ascii(header, 0, 4) === 'RIFF' && ascii(header, 8, 12) === 'WEBP') return 'image/webp';
+  if (looksLikeHeic(header)) {
+    const brand = ascii(header, 8, 12).toLowerCase();
+    return brand === 'heic' || brand === 'heix' || brand === 'hevc' || brand === 'hevx' ? 'image/heic' : 'image/heif';
+  }
+  return null;
+}
+
+export async function validateLeadImageBytes(file: LeadFileInput, bytes: Uint8Array) {
+  const metadataError = validateLeadFileMetadata(file);
+  if (metadataError) return metadataError;
+  if (bytes.byteLength !== file.size) return 'Fotografia sa nepreniesla celá. Vyberte ju prosím znova.';
+  const headerError = validateLeadFileHeader(file, bytes.subarray(0, 32));
+  if (headerError) return headerError;
+  if (!completeLeadImageContainer(file, bytes)) {
+    return 'Fotografia je poškodená alebo sa nedá otvoriť. Skúste inú fotku vo formáte JPG alebo PNG.';
+  }
+  const source = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
+  let metadata: Awaited<ReturnType<ReturnType<typeof sharp>['metadata']>>;
+  try {
+    metadata = await sharp(source, { failOn: 'error', sequentialRead: true }).metadata();
+  } catch {
+    return 'Fotografiu sa nepodarilo prečítať. Skúste ju uložiť ako JPG alebo PNG.';
+  }
+  if (!metadata.width || !metadata.height) return 'Fotografii sa nepodarilo zistiť rozmery. Vyberte ju prosím znova.';
+  if (metadata.width * metadata.height > maxLeadPhotoPixels) {
+    return 'Fotografia má viac ako 50 megapixelov. Pred nahratím ju zmenšite alebo vyberte menší záber.';
+  }
+  try {
+    await sharp(source, { limitInputPixels: maxLeadPhotoPixels, failOn: 'error', sequentialRead: true }).stats();
+  } catch {
+    return 'Fotografia je poškodená alebo sa nedá otvoriť. Skúste inú fotku vo formáte JPG alebo PNG.';
   }
   return null;
 }
@@ -82,9 +133,7 @@ export function validateLeadFileHeader(file: LeadFileInput, header: Uint8Array) 
 export async function validateUploadedLeadFile(file: File) {
   const metadataError = validateLeadFileMetadata(file);
   if (metadataError) return metadataError;
-
-  const header = new Uint8Array(await file.slice(0, 32).arrayBuffer());
-  return validateLeadFileHeader(file, header);
+  return validateLeadImageBytes(file, new Uint8Array(await file.arrayBuffer()));
 }
 
 export async function validateCareerCvFile(file: File) {

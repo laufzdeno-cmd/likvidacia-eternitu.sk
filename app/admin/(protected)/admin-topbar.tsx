@@ -12,6 +12,7 @@ const crumbs = [
   { href: '/admin/reviews/request', label: 'Žiadosť o recenziu' },
   { href: '/admin/reviews', label: 'Recenzie' },
   { href: '/admin/realizacie', label: 'Realizácie' },
+  { href: '/admin/realizacie/fotky', label: 'Fotky z terénu' },
   { href: '/admin/referencie', label: 'Referencie' },
   { href: '/admin/strechari', label: 'Strechári' },
   { href: '/admin/kariera', label: 'Kariéra' },

@@ -1,4 +1,5 @@
-import { listPriceOffers } from '@/src/server/db';
+import { getPriceOfferStatusSummary, listPriceOffers } from '@/src/server/db';
+import { dateInBratislava } from '@/src/server/analytics-metrics';
 import { requireAdminUser } from '@/src/server/auth';
 import type { PriceOfferStatus } from '@/src/server/types';
 import { deletePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from './actions';
@@ -8,15 +9,13 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
   const params = await searchParams;
   const adminUser = await requireAdminUser();
   const status = (params.status || '') as PriceOfferStatus | '';
-  const month = params.month || '';
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month || '') ? params.month! : '';
   const jobId = params.jobId || '';
   const includeArchived = adminUser.role === 'SUPER_ADMIN' && params.archived === '1';
   const offers = await listPriceOffers({ status, month, jobId, includeArchived });
-  const monthKey = month || new Date().toISOString().slice(0, 7);
-  const monthOffers = offers.filter((offer) => offer.createdAt.startsWith(monthKey));
-  const sent = monthOffers.filter((offer) => ['ODOSLANA', 'PRIJATA'].includes(offer.status)).length;
-  const accepted = monthOffers.filter((offer) => offer.status === 'PRIJATA');
-  const conversion = sent ? Math.round((accepted.length / sent) * 1000) / 10 : 0;
+  const monthKey = month || dateInBratislava(new Date()).slice(0, 7);
+  const summary = await getPriceOfferStatusSummary(monthKey);
+  const conversion = summary.sent ? Math.round((summary.accepted / summary.sent) * 1000) / 10 : 0;
 
   return (
     <main className="admin-page">
@@ -25,11 +24,12 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
         <a className="admin-primary-link" href="/admin/ponuky/nova">Nová cenová ponuka</a>
       </div>
       <section className="admin-stat-grid">
-        <article><span>Ponúk tento mesiac</span><strong>{monthOffers.length}</strong></article>
-        <article><span>Odoslaných</span><strong>{sent}</strong></article>
-        <article><span>Prijatých</span><strong>{accepted.length}</strong><small>{conversion} %</small></article>
-        <article><span>Hodnota prijatých</span><strong>{euro(accepted.reduce((sum, offer) => sum + offer.totalWithVat, 0))}</strong></article>
+        <article><span>Ponúk v mesiaci</span><strong>{summary.created}</strong></article>
+        <article><span>Odoslaných</span><strong>{summary.sent}</strong></article>
+        <article><span>Prijatých</span><strong>{summary.accepted}</strong><small>{conversion} %</small></article>
+        <article><span>Hodnota prijatých</span><strong>{euro(summary.acceptedValue)}</strong></article>
       </section>
+      <p className="admin-muted-note">Súhrn nezahŕňa označené testovacie záznamy ani archivované ponuky. Zoznam nižšie zostáva operatívny.</p>
       <section className="admin-card no-print">
         <form className="admin-filter-bar" action="/admin/ponuky" method="get">
           <label>Stav<select name="status" defaultValue={status}><option value="">Všetky</option>{priceOfferStatuses.map((item) => <option key={item} value={item}>{priceOfferStatusLabels[item]}</option>)}</select></label>
@@ -57,7 +57,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   <td className="admin-action-row">
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Náhľad</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
-                    {!offer.deletedAt ? <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form> : null}
+                    {!offer.deletedAt && offer.status === 'PRIPRAVENA' ? <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form> : null}
                     {!offer.deletedAt ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Prijatá</button></form> : null}
                     {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
                       <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>

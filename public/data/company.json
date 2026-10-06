@@ -4,6 +4,9 @@
   "domain": "https://likvidacia-eternitu.sk",
   "phone": "+421905217946",
   "email": "astana@astana.sk",
+  "opening_hours": "Po–Pia 7:00–18:00",
+  "quote_response_time": "Nezáväznú cenovú ponuku pošleme čo najskôr, najneskôr do 24 hodín.",
+  "transport_policy": "Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.",
   "website": "https://likvidacia-eternitu.sk",
   "address": {
     "street": "Scherffelova 1364/28",
@@ -19,16 +22,13 @@
   "founded_year": 2011,
   "areas_served": ["Slovensko"],
   "same_as": ["https://astana.sk"],
-  "google_business_profile": {
-    "status": "zalozeny",
-    "url": "TODO: doplnit verejnu URL Google Business Profile po potvrdeni majitelom"
-  },
   "authorizations": {
-    "asbestos_removal_scope": ["exterier", "interier"],
-    "public_verification": "ASTANA, s.r.o. je verejne overitelna v zozname UVZ SR medzi opravnenymi spolocnostami na odstranovanie azbestu a materialov obsahujucich azbest zo stavieb.",
+    "asbestos_removal_scope_as_published": ["EXT, BJ", "INT"],
+    "public_verification": "Zoznam UVZ SR zverejneny k 19. 9. 2024 uvadza ASTANA, s.r.o. s opravneniami oznacenymi EXT, BJ a INT. Ide o stav zachyteny v tomto zozname; aktualnost po uvedenom datume z neho nemožno potvrdit.",
+    "public_verification_as_of": "2024-09-19",
     "public_verification_url": "https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf",
     "internal_documents_public": false,
-    "note": "Opravnenia a PDF dokumenty sa z bezpecnostnych a obchodnych dovodov nezverejnuju na stiahnutie."
+    "note": "Rozsah je uvedeny iba ako stav v zozname z 19. 9. 2024; nejde o samostatne potvrdenie aktualneho stavu."
   },
   "services": [
     "Likvidacia azbestu",
@@ -44,7 +44,7 @@
     "Recenzie sa doteraz systematicky nezbierali, preto web nepouziva Review ani AggregateRating schema.",
     "Nezverejnujeme anonymne ani dodatocne vytvorene hodnotenia.",
     "Interne opravnenia/PDF sa z bezpecnostnych a obchodnych dovodov nezverejnuju na stiahnutie.",
-    "Firma ma opravnenie pre exterier aj interier; verejna overitelnost je cez zoznam UVZ SR.",
+    "Zoznam UVZ SR zverejneny k 19. 9. 2024 uvadza pri ASTANA, s.r.o. rozsahy EXT, BJ a INT; aktualny stav po tomto datume si treba overit u prislusneho uradu.",
     "Realizacie nemaju obsahovat vymyslene mesta, mena ani m2."
   ],
   "gallery_policy": {
@@ -57,6 +57,7 @@
     "https://likvidacia-eternitu.sk/likvidacia-eternitu/",
     "https://likvidacia-eternitu.sk/cena-likvidacie-azbestu/",
     "https://likvidacia-eternitu.sk/postup/",
+    "https://likvidacia-eternitu.sk/kde-posobime/",
     "https://likvidacia-eternitu.sk/faq/",
     "https://likvidacia-eternitu.sk/realizacie/",
     "https://likvidacia-eternitu.sk/recenzie/",
@@ -71,9 +72,9 @@
     "https://likvidacia-eternitu.sk/likvidacia-azbestu-bratislava/",
     "https://likvidacia-eternitu.sk/likvidacia-azbestu-nitra/",
     "https://likvidacia-eternitu.sk/likvidacia-azbestu-trnava/",
-    "https://likvidacia-eternitu.sk/pre-strecharov/",
     "https://likvidacia-eternitu.sk/strechari/",
     "https://likvidacia-eternitu.sk/spolupracujuci-strechari/",
+    "https://likvidacia-eternitu.sk/kariera/",
     "https://likvidacia-eternitu.sk/ochrana-osobnych-udajov/",
     "https://likvidacia-eternitu.sk/cookies/",
     "https://likvidacia-eternitu.sk/podmienky-pouzivania/",

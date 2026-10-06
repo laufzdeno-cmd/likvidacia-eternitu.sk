@@ -10,11 +10,11 @@ const securityHeaders = [
       "form-action 'self'",
       "frame-ancestors 'none'",
       "object-src 'none'",
-      "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.blob.vercel-storage.com",
+      "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.blob.vercel-storage.com https://www.google.com https://www.googleadservices.com https://www.facebook.com",
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
-      ["script-src 'self' 'unsafe-inline'", isDev ? "'unsafe-eval'" : ''].filter(Boolean).join(' '),
-      "connect-src 'self' https://*.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com",
+      ["script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net", isDev ? "'unsafe-eval'" : ''].filter(Boolean).join(' '),
+      "connect-src 'self' https://*.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://www.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.facebook.com https://connect.facebook.net",
       'upgrade-insecure-requests',
     ].join('; '),
   },
@@ -33,11 +33,19 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/*': ['./node_modules/@sparticuz/chromium/bin/**/*'],
   },
+  outputFileTracingExcludes: {
+    '/*': ['./.data/**/*', './storage/**/*', './data/**/*'],
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
   },
   trailingSlash: true,
+  async redirects() {
+    return [
+      { source: '/pre-strecharov/', destination: '/strechari/', permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

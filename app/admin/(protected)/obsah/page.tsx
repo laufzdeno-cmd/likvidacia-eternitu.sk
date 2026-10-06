@@ -1,5 +1,6 @@
 import { listSiteContent } from '@/src/server/db';
 import { homeContentDefaults } from '@/src/server/site-content';
+import { mergeSiteContent } from '@/src/server/site-content-map';
 import { updateSiteContentAction } from './actions';
 
 const labels: Record<string, string> = {
@@ -62,14 +63,20 @@ const labels: Record<string, string> = {
   cautionItems: 'Na čo si dať pozor: karty vo formáte Nadpis|Text, každá na nový riadok',
   rooferItems: 'Strechári: karty vo formáte Nadpis|Text, každá na nový riadok',
   practiceItems: 'Prax namiesto referencií: položky vo formáte Nadpis|Text, každá na nový riadok',
-  whyItems: 'Prečo ASTANA: položky, každá na nový riadok',
+  whySafeText: 'Prečo ASTANA: Bezpečný postup',
+  whyDocumentationText: 'Prečo ASTANA: Dokumentácia',
+  whyRemovalText: 'Prečo ASTANA: Demontáž a odvoz',
+  whyExperienceText: 'Prečo ASTANA: Skúsenosti',
+  whyPricingText: 'Prečo ASTANA: Nacenenie',
+  whyCoverageText: 'Prečo ASTANA: Pôsobnosť',
+  whyItems: 'Archív: staré texty kariet Prečo ASTANA (nezverejňujú sa)',
   faqItems: 'FAQ: otázky vo formáte Otázka|Odpoveď, každá na nový riadok',
 };
 
 export default async function SiteContentPage() {
   const stored = await listSiteContent();
   const storedMap = Object.fromEntries(stored.map((item) => [item.key, item.value]));
-  const content = { ...homeContentDefaults, ...storedMap };
+  const content = mergeSiteContent(homeContentDefaults, stored);
 
   return (
     <main className="admin-page">
@@ -87,13 +94,18 @@ export default async function SiteContentPage() {
           {Object.entries(content).filter(([key]) => key !== 'homepageContentVersion').map(([key, value]) => (
             <label key={key} className={value.length > 90 ? 'admin-form-wide' : ''}>
               {labels[key] || key}
-              {value.length > 90 ? (
+              {key === 'whyItems' ? (
+                <textarea rows={4} value={value} readOnly disabled aria-describedby="archived-why-items-note" />
+              ) : value.length > 90 ? (
                 <textarea name={`content:${key}`} rows={4} defaultValue={value} />
               ) : (
                 <input name={`content:${key}`} defaultValue={value} />
               )}
             </label>
           ))}
+          {Object.hasOwn(storedMap, 'whyItems') ? (
+            <p id="archived-why-items-note" className="admin-form-wide">Pôvodný obsah zostáva zachovaný iba na kontrolu. Verejné karty používajú nové samostatné polia vyššie.</p>
+          ) : null}
           <button className="admin-primary-button" type="submit">
             Uložiť texty
           </button>

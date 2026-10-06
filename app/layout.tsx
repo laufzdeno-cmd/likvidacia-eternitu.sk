@@ -1,30 +1,20 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google';
 import { site } from '@/src/content/site';
+import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import { buildOrganizationJsonLd } from './seo-json-ld';
+import '@fontsource-variable/plus-jakarta-sans/wght.css';
 import '../src/styles.css';
 import '../src/premium-overrides.css';
 import '../src/final-visual-polish.css';
 import '../src/responsive-audit-hotfix.css';
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin', 'latin-ext'],
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  preload: false,
-  variable: '--font-plus-jakarta',
-});
-
 export const metadata: Metadata = {
   metadataBase: new URL(site.website),
   title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
   description:
-    'Odborná likvidácia azbestu a eternitu vrátane cenovej ponuky, dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
+    'Odborná likvidácia azbestu a eternitu po celom Slovensku. ASTANA zabezpečí dokumentáciu, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii odpadu.',
   keywords: 'likvidácia azbestu, likvidácia eternitu, odstránenie azbestu, cena likvidácie azbestu, nebezpečný odpad',
   authors: [{ name: site.legalName }],
-  alternates: {
-    canonical: '/',
-  },
   openGraph: {
     type: 'website',
     locale: 'sk_SK',
@@ -52,10 +42,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="sk" className={plusJakarta.variable}>
+    <html lang="sk">
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
@@ -65,10 +53,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="color-scheme" content="only light" />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(buildOrganizationJsonLd()) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(buildOrganizationJsonLd()) }}
         />
       </head>
-      <body className={plusJakarta.className}>
+      <body>
         {children}
       </body>
     </html>

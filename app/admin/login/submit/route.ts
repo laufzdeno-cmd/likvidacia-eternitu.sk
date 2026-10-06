@@ -2,56 +2,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminEmail, setAdminSession, setPendingTwoFactor, verifyAdminCredentials, verifyGuestCsrf } from '@/src/server/auth';
 import { getAdminUserByEmail } from '@/src/server/db';
 import { isTwoFactorRequired } from '@/src/server/two-factor';
+import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
 import type { AdminUser } from '@/src/server/types';
 
-const loginAttempts = new Map<string, { count: number; firstAttempt: number }>();
-const loginWindowMs = 15 * 60 * 1000;
-const maxLoginAttempts = 5;
-
-function clientIp(request: NextRequest) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-}
-
-function isLoginLimited(ip: string) {
-  const now = Date.now();
-  const bucket = loginAttempts.get(ip);
-  if (!bucket || now - bucket.firstAttempt > loginWindowMs) {
-    return false;
-  }
-  return bucket.count >= maxLoginAttempts;
-}
-
-function recordFailedLogin(ip: string) {
-  const now = Date.now();
-  const bucket = loginAttempts.get(ip);
-  if (!bucket || now - bucket.firstAttempt > loginWindowMs) {
-    loginAttempts.set(ip, { count: 1, firstAttempt: now });
-    return;
-  }
-  bucket.count += 1;
-}
+const loginWindowMs = 10 * 60_000;
+const maxLoginAttempts = 20;
 
 export async function POST(request: NextRequest) {
-  const ip = clientIp(request);
-  if (isLoginLimited(ip)) {
-    return new NextResponse('Príliš veľa pokusov. Skúste znova o 15 minút.', { status: 429 });
-  }
-
   const formData = await request.formData();
   try {
     await verifyGuestCsrf(formData);
   } catch {
     return NextResponse.redirect(new URL('/admin/login?error=csrf', request.url), { status: 303 });
   }
-  const email = String(formData.get('email') || '');
+  const email = String(formData.get('email') || '').trim().slice(0, 254);
   const password = String(formData.get('password') || '');
 
+  try {
+    if (await consumeSharedRateLimit('admin-login-address', trustedRateLimitClientIp(request.headers), maxLoginAttempts, loginWindowMs)) {
+      return new NextResponse('Príliš veľa pokusov. Skúste znova o 10 minút.', { status: 429 });
+    }
+  } catch (error) {
+    console.error('Admin login rate limit unavailable', error instanceof Error ? error.message : 'unknown');
+    return new NextResponse('Prihlásenie je momentálne nedostupné. Skúste to o chvíľu znova.', { status: 503 });
+  }
+
   if (!(await verifyAdminCredentials(email, password))) {
-    recordFailedLogin(ip);
     return NextResponse.redirect(new URL('/admin/login?error=1', request.url), { status: 303 });
   }
 
-  loginAttempts.delete(ip);
   const normalizedEmail = email.trim().toLowerCase();
   const dbUser = await getAdminUserByEmail(normalizedEmail);
   const fallbackUser: Pick<AdminUser, 'email' | 'role' | 'twoFactorEnabled'> | null =

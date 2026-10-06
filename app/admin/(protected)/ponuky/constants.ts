@@ -9,10 +9,12 @@ export const priceOfferMaterialLabels: Record<PriceOfferMaterialType, string> = 
   INE: 'Iné',
 };
 
-export const priceOfferStatuses: PriceOfferStatus[] = ['PRIPRAVENA', 'ODOSLANA', 'PRIJATA', 'ZRUSENA'];
+export const priceOfferStatuses: PriceOfferStatus[] = ['PRIPRAVENA', 'ODOSIELA', 'NEISTY_STAV', 'ODOSLANA', 'PRIJATA', 'ZRUSENA'];
 
 export const priceOfferStatusLabels: Record<PriceOfferStatus, string> = {
   PRIPRAVENA: 'Pripravená',
+  ODOSIELA: 'Odosielanie',
+  NEISTY_STAV: 'Overiť odoslanie',
   ODOSLANA: 'Odoslaná',
   PRIJATA: 'Prijatá',
   ZRUSENA: 'Zrušená',

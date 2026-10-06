@@ -23,6 +23,12 @@ export function verifyTotp(token: string, secret: string) {
   return verifySync({ token: token.replace(/\s+/g, ''), secret }).valid;
 }
 
+export function verifyTotpTimeStep(token: string, secret: string, epoch = Math.floor(Date.now() / 1000)) {
+  const result = verifySync({ token: token.replace(/\s+/g, ''), secret, epoch });
+  const timeStep = (result as typeof result & { timeStep?: number }).timeStep;
+  return result.valid && Number.isSafeInteger(timeStep) ? timeStep! : null;
+}
+
 export function generateBackupCodes() {
   return Array.from({ length: 8 }, () => randomBytes(5).toString('hex').toUpperCase().replace(/(.{5})/, '$1-'));
 }

@@ -1,8 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createRooferRegistration } from '@/src/server/db';
-import { sendRooferRegistrationEmail } from '@/src/server/mail';
+import { createRooferRegistration, getRooferRegistrationBySubmissionId, listApplicationNotificationStatuses } from '@/src/server/db';
+import { processRooferRegistrationNotification } from '@/src/server/application-notifications';
+import { publicNotificationSummary } from '@/src/server/application-notification-policy';
+import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -28,6 +30,7 @@ const allowedSpecializations = [
 
 const businessTypes = ['sro', 'szco', 'other'] as const;
 const roofTrussOptions = ['yes', 'no', 'by_scope'] as const;
+const registrationRateWindowMs = 10 * 60_000;
 
 const optionalWebsite = z.string().trim().max(240, 'Webová stránka je príliš dlhá.').refine(
   (value) => !value || /^https?:\/\/[^\s]+$/i.test(value),
@@ -67,7 +70,7 @@ const legacyRegistrationSchema = z.object({
 
 function originAllowed(request: NextRequest) {
   const origin = request.headers.get('origin');
-  if (!origin) return true;
+  if (!origin) return process.env.NODE_ENV !== 'production';
   const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk')
     .split(',')
     .map((item) => item.trim())
@@ -101,6 +104,14 @@ function checked(formData: FormData, name: string) {
   return formData.get(name) === 'on' || formData.get(name) === 'true';
 }
 
+async function registrationIsRateLimited(request: NextRequest, email: string) {
+  const [addressLimited, emailLimited] = await Promise.all([
+    consumeSharedRateLimit('roofer-registration-address', trustedRateLimitClientIp(request.headers), 10, registrationRateWindowMs),
+    consumeSharedRateLimit('roofer-registration-email', email.trim().toLowerCase(), 3, registrationRateWindowMs),
+  ]);
+  return addressLimited || emailLimited;
+}
+
 function submissionIdValue(formData: FormData) {
   const value = stringValue(formData.get('submissionId')).trim();
   return /^[a-zA-Z0-9_-]{16,120}$/.test(value) ? value : randomUUID();
@@ -119,6 +130,16 @@ function legacySpecializations(jobTypes: string[]) {
   );
   if (known.length) return { specializations: [...new Set(known)], otherSpecialization: '' };
   return { specializations: ['Iné' as const], otherSpecialization: jobTypes.join(', ').slice(0, 180) };
+}
+
+function sameRegistrationPayload(saved: Awaited<ReturnType<typeof createRooferRegistration>>['registration'], input: z.infer<typeof registrationSchema>) {
+  return saved.businessType === input.businessType && saved.companyName === input.companyName && saved.companyId === input.companyId &&
+    saved.contactPerson === input.contactPerson && saved.phone === input.phone && saved.email === input.email &&
+    saved.website === input.website && JSON.stringify(saved.serviceRegions) === JSON.stringify(input.serviceRegions) &&
+    JSON.stringify(saved.specializations) === JSON.stringify(input.specializations) &&
+    saved.otherSpecialization === input.otherSpecialization && saved.canBuildRoofTruss === input.canBuildRoofTruss &&
+    saved.acceptCustomerReferrals === input.acceptCustomerReferrals && saved.consentPublicProfile === input.consentPublicProfile &&
+    saved.privacyConsent === input.privacyConsent && saved.note === input.note;
 }
 
 export async function POST(request: NextRequest) {
@@ -194,25 +215,66 @@ export async function POST(request: NextRequest) {
     };
   }
 
+  let knownDuplicate = false;
+  try {
+    const existing = await getRooferRegistrationBySubmissionId(registration.submissionId);
+    if (existing) {
+      if (!sameRegistrationPayload(existing, registration)) {
+        return fail('Táto registrácia už bola odoslaná s inými údajmi. Novú registráciu odošlite ako samostatné podanie.', 409);
+      }
+      knownDuplicate = true;
+    }
+  } catch (error) {
+    console.error('Roofer registration idempotency lookup failed', error instanceof Error ? error.message : 'unknown');
+    return fail('Registráciu sa teraz nepodarilo bezpečne overiť. Skúste to o chvíľu znova.', 503);
+  }
+
+  if (!knownDuplicate) {
+    try {
+      if (await registrationIsRateLimited(request, registration.email)) {
+        return fail('Registráciu sa nepodarilo odoslať. Skúste to prosím o pár minút.', 429);
+      }
+    } catch (error) {
+      console.error('Roofer registration rate limit unavailable', error instanceof Error ? error.message : 'unknown');
+      return fail('Registráciu sa teraz nepodarilo bezpečne prijať. Skúste to o chvíľu znova.', 503);
+    }
+  }
+
+  let persistedRegistrationId: string | undefined;
   try {
     const saved = await createRooferRegistration(registration);
-    if (!saved.duplicate) {
+    persistedRegistrationId = saved.registration.id;
+    if (!sameRegistrationPayload(saved.registration, registration)) {
+      return fail('Táto registrácia už bola odoslaná s inými údajmi. Novú registráciu odošlite ako samostatné podanie.', 409);
+    }
+    for (const recipient of ['applicant', 'internal'] as const) {
       try {
-        const emailResult = await sendRooferRegistrationEmail({ ...registration, id: saved.registration.id });
-        if (!emailResult.sent) console.warn('Roofer registration email was not sent:', emailResult.reason);
+        await processRooferRegistrationNotification(saved.registration.id, recipient);
       } catch (error) {
-        console.error('Roofer registration email failed after database save', error);
+        console.error('Roofer registration persisted; notification remains recoverable', { registrationId: saved.registration.id, recipient, error });
       }
     }
+    const notifications = await listApplicationNotificationStatuses('roofer_registration', [saved.registration.id]);
 
     return NextResponse.json({
       ok: true,
+      accepted: true,
+      notificationStatus: publicNotificationSummary(notifications),
       message: saved.duplicate
         ? 'Táto registrácia už bola prijatá. Ďakujeme.'
         : 'Ďakujeme! Registráciu sme prijali a najprv si ju interne skontrolujeme.',
     });
   } catch (error) {
     console.error('Roofer registration failed', error);
+    if (persistedRegistrationId) {
+      const notifications = await listApplicationNotificationStatuses('roofer_registration', [persistedRegistrationId]).catch(() => []);
+      return NextResponse.json({
+        ok: true,
+        accepted: true,
+        notificationStatus: publicNotificationSummary(notifications),
+        message: 'Registráciu sme prijali a bezpečne uložili. E-mailové upozornenie sa ešte spracúva.',
+      });
+    }
     return fail('Registráciu sa nepodarilo uložiť. Skúste to prosím znova alebo zavolajte.', 500);
   }
 }

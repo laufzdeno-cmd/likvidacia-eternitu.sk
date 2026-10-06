@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getPriceOffer, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
-import { savePriceOfferAction, sendPriceOfferAction } from '../actions';
+import { resetUncertainPriceOfferSendAction, savePriceOfferAction, sendPriceOfferAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 import PendingOfferButton from '../pending-offer-button';
 import { euro, priceOfferStatusLabels } from '../constants';
@@ -13,6 +13,11 @@ function isExpired(value: string) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return new Date(value) < today;
+}
+
+function canResetUncertainSend(offer: { status: string; sendStartedAt?: string }) {
+  if ((offer.status !== 'NEISTY_STAV' && offer.status !== 'ODOSIELA') || !offer.sendStartedAt) return false;
+  return Date.now() - new Date(offer.sendStartedAt).getTime() >= 15 * 60_000;
 }
 
 export default async function PriceOfferDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
@@ -30,7 +35,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         </div>
         <div className="admin-action-row">
           <a className="admin-secondary-link" href={`/api/admin/ponuka/${offer.id}/pdf`} target="_blank">Náhľad PDF</a>
-          <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}?send=1`}>Odoslať zákazníkovi</a>
+          {offer.status === 'PRIPRAVENA' ? <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}?send=1`}>Odoslať zákazníkovi</a> : null}
           <a className="admin-text-link" href="/admin/ponuky">Späť na ponuky</a>
         </div>
       </div>
@@ -45,7 +50,21 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           <div className="admin-alert">Cenovú ponuku sa nepodarilo odoslať. Detail: {query.sendError}</div>
         </section>
       ) : null}
-      {query.send ? (
+      {query.sendReset ? <section className="admin-card"><div className="admin-alert is-success">Stav bol po potvrdenej kontrole vrátený na „Pripravená“. E-mail odošlite až po overení, že pôvodný pokus nebol doručený.</div></section> : null}
+      {offer.status === 'ODOSIELA' ? <section className="admin-card"><div className="admin-alert">Odoslanie ponuky prebieha alebo sa jeho výsledok ešte spracúva. Zatiaľ ju neupravujte ani neodosielajte znova.</div></section> : null}
+      {offer.status === 'NEISTY_STAV' ? <section className="admin-card"><div className="admin-alert">Server nepotvrdil výsledok odoslania. Pred ďalším pokusom skontrolujte schránku ASTANA aj odoslanú poštu.</div></section> : null}
+      {canResetUncertainSend(offer) ? (
+        <section className="admin-card">
+          <h2>Overený opakovaný pokus</h2>
+          <p>Možnosť sa zobrazí až 15 minút po pokuse. Stav obnovte iba vtedy, ak ste skontrolovali odoslanú poštu aj schránku ASTANA a pôvodná ponuka neodišla.</p>
+          <form action={resetUncertainPriceOfferSendAction} className="admin-pending-form">
+            <input type="hidden" name="id" value={offer.id} />
+            <label className="admin-check-label"><input type="checkbox" name="confirmedNotSent" value="yes" required /> Potvrdzujem, že som overil schránku a pôvodný e-mail nebol odoslaný.</label>
+            <button className="admin-secondary-button" type="submit">Obnoviť na pripravenú</button>
+          </form>
+        </section>
+      ) : null}
+      {query.send && offer.status === 'PRIPRAVENA' ? (
         <section className="admin-card">
           <h2>Odoslanie zákazníkovi</h2>
           <p>Skontrolujte údaje a odošlite zákazníkovi PDF prílohu emailom.</p>

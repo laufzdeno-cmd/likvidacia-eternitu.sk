@@ -19,6 +19,7 @@ export async function generateMetadata({ params }: PageProps) {
     title: `${article.title} | ASTANA`,
     description: article.description,
     path: `/poradna/${article.slug}/`,
+    image: article.image,
   });
 }
 

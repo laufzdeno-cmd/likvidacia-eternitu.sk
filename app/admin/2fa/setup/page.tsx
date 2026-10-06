@@ -34,7 +34,7 @@ export default async function TwoFactorSetupPage({ searchParams }: { searchParam
         <img src="/assets/astana-logo.png" alt="ASTANA" width="190" height="64" />
         <h1>{isRequired ? 'Povinné 2FA pre super admina' : 'Zapnutie 2FA'}</h1>
         <p>Naskenujte QR kód v Google Authenticator a zadajte 6-ciferný kód.</p>
-        {params?.error ? <div className="admin-alert">Kód nesedí. Skúste nový aktuálny kód.</div> : null}
+        {params?.error ? <div className="admin-alert">{params.error === 'limited' ? 'Príliš veľa pokusov. Skúste to znova o 10 minút.' : params.error === 'unavailable' ? 'Overenie je dočasne nedostupné. Skúste to o chvíľu znova.' : 'Kód nesedí. Skúste nový aktuálny kód.'}</div> : null}
         <img src={qrCode} alt="QR kód pre nastavenie 2FA" width="220" height="220" style={{ margin: '0 auto' }} />
         <label className="admin-field">
           6-ciferný kód

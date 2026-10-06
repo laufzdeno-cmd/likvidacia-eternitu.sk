@@ -1,4 +1,13 @@
 import type { PriceOffer, PriceOfferSettings } from './types';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { calculatePriceOfferPricing, reconcilePriceOfferGrossLines } from '../lib/price-offer-pricing';
+import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
+
+function astanaLogoDataUri() {
+  const logo = readFileSync(path.join(process.cwd(), 'public', 'assets', 'astana-logo.png'));
+  return `data:image/png;base64,${logo.toString('base64')}`;
+}
 
 const materialTypeLabels: Record<string, string> = {
   VLNITY_ETERNIT: 'Vlnitý eternit (AZC)',
@@ -33,10 +42,9 @@ function materialLabel(offer: PriceOffer) {
   return materialTypeLabels[offer.materialType] || 'Azbestový materiál';
 }
 
-function includedItems() {
+function includedItems(offer: PriceOffer) {
   return [
-    'Dokumentácia RÚVZ a OÚ ŽP',
-    'Správne poplatky na úradoch',
+    ...(offer.includeDocumentation ? [offer.documentationPromotion ? 'Oznámenie plánovaných prác RÚVZ a súvisiace podklady (AKCIA 0,00 €)' : 'Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Správne poplatky na úradoch'] : []),
     'Vytvorenie ochranného pásma',
     'Stabilizácia penetračným postrekom',
     'Odborná demontáž',
@@ -51,12 +59,22 @@ function includedItems() {
 
 export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferSettings) {
   const c = settings.company;
+  const logo = astanaLogoDataUri();
   const material = materialLabel(offer);
-  const vatMultiplier = 1 + settings.vatRate / 100;
-  const materialWithVat = offer.materialPriceWithoutVat * vatMultiplier;
-  const documentationWithVat = offer.documentationFeeWithoutVat * vatMultiplier;
+  const vatRate = resolvePriceOfferVatRate(offer, settings.vatRate);
+  const pricing = { ...calculatePriceOfferPricing(offer, vatRate), totalWithoutVat: offer.totalWithoutVat, totalWithVat: offer.totalWithVat };
+  const grossLines = reconcilePriceOfferGrossLines({
+    materialWithoutVat: pricing.materialPriceWithoutVat,
+    documentationWithoutVat: pricing.documentationWithoutVat,
+    transportWithoutVat: pricing.transportWithoutVat,
+    vatRate,
+    includeDocumentation: offer.includeDocumentation,
+    documentationPromotion: offer.documentationPromotion,
+    includeTransport: offer.includeTransport,
+    totalWithVat: pricing.totalWithVat,
+  });
   const vatValue = offer.totalWithVat - offer.totalWithoutVat;
-  const items = includedItems();
+  const items = includedItems(offer);
   const leftItems = items.slice(0, 6);
   const rightItems = items.slice(6);
 
@@ -87,6 +105,8 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .top-header { min-height: 92px; padding: 24px 40px 20px; background: var(--white); border-bottom: 3px solid var(--navy); color: var(--text); display: table; width: 100%; }
     .top-header-cell { display: table-cell; vertical-align: middle; }
     .brand { color: var(--navy); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
+    .brand-logo { display: block; width: 160px; max-height: 58px; object-fit: contain; object-position: left center; }
+    .brand-legal { margin-top: 2px; color: var(--text); font-size: 11px; font-weight: 700; }
     .gold-line { width: 58px; height: 3px; margin: 8px 0 7px; background: var(--gold); }
     .tagline { color: var(--muted); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
     .header-contact { text-align: right; color: #64748B; font-size: 9px; line-height: 1.7; }
@@ -149,7 +169,8 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     <div class="page-content">
     <header class="top-header">
       <div class="top-header-cell">
-        <div class="brand">ASTANA</div>
+        <img class="brand-logo" src="${logo}" alt="ASTANA, s.r.o." />
+        <div class="brand-legal">ASTANA, s.r.o.</div>
         <div class="gold-line"></div>
         <div class="tagline">likvidácia a odvoz nebezpečného odpadu</div>
       </div>
@@ -188,7 +209,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
 
     <main class="body">
       <p class="greeting">Dobrý deň,</p>
-      <p class="copy">na základe Vašej požiadavky Vám zasielame cenovú ponuku na ekologickú likvidáciu „AZC“ krytiny (${escapeHtml(material)}) vo výmere plochy strechy cca ${escapeHtml(offer.areaM2)} m2 v súlade s platnými legislatívnymi ustanoveniami.</p>
+      <p class="copy">Na základe Vašej požiadavky Vám zasielame cenovú ponuku na materiál ${escapeHtml(material)} na objekte typu ${escapeHtml(offer.objectType)}. Uvedená výmera je orientačná.</p>
       ${offer.offerNote ? `<p class="copy" style="background:#FAFAFA;border-left:3px solid #D4B56A;padding:10px 14px;border-radius:0 6px 6px 0;">${escapeHtml(offer.offerNote)}</p>` : ''}
 
       <table class="price-table">
@@ -200,16 +221,17 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
             <td>${escapeHtml(material)}</td>
             <td>${escapeHtml(offer.areaM2)} m2</td>
             <td class="right">${moneyPdf(offer.materialPriceWithoutVat)} €</td>
-            <td class="right">${moneyPdf(materialWithVat)} €</td>
+            <td class="right">${moneyPdf(grossLines.materialWithVat)} €</td>
           </tr>
           ${offer.includeDocumentation ? `<tr>
-            <td>Dokumentácia RÚVZ a OÚ ŽP</td>
+            <td>${offer.documentationPromotion ? 'Dokumentácia — AKCIA 0,00 €' : 'Oznámenie plánovaných prác RÚVZ a súvisiace podklady'}</td>
             <td>1 ks</td>
-            <td class="right">${moneyPdf(offer.documentationFeeWithoutVat)} €</td>
-            <td class="right">${moneyPdf(documentationWithVat)} €</td>
+            <td class="right">${moneyPdf(pricing.documentationWithoutVat)} €</td>
+            <td class="right">${moneyPdf(grossLines.documentationWithVat)} €</td>
           </tr>` : ''}
-          <tr class="summary"><td colspan="2">Celkom bez DPH:</td><td colspan="2" class="right">${moneyPdf(offer.totalWithoutVat)} €</td></tr>
-          <tr><td colspan="2">DPH ${settings.vatRate}%:</td><td colspan="2" class="right">${moneyPdf(vatValue)} €</td></tr>
+          ${offer.includeTransport ? `<tr><td>Doprava: ${escapeHtml(offer.transportFrom)} – ${escapeHtml(offer.transportTo)}</td><td>${moneyPdf(offer.transportRoundTripKm)} km × ${moneyPdf(offer.transportPricePerKm)} €/km</td><td class="right">${moneyPdf(pricing.transportWithoutVat)} €</td><td class="right">${moneyPdf(grossLines.transportWithVat)} €</td></tr>` : ''}
+          <tr class="summary"><td colspan="2">Celkom bez DPH:</td><td colspan="2" class="right">${moneyPdf(pricing.totalWithoutVat)} €</td></tr>
+          <tr><td colspan="2">DPH ${vatRate}%:</td><td colspan="2" class="right">${moneyPdf(vatValue)} €</td></tr>
           <tr class="total"><td colspan="2">CELKOM S DPH:</td><td colspan="2" class="right amount">${moneyPdf(offer.totalWithVat)} €</td></tr>
         </tbody>
       </table>
@@ -236,9 +258,9 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     <div class="slim-header">ASTANA, s.r.o. — Cenová ponuka č. ${escapeHtml(offer.number)} — ${dateSk(offer.createdAt)}</div>
     <main class="terms">
       <h2 class="section-title">Obchodné podmienky</h2>
-      <p>Všetko vybavíme za Vás — cena je kompletná, vrátane demontáže, dopravy, vypracovania potrebných podkladov a všetkých správnych poplatkov. Ak by výmera bola menšia alebo väčšia, cena bude upravená.</p>
-      <p>Sme platcami DPH. Lehota splatnosti faktúry je 14 dní od dodania služby. Všetky podklady (originál SLNO s kópiou vážneho lístka, záverečnú správu, ako aj potvrdenie spoločnosti ASTANA, s.r.o. o zneškodnení odpadu) zasielame až po úhrade faktúry.</p>
-      <p>V prípade záujmu Vás žiadame o potvrdenie cenovej ponuky objednávkou min. 30 dní pred začiatkom realizačných prác, nakoľko RÚVZ a OÚ má zákonnú mesačnú lehotu na vydanie rozhodnutia. V prípade zrušenia objednávky zo strany objednávateľa si spoločnosť ASTANA, s.r.o. vyhradzuje právo zaúčtovania nákladov spojených s vybavením administratívy na úradoch vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.</p>
+      <p>Rozsah služieb a jednotlivé účtované položky sú uvedené v cenovej kalkulácii. Uvedená cena vychádza z odhadovanej výmery; pri odlišnom skutočnom množstve sa môže po dohode upraviť.</p>
+      <p>Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom. Potrebné doklady Vám odovzdáme po dokončení zákazky.</p>
+      <p>Potvrdenie cenovej ponuky objednávkou žiadame najmenej 30 dní pred začiatkom realizačných prác. Pri plánovanom odstraňovaní azbestu zo stavby držiteľ oprávnenia písomne oznamuje práce príslušnému orgánu verejného zdravotníctva najmenej 30 dní vopred vrátane požadovaných podkladov; nejde o žiadosť o povolenie. Pre mimoriadne havarijné alebo živelné udalosti platí osobitný režim.${offer.includeDocumentation && !offer.documentationPromotion ? ` V prípade zrušenia objednávky si spoločnosť ASTANA, s.r.o. vyhradzuje právo účtovať dohodnutú dokumentáciu vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.` : ''}</p>
       <p>Firma ASTANA, s.r.o. má oprávnenie na likvidáciu a manipuláciu s nebezpečným odpadom č. ${escapeHtml(c.authorization)} udelené Úradom verejného zdravotníctva Slovenskej republiky.</p>
     </main>
 

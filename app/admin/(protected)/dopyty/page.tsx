@@ -1,5 +1,5 @@
 import { getLeadInsight, statusLabels, type LeadTag } from '@/src/server/lead-insights';
-import { getLeadQueueCounts, listAdminUsers, listLeadSummaryPage } from '@/src/server/db';
+import { getLatestPriceOffersByInquiryIds, getLeadQueueCounts, listAdminUsers, listLeadSummaryPage } from '@/src/server/db';
 import { requireAdminUser } from '@/src/server/auth';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 import type { LeadStatus } from '@/src/server/types';
@@ -81,6 +81,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     archivedOnly ? Promise.resolve({ total: 0, newLeads: 0, unassigned: 0, followups: 0, waiting: 0, quote: 0, active: 0 }) : getLeadQueueCounts(today),
     listAdminUsers(),
   ]);
+  const latestOffers = await getLatestPriceOffersByInquiryIds(leadPage.items.map((lead) => lead.id));
   const leads = leadPage.items.map((lead) => ({ lead, insight: getLeadInsight(lead, lead.fileCount, lead.quoteCount) }));
   const ownerName = new Map(adminUsers.map((user) => [user.email, user.name || user.email]));
 
@@ -183,6 +184,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <th>Skóre</th>
                 <th>Prílohy</th>
                 <th>Vlastník / ďalší krok</th>
+                <th>Cenová ponuka</th>
                 <th>Stav</th>
                 <th>Akcie</th>
               </tr>
@@ -209,6 +211,14 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                     <strong>{lead.ownerEmail ? ownerName.get(lead.ownerEmail) || lead.ownerEmail : 'Bez vlastníka'}</strong>
                     {lead.nextAction ? <><br /><small>{cleanSlovakText(lead.nextAction)}</small></> : <><br /><small className="muted">Ďalší krok nie je určený</small></>}
                   </td>
+                  <td>
+                    {(() => {
+                      const offer = latestOffers.get(lead.id);
+                      if (!offer) return <span className="muted">Bez ponuky</span>;
+                      const label = offer.status === 'ODOSLANA' ? 'Odoslaná' : offer.status === 'PRIPRAVENA' ? 'Pripravená · neodoslaná' : offer.status === 'ODOSIELA' ? 'Odosielanie' : offer.status === 'NEISTY_STAV' ? 'Overiť odoslanie' : offer.status === 'PRIJATA' ? 'Prijatá' : 'Zrušená';
+                      return <><a href={`/admin/ponuky/${offer.id}`}>CP {offer.number}</a><br /><small>{label}</small></>;
+                    })()}
+                  </td>
                   <td><span className={`status-pill status-${lead.status}`}>{lead.deletedAt ? 'Archivovaný dopyt' : statusLabels[lead.status] || lead.status}</span></td>
                   <td>
                     <div className="admin-row-actions">
@@ -217,7 +227,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   </td>
                 </tr>
               ))}
-              {!leads.length ? <tr><td colSpan={9}>Nenašli sa žiadne dopyty pre zvolené filtre.</td></tr> : null}
+              {!leads.length ? <tr><td colSpan={10}>Nenašli sa žiadne dopyty pre zvolené filtre.</td></tr> : null}
             </tbody>
           </table>
         </div>

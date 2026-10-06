@@ -27,9 +27,10 @@ const navGroups = [
   {
     title: 'KOMUNIKÁCIA',
     items: [
-      { href: '/admin/reviews', label: 'Recenzie', icon: 'star' },
       { href: '/admin/reviews/request', label: 'Žiadosť o recenziu', icon: 'chat' },
       { href: '/admin/realizacie', label: 'Realizácie', icon: 'image' },
+      { href: '/admin/realizacie/pripady', label: 'Koncepty prípadov', icon: 'doc', superOnly: true },
+      { href: '/admin/realizacie/fotky', label: 'Fotky z terénu', icon: 'image', superOnly: true },
       { href: '/admin/referencie', label: 'Referencie', icon: 'badge' },
     ],
   },

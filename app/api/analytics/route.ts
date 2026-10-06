@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { recordAnalyticsEvent } from '@/src/server/db';
 import type { AnalyticsEventType } from '@/src/server/types';
+import { analyticsConsentCookieName, marketingConsentCookieName } from '@/src/lib/marketing-consent';
 
 export const runtime = 'nodejs';
 
@@ -8,7 +9,6 @@ const allowedEventTypes = new Set<AnalyticsEventType>([
   'page_view',
   'quote_section_view',
   'form_start',
-  'form_submit_success',
   'form_submit_error',
   'cta_click',
   'phone_click',
@@ -54,6 +54,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 403 });
   }
 
+  // Client-side consent checks are not a security boundary. Enforce the same
+  // choice here so stale or manually crafted requests cannot create analytics.
+  if (request.cookies.get(analyticsConsentCookieName)?.value !== 'granted') {
+    return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
+  }
+
   if (rateLimited(clientIp(request))) {
     return NextResponse.json({ ok: false }, { status: 429 });
   }
@@ -71,6 +77,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
 
+  const metadata = typeof payload.metadata === 'object' && payload.metadata !== null
+    ? { ...(payload.metadata as Record<string, unknown>) }
+    : {};
+  if (request.cookies.get(marketingConsentCookieName)?.value !== 'granted') delete metadata.adClickIds;
+
   await recordAnalyticsEvent({
     sessionId,
     eventType,
@@ -81,7 +92,7 @@ export async function POST(request: NextRequest) {
     utmSource: cleanText(payload.utmSource),
     utmMedium: cleanText(payload.utmMedium),
     utmCampaign: cleanText(payload.utmCampaign),
-    metadata: typeof payload.metadata === 'object' && payload.metadata !== null ? (payload.metadata as Record<string, unknown>) : {},
+    metadata,
   });
 
   return NextResponse.json({ ok: true });

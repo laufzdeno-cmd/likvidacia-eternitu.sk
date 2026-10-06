@@ -1,0 +1,96 @@
+:root {
+  --photo-intake-route-css: 1;
+}
+
+.photo-intake-page {
+  min-height: 100vh;
+  background: #f4f7fb;
+  color: #17243d;
+  padding: 0 20px 56px;
+}
+.photo-intake-page > header {
+  max-width: 980px;
+  min-height: 82px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #dce4ee;
+}
+.photo-intake-page > header a { display: block; padding: 6px 10px; border-radius: 8px; background: #fff; }
+.photo-intake-page > header img { display: block; width: 150px; height: auto; }
+.photo-intake-page > header span { color: #607086; font-size: 14px; font-weight: 700; }
+.photo-intake-content { max-width: 820px; margin: 48px auto 0; }
+.photo-intake-eyebrow { color: #ad3b2c; font-size: 12px; font-weight: 800; letter-spacing: .08em; }
+.photo-intake-content h1 { margin: 8px 0 12px; color: #14233e; font-size: clamp(30px, 5vw, 44px); line-height: 1.12; }
+.photo-intake-intro { max-width: 720px; margin: 0 0 28px; color: #53647c; line-height: 1.7; }
+.photo-intake-login, .photo-intake-uploader, .photo-intake-history {
+  padding: 22px;
+  border: 1px solid #dbe4ef;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(20 35 62 / 6%);
+}
+.photo-intake-login { display: grid; gap: 12px; max-width: 520px; }
+.photo-intake-login label, .photo-intake-draft-fields > label { color: #34445c; font-size: 14px; font-weight: 700; }
+.photo-intake-login input, .photo-intake-draft-fields > label input {
+  width: 100%; min-height: 48px; margin-top: 6px; padding: 10px 13px;
+  border: 1px solid #bccada; border-radius: 10px; background: #fff; color: #15243e; font: inherit;
+}
+.photo-intake-login button {
+  min-height: 44px; padding: 10px 16px; border: 0; border-radius: 10px;
+  background: #bd3e2d; color: #fff; font: inherit; font-weight: 800; cursor: pointer;
+}
+.photo-intake-login button:disabled { opacity: .55; cursor: not-allowed; }
+.photo-intake-toolbar, .photo-intake-draft-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.photo-intake-toolbar p { margin: 0; color: #53647c; }
+.photo-intake-file-picker { display: grid; gap: 5px; margin: 18px 0; padding: 20px; border: 1px dashed #95a9c2; border-radius: 14px; background: #f7faff; color: #263b5b; cursor: pointer; }
+.photo-intake-file-picker span { font-weight: 800; }
+.photo-intake-file-picker small, .photo-intake-draft small { color: #607086; }
+.photo-intake-file-picker input { margin-top: 8px; max-width: 100%; }
+.photo-intake-draft { display: grid; gap: 14px; margin-top: 16px; padding: 18px; border: 1px solid #e0e7ef; border-radius: 14px; }
+.photo-intake-draft-title strong { overflow-wrap: anywhere; }
+.photo-intake-draft-content { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(0, 1.2fr); align-items: start; gap: 16px; }
+.photo-intake-preview, .photo-intake-preview-fallback { display: block; width: 100%; height: auto; max-height: 300px; aspect-ratio: 4 / 3; border-radius: 10px; background: #edf2f7; object-fit: contain; }
+.photo-intake-preview-fallback { display: grid; place-items: center; padding: 16px; color: #607086; text-align: center; font-size: 13px; }
+.photo-intake-draft-fields { display: grid; gap: 14px; min-width: 0; }
+.photo-intake-draft fieldset { min-width: 0; margin: 0; padding: 14px; border: 1px solid #dce4ed; border-radius: 11px; }
+.photo-intake-draft legend { padding: 0 5px; color: #34445c; font-size: 13px; font-weight: 700; }
+.photo-intake-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-intake-tags label { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border-radius: 8px; background: #f3f6fa; font-size: 13px; }
+.photo-intake-history { margin-top: 24px; }
+.photo-intake-history h2 { margin-top: 0; }
+.photo-intake-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.photo-intake-grid article { display: grid; align-content: start; gap: 8px; min-width: 0; padding: 12px; border: 1px solid #e1e7ee; border-radius: 12px; background: #fff; }
+.photo-intake-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 8px; background: #edf2f7; }
+.photo-intake-grid article strong { overflow-wrap: anywhere; }
+.photo-intake-grid article small { color: #5a6b80; overflow-wrap: anywhere; }
+.photo-intake-history-edit { display: grid; gap: 10px; margin-top: 6px; padding: 12px; border: 1px solid #dce4ed; border-radius: 10px; background: #f8fafc; }
+.photo-intake-history-edit > label { display: grid; gap: 6px; color: #34445c; font-size: 13px; font-weight: 700; }
+.photo-intake-history-edit input:not([type="checkbox"]) { box-sizing: border-box; width: 100%; min-width: 0; min-height: 42px; padding: 9px 10px; border: 1px solid #bccada; border-radius: 8px; background: #fff; color: #15243e; font: inherit; }
+.photo-intake-history-edit small { color: #5a6b80; font-size: 12px; font-weight: 400; }
+.photo-intake-history-edit fieldset { min-width: 0; margin: 0; padding: 10px; border: 1px solid #dce4ed; border-radius: 8px; }
+.photo-intake-history-edit legend { padding: 0 4px; color: #34445c; font-size: 12px; font-weight: 700; }
+.photo-intake-history-edit button { justify-self: start; min-height: 40px; padding: 8px 12px; border: 0; border-radius: 8px; background: #bd3e2d; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.photo-intake-history-edit button:disabled { opacity: .55; cursor: not-allowed; }
+.photo-intake-history-edit p { margin: 0; color: #465a73; font-size: 13px; }
+.photo-intake-page .photo-intake-content > footer {
+  margin-top: 28px;
+  padding: 14px 16px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  color: #34445c !important;
+  background-color: #fff !important;
+  background-image: none !important;
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 640px) {
+  .photo-intake-page { padding: 0 14px 36px; }
+  .photo-intake-content { margin-top: 30px; }
+  .photo-intake-login, .photo-intake-uploader, .photo-intake-history { padding: 16px; border-radius: 14px; }
+  .photo-intake-toolbar { align-items: flex-start; }
+  .photo-intake-draft { padding: 14px; }
+  .photo-intake-draft-content { grid-template-columns: minmax(0, 1fr); }
+  .photo-intake-preview, .photo-intake-preview-fallback { max-height: 260px; }
+}

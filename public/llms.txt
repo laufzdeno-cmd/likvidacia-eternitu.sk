@@ -14,11 +14,24 @@ Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre odbornú likvidáciu azbe
 - [Recenzie zákazníkov](https://likvidacia-eternitu.sk/recenzie/)
 - [O firme ASTANA](https://likvidacia-eternitu.sk/o-firme/)
 - [Kontakt](https://likvidacia-eternitu.sk/kontakt/)
+- [Kde pôsobíme a ako plánujeme výjazdy](https://likvidacia-eternitu.sk/kde-posobime/)
 - [Poradňa](https://likvidacia-eternitu.sk/poradna/)
 - [Pre strechárov](https://likvidacia-eternitu.sk/strechari/)
 - [Spolupracujúci strechári](https://likvidacia-eternitu.sk/spolupracujuci-strechari/)
+- [Kariéra a spolupráca](https://likvidacia-eternitu.sk/kariera/)
 - [Strojovo čitateľné firemné údaje](https://likvidacia-eternitu.sk/data/company.json)
 - [Sitemap](https://likvidacia-eternitu.sk/sitemap.xml)
+
+## Odborné články v poradni
+
+- [Čo je eternit a kedy môže obsahovať azbest](https://likvidacia-eternitu.sk/poradna/co-je-eternit-a-kedy-obsahuje-azbest/) — Praktické vysvetlenie, čo je eternit, prečo sa pri starších materiáloch rieši azbest a ako postupovať pri podozrení.
+- [Prečo neodstraňovať eternit svojpomocne](https://likvidacia-eternitu.sk/poradna/preco-neodstranovat-eternit-svojpomocne/) — Prehľad rizík pri svojpomocnom odstraňovaní eternitu a dôvody, prečo je dôležitý odborný postup.
+- [Koľko stojí likvidácia azbestu](https://likvidacia-eternitu.sk/poradna/kolko-stoji-likvidacia-azbestu/) — Cena likvidácie azbestu závisí od výmery, prístupu, typu materiálu, lokality a dokumentácie.
+- [Aké doklady dostanete po likvidácii azbestu](https://likvidacia-eternitu.sk/poradna/ake-doklady-dostanete-po-likvidacii-azbestu/) — Vysvetlenie, prečo je po likvidácii azbestu dôležité potvrdenie alebo súvisiaca dokumentácia.
+- [Ako zmerať strechu pre cenovú ponuku](https://likvidacia-eternitu.sk/poradna/ako-zmerat-strechu-pre-cenovu-ponuku/) — Jednoduchý postup, ako pripraviť približnú výmeru strechy v m2 pre nacenenie likvidácie eternitu.
+- [Čo poslať pre nacenenie likvidácie eternitu](https://likvidacia-eternitu.sk/poradna/co-poslat-pre-nacenenie-likvidacie-eternitu/) — Prehľad údajov, ktoré urýchlia cenovú ponuku na likvidáciu eternitu.
+- [Azbest v interiéri a exteriéri: v čom je rozdiel](https://likvidacia-eternitu.sk/poradna/azbest-v-interieri-vs-exterieri/) — Vecné porovnanie prístupu k materiálom s možným obsahom azbestu v interiéri a exteriéri.
+- [Odvoz a balenie azbestového odpadu](https://likvidacia-eternitu.sk/poradna/odvoz-a-balenie-azbestoveho-odpadu/) — Ako premýšľať o balení a odvoze azbestového odpadu, aby bol postup bezpečný a preukázateľný.
 
 ## Kontaktné údaje
 
@@ -30,6 +43,15 @@ Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre odbornú likvidáciu azbe
 - Telefón: [0905 217 946](tel:+421905217946)
 - Email: [astana@astana.sk](mailto:astana@astana.sk)
 - Web: [likvidacia-eternitu.sk](https://likvidacia-eternitu.sk/)
+- Telefonické informácie a objednávky: Po–Pia 7:00–18:00.
+- Nezáväznú cenovú ponuku pošleme čo najskôr, najneskôr do 24 hodín.
+- Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.
+
+## Pôsobnosť a plánovanie výjazdov
+
+ASTANA, s.r.o. má sídlo v Poprade a zákazky rieši po celom Slovensku. Výjazd, dostupnosť a termín sa potvrdzujú podľa obce, rozsahu prác, prístupu a aktuálnej kapacity; uvedené územie neznamená miestnu pobočku v každom kraji.
+
+Pri výmene strechy sa po dohode plánuje skorý výjazd. Cieľom môže byť príchod na stavbu približne medzi 6:00 a 6:30, aby sa strechári prichádzajúci okolo 8:00 vedeli pripraviť na nadväzujúcu prácu. Presný čas závisí od lokality, počasia, prístupu a rozsahu demontáže.
 
 ## Hlavné služby
 
@@ -56,7 +78,7 @@ Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre odbornú likvidáciu azbe
 ## Dôveryhodnosť a pravidlá obsahu
 
 - Firma ASTANA vykonáva odbornú likvidáciu azbestu a eternitu.
-- Oprávnenie je verejne overiteľné v zozname ÚVZ SR: [zoznam subjektov na prácu s azbestom](https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf).
+- V zozname ÚVZ SR zverejnenom k 19. 9. 2024 je ASTANA, s.r.o. uvedená medzi spoločnosťami oprávnenými odstraňovať azbestové materiály zo stavieb: [zoznam subjektov na prácu s azbestom](https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf). Tento zoznam sám nepotvrdzuje zmeny po uvedenom dátume.
 - Interné oprávnenia a pracovné dokumenty sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie.
 - Web nepoužíva Review ani AggregateRating schema bez verejných overených recenzií.
 - Nevytvárať ani neodvodzovať falošné hodnotenia, falošné realizácie, mestá, mená, metre štvorcové ani ceny.

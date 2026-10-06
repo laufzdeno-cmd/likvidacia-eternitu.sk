@@ -201,7 +201,7 @@ export const locationPages = [
     area: 'Poprade a okolí',
     title: 'Likvidácia azbestu a eternitu Poprad | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Poprade a okolí. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
-    localNote: 'Poprad je sídlo firmy ASTANA, preto je pri dopytoch z regiónu dôležité najmä rýchlo poslať výmeru, fotky a prístup k objektu.',
+    localNote: 'Poprad je sídlom ASTANY. Pri dopyte uveďte obec, približnú výmeru, stav materiálu a preferovaný termín, aby sme vedeli naplánovať ďalší postup.',
   },
   {
     slug: 'kosice',
@@ -209,7 +209,7 @@ export const locationPages = [
     area: 'Košiciach a Košickom kraji',
     title: 'Likvidácia azbestu a eternitu Košice | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Košiciach a Košickom kraji vrátane dokumentácie, demontáže, balenia, odvozu a dokladov.',
-    localNote: 'Pri väčších mestských objektoch v Košiciach pomôže dopredu popísať prístup, možnosť pristavenia auta a časové obmedzenia na pozemku.',
+    localNote: 'Pri dopyte z Košíc a okolia uveďte presnú obec, prístup k objektu a prípadné časové obmedzenia. Pomôže to posúdiť logistiku výjazdu.',
   },
   {
     slug: 'presov',
@@ -217,7 +217,7 @@ export const locationPages = [
     area: 'Prešove a Prešovskom kraji',
     title: 'Likvidácia azbestu a eternitu Prešov | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Prešove a Prešovskom kraji. Pošlite m2, lokalitu a fotky pre cenovú ponuku.',
-    localNote: 'V Prešovskom kraji často rozhoduje rozsah strechy, dostupnosť objektu a nadväznosť na strechárske práce.',
+    localNote: 'Prešov a okolie obsluhujeme z nášho sídla v Poprade. Pošlite približnú výmeru a informáciu, či potrebujete práce zladiť so strechárom.',
   },
   {
     slug: 'zilina',
@@ -225,7 +225,7 @@ export const locationPages = [
     area: 'Žiline a Žilinskom kraji',
     title: 'Likvidácia azbestu a eternitu Žilina | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Žiline a Žilinskom kraji. Demontáž, balenie, odvoz a potvrdenie o likvidácii.',
-    localNote: 'Pri zákazkách v Žilinskom kraji je dobré uviesť aj sklon strechy, prístup na pozemok a informáciu, či má nadväzovať nová krytina.',
+    localNote: 'Pri dopyte zo Žiliny a okolia popíšte prístup na pozemok, približný sklon strechy a to, či má po odstránení nadväzovať pokládka novej krytiny.',
   },
   {
     slug: 'banska-bystrica',
@@ -233,7 +233,7 @@ export const locationPages = [
     area: 'Banskej Bystrici a Banskobystrickom kraji',
     title: 'Likvidácia azbestu a eternitu Banská Bystrica | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Banskej Bystrici a okolí. Cenová ponuka podľa výmery, prístupu, lokality a typu materiálu.',
-    localNote: 'Pri rozptýlených obciach v Banskobystrickom kraji cenu ovplyvní aj logistika, prístup k objektu a objem odpadu.',
+    localNote: 'Pri dopyte z Banskobystrického kraja uveďte konkrétnu obec, približnú výmeru a prístup k objektu. Podľa týchto údajov pripravíme posúdenie ďalšieho postupu.',
   },
   {
     slug: 'bratislava',
@@ -241,7 +241,7 @@ export const locationPages = [
     area: 'Bratislave a Bratislavskom kraji',
     title: 'Likvidácia azbestu a eternitu Bratislava | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Bratislave a Bratislavskom kraji vrátane podkladov, odvozu a potvrdenia.',
-    localNote: 'V Bratislave býva dôležité popísať prístup, parkovanie, časové obmedzenia a to, či ide o rodinný dom, garáž alebo firemný objekt.',
+    localNote: 'Pri dopyte z Bratislavy uveďte typ objektu, možnosti prístupu a prípadné obmedzenia v čase alebo pri parkovaní.',
   },
   {
     slug: 'nitra',
@@ -249,7 +249,7 @@ export const locationPages = [
     area: 'Nitre a Nitrianskom kraji',
     title: 'Likvidácia azbestu a eternitu Nitra | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Nitre a Nitrianskom kraji. Bezpečná demontáž, balenie, odvoz a doklady.',
-    localNote: 'Pri dopytoch z Nitrianskeho kraja pomôžu fotky strechy z viacerých strán a informácia, či je materiál ešte na streche alebo už zložený.',
+    localNote: 'Pri dopyte z Nitrianskeho kraja priložte, ak môžete, fotky materiálu z viacerých strán a napíšte, či je ešte na streche alebo už zložený.',
   },
   {
     slug: 'trnava',
@@ -257,7 +257,7 @@ export const locationPages = [
     area: 'Trnave a Trnavskom kraji',
     title: 'Likvidácia azbestu a eternitu Trnava | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Trnave a Trnavskom kraji. Cenová ponuka podľa m2, fotiek, lokality a prístupu.',
-    localNote: 'Pri Trnave a okolí je užitočné uviesť, či sa dá k objektu prísť technikou a či je potrebné práce zladiť so strechárom.',
+    localNote: 'Pri dopyte z Trnavy a okolia opíšte prístup vozidla k objektu a uveďte, či potrebujete termín zladiť s prácou strechárov.',
   },
 ] as const;
 
@@ -266,6 +266,7 @@ export const articles = [
     slug: 'co-je-eternit-a-kedy-obsahuje-azbest',
     title: 'Čo je eternit a kedy môže obsahovať azbest',
     description: 'Praktické vysvetlenie, čo je eternit, prečo sa pri starších materiáloch rieši azbest a ako postupovať pri podozrení.',
+    image: '/og/homepage.jpg',
     quickAnswer:
       'Eternit je bežné označenie pre azbestocementové alebo vláknocementové dosky a krytiny. Staršie materiály môžu obsahovať azbest, preto sa pri poškodení, demontáži alebo odvoze odporúča odborné posúdenie a bezpečný postup.',
     body: [
@@ -273,11 +274,16 @@ export const articles = [
       ['Čo si všimnúť', 'Dôležitý je typ dosiek, stav materiálu, rozsah poškodenia, prístup k streche a to, či sa s materiálom už manipulovalo.'],
       ['Ako postupovať', 'Materiál zbytočne nelámte ani nerežte. Pošlite fotky, výmeru a lokalitu, aby sa dal navrhnúť ďalší postup.'],
     ],
+    faqs: [
+      { question: 'Môže starší eternit obsahovať azbest?', answer: 'Pri starších strechách a obkladoch je bezpečnejšie počítať s možnosťou obsahu azbestu, kým sa materiál neposúdi.' },
+      { question: 'Čo poslať na prvé posúdenie eternitu?', answer: 'Pošlite fotky, približnú výmeru a lokalitu. Pri posúdení je dôležitý aj typ dosiek, stav materiálu, rozsah poškodenia a prístup k streche.' },
+    ],
   },
   {
     slug: 'preco-neodstranovat-eternit-svojpomocne',
     title: 'Prečo neodstraňovať eternit svojpomocne',
     description: 'Prehľad rizík pri svojpomocnom odstraňovaní eternitu a dôvody, prečo je dôležitý odborný postup.',
+    image: '/og/postup.jpg',
     quickAnswer:
       'Svojpomocné odstraňovanie eternitu je rizikové najmä pri lámaní, rezaní, zhadzovaní a nesprávnom odpade. Bezpečný postup rieši stabilizáciu, kontrolovanú demontáž, balenie, odvoz ako nebezpečný odpad a doklad o likvidácii.',
     body: [
@@ -285,11 +291,16 @@ export const articles = [
       ['Riziko odpadu', 'Azbestový odpad nepatrí do bežného odpadu a má sa riešiť preukázateľne.'],
       ['Riziko chaosu na stavbe', 'Zhadzovanie krytiny komplikuje balenie, upratovanie aj nadväznosť ďalších prác.'],
     ],
+    faqs: [
+      { question: 'Prečo eternit nelámať, nerežať ani nezhadzovať?', answer: 'Pri poškodení materiálu sa môže zvyšovať riziko uvoľňovania vlákien a prachu. Zhadzovanie navyše komplikuje balenie, upratovanie aj nadväznosť ďalších prác.' },
+      { question: 'Patrí azbestový odpad do bežného odpadu?', answer: 'Nie. Azbestový odpad sa má riešiť preukázateľne, vrátane bezpečného balenia a odvozu určeným spôsobom.' },
+    ],
   },
   {
     slug: 'kolko-stoji-likvidacia-azbestu',
     title: 'Koľko stojí likvidácia azbestu',
     description: 'Cena likvidácie azbestu závisí od výmery, prístupu, typu materiálu, lokality a dokumentácie.',
+    image: '/og/cena.jpg',
     quickAnswer:
       'Cena likvidácie azbestu je individuálna. Najviac ju ovplyvňuje výmera, typ a stav materiálu, výška objektu, prístup, lokalita, rozsah dokumentácie a objem odpadu. Presnú ponuku je vhodné pripraviť podľa m2 a fotiek.',
     body: [
@@ -297,11 +308,16 @@ export const articles = [
       ['Čo poslať', 'Uveďte m2, obec, typ objektu, fotky strechy a informáciu, či je materiál ešte na streche.'],
       ['Čo má ponuka obsahovať', 'Ponuka má jasne pomenovať demontáž, balenie, odvoz, dokumentáciu a doklad po likvidácii.'],
     ],
+    faqs: [
+      { question: 'Prečo sa nedá určiť jedna cena likvidácie azbestu?', answer: 'Rovnaká výmera môže mať rozdielnu náročnosť podľa prístupu, výšky a stavu krytiny. Cenu ovplyvňuje aj typ materiálu, lokalita, rozsah dokumentácie a objem odpadu.' },
+      { question: 'Čo poslať, aby ste pripravili cenovú ponuku?', answer: 'Uveďte približnú výmeru v m2, obec, typ objektu, fotky strechy a informáciu, či je materiál ešte na streche.' },
+    ],
   },
   {
     slug: 'ake-doklady-dostanete-po-likvidacii-azbestu',
     title: 'Aké doklady dostanete po likvidácii azbestu',
     description: 'Vysvetlenie, prečo je po likvidácii azbestu dôležité potvrdenie alebo súvisiaca dokumentácia.',
+    image: '/og/postup.jpg',
     quickAnswer:
       'Po legálnej likvidácii azbestu má zákazník dostať potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu zákazky. Doklad pomáha preukázať, že s odpadom sa nakladalo určeným spôsobom a materiál neskončil mimo legálneho procesu.',
     body: [
@@ -309,11 +325,16 @@ export const articles = [
       ['Čo sa líši podľa zákazky', 'Rozsah dokumentácie sa môže líšiť podľa objektu, materiálu, objemu a postupu.'],
       ['Kedy sa doklady odovzdajú', 'Doklady sa odovzdávajú po ukončení prác a podľa dohodnutého rozsahu zákazky.'],
     ],
+    faqs: [
+      { question: 'Aké doklady dostanem po likvidácii azbestu?', answer: 'Po legálnej likvidácii dostanete potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu zákazky.' },
+      { question: 'Kedy sa odovzdávajú doklady o likvidácii?', answer: 'Doklady sa odovzdávajú po ukončení prác a podľa dohodnutého rozsahu zákazky. Ich rozsah sa môže líšiť podľa objektu, materiálu, objemu a postupu.' },
+    ],
   },
   {
     slug: 'ako-zmerat-strechu-pre-cenovu-ponuku',
     title: 'Ako zmerať strechu pre cenovú ponuku',
     description: 'Jednoduchý postup, ako pripraviť približnú výmeru strechy v m2 pre nacenenie likvidácie eternitu.',
+    image: '/og/homepage.jpg',
     quickAnswer:
       'Pre prvú cenovú ponuku stačí približná výmera strechy v m2. Ak presné rozmery nepoznáte, pošlite odhad, rozmery pôdorysu, počet strán strechy a fotky. Presnejší rozsah sa dá overiť podľa skutočnosti.',
     body: [
@@ -321,11 +342,16 @@ export const articles = [
       ['Priložte fotky', 'Fotky celej strechy a detail materiálu často povedia viac ako nepresný výpočet.'],
       ['Uveďte nejasnosti', 'Ak si nie ste istí, napíšte, že ide o odhad. Ponuka sa dá spresniť po kontrole údajov.'],
     ],
+    faqs: [
+      { question: 'Čo ak nepoznám presnú výmeru strechy?', answer: 'Na prvú cenovú ponuku stačí približný odhad. Uveďte rozmery pôdorysu, počet strán strechy a fotky; presnejší rozsah sa dá overiť podľa skutočnosti.' },
+      { question: 'Aké rozmery pomôžu pri odhade sedlovej strechy?', answer: 'Pomôže dĺžka a šírka jednej strany, prípadne rozmery domu a sklon strechy. Fotky celej strechy a detail materiálu často povedia viac ako nepresný výpočet.' },
+    ],
   },
   {
     slug: 'co-poslat-pre-nacenenie-likvidacie-eternitu',
     title: 'Čo poslať pre nacenenie likvidácie eternitu',
     description: 'Prehľad údajov, ktoré urýchlia cenovú ponuku na likvidáciu eternitu.',
+    image: '/og/realizacie.jpg',
     quickAnswer:
       'Pre rýchle nacenenie likvidácie eternitu pošlite lokalitu, približnú výmeru v m2, fotky strechy alebo materiálu, typ objektu, informáciu o prístupe a kontakt. Ak niečo neviete, uveďte odhad.',
     body: [
@@ -333,11 +359,16 @@ export const articles = [
       ['Fotky', 'Pošlite celkový záber strechy, detail krytiny, okolie objektu a prípadné miesto nakládky.'],
       ['Dôležité okolnosti', 'Napíšte, či je materiál na streche alebo už zložený a či treba práce zladiť so strechárom.'],
     ],
+    faqs: [
+      { question: 'Aké údaje potrebujete na nacenenie likvidácie eternitu?', answer: 'Základom je obec alebo okres, približná výmera, typ objektu a kontakt. Pomôže aj informácia o prístupe a o tom, či je materiál na streche alebo už zložený.' },
+      { question: 'Aké fotky priložiť k dopytu?', answer: 'Pošlite celkový záber strechy, detail krytiny, okolie objektu a prípadné miesto nakládky.' },
+    ],
   },
   {
     slug: 'azbest-v-interieri-vs-exterieri',
     title: 'Azbest v interiéri a exteriéri: v čom je rozdiel',
     description: 'Vecné porovnanie prístupu k materiálom s možným obsahom azbestu v interiéri a exteriéri.',
+    image: '/og/faq.jpg',
     quickAnswer:
       'Azbest v interiéri a exteriéri sa posudzuje podľa typu materiálu, stavu, prístupu a rizika poškodenia. V oboch prípadoch je dôležitý kontrolovaný postup, obmedzenie prachu, bezpečné balenie odpadu a preukázateľná likvidácia.',
     body: [
@@ -345,17 +376,26 @@ export const articles = [
       ['Interiér', 'V interiéri je dôležité riešiť kontrolu priestoru, prístup a ochranu okolia.'],
       ['Spoločné pravidlo', 'Materiál zbytočne nepoškodzujte a nechajte si navrhnúť bezpečný postup.'],
     ],
+    faqs: [
+      { question: 'Čo sa posudzuje pri azbeste v exteriéri?', answer: 'Pri strechách sa posudzuje najmä výška, sklon, počasie, prístup a nadväznosť strechárskych prác.' },
+      { question: 'Čo je dôležité pri materiáli s azbestom v interiéri?', answer: 'V interiéri je dôležité riešiť kontrolu priestoru, prístup a ochranu okolia. Materiál zbytočne nepoškodzujte a nechajte si navrhnúť bezpečný postup.' },
+    ],
   },
   {
     slug: 'odvoz-a-balenie-azbestoveho-odpadu',
     title: 'Odvoz a balenie azbestového odpadu',
     description: 'Ako premýšľať o balení a odvoze azbestového odpadu, aby bol postup bezpečný a preukázateľný.',
+    image: '/og/cena.jpg',
     quickAnswer:
       'Azbestový odpad má byť po demontáži bezpečne zabalený, označený alebo pripravený spôsobom vhodným pre odvoz na určené miesto. Dôležité je, aby materiál nezostal voľne uložený a zákazník mal doklad o legálnej likvidácii.',
     body: [
       ['Balenie nie je detail', 'Správne balenie znižuje riziko zbytočnej manipulácie a uľahčuje odvoz.'],
       ['Prístup k odpadu', 'Pri už zloženom materiáli je dôležité vedieť, kde leží a či sa k nemu dá dostať technikou.'],
       ['Doklad po ukončení', 'Po odvoze má zákazník dostať potvrdenie alebo dokumentáciu podľa rozsahu zákazky.'],
+    ],
+    faqs: [
+      { question: 'Prečo je dôležité bezpečné balenie azbestového odpadu?', answer: 'Správne balenie znižuje riziko zbytočnej manipulácie a uľahčuje odvoz. Materiál nemá zostať voľne uložený.' },
+      { question: 'Čo treba vedieť pri odvoze už zloženého materiálu?', answer: 'Dôležité je vedieť, kde materiál leží a či sa k nemu dá dostať technikou. Po odvoze má zákazník dostať potvrdenie alebo dokumentáciu podľa rozsahu zákazky.' },
     ],
   },
 ] as const;

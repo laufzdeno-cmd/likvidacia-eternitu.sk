@@ -132,10 +132,10 @@ test.describe.serial('ASTANA admin QA', () => {
 
     try {
       await page.goto('/admin/dashboard/');
-      await expect(page.locator('body')).toContainText(/Tržby/i);
+      await expect(page.locator('.admin-stat-grid')).toContainText(/Evidovaná suma/i);
       await expect(page.locator('body')).toContainText(/Zákaziek|Zákazky/i);
-      await expect(page.locator('body')).toContainText(/Zisk/i);
-      await expect(page.locator('svg').first()).toBeVisible();
+      await expect(page.locator('.admin-table thead')).not.toContainText(/Tržby €|Zisk €|Marža %/i);
+      await expect(page.locator('.business-chart svg')).toBeVisible();
       await expect(page.locator('form').filter({ hasText: /Tento mesiac|Minulý mesiac|Tento rok/ })).toBeVisible();
       await snap(page, '02-dashboard-pass');
       mark('TEST 2  DASHBOARD', true, 'dashboard obsahuje karty, graf a prepínač období');

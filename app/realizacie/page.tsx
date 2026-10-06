@@ -1,10 +1,19 @@
 import type { Metadata } from 'next';
-import LandingClient from '../landing-client';
+import PublicBaseClient from '../public-base-client';
 import PublicWidgets from '../public-widgets';
+import RealizationsGalleryClient from '../realizations-gallery-client';
+import Image from 'next/image';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import { galleryCategories, galleryReferences, realizationHeroStripReferences } from '@/src/data/azbestReferences';
+import { countPublishedRealizationCases, listPublishedRealizationCases, listPublishedRealizations } from '@/src/server/db';
+import { normalizePublicRealizationImageUrl } from '@/src/server/public-realization-image.mjs';
+import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
+import type { PublishedRealization, PublishedRealizationCase } from '@/src/server/types';
+import ApprovedCaseMap from './approved-case-map';
 
-export const metadata: Metadata = {
+export const revalidate = 300;
+
+const pageMetadata: Metadata = {
   title: 'Realizácie likvidácie azbestu a eternitu | ASTANA',
   description:
     'Fotodokumentácia realizácií ASTANA: rodinné domy, hospodárske budovy, priemyselné objekty, interiér, balenie a odvoz azbestového odpadu.',
@@ -18,7 +27,38 @@ export const metadata: Metadata = {
     url: '/realizacie/',
     images: ['/assets/azbest/webp/azbest-087.webp'],
   },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Realizácie likvidácie azbestu a eternitu | ASTANA',
+    description: 'Pozrite si reálne zábery z praxe ASTANA: stabilizácia, demontáž, balenie, odvoz a strechy pripravené na ďalšie práce.',
+    images: ['/assets/azbest/webp/azbest-087.webp'],
+  },
 };
+
+type PageProps = { searchParams: Promise<{ casesPage?: string | string[] }> };
+
+function requestedCasePage(params: { casesPage?: string | string[] }) {
+  const value = Number(Array.isArray(params.casesPage) ? params.casesPage[0] : params.casesPage);
+  return Number.isSafeInteger(value) && value > 0 ? value : 1;
+}
+
+export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
+  const requestedPage = requestedCasePage(await searchParams);
+  let canonicalPage = requestedPage;
+  try {
+    const totalPages = Math.ceil(await countPublishedRealizationCases() / 12);
+    canonicalPage = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
+  } catch (error) {
+    if (process.env.NEXT_PHASE !== 'phase-production-build') throw error;
+  }
+  return {
+    ...pageMetadata,
+    alternates: {
+      ...pageMetadata.alternates,
+      canonical: canonicalPage > 1 ? `/realizacie/?casesPage=${canonicalPage}` : '/realizacie/',
+    },
+  };
+}
 
 const categoryCopy: Record<string, string> = {
   vsetko: 'Všetky schválené zábery z praxe ASTANA.',
@@ -73,10 +113,47 @@ const realizationsJsonLd = {
   ],
 };
 
-export default function RealizationsPage() {
+async function loadPublishedRealizations(): Promise<PublishedRealization[]> {
+  try {
+    return await listPublishedRealizations(24);
+  } catch (error) {
+    if (process.env.NEXT_PHASE !== 'phase-production-build') throw error;
+    console.warn('Published realizations unavailable during build; serving the reviewed photo gallery.');
+    return [];
+  }
+}
+
+const caseStudiesPerPage = 12;
+
+async function loadApprovedCaseStudies(page: number): Promise<{ cases: PublishedRealizationCase[]; total: number }> {
+  try {
+    const [total, cases] = await Promise.all([
+      countPublishedRealizationCases(),
+      listPublishedRealizationCases(caseStudiesPerPage, (page - 1) * caseStudiesPerPage),
+    ]);
+    return { cases, total };
+  } catch (error) {
+    if (process.env.NEXT_PHASE !== 'phase-production-build') throw error;
+    console.warn('Approved case studies unavailable during build; keeping the reviewed gallery available.');
+    return { cases: [], total: 0 };
+  }
+}
+
+export default async function RealizationsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const safeRequestedPage = requestedCasePage(params);
+  const [publishedRealizations, caseStudiesPage] = await Promise.all([
+    loadPublishedRealizations(),
+    loadApprovedCaseStudies(safeRequestedPage),
+  ]);
+  const totalCasePages = Math.ceil(caseStudiesPage.total / caseStudiesPerPage);
+  const currentCasePage = totalCasePages > 0 ? Math.min(safeRequestedPage, totalCasePages) : 1;
+  const approvedCaseStudies = currentCasePage === safeRequestedPage
+    ? caseStudiesPage.cases
+    : await listPublishedRealizationCases(caseStudiesPerPage, (currentCasePage - 1) * caseStudiesPerPage);
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(realizationsJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(realizationsJsonLd) }} />
       <header className="site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
@@ -122,9 +199,16 @@ export default function RealizationsPage() {
             </div>
           </div>
           <div className="realizations-hero-strip" aria-label="Ukážky realizácií ASTANA">
-            {realizationHeroStripReferences.map((photo) => (
+            {realizationHeroStripReferences.map((photo, index) => (
               <figure key={photo.id}>
-                <ResponsiveImage image={photo} width={460} height={360} sizes="(max-width: 760px) 50vw, 16vw" />
+                <ResponsiveImage
+                  image={photo}
+                  width={460}
+                  height={360}
+                  sizes="(max-width: 760px) 50vw, 16vw"
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                />
                 <figcaption>{photo.title}</figcaption>
               </figure>
             ))}
@@ -144,7 +228,7 @@ export default function RealizationsPage() {
           </div>
           <div className="gallery-filters" aria-label="Filtrovanie galérie">
             {galleryCategories.map((category) => (
-              <button key={category.key} type="button" data-gallery-filter={category.key} title={categoryCopy[category.key]}>
+              <button key={category.key} type="button" data-gallery-filter={category.key} title={categoryCopy[category.key]} aria-pressed={category.key === 'vsetko'}>
                 {category.label}
               </button>
             ))}
@@ -168,7 +252,7 @@ export default function RealizationsPage() {
                   image={photo}
                   width={520}
                   height={420}
-                  sizes="(max-width: 760px) 100vw, 25vw"
+                  sizes="(max-width: 760px) 300px, 25vw"
                   loading="lazy"
                   fetchPriority="low"
                 />
@@ -195,6 +279,51 @@ export default function RealizationsPage() {
             <button type="button" className="gallery-lightbox-next" data-lightbox-next aria-label="Ďalšia fotka">›</button>
           </div>
         </section>
+
+        {publishedRealizations.length > 0 ? (
+          <section className="section realizations-gallery-section" aria-labelledby="approved-realizations-title">
+            <div className="section-heading split">
+              <div>
+                <p className="eyebrow">Schválené realizácie</p>
+                <h2 id="approved-realizations-title">Práce zverejnené ASTANA</h2>
+              </div>
+              <p>Každý záznam v tejto časti bol na zverejnenie vybraný a schválený v administrácii.</p>
+            </div>
+            <div className="real-gallery-grid">
+              {publishedRealizations.map((realization) => {
+                const imageUrl = realization.imageUrls.map(normalizePublicRealizationImageUrl).find((url) => url !== null);
+                return (
+                  <article className="real-gallery-card published-realization-card" key={realization.id}>
+                    {imageUrl ? (
+                      <Image
+                        src={imageUrl}
+                        alt={realization.title}
+                        width={520}
+                        height={420}
+                        sizes="(max-width: 760px) 100vw, 25vw"
+                        unoptimized
+                      />
+                    ) : null}
+                    <span>
+                      <strong>{realization.title}</strong>
+                      <small>{realization.materialType}</small>
+                      {realization.description ? <small>{realization.description}</small> : null}
+                    </span>
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        <ApprovedCaseMap cases={approvedCaseStudies} />
+        {totalCasePages > 1 ? (
+          <nav className="realization-case-pagination" aria-label="Stránky schválených realizácií">
+            <span>Strana {currentCasePage} z {totalCasePages} · {caseStudiesPage.total} schválených realizácií</span>
+            {currentCasePage > 1 ? <a className="button button-outline" href={`/realizacie/?casesPage=${currentCasePage - 1}#approved-case-map-title`}>Predchádzajúce</a> : null}
+            {currentCasePage < totalCasePages ? <a className="button button-outline" href={`/realizacie/?casesPage=${currentCasePage + 1}#approved-case-map-title`}>Ďalšie realizácie</a> : null}
+          </nav>
+        ) : null}
 
         <section className="final-cta realizations-final" aria-labelledby="realizations-final-title">
           <div>
@@ -241,11 +370,12 @@ export default function RealizationsPage() {
           <a href="/sitemap.xml">Sitemap</a>
         </div>
       </footer>
-      <div className="mobile-sticky-cta" aria-label="Rýchle kontakty">
+      <div className="mobile-sticky-cta" aria-label="Rýchle kontakty" inert>
         <a href="tel:+421905217946">Zavolať</a>
         <a href="/#dopyt">Cenová ponuka</a>
       </div>
-      <LandingClient />
+      <PublicBaseClient />
+      <RealizationsGalleryClient />
       <PublicWidgets />
     </>
   );

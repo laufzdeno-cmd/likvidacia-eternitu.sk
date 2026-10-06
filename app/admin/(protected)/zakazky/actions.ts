@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { addBusinessJobNote, deleteBusinessJob, destroyBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob } from '@/src/server/db';
+import { addBusinessJobNote, deleteBusinessJob, destroyBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob, setBusinessJobTestData } from '@/src/server/db';
 import { sendBusinessQuoteEmail } from '@/src/server/mail';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
@@ -63,6 +63,23 @@ export async function saveBusinessJobAction(formData: FormData) {
   if (next === 'new') redirect('/admin/zakazky/nova');
   if (!id) redirect('/admin/zakazky');
   redirect(`/admin/zakazky/${job.id}`);
+}
+
+export async function setBusinessJobTestDataAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const id = String(formData.get('id') || '');
+  const rawValue = String(formData.get('isTestData') || '');
+  const reason = String(formData.get('reason') || '').trim();
+  if (!id || (rawValue !== 'true' && rawValue !== 'false')) throw new Error('Neplatná zmena klasifikácie zákazky.');
+  if (!reason) throw new Error('Vyberte dôvod zmeny klasifikácie.');
+  const changed = await setBusinessJobTestData(id, rawValue === 'true', actor, reason);
+  if (!changed) throw new Error('Zákazka sa nenašla. Obnovte stránku.');
+  revalidatePath(`/admin/zakazky/${id}`);
+  revalidatePath('/admin/zakazky');
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/rok');
+  revalidatePath('/realizacie');
 }
 
 export async function deleteBusinessJobAction(formData: FormData) {

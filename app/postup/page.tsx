@@ -37,9 +37,9 @@ const processFaqs: FaqItem[] = [
       'Čas závisí od rozsahu, prístupu, počasia, lokality a potrebného postupu. Samotná práca môže byť pri menšej streche krátka, príprava a dokumentácia sa však nastavujú podľa konkrétnej zákazky.',
   },
   {
-    question: 'Potrebujem povolenie?',
+    question: 'Treba na práce povolenie od RÚVZ?',
     answer:
-      'Konkrétny postup a potrebné podklady sa odvíjajú od stavby, rozsahu prác a príslušných úradov. Pred demontážou preto posúdime zákazku a pripravíme postup podľa konkrétneho prípadu.',
+      'Pri plánovanom odstraňovaní azbestu držiteľ oprávnenia písomne oznamuje práce príslušnému RÚVZ najmenej 30 dní vopred a predkladá požadované podklady. Ide o oznámenie, nie o žiadosť o povolenie. ASTANA pripraví postup a podklady ku konkrétnej stavbe; po dokončení vám odovzdáme dohodnuté doklady vrátane potvrdenia o likvidácii.',
   },
   {
     question: 'Čo ak už mám strechára?',
@@ -72,9 +72,9 @@ const processSteps = [
   {
     number: '03',
     label: 'PRED PRÁCOU',
-    title: 'Potrebné podklady a úrady riešime my',
-    text: 'Po potvrdení zákazky nastavíme potrebný postup a dokumentáciu podľa konkrétnej stavby. To, čo treba vybaviť voči úradom, závisí od rozsahu a prípadu, preto nič nesľubujeme naslepo.',
-    proof: 'Postup sa nastavuje ku konkrétnej stavbe.',
+    title: 'Oznámenie a podklady pripravíme my',
+    text: 'Pri plánovanom odstraňovaní držiteľ oprávnenia písomne oznamuje práce príslušnému RÚVZ najmenej 30 dní vopred a prikladá požadované podklady. Je to oznámenie, nie žiadosť o povolenie; konkrétny postup pripravíme podľa stavby.',
+    proof: 'RÚVZ oznamujeme práce vopred podľa zákona.',
   },
   {
     number: '04',
@@ -117,7 +117,7 @@ export default function ProcessPage() {
   return (
     <PublicPageShell breadcrumb={{ name: 'Postup likvidácie', path: '/postup/' }}>
       <main className="seo-page postup-process-page" id="main-content">
-        <JsonLd data={[buildServiceJsonLd('Postup likvidácie azbestu a eternitu', quickAnswer, '/postup/'), buildFaqJsonLd(processFaqs)]} />
+        <JsonLd data={[buildServiceJsonLd('Vy pošlete pár údajov. My vybavíme zvyšok.', quickAnswer, '/postup/'), buildFaqJsonLd(processFaqs)]} />
 
         <section className="postup-process-hero" aria-labelledby="postup-page-title">
           <div className="postup-process-hero-copy">
@@ -227,7 +227,7 @@ export default function ProcessPage() {
           </figure>
         </section>
 
-        <section className="postup-process-roofer" aria-labelledby="postup-roofer-title">
+        <section id="nadvazujuca-strecha" className="postup-process-roofer" aria-labelledby="postup-roofer-title">
           <div>
             <p className="postup-process-kicker">Nadväzujúca práca</p>
             <h2 id="postup-roofer-title">Meníte zároveň aj strechu?</h2>
@@ -257,7 +257,7 @@ export default function ProcessPage() {
               <li>potvrdenie alebo súvisiaca dokumentácia po práci.</li>
             </ul>
             <p className="postup-process-note">
-              Konkrétny rozsah podkladov sa určuje podľa stavby, rozsahu prác a rozhodnutia príslušných úradov.{' '}
+              Pri plánovaných prácach držiteľ oprávnenia oznamuje odstraňovanie RÚVZ najmenej 30 dní vopred spolu s požadovanými podkladmi. Konkrétny rozsah dokumentácie sa odvíja od stavby a prác.{' '}
               <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">
                 Overiť zoznam oprávnených spoločností na ÚVZ SR
               </a>

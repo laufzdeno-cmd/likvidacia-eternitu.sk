@@ -1,31 +1,54 @@
 import { buildPageMetadata, QuickAnswer } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
+import TestimonialForm from './testimonial-form';
+import { listApprovedTestimonials } from '@/src/server/db';
+import { randomUUID } from 'node:crypto';
+import { testimonialReceiptSecret, verifyTestimonialReceiptToken } from '@/src/server/testimonial-receipt';
 
 export const metadata = buildPageMetadata({
   title: 'Recenzie zákazníkov | ASTANA',
-  description: 'Transparentný stav recenzií ASTANA. Nezverejňujeme anonymné ani dodatočne vytvorené hodnotenia.',
+  description: 'Skúsenosti zákazníkov ASTANA zverejňujeme iba po kontrole a zaznamenanom súhlase. Pošlite nám svoju skúsenosť.',
   path: '/recenzie/',
   image: '/og/recenzie.jpg',
 });
+export const dynamic = 'force-dynamic';
 
-export default function ReviewsPage() {
+export default async function ReviewsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const params = await searchParams;
+  const receipt = typeof params.referencia_receipt === 'string'
+    ? verifyTestimonialReceiptToken(params.referencia_receipt, testimonialReceiptSecret())
+    : false;
+  const approved = await listApprovedTestimonials(24).catch(() => []);
+  const publicTestimonials = approved.map(({ id, customerName, rating, text, createdAt }) => ({ id, customerName, rating, text, createdAt }));
   return (
     <PublicPageShell breadcrumb={{ name: 'Recenzie', path: '/recenzie/' }}>
       <main className="seo-page">
         <section className="seo-hero">
           <p className="eyebrow">Recenzie</p>
           <h1>Recenzie zákazníkov ASTANA</h1>
-          <p>Nezverejňujeme anonymné ani dodatočne vytvorené hodnotenia.</p>
+          <p>Zdieľame iba skúsenosti, pri ktorých máme zaznamenaný súhlas na zverejnenie.</p>
         </section>
         <QuickAnswer>
-          Recenzie sme doteraz systematicky nezbierali. Preto nezverejňujeme anonymné ani dodatočne vytvorené hodnotenia.
-          Namiesto toho ukazujeme reálne fotky našich prác a vysvetľujeme úradný postup, ktorý musí legálna likvidácia azbestu spĺňať.
+          Referenciu môže poslať každý zákazník. Pred zverejnením ju skontrolujeme a uverejníme iba po zaznamenanom súhlase; e-mail ani presnú lokalitu na stránke nezobrazujeme.
         </QuickAnswer>
+        <section className="seo-section testimonial-public-list" aria-labelledby="published-testimonials-title">
+          <h2 id="published-testimonials-title">Skúsenosti zákazníkov</h2>
+          {publicTestimonials.length ? <div className="testimonial-public-grid">{publicTestimonials.map((item) => (
+            <article className="testimonial-public-card" key={item.id}>
+              <p className="testimonial-public-rating" aria-label={`Hodnotenie ${item.rating} z 5`}>{item.rating} / 5</p>
+              <blockquote>{item.text}</blockquote>
+              <p><strong>{item.customerName}</strong></p>
+              <small><time dateTime={item.createdAt}>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date(item.createdAt))}</time></small>
+            </article>
+          ))}</div> : <p className="seo-lead">Zatiaľ tu nie sú zverejnené referencie. Nechceme uvádzať neoverené alebo vymyslené hodnotenia.</p>}
+        </section>
         <section className="seo-section">
-          <h2>Ako pracujeme s dôveryhodnosťou</h2>
+          <h2>Pošlite nám svoju skúsenosť</h2>
           <p className="seo-lead">
-            Recenzie sme doteraz systematicky nezbierali. Preto nezverejňujeme anonymné ani dodatočne vytvorené hodnotenia. Namiesto toho ukazujeme reálne fotky našich prác a vysvetľujeme úradný postup, ktorý musí legálna likvidácia azbestu spĺňať.
+            Referenciu najprv skontrolujeme. Samotné odoslanie neznamená automatické zverejnenie.
           </p>
+          {receipt ? <p role="status">Ďakujeme. Referenciu sme prijali na kontrolu a zobrazí sa až po schválení.</p> : null}
+          <TestimonialForm initialSubmissionId={randomUUID()} />
           <div className="seo-included-list">
             <a href="/realizacie/">Pozrieť reálne fotky prác ASTANA</a>
             <a href="/postup/">Pozrieť úradný postup likvidácie</a>

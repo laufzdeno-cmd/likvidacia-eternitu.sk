@@ -1,5 +1,6 @@
 import { requireSuperAdmin } from '@/src/server/auth';
-import { getAnalyticsReport, getAnalyticsTrafficSummary } from '@/src/server/db';
+import { getAnalyticsPeriod } from '@/src/server/analytics-metrics';
+import { getAnalyticsReport, getAnalyticsTrafficSummary, getLeadAttributionReport } from '@/src/server/db';
 
 function formatPercent(value: number) {
   return `${value.toLocaleString('sk-SK', { maximumFractionDigits: 1 })} %`;
@@ -36,8 +37,14 @@ function eventLabel(eventType: string) {
 export default async function AnalyticsPage({ searchParams }: { searchParams?: Promise<{ dni?: string }> }) {
   await requireSuperAdmin();
   const params = await searchParams;
-  const days = Math.min(365, Math.max(7, Number(params?.dni || 30)));
-  const [report, traffic] = await Promise.all([getAnalyticsReport(days), getAnalyticsTrafficSummary()]);
+  const selectedDays = Number(params?.dni || 30);
+  const days = [7, 30, 90, 365].includes(selectedDays) ? selectedDays : 30;
+  const period = getAnalyticsPeriod(days);
+  const [report, traffic, leadAttribution] = await Promise.all([
+    getAnalyticsReport(days, period),
+    getAnalyticsTrafficSummary(),
+    getLeadAttributionReport(days, period.since),
+  ]);
   const maxDaily = Math.max(1, ...report.daily.map((item) => item.sessions));
   const trafficPeriods: Array<[string, typeof traffic.today]> = [
     ['Dnes', traffic.today],
@@ -71,7 +78,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
       <section className="admin-card analytics-traffic-overview">
         <div className="admin-section-heading">
           <div><p>Rýchly prehľad</p><h2>Návštevnosť</h2></div>
-          <span className="admin-muted">Zobrazenia, relácie, začaté formuláre a odoslané dopyty</span>
+          <span className="admin-muted">Merané údaje zo stránok a formulárov pri udelenom analytickom súhlase</span>
         </div>
         <div className="analytics-overview-grid">
           {trafficPeriods.map(([label, slice]) => (
@@ -80,8 +87,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
               <dl>
                 <div><dt>Návštevy</dt><dd>{formatNumber(slice.sessions)}</dd></div>
                 <div><dt>Zobrazenia</dt><dd>{formatNumber(slice.pageViews)}</dd></div>
-                <div><dt>Začaté formuláre</dt><dd>{formatNumber(slice.formStarts)}</dd></div>
-                <div><dt>Odoslané dopyty</dt><dd>{formatNumber(slice.leads)}</dd></div>
+                <div><dt>Merané začatia formulára</dt><dd>{formatNumber(slice.formStarts)}</dd></div>
+                <div><dt>Merané odoslania</dt><dd>{formatNumber(slice.leads)}</dd></div>
               </dl>
             </article>
           ))}
@@ -91,21 +98,29 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
       <section className="admin-stat-grid analytics-stat-grid">
         <article><span>Návštevy</span><strong>{formatNumber(report.totals.sessions)}</strong></article>
         <article><span>Zobrazenia stránok</span><strong>{formatNumber(report.totals.pageViews)}</strong></article>
-        <article><span>Odoslané dopyty</span><strong>{formatNumber(report.totals.leads)}</strong></article>
-        <article><span>Konverzia na dopyt</span><strong>{formatPercent(report.totals.leadConversionRate)}</strong></article>
-        <article><span>Cenové ponuky</span><strong>{formatNumber(report.totals.quotes)}</strong></article>
-        <article><span>Prijaté ponuky</span><strong>{formatNumber(report.totals.acceptedQuotes)}</strong></article>
+        <article><span>Dopyty v CRM</span><strong>{formatNumber(report.totals.leads)}</strong></article>
+        <article><span>Konverzia meraných relácií</span><strong>{formatPercent(report.totals.leadConversionRate)}</strong></article>
+        <article><span>Vydané dokumenty – starší modul ponúk</span><strong>{formatNumber(report.totals.quotes)}</strong></article>
+        <article><span>Prijaté dokumenty – starší modul ponúk</span><strong>{formatNumber(report.totals.acceptedQuotes)}</strong></article>
       </section>
 
+      {report.eventCoverage.truncated ? (
+        <section className="admin-card" role="status">
+          <h2>Analytické údaje sú skrátené</h2>
+          <p>Pre toto obdobie sa načítalo najviac {formatNumber(report.eventCoverage.limit)} udalostí. Návštevy, grafy a percentá odvodené z analytiky preto nie sú úplné. Skráťte obdobie alebo exportujte menší rozsah.</p>
+        </section>
+      ) : null}
+
       <section className="admin-card analytics-card">
-        <h2>Konverzný lievik</h2>
+        <h2>Merané relácie a výsledky v CRM</h2>
+        <p className="admin-muted">Prvé kroky sú unikátne relácie so súhlasom na analytiku. CRM časť zahŕňa všetky dopyty vytvorené vo zvolenom období, aj keď návštevník analytiku odmietol; tieto dve skupiny sa preto nespájajú do jedného konverzného percenta.</p>
         <div className="analytics-funnel">
           {report.funnel.map((step, index) => (
             <article key={step.label}>
               <span>{index + 1}</span>
               <div>
                 <strong>{step.label}</strong>
-                <small>{index === 0 ? 'Začiatok lievika' : `${formatPercent(step.rateFromPrevious)} z predchádzajúceho kroku`}</small>
+              <small>{index === 0 ? 'Začiatok meranej návštevnosti' : step.rateFromPrevious === null ? 'Samostatný CRM prehľad' : `${formatPercent(step.rateFromPrevious)} z predchádzajúceho kroku`}</small>
               </div>
               <b>{formatNumber(step.count)}</b>
             </article>
@@ -115,15 +130,27 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
 
       <section className="admin-card analytics-card">
         <h2>Denný vývoj</h2>
-        <div className="analytics-bars" aria-label="Denný vývoj návštev">
+        <div className="analytics-bars" aria-hidden="true">
           {report.daily.map((day) => (
             <div className="analytics-day" key={day.date}>
-              <span>{new Date(day.date).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' })}</span>
+              <span>{new Date(`${day.date}T12:00:00`).toLocaleDateString('sk-SK', { day: '2-digit', month: '2-digit' })}</span>
               <div><i style={{ height: `${Math.max(6, (day.sessions / maxDaily) * 100)}%` }} /></div>
               <small>{day.sessions}</small>
             </div>
           ))}
         </div>
+        <details>
+          <summary>Otvoriť tabuľku denných údajov</summary>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <caption>Denné údaje merané pri udelenom analytickom súhlase</caption>
+              <thead><tr><th scope="col">Dátum</th><th scope="col">Návštevy</th><th scope="col">Zobrazenia</th><th scope="col">Zobrazený dotazník</th><th scope="col">Začaté formuláre</th><th scope="col">Merané dopyty</th></tr></thead>
+              <tbody>{report.daily.map((day) => (
+                <tr key={`table-${day.date}`}><th scope="row">{day.date}</th><td>{formatNumber(day.sessions)}</td><td>{formatNumber(day.pageViews)}</td><td>{formatNumber(day.quoteViews)}</td><td>{formatNumber(day.formStarts)}</td><td>{formatNumber(day.leads)}</td></tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </details>
       </section>
 
       <div className="admin-two-col">
@@ -169,7 +196,8 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
       </div>
 
       <section className="admin-card analytics-card">
-        <h2>Kampane a zdroje</h2>
+        <h2>Kampane a zdroje návštev</h2>
+        <p className="admin-muted">Odhad z analytických udalostí a iba z návštev, pri ktorých bol udelený analytický súhlas. Nie je to počet všetkých CRM dopytov.</p>
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead><tr><th>Kampaň</th><th>Zdroj</th><th>Návštevy</th><th>Dopyty</th><th>Konverzia</th></tr></thead>
@@ -184,6 +212,32 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
                 </tr>
               ))}
               {!report.campaigns.length ? <tr><td colSpan={5}>Zatiaľ nie sú uložené údaje o kampaniach.</td></tr> : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="admin-card analytics-card">
+        <h2>Dopyty podľa kampane</h2>
+        <p className="admin-muted">Kohorta obsahuje nearchivované CRM dopyty prijaté vo zvolenom období okrem výslovne označených testovacích záznamov. Neoznačené skúšky nemožno spoľahlivo odlíšiť. Každý dopyt sa v každom stĺpci započíta najviac raz, ak má vydanú alebo prijatú ponuku v ktoromkoľvek z dvoch modelov CRM. Archivovaná ponuka či zákazka zostáva historickým výsledkom, ak má zachovanú väzbu na dopyt. Nepriradené ponuky sa neodhadujú. Nezachytený zdroj môže znamenať priamu návštevu, chýbajúce označenie alebo chýbajúci súhlas. Ide o stav ponúk pre kohortu dopytov, nie o počet dokumentov, tržby ani náklady na reklamu.</p>
+        <p className="admin-muted">Tabuľka ukazuje najviac 50 kombinácií s najväčším počtom dopytov. CSV export obsahuje všetky kombinácie za zvolené obdobie.</p>
+        <p><a href={`/admin/analytics/export?dni=${report.rangeDays}&typ=crm-attribution`}>Exportovať dopyty podľa kampane (CSV)</a></p>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>Zdroj</th><th>Typ</th><th>Kampaň</th><th>Dopyty</th><th>Dopyty s vydanou ponukou</th><th>Dopyty s prijatou ponukou</th><th>Objednané/realizované/ukončené</th></tr></thead>
+            <tbody>
+              {leadAttribution.map((row) => (
+                <tr key={`${row.source}-${row.medium}-${row.campaign}`}>
+                  <td>{row.source}</td>
+                  <td>{row.medium}</td>
+                  <td>{row.campaign}</td>
+                  <td>{formatNumber(row.leads)}</td>
+                  <td>{formatNumber(row.leadsWithIssuedOffer)}</td>
+                  <td>{formatNumber(row.leadsWithAcceptedOffer)}</td>
+                  <td>{formatNumber(row.progressedLeads)}</td>
+                </tr>
+              ))}
+              {!leadAttribution.length ? <tr><td colSpan={7}>V tomto období zatiaľ nie sú uložené dopyty.</td></tr> : null}
             </tbody>
           </table>
         </div>

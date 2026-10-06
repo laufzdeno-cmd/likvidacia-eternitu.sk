@@ -3,20 +3,15 @@ import LandingClient from '../landing-client';
 import PublicWidgets from '../public-widgets';
 import { PublicFooter } from '../public-layout';
 import { BreadcrumbJsonLd } from '../seo-json-ld';
+import { buildPageMetadata } from '../seo-components';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = buildPageMetadata({
   title: 'Spolupráca pre strechárov | ASTANA',
   description:
     'Spolupráca pre strechárov pri výmene eternitových striech. ASTANA pomáha zladiť demontáž, odvoz a nadväzujúce strechárske práce.',
-  alternates: {
-    canonical: '/strechari/',
-  },
-  openGraph: {
-    title: 'Spolupráca pre strechárov | ASTANA',
-    description: 'B2B spolupráca pre strechárov: skorá likvidácia azbestu, čisté pracovisko a odporúčanie zákaziek.',
-    url: '/strechari/',
-  },
-};
+  path: '/strechari/',
+  image: '/og/strechari.jpg',
+});
 
 const benefits = [
   {
@@ -201,7 +196,7 @@ export default function RoofersPage() {
               <p>Nechajte nám kontakt a región, v ktorom pracujete. Keď budeme mať vhodnú zákazku pre váš región a typ strechy, ozveme sa.</p>
             </div>
             <form className="roofer-registration-form" action="/api/roofer-registration/" method="post" noValidate>
-              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="off" aria-hidden="true" />
+              <input className="hp-field" type="text" name="companyWebsite" tabIndex={-1} autoComplete="new-password" aria-hidden="true" data-submit-disabled="true" disabled />
               <input type="hidden" name="submissionId" value="" />
               <div className="roofer-form-section-heading" data-step="1">
                 <span>1</span>

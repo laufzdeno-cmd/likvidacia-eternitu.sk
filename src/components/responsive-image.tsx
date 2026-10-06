@@ -47,7 +47,7 @@ export function ResponsiveImage({
         alt={image.alt}
         title={image.title}
         loading={loading}
-        decoding={loading === 'eager' ? 'sync' : 'async'}
+        decoding="async"
         fetchPriority={fetchPriority}
         width={width}
         height={height}

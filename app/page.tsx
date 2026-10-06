@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import HomepageCriticalClient from './homepage-critical-client';
 import HomepageDeferredClient from './homepage-deferred-client';
 import PublicWidgets from './public-widgets';
@@ -9,8 +10,16 @@ import {
 } from '@/src/data/azbestReferences';
 import { getSiteContentMap } from '@/src/server/db';
 import { cleanSlovakText } from '@/src/server/slovak-text';
-import { homeContentDefaults, homeContentVersion } from '@/src/server/site-content';
+import { homeContentDefaults } from '@/src/server/site-content';
 import { site } from '@/src/content/site';
+import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
+import { filterHomepageTrustItems, normalizeHomepageCoverageText } from '@/src/lib/homepage-trust-items.mjs';
+import './home-critical.css';
+import HomeDeferredStyles from './home-deferred-styles';
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
 
 const heroImage = {
   mobileWebp: '/assets/azbest/hero/azbest-087-mobile-480.webp',
@@ -33,12 +42,12 @@ const realizationFilters = [
 ] as const;
 
 const whyCardMeta = [
-  { icon: 'shield', title: 'Bezpečný postup' },
-  { icon: 'document', title: 'Dokumentácia' },
-  { icon: 'truck', title: 'Demontáž aj odvoz' },
-  { icon: 'clock', title: 'Skúsenosti od roku 2011' },
-  { icon: 'euro', title: 'Jasné nacenenie' },
-  { icon: 'map', title: 'Celé Slovensko' },
+  { id: 'safe-process', contentKey: 'whySafeText', icon: 'shield', title: 'Bezpečný postup' },
+  { id: 'documentation', contentKey: 'whyDocumentationText', icon: 'document', title: 'Dokumentácia' },
+  { id: 'removal-transport', contentKey: 'whyRemovalText', icon: 'truck', title: 'Demontáž aj odvoz' },
+  { id: 'experience', contentKey: 'whyExperienceText', icon: 'clock', title: 'ASTANA pôsobí od roku 2011' },
+  { id: 'clear-pricing', contentKey: 'whyPricingText', icon: 'euro', title: 'Jasné nacenenie' },
+  { id: 'coverage', contentKey: 'whyCoverageText', icon: 'map', title: 'Celé Slovensko' },
 ] as const;
 
 type VisualIconName =
@@ -82,7 +91,7 @@ function VisualIcon({ name, className = 'visual-icon' }: { name: VisualIconName;
 }
 
 const defaultIncludedItems = [
-  'Podklady pre RÚVZ ku konkrétnej stavbe',
+  'Oznámenie prác a podklady pre RÚVZ',
   'Podklady pre OÚŽP / životné prostredie',
   'Dokumentácia k nakladaniu s nebezpečným odpadom',
   'Stabilizácia materiálu',
@@ -94,10 +103,10 @@ const defaultIncludedItems = [
 ];
 
 const defaultTrustItems = [
-  ['Od roku 2011', 'Skúsenosti s azbestom a eternitom'],
+  ['Firma ASTANA pôsobí od roku 2011', 'Pôsobíme na trhu od roku 2011.'],
   ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
+  ['Doprava po Slovensku od 100 m²', 'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.'],
   ['RÚVZ / OÚŽP ku konkrétnej stavbe', 'Postup riešime legálne, nie iba všeobecným sľubom'],
-  ['Doprava nad 100 m2 zdarma', 'Pri väčších zákazkách dopravu neúčtujeme'],
   ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
 ] satisfies [string, string][];
 
@@ -119,7 +128,7 @@ const defaultRiskItems = [
 const defaultCautionItems = [
   [
     'Pýtajte si doklady ku konkrétnej stavbe',
-    'Nestačí počuť „máme povolenie“. Seriózna firma vie ukázať, že pre vašu stavbu rieši potrebný postup a doklady podľa konkrétneho prípadu.',
+    'Nestačí počuť „máme oprávnenie“. Pri plánovaných prácach držiteľ oprávnenia oznamuje odstraňovanie RÚVZ najmenej 30 dní vopred a prikladá požadované podklady. Firma vám má vedieť vysvetliť postup pre vašu stavbu.',
   ],
   [
     'Pozor na odpad ponechaný na dvore',
@@ -152,15 +161,6 @@ const defaultRooferItems = [
   ['Platba po dokončení', 'Pri bežných zákazkách nevyžadujeme platbu vopred za samotnú realizáciu. Platba prebieha po dokončení podľa dohodnutého rozsahu.'],
 ] satisfies [string, string][];
 
-const defaultWhyItems = [
-  'Skúsenosti od roku 2011.',
-  'Špecializácia na azbest a eternit.',
-  'Pôsobíme po celom Slovensku.',
-  'Vybavíme dokumentáciu, demontáž, balenie, odvoz aj doklady.',
-  'Pomôžeme zladiť termín so strechárom.',
-  'Doprava nad 100 m2 zdarma.',
-];
-
 const defaultFaq = [
   [
     'Je azbest nebezpečný?',
@@ -171,8 +171,8 @@ const defaultFaq = [
     'Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.',
   ],
   [
-    'Aké doklady si mám vypýtať pred začiatkom prác?',
-    'Pýtajte si doklady k vašej konkrétnej stavbe. Podľa typu zákazky môže ísť najmä o podklady alebo posúdenie RÚVZ a dokumentáciu k nakladaniu s nebezpečným odpadom cez OÚŽP / životné prostredie.',
+    'Treba na práce povolenie od RÚVZ?',
+    'Pri plánovanom odstraňovaní azbestu držiteľ oprávnenia písomne oznamuje práce príslušnému RÚVZ najmenej 30 dní vopred a predkladá požadované podklady. Ide o oznámenie, nie o žiadosť o povolenie. ASTANA pripraví postup ku konkrétnej stavbe a po dokončení odovzdá dohodnuté doklady vrátane potvrdenia o likvidácii.',
   ],
   [
     'Stačí, že firma má všeobecné oprávnenie na azbest?',
@@ -256,23 +256,14 @@ function buildJsonLd(faq: [string, string][]) {
 export const revalidate = 300;
 
 export default async function HomePage() {
-  const rawContent = await getSiteContentMap(homeContentDefaults, { versionKey: 'homepageContentVersion', version: homeContentVersion });
+  const rawContent = await getSiteContentMap(homeContentDefaults);
   const normalizedContent = Object.fromEntries(
     Object.entries(rawContent).map(([key, value]) => [key, cleanSlovakText(value)]),
   ) as Record<keyof typeof homeContentDefaults, string>;
   const content: typeof homeContentDefaults = {
     ...homeContentDefaults,
     ...normalizedContent,
-    heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
-    heroClaim:
-      'Vy nám pošlete približnú výmeru a obec. My sa postaráme o potrebné doklady, bezpečnú demontáž, zabalenie aj odvoz.',
-    heroText:
-      'ASTANA zabezpečuje odbornú likvidáciu azbestu a eternitu vrátane cenovej ponuky, potrebnej dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.',
-    ctaPrimary: 'Chcem cenovú ponuku',
-    ctaPhone: 'Zavolať 0905 217 946',
-    quoteKicker: 'Rýchla cenová ponuka',
-    quoteTitle: 'Jednoduchý formulár',
-    quoteIntro: 'Stačí približná výmera, lokalita a kontakt. Ozveme sa do 24 hodín.',
+    whyCoverageText: normalizeHomepageCoverageText(normalizedContent.whyCoverageText ?? homeContentDefaults.whyCoverageText),
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
   };
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
@@ -296,18 +287,18 @@ export default async function HomePage() {
       items: includedItems.slice(6),
     },
   ].filter((group) => group.items.length > 0);
-  const trustItems = parsePairs(content.trustItems, defaultTrustItems);
+  const trustItems = filterHomepageTrustItems(parsePairs(content.trustItems, defaultTrustItems));
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
   const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
   const rooferItems = parsePairs(content.rooferItems, defaultRooferItems);
-  const whyItems = parseLines(content.whyItems, defaultWhyItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
   const jsonLd = buildJsonLd(faq);
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <HomeDeferredStyles />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
       <link rel="preload" as="image" href={heroImage.mobileWebp} type="image/webp" media="(max-width: 767px)" fetchPriority="high" />
       <link rel="preload" as="image" href={heroImage.desktopWebp} type="image/webp" media="(min-width: 768px)" fetchPriority="high" />
       <header className="site-header" id="top">
@@ -454,7 +445,7 @@ export default async function HomePage() {
               <span></span>
               <span></span>
             </div>
-            <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data" noValidate>
+            <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data">
               <input
                 className="hp-field"
                 type="text"
@@ -569,10 +560,10 @@ export default async function HomePage() {
                     id="photos"
                     name="photos"
                     type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.heic,image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                     multiple
                   />
-                  <p className="field-help">Podporované sú JPG, JPEG, PNG, WEBP alebo HEIC. Fotky z mobilu úplne stačia.</p>
+                  <p className="field-help">Najviac 10 fotiek po 10 MB. JPG, JPEG, PNG alebo WEBP do 50 megapixelov. Fotku z iPhonu uložte ako JPG.</p>
                   <div className="file-preview" aria-live="polite"></div>
                 </div>
                 <div className="field field-full">
@@ -617,6 +608,11 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="price-calculator-card" data-price-calculator>
+            <div className="price-city-field">
+              <label htmlFor="price-city">Obec alebo mesto pre dopyt</label>
+              <input id="price-city" data-price-city type="text" maxLength={120} autoComplete="address-level2" placeholder="Napr. Poprad" />
+              <small>Nepovinné pri orientačnom výpočte.</small>
+            </div>
             <div className="price-area-row">
               <label htmlFor="price-area">Približná výmera</label>
               <output htmlFor="price-area" data-price-area-output>120 m2</output>
@@ -632,17 +628,17 @@ export default async function HomePage() {
               aria-label="Približná výmera v metroch štvorcových"
             />
             <div className="price-materials" role="group" aria-label="Typ materiálu">
-              <button type="button" className="is-active" data-price-material="vlnity">Vlnitý eternit</button>
-              <button type="button" data-price-material="hladky">Hladký eternit</button>
-              <button type="button" data-price-material="boleticky">Boletické panely</button>
-              <button type="button" data-price-material="neviem">Neviem posúdiť</button>
+              <button type="button" className="is-active" data-price-material="vlnity" aria-pressed="true">Vlnitý eternit</button>
+              <button type="button" data-price-material="hladky" aria-pressed="false">Hladký eternit</button>
+              <button type="button" data-price-material="boleticky" aria-pressed="false">Boletické panely</button>
+              <button type="button" data-price-material="neviem" aria-pressed="false">Neviem posúdiť</button>
             </div>
             <div className="price-result" aria-live="polite">
               <span>Orientačná cena</span>
               <strong><span data-price-min>960 €</span> – <span data-price-max>1 680 €</span></strong>
               <small>Presná cena závisí od prístupu, výšky objektu, typu materiálu a rozsahu dokumentácie.</small>
             </div>
-            <a className="button button-primary" href="#dopyt">Získať presnú cenovú ponuku</a>
+            <a className="button button-primary" data-price-quote href="#dopyt">Preniesť údaje do dopytu</a>
           </div>
         </section>
 
@@ -719,11 +715,6 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="transport-banner" aria-label="Doprava zdarma nad 100 metrov štvorcových">
-          <span className="transport-icon"><VisualIcon name="truck" /></span>
-          <strong>Dopravu pri zákazkách nad 100 m2 neúčtujeme!</strong>
-        </section>
-
         <TrustComplianceSection />
 
         <section className="section process-section" id="ako-to-prebieha" aria-labelledby="process-title">
@@ -752,8 +743,8 @@ export default async function HomePage() {
               <h2 id="real-work-title">Naša práca v praxi</h2>
             </div>
             <p>
-              Kurátorovaný výber šiestich záberov: rodinné domy, väčší rozsah, technika, dopravníky, hospodárske objekty aj interiér.
-              Plná filtrovaná galéria je na samostatnej stránke realizácií.
+              Pozrite si šesť ukážok prác na rodinných domoch, hospodárskej budove a priemyselných objektoch.
+              Ďalšie fotografie nájdete vo filtrovaných realizáciách.
             </p>
           </div>
           <div className="realization-filter-pills" role="group" data-home-gallery-filters aria-label="Filtrovať realizácie podľa typu objektu">
@@ -824,11 +815,11 @@ export default async function HomePage() {
               <p className="why-lead">{content.whyText}</p>
             </div>
             <div className="why-card-grid">
-              {whyCardMeta.map((card, index) => (
-                <article className="why-feature-card" key={card.title}>
+              {whyCardMeta.map((card) => (
+                <article className="why-feature-card" key={card.id}>
                   <VisualIcon name={card.icon} className="why-card-icon" />
                   <h3>{card.title}</h3>
-                  <p>{whyItems[index] || defaultWhyItems[index]}</p>
+                  <p>{content[card.contentKey]}</p>
                 </article>
               ))}
             </div>
@@ -909,6 +900,9 @@ export default async function HomePage() {
           <a href="/likvidacia-azbestu-presov/">Prešov</a>
           <a href="/likvidacia-azbestu-zilina/">Žilina</a>
           <a href="/likvidacia-azbestu-bratislava/">Bratislava</a>
+          <a href="/likvidacia-azbestu-banska-bystrica/">Banská Bystrica</a>
+          <a href="/likvidacia-azbestu-nitra/">Nitra</a>
+          <a href="/likvidacia-azbestu-trnava/">Trnava</a>
         </div>
         <div>
           <h2>Právne</h2>
@@ -919,13 +913,13 @@ export default async function HomePage() {
         </div>
       </footer>
 
-      <nav className="mobile-sticky-cta" aria-label="Rýchle kontakty">
+      <nav className="mobile-sticky-cta" aria-label="Rýchle kontakty" inert>
         <a href="tel:+421905217946">Zavolať</a>
         <a href="#dopyt">Cenová ponuka</a>
       </nav>
       <HomepageCriticalClient />
       <HomepageDeferredClient />
-      <PublicWidgets />
+      <PublicWidgets hideWhatsappOnMobile />
     </>
   );
 }

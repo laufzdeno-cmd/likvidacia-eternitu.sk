@@ -1,6 +1,30 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import styles from './kariera/career.module.css';
+
+const directCvThresholdBytes = 3_500_000;
+
+async function sha256(file: File) {
+  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function fingerprintSubmission(data: FormData, cv?: File) {
+  const cvSha256 = cv ? await sha256(cv) : '';
+  const fields: Array<[string, string | { name: string; size: number; type: string; lastModified: number; sha256: string }]> = [];
+  data.forEach((value, name) => {
+    if (name === 'submissionId') return;
+    fields.push([name, value instanceof File
+      ? { name: value.name, size: value.size, type: value.type, lastModified: value.lastModified, sha256: name === 'cv' ? cvSha256 : '' }
+      : value]);
+  });
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(fields)));
+  return {
+    fingerprint: Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''),
+    cvSha256,
+  };
+}
 
 function newSubmissionId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID().replaceAll('-', '');
@@ -9,43 +33,147 @@ function newSubmissionId() {
 
 export default function CareerFormClient() {
   const formRef = useRef<HTMLFormElement>(null);
-  const [submissionId, setSubmissionId] = useState('');
+  const pendingCvUpload = useRef<{ submissionId: string; sha256: string; pathname: string } | null>(null);
+  const submissionIdRef = useRef('');
+  const lastAttempt = useRef<{ fingerprint: string; submissionId: string } | null>(null);
+  const [submissionId, setSubmissionIdState] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isAccepted, setIsAccepted] = useState(false);
   const [hasAsbestosExperience, setHasAsbestosExperience] = useState<'yes' | 'no' | ''>('');
 
+  function replaceSubmissionId(next: string) {
+    submissionIdRef.current = next;
+    const field = formRef.current?.elements.namedItem('submissionId');
+    if (field instanceof HTMLInputElement) field.value = next;
+    setSubmissionIdState(next);
+  }
+
   useEffect(() => {
-    setSubmissionId(newSubmissionId());
+    const initialId = newSubmissionId();
+    submissionIdRef.current = initialId;
+    setSubmissionIdState(initialId);
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = formRef.current;
-    if (!form || isSubmitting || !submissionId) return;
+    if (!form || isSubmitting || !submissionIdRef.current) return;
     if (!form.reportValidity()) return;
+    const selectedCv = form.elements.namedItem('cv');
+    const selectedFile = selectedCv instanceof HTMLInputElement ? selectedCv.files?.[0] : undefined;
+    const cv = selectedFile?.name ? selectedFile : undefined;
+    if (cv && cv.size > 5 * 1024 * 1024) {
+      setMessage('Životopis môže mať maximálne 5 MB. Vyberte menší súbor alebo žiadosť pošlite bez životopisu.');
+      setIsSuccess(false);
+      setIsAccepted(false);
+      return;
+    }
     setIsSubmitting(true);
     setMessage('Odosielame vašu žiadosť…');
     setIsSuccess(false);
+    setIsAccepted(false);
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 30_000);
+    const directUpload = Boolean(cv && cv.size > directCvThresholdBytes);
+    const timeout = window.setTimeout(() => controller.abort(), directUpload ? 120_000 : 30_000);
+    let applicationAccepted = false;
     try {
-      const response = await fetch('/api/kariera/', {
-        method: 'POST', body: new FormData(form), signal: controller.signal, headers: { accept: 'application/json' },
-      });
-      const result = await response.json().catch(() => null) as { ok?: boolean; message?: string } | null;
+      const submissionData = new FormData(form);
+      const identity = await fingerprintSubmission(submissionData, cv);
+      let activeSubmissionId = submissionIdRef.current;
+      if (lastAttempt.current && lastAttempt.current.fingerprint !== identity.fingerprint) {
+        activeSubmissionId = newSubmissionId();
+        replaceSubmissionId(activeSubmissionId);
+        pendingCvUpload.current = null;
+      } else if (lastAttempt.current) {
+        activeSubmissionId = lastAttempt.current.submissionId;
+        replaceSubmissionId(activeSubmissionId);
+      }
+      submissionData.set('submissionId', activeSubmissionId);
+      lastAttempt.current = { fingerprint: identity.fingerprint, submissionId: activeSubmissionId };
+      let response: Response;
+      let result: { ok?: boolean; accepted?: boolean; uploadRequired?: boolean; uploadMissing?: boolean; uploadExpired?: boolean; message?: string } | null;
+      if (directUpload && cv) {
+        const digest = identity.cvSha256;
+        const metadata = new FormData();
+        submissionData.forEach((value, name) => metadata.append(name, value));
+        metadata.delete('cv');
+        metadata.set('cvIntent', 'on');
+        metadata.set('cvExpectedSize', String(cv.size));
+        metadata.set('cvExpectedSha256', digest);
+        const preparation = await fetch('/api/kariera/', {
+          method: 'POST', body: metadata, signal: controller.signal, headers: { accept: 'application/json' },
+        });
+        const prepared = await preparation.json().catch(() => null) as typeof result;
+        applicationAccepted = Boolean(prepared?.accepted);
+        if (preparation.status !== 202 || !prepared?.uploadRequired) {
+          response = preparation;
+          result = prepared;
+        } else {
+          const pending = pendingCvUpload.current?.submissionId === activeSubmissionId && pendingCvUpload.current.sha256 === digest
+            ? pendingCvUpload.current : null;
+          let pathname = pending?.pathname || '';
+          if (!pathname) {
+            const extension = cv.name.split('.').pop()?.toLowerCase();
+            if (!['pdf', 'doc', 'docx'].includes(extension || '')) throw new Error('Neplatný formát životopisu.');
+            pathname = `career-cv/${activeSubmissionId}/${crypto.randomUUID()}.${extension}`;
+            pendingCvUpload.current = { submissionId: activeSubmissionId, sha256: digest, pathname };
+          }
+          const finalize = async () => {
+            metadata.set('cvPathname', pathname);
+            const nextResponse = await fetch('/api/kariera/', {
+              method: 'POST', body: metadata, signal: controller.signal, headers: { accept: 'application/json' },
+            });
+            return { response: nextResponse, result: await nextResponse.json().catch(() => null) as typeof result };
+          };
+          // An interrupted Blob response can still mean the object was stored.
+          // Check that exact reservation first; if absent, upload to the same path.
+          let completed = pending ? await finalize() : null;
+          if (!completed || completed.result?.uploadMissing) {
+            if (completed?.result?.uploadExpired) {
+              const extension = cv.name.split('.').pop()?.toLowerCase();
+              if (!['pdf', 'doc', 'docx'].includes(extension || '')) throw new Error('Neplatný formát životopisu.');
+              pathname = `career-cv/${activeSubmissionId}/${crypto.randomUUID()}.${extension}`;
+              pendingCvUpload.current = { submissionId: activeSubmissionId, sha256: digest, pathname };
+            }
+            const { upload } = await import('@vercel/blob/client');
+            const blob = await upload(pathname, cv, {
+              access: 'private',
+              handleUploadUrl: '/api/kariera/cv-upload/',
+              clientPayload: JSON.stringify({ submissionId: activeSubmissionId, originalName: cv.name, expectedSize: cv.size, expectedSha256: digest }),
+              abortSignal: controller.signal,
+            });
+            if (blob.pathname !== pathname) throw new Error('Životopis sa nezhoduje s rezervovanou cestou.');
+            completed = await finalize();
+          }
+          response = completed.response;
+          result = completed.result;
+        }
+      } else {
+        response = await fetch('/api/kariera/', {
+          method: 'POST', body: submissionData, signal: controller.signal, headers: { accept: 'application/json' },
+        });
+        result = await response.json().catch(() => null) as typeof result;
+      }
       const text = result?.message || 'Žiadosť sa nepodarilo odoslať. Skúste to prosím znova.';
       setMessage(text);
       setIsSuccess(Boolean(response.ok && result?.ok));
+      setIsAccepted(Boolean(result?.accepted && !(response.ok && result?.ok)));
       if (response.ok && result?.ok) {
         form.reset();
         setHasAsbestosExperience('');
-        setSubmissionId(newSubmissionId());
+        lastAttempt.current = null;
+        replaceSubmissionId(newSubmissionId());
+        pendingCvUpload.current = null;
       }
     } catch (error) {
-      setMessage(error instanceof Error && error.name === 'AbortError'
-        ? 'Odoslanie trvá príliš dlho. Skúste to ešte raz alebo nám zavolajte na 0905 217 946.'
-        : 'Žiadosť sa nepodarilo odoslať. Skúste to ešte raz alebo nám zavolajte na 0905 217 946.');
+      setMessage(applicationAccepted
+        ? 'Žiadosť sme prijali, ale životopis sa ešte nepodarilo bezpečne pripojiť. Ponechajte údaje aj súbor a skúste odoslanie znova.'
+        : error instanceof Error && error.name === 'AbortError'
+          ? 'Odoslanie trvá príliš dlho. Skúste to ešte raz alebo nám zavolajte na 0905 217 946.'
+          : 'Žiadosť sa nepodarilo odoslať. Skúste to ešte raz alebo nám zavolajte na 0905 217 946.');
+      setIsAccepted(applicationAccepted);
     } finally {
       window.clearTimeout(timeout);
       setIsSubmitting(false);
@@ -53,22 +181,22 @@ export default function CareerFormClient() {
   }
 
   return (
-    <form ref={formRef} className="career-application-form" onSubmit={submit} noValidate>
+    <form ref={formRef} className={`career-application-form ${styles.applicationForm}`} onSubmit={submit} noValidate>
       <input type="hidden" name="submissionId" value={submissionId} />
-      <div className="career-honeypot" aria-hidden="true">
+      <div className={`career-honeypot ${styles.honeypot}`} aria-hidden="true">
         <label>Webová stránka<input name="companyWebsite" tabIndex={-1} autoComplete="new-password" disabled data-submit-disabled /></label>
       </div>
-      <div className="career-form-grid">
+      <div className={`career-form-grid ${styles.formGrid}`}>
         <label>Meno a priezvisko *<input name="fullName" autoComplete="name" required /></label>
         <label>Telefón *<input name="phone" type="tel" autoComplete="tel" required /></label>
-        <label className="career-form-wide">Email *<input name="email" type="email" autoComplete="email" required /></label>
+        <label className={`career-form-wide ${styles.formWide}`}>Email *<input name="email" type="email" autoComplete="email" required /></label>
         <label>Mesto alebo okres *<input name="city" autoComplete="address-level2" required /></label>
         <label>Chcem spolupracovať ako *
           <select name="cooperationType" defaultValue="szco" required>
             <option value="szco">živnostník / SZČO</option><option value="crew">partia živnostníkov</option><option value="other">iná forma</option>
           </select>
         </label>
-        <label className="career-form-wide">Kde viete pracovať? *
+        <label className={`career-form-wide ${styles.formWide}`}>Kde viete pracovať? *
           <input name="workRegions" placeholder="napr. celé Slovensko alebo Poprad a okolie" required />
           <small>Pracujeme po celom Slovensku. Z Popradu vyrážame skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na svoju prácu.</small>
         </label>
@@ -79,19 +207,19 @@ export default function CareerFormClient() {
             <option value="no">nie</option>
           </select>
         </label>
-        {hasAsbestosExperience === 'yes' ? <label className="career-form-wide">S čím konkrétne máte skúsenosť pri azbeste? *<textarea name="asbestosExperience" rows={3} placeholder="napr. demontáž eternitu, balenie, ochranné pomôcky, dokumentácia…" required /></label> : null}
-        <label className="career-form-wide">Čo viete robiť a aké máte ďalšie pracovné skúsenosti? <textarea name="experience" rows={3} placeholder="napr. demontáže, strechy, práca vo výške, vedenie partie, obsluha techniky…" /></label>
-        <label className="career-form-wide">Poznámka <textarea name="note" rows={3} placeholder="Kedy vám môžeme zavolať, počet ľudí v partii, vybavenie…" /></label>
-        <label className="career-form-wide career-file-field">Životopis (dobrovoľný)<input name="cv" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" /><small>PDF, DOC alebo DOCX do 5 MB. Súbor je súkromný a vidí ho len ASTANA pri posúdení žiadosti.</small></label>
+        {hasAsbestosExperience === 'yes' ? <label className={`career-form-wide ${styles.formWide}`}>S čím konkrétne máte skúsenosť pri azbeste? *<textarea name="asbestosExperience" rows={3} placeholder="napr. demontáž eternitu, balenie, ochranné pomôcky, dokumentácia…" required /></label> : null}
+        <label className={`career-form-wide ${styles.formWide}`}>Čo viete robiť a aké máte ďalšie pracovné skúsenosti? <textarea name="experience" rows={3} placeholder="napr. demontáže, strechy, práca vo výške, vedenie partie, obsluha techniky…" /></label>
+        <label className={`career-form-wide ${styles.formWide}`}>Poznámka <textarea name="note" rows={3} placeholder="Kedy vám môžeme zavolať, počet ľudí v partii, vybavenie…" /></label>
+        <label className={`career-form-wide career-file-field ${styles.formWide} ${styles.fileField}`}>Životopis (dobrovoľný)<input name="cv" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" /><small>PDF, DOC alebo DOCX do 5 MB. Súbor je súkromný a vidí ho len ASTANA pri posúdení žiadosti.</small></label>
       </div>
-      <div className="career-checks">
+      <div className={`career-checks ${styles.checks}`}>
         <label><input name="hasTradeLicense" type="checkbox" required /> Môžem pracovať ako živnostník alebo samostatná partia. *</label>
         <label><input name="workAtHeights" type="checkbox" required /> Mám skúsenosť s prácou vo výške. *</label>
         <label><input name="gdpr" type="checkbox" required /> Súhlasím so spracovaním údajov pre účely výberu spolupráce podľa <a href="/ochrana-osobnych-udajov/" target="_blank" rel="noreferrer">ochrany osobných údajov</a>. *</label>
       </div>
-      <button className="button button-primary career-submit" type="submit" disabled={isSubmitting || !submissionId}>{isSubmitting ? 'Odosielame…' : 'Poslať krátku žiadosť'}</button>
-      <p className="career-form-help">Bez životopisu je to v poriadku. Ozveme sa vám telefonicky alebo e-mailom.</p>
-      {message ? <p className={`career-form-message${isSuccess ? ' is-success' : ' is-error'}`} role="status">{message}</p> : null}
+      <button className={`button button-primary career-submit ${styles.submit}`} type="submit" disabled={isSubmitting || !submissionId}>{isSubmitting ? 'Odosielame…' : 'Poslať krátku žiadosť'}</button>
+      <p className={`career-form-help ${styles.formHelp}`}>Bez životopisu je to v poriadku. Ozveme sa vám telefonicky alebo e-mailom.</p>
+      {message ? <p className={`career-form-message${isAccepted ? ' is-warning' : isSuccess ? ' is-success' : ' is-error'} ${styles.formMessage} ${isAccepted ? styles.warning : isSuccess ? styles.success : styles.error}`} role="status">{message}</p> : null}
     </form>
   );
 }
