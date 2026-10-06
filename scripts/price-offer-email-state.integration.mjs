@@ -11,6 +11,7 @@ let claimPriceOfferForSending;
 let finishPriceOfferSending;
 let getPriceOffer;
 let resetUncertainPriceOfferSend;
+let updatePriceOfferStatus;
 
 async function availablePort() {
   const probe = createServer();
@@ -31,7 +32,7 @@ async function startDatabase() {
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_URL = `postgres://astana_test:astana_test@127.0.0.1:${port}/astana_test`;
   process.env.ADMIN_EMAIL = '';
-  ({ savePriceOffer, claimPriceOfferForSending, finishPriceOfferSending, getPriceOffer, resetUncertainPriceOfferSend } = await import('../src/server/db.ts'));
+  ({ savePriceOffer, claimPriceOfferForSending, finishPriceOfferSending, getPriceOffer, resetUncertainPriceOfferSend, updatePriceOfferStatus } = await import('../src/server/db.ts'));
 }
 
 function offerInput() {
@@ -51,8 +52,10 @@ async function testConcurrentClaimAndUnknownDelivery() {
     claimPriceOfferForSending(offer.id, 'integration-test'),
   ]);
   assert.equal(claims.filter(Boolean).length, 1, 'concurrent sends may claim a prepared offer only once');
+  const claimed = claims.find(Boolean);
+  assert.ok(claimed?.sendAttemptId, 'claimed send must have a unique attempt id');
   assert.equal((await getPriceOffer(offer.id))?.status, 'ODOSIELA');
-  assert.equal((await finishPriceOfferSending(offer.id, 'unknown', 'integration-test'))?.status, 'NEISTY_STAV');
+  assert.equal((await finishPriceOfferSending(offer.id, claimed.sendAttemptId, 'unknown', 'integration-test'))?.status, 'NEISTY_STAV');
   assert.equal(await claimPriceOfferForSending(offer.id, 'integration-test'), null, 'uncertain delivery must not be sent again automatically');
   assert.equal(await resetUncertainPriceOfferSend(offer.id, 'integration-test'), null, 'fresh unknown delivery cannot be reset');
 
@@ -63,11 +66,22 @@ async function testConcurrentClaimAndUnknownDelivery() {
 
 async function testKnownNoSendAndSuccess() {
   const offer = await savePriceOffer(offerInput(), 'integration-test');
-  assert.ok(await claimPriceOfferForSending(offer.id, 'integration-test'));
-  assert.equal((await finishPriceOfferSending(offer.id, 'not_sent', 'integration-test'))?.status, 'PRIPRAVENA');
-  assert.ok(await claimPriceOfferForSending(offer.id, 'integration-test'), 'a confirmed pre-send failure can be retried');
-  assert.equal((await finishPriceOfferSending(offer.id, 'sent', 'integration-test'))?.status, 'ODOSLANA');
+  assert.equal(await updatePriceOfferStatus(offer.id, 'PRIJATA', 'integration-test'), null, 'a prepared offer cannot be accepted before it is sent');
+  const firstClaim = await claimPriceOfferForSending(offer.id, 'integration-test');
+  assert.ok(firstClaim?.sendAttemptId);
+  assert.equal((await finishPriceOfferSending(offer.id, firstClaim.sendAttemptId, 'not_sent', 'integration-test'))?.status, 'PRIPRAVENA');
+  const secondClaim = await claimPriceOfferForSending(offer.id, 'integration-test');
+  assert.ok(secondClaim?.sendAttemptId, 'a confirmed pre-send failure can be retried');
+  assert.notEqual(secondClaim.sendAttemptId, firstClaim.sendAttemptId, 'every retry must have a distinct attempt id');
+  assert.equal(await finishPriceOfferSending(offer.id, firstClaim.sendAttemptId, 'not_sent', 'integration-test'), null, 'an older attempt cannot finalize the current claim');
+  assert.equal((await finishPriceOfferSending(offer.id, secondClaim.sendAttemptId, 'sent', 'integration-test'))?.status, 'ODOSLANA');
   assert.equal(await claimPriceOfferForSending(offer.id, 'integration-test'), null, 'sent offers cannot be resent');
+  const acceptResults = await Promise.all([
+    updatePriceOfferStatus(offer.id, 'PRIJATA', 'integration-test'),
+    updatePriceOfferStatus(offer.id, 'PRIJATA', 'integration-test'),
+  ]);
+  assert.equal(acceptResults.filter(Boolean).length, 1, 'an already sent offer may be accepted atomically only once');
+  assert.equal((await getPriceOffer(offer.id))?.status, 'PRIJATA');
 }
 
 let exitCode = 0;

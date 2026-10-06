@@ -1137,6 +1137,7 @@ async function initializeSchema() {
       internal_note text NOT NULL DEFAULT '',
       status text NOT NULL DEFAULT 'PRIPRAVENA',
       send_started_at timestamptz,
+      send_attempt_id text,
       sent_at timestamptz,
       accepted_at timestamptz,
       source_inquiry text NOT NULL DEFAULT '',
@@ -1149,6 +1150,7 @@ async function initializeSchema() {
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS source_job_ids uuid[] NOT NULL DEFAULT '{}';
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS is_test_data boolean NOT NULL DEFAULT false;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_started_at timestamptz;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_attempt_id text;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS documentation_promotion boolean NOT NULL DEFAULT false;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS include_transport boolean NOT NULL DEFAULT false;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_from text NOT NULL DEFAULT '';
@@ -1339,6 +1341,7 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
     internalNote: String(row.internal_note ?? row.internalNote ?? ''),
     status: String(row.status ?? 'PRIPRAVENA') as PriceOfferStatus,
     sendStartedAt: row.send_started_at || row.sendStartedAt ? new Date(String(row.send_started_at ?? row.sendStartedAt)).toISOString() : undefined,
+    sendAttemptId: String(row.send_attempt_id ?? row.sendAttemptId ?? '') || undefined,
     sentAt: row.sent_at || row.sentAt ? new Date(String(row.sent_at ?? row.sentAt)).toISOString() : undefined,
     acceptedAt: row.accepted_at || row.acceptedAt ? new Date(String(row.accepted_at ?? row.acceptedAt)).toISOString() : undefined,
     sourceInquiry: String(row.source_inquiry ?? row.sourceInquiry ?? ''),
@@ -6082,30 +6085,47 @@ export async function getPriceOffer(id: string): Promise<PriceOffer | null> {
 
 export async function updatePriceOfferStatus(id: string, status: PriceOfferStatus, actorEmail: string) {
   await ensureSchema();
+  if (status !== 'PRIJATA') throw new Error('Nepodporovaná zmena stavu cenovej ponuky.');
   const timestamp = now();
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    const offer = local.priceOffers.find((item) => item.id === id);
-    if (!offer) return null;
-    offer.status = status;
-    if (status === 'ODOSLANA') offer.sentAt = timestamp;
-    if (status === 'PRIJATA') offer.acceptedAt = timestamp;
-    await writeLocalDb(local);
-    await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail, { number: offer.number, status });
-    return offer;
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt && item.status === 'ODOSLANA');
+      if (!offer) return null;
+      offer.status = status;
+      offer.acceptedAt = timestamp;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+        action: 'price_offer_status_changed', actorEmail, changes: { number: offer.number, status }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return offer;
+    });
   }
-  const { rows } = await db.query(
-    `UPDATE price_offers SET status = $1,
-      sent_at = CASE WHEN $1 = 'ODOSLANA' THEN $2 ELSE sent_at END,
-      accepted_at = CASE WHEN $1 = 'PRIJATA' THEN $2 ELSE accepted_at END
-      WHERE id = $3 RETURNING *`,
-    [status, timestamp, id],
-  );
-  if (!rows[0]) return null;
-  const offer = toPriceOffer(rows[0]);
-  await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail, { number: offer.number, status });
-  return offer;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE price_offers SET status = $1, accepted_at = $2
+       WHERE id = $3 AND deleted_at IS NULL AND status = 'ODOSLANA' RETURNING *`,
+      [status, timestamp, id],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const offer = toPriceOffer(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail, { number: offer.number, status }, timestamp],
+    );
+    await client.query('COMMIT');
+    return offer;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function deletePriceOffer(id: string, actorEmail: string) {
@@ -6152,6 +6172,7 @@ function toPublishedRealization(realization: Realization): PublishedRealization 
 export async function claimPriceOfferForSending(id: string, actorEmail: string): Promise<PriceOffer | null> {
   await ensureSchema();
   const timestamp = now();
+  const attemptId = randomUUID();
   const db = getPool();
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
@@ -6160,23 +6181,41 @@ export async function claimPriceOfferForSending(id: string, actorEmail: string):
       if (!offer || offer.status !== 'PRIPRAVENA') return null;
       offer.status = 'ODOSIELA';
       offer.sendStartedAt = timestamp;
+      offer.sendAttemptId = attemptId;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+        action: 'price_offer_send_claimed', actorEmail, changes: { number: offer.number }, createdAt: timestamp });
       await writeLocalDb(local);
-      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_send_claimed', actorEmail, { number: offer.number });
       return offer;
     });
   }
-  const { rows } = await db.query(
-    `UPDATE price_offers SET status = 'ODOSIELA', send_started_at = $2
-      WHERE id = $1 AND deleted_at IS NULL AND status = 'PRIPRAVENA' RETURNING *`,
-    [id, timestamp],
-  );
-  if (!rows[0]) return null;
-  const offer = toPriceOffer(rows[0]);
-  await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_send_claimed', actorEmail, { number: offer.number });
-  return offer;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE price_offers SET status = 'ODOSIELA', send_started_at = $2, send_attempt_id = $3
+       WHERE id = $1 AND deleted_at IS NULL AND status = 'PRIPRAVENA' RETURNING *`,
+      [id, timestamp, attemptId],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const offer = toPriceOffer(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_send_claimed', actorEmail, { number: offer.number }, timestamp],
+    );
+    await client.query('COMMIT');
+    return offer;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
-export async function finishPriceOfferSending(id: string, result: 'sent' | 'not_sent' | 'unknown', actorEmail: string) {
+export async function finishPriceOfferSending(id: string, attemptId: string, result: 'sent' | 'not_sent' | 'unknown', actorEmail: string) {
   await ensureSchema();
   const timestamp = now();
   const nextStatus: PriceOfferStatus = result === 'sent' ? 'ODOSLANA' : result === 'not_sent' ? 'PRIPRAVENA' : 'NEISTY_STAV';
@@ -6185,26 +6224,45 @@ export async function finishPriceOfferSending(id: string, result: 'sent' | 'not_
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
       const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt);
-      if (!offer || offer.status !== 'ODOSIELA') return null;
+      if (!offer || offer.status !== 'ODOSIELA' || offer.sendAttemptId !== attemptId) return null;
       offer.status = nextStatus;
       if (result === 'sent') offer.sentAt = timestamp;
       offer.sendStartedAt = result === 'unknown' ? (offer.sendStartedAt || timestamp) : undefined;
+      offer.sendAttemptId = result === 'unknown' ? attemptId : undefined;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+        action: `price_offer_send_${result}`, actorEmail, changes: { number: offer.number }, createdAt: timestamp });
       await writeLocalDb(local);
-      await addAuditLog('business_job', offer.jobId || offer.id, `price_offer_send_${result}`, actorEmail, { number: offer.number });
       return offer;
     });
   }
-  const { rows } = await db.query(
-    `UPDATE price_offers SET status = $2,
-       sent_at = CASE WHEN $3 = 'sent' THEN $4 ELSE sent_at END,
-       send_started_at = CASE WHEN $3 = 'unknown' THEN COALESCE(send_started_at, $4) ELSE NULL END
-     WHERE id = $1 AND deleted_at IS NULL AND status = 'ODOSIELA' RETURNING *`,
-    [id, nextStatus, result, timestamp],
-  );
-  if (!rows[0]) return null;
-  const offer = toPriceOffer(rows[0]);
-  await addAuditLog('business_job', offer.jobId || offer.id, `price_offer_send_${result}`, actorEmail, { number: offer.number });
-  return offer;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE price_offers SET status = $2,
+         sent_at = CASE WHEN $3 = 'sent' THEN $4 ELSE sent_at END,
+         send_started_at = CASE WHEN $3 = 'unknown' THEN COALESCE(send_started_at, $4) ELSE NULL END,
+         send_attempt_id = CASE WHEN $3 = 'unknown' THEN send_attempt_id ELSE NULL END
+       WHERE id = $1 AND deleted_at IS NULL AND status = 'ODOSIELA' AND send_attempt_id = $5 RETURNING *`,
+      [id, nextStatus, result, timestamp, attemptId],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const offer = toPriceOffer(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', offer.jobId || offer.id, `price_offer_send_${result}`, actorEmail, { number: offer.number }, timestamp],
+    );
+    await client.query('COMMIT');
+    return offer;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function resetUncertainPriceOfferSend(id: string, actorEmail: string) {
@@ -6219,22 +6277,40 @@ export async function resetUncertainPriceOfferSend(id: string, actorEmail: strin
       if (!offer || !['NEISTY_STAV', 'ODOSIELA'].includes(offer.status) || !Number.isFinite(startedAt) || Date.now() - startedAt < 15 * 60_000) return null;
       offer.status = 'PRIPRAVENA';
       offer.sendStartedAt = undefined;
+      offer.sendAttemptId = undefined;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+        action: 'price_offer_uncertain_send_reset', actorEmail, changes: { number: offer.number }, createdAt: timestamp });
       await writeLocalDb(local);
-      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_uncertain_send_reset', actorEmail, { number: offer.number });
       return offer;
     });
   }
-  const { rows } = await db.query(
-    `UPDATE price_offers SET status = 'PRIPRAVENA', send_started_at = NULL
-      WHERE id = $1 AND deleted_at IS NULL AND status IN ('NEISTY_STAV', 'ODOSIELA')
-        AND send_started_at <= $2::timestamptz - interval '15 minutes'
-      RETURNING *`,
-    [id, timestamp],
-  );
-  if (!rows[0]) return null;
-  const offer = toPriceOffer(rows[0]);
-  await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_uncertain_send_reset', actorEmail, { number: offer.number });
-  return offer;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE price_offers SET status = 'PRIPRAVENA', send_started_at = NULL, send_attempt_id = NULL
+       WHERE id = $1 AND deleted_at IS NULL AND status IN ('NEISTY_STAV', 'ODOSIELA')
+         AND send_started_at <= $2::timestamptz - interval '15 minutes'
+       RETURNING *`,
+      [id, timestamp],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const offer = toPriceOffer(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_uncertain_send_reset', actorEmail, { number: offer.number }, timestamp],
+    );
+    await client.query('COMMIT');
+    return offer;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function listPublishedRealizations(limit = 6): Promise<PublishedRealization[]> {

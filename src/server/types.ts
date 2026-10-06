@@ -461,6 +461,7 @@ export type PriceOffer = PriceOfferInput & {
   deletedAt?: string;
   sentAt?: string;
   sendStartedAt?: string;
+  sendAttemptId?: string;
   acceptedAt?: string;
   materialPriceWithoutVat: number;
   totalWithoutVat: number;

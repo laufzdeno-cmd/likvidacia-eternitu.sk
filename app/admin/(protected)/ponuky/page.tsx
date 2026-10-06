@@ -58,7 +58,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Náhľad</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
                     {!offer.deletedAt && offer.status === 'PRIPRAVENA' ? <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form> : null}
-                    {!offer.deletedAt ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Prijatá</button></form> : null}
+                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Označiť ako prijatú</button></form> : null}
                     {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
                       <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
                     ) : null}

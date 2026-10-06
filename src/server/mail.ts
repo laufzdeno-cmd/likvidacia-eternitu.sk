@@ -613,6 +613,14 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   const validUntil = dateSk(offer.validUntil);
   const confirmSubject = encodeURIComponent(`Potvrdenie objednávky č. ${offer.number}`);
+  const confirmBody = encodeURIComponent([
+    `Dobrý deň, záväzne objednávam práce podľa cenovej ponuky č. ${offer.number}.`,
+    '',
+    `Presná adresa objektu typu ${offer.objectType} (ulica, číslo, prípadne parcela):`,
+    'Objednávateľ a jeho úplná adresa:',
+    `Vlastník objektu typu ${offer.objectType} a jeho úplná adresa:`,
+    'Doplňujúce informácie alebo fotografie:',
+  ].join('\n'));
   const included = [
     ...(offer.includeDocumentation ? ['Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Správne poplatky na úradoch'] : []),
     'Vytvorenie ochranného pásma',
@@ -713,8 +721,20 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
           </tr></table>
 
           <div style="margin:24px 0;text-align:center;">
-            <a href="mailto:astana@astana.sk?subject=${confirmSubject}" style="display:inline-block;background:linear-gradient(135deg,#C86432 0%,#A94722 100%);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
+            <a href="mailto:astana@astana.sk?subject=${confirmSubject}&amp;body=${confirmBody}" style="display:inline-block;background:linear-gradient(135deg,#C86432 0%,#A94722 100%);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
             <div style="margin-top:10px;color:#687284;font-size:13px;">alebo zavolajte: 0905 217 946</div>
+          </div>
+
+          <div style="margin:0 0 20px;background:#F8FAFC;border:1px solid #D7DDEA;border-left:3px solid #263451;border-radius:6px;padding:16px 18px;color:#475569;font-size:13px;line-height:1.65;">
+            <strong style="color:#263451;">Ak vám ponuka vyhovuje, pošlite nám záväznú objednávku odpoveďou na tento email.</strong>
+            <div style="margin-top:8px;">V objednávke uveďte:</div>
+            <ol style="margin:6px 0 0;padding-left:22px;">
+              <li>číslo cenovej ponuky <strong>${escapeHtml(offer.number)}</strong>,</li>
+              <li>presnú adresu objektu typu ${escapeHtml(offer.objectType)} — ulicu, číslo a prípadne parcelu,</li>
+              <li>objednávateľa a jeho úplnú adresu,</li>
+              <li>vlastníka objektu typu ${escapeHtml(offer.objectType)} a jeho úplnú adresu,</li>
+              <li>prípadné doplňujúce fotografie situácie.</li>
+            </ol>
           </div>
 
           <div style="margin-bottom:20px;background:#FFFBEB;border-left:3px solid #D4B56A;border-radius:6px;padding:14px 18px;color:#92400E;font-size:13px;line-height:1.6;">Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom. Potrebné doklady Vám odovzdáme po dokončení zákazky.</div>
@@ -763,6 +783,14 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
     '',
     ...(offer.includeTransport ? [`Doprava: ${offer.transportFrom} – ${offer.transportTo}; ${offer.transportRoundTripKm} km tam aj späť × ${euro(offer.transportPricePerKm)}/km.`] : []),
     ...(offer.includeDocumentation ? [offer.documentationPromotion ? 'Dokumentácia: akcia 0,00 €.' : `Dokumentácia a súvisiace podklady: ${euro(offer.documentationFeeWithoutVat)} bez DPH.`] : []),
+    '',
+    'Ak vám ponuka vyhovuje, pošlite nám záväznú objednávku odpoveďou na tento email. V objednávke uveďte:',
+    `1. číslo cenovej ponuky ${offer.number},`,
+    `2. presnú adresu objektu typu ${offer.objectType} — ulicu, číslo a prípadne parcelu,`,
+    '3. objednávateľa a jeho úplnú adresu,',
+    `4. vlastníka objektu typu ${offer.objectType} a jeho úplnú adresu,`,
+    '5. prípadné doplňujúce fotografie situácie.',
+    '',
     'Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom.',
     'Po ukončení prác vám odovzdáme:',
     '- kópiu rozhodnutia príslušného orgánu životného prostredia,',

@@ -78,6 +78,13 @@ test('zákaznícky email používa dynamický opis a nezahŕňa nekúpenú dokum
   assert.match(html, /ASTANA, s\.r\.o\./);
   assert.match(html, /na objekte typu Hospodárska budova/);
   assert.match(text, /materiál Azbestové rúry na objekte typu Hospodárska budova/);
+  assert.match(html, /záväznú objednávku odpoveďou na tento email/);
+  assert.match(html, /číslo cenovej ponuky <strong>20260001<\/strong>/);
+  assert.match(html, /ulicu, číslo a prípadne parcelu/);
+  assert.match(html, /objednávateľa a jeho úplnú adresu/);
+  assert.match(html, /vlastníka objektu typu Hospodárska budova/);
+  assert.match(text, /1\. číslo cenovej ponuky 20260001/);
+  assert.match(text, /2\. presnú adresu objektu typu Hospodárska budova/);
   assert.match(text, /Po ukončení prác vám odovzdáme/);
   assert.match(text, /sprievodný list nebezpečného odpadu s potvrdením skládky/);
   assert.match(text, /kópiu vážneho lístka/);
@@ -103,13 +110,31 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   const mail = await readFile(new URL('../src/server/mail.ts', import.meta.url), 'utf8');
   assert.match(actions, /current\.status !== 'PRIPRAVENA'/);
   assert.match(actions, /claimPriceOfferForSending\(id, actor\)/);
-  assert.match(actions, /finishPriceOfferSending\(id, result\.status, actor\)/);
+  assert.match(actions, /finishPriceOfferSending\(id, sendAttemptId, result\.status, actor\)/);
+  assert.match(actions, /if \(result\.status === 'sent'\)[\s\S]*?price_offer_email_sent[\s\S]*?else \{[\s\S]*?price_offer_email_error/);
+  assert.doesNotMatch(actions, /result\.status !== 'not_sent'/);
+  assert.match(actions, /sent \? 'price_offer_email_sent' : 'price_offer_email_error'/);
+  assert.match(actions, /let deliveryReason = ''/);
+  assert.match(actions, /const persisted = finalized \|\| await getPriceOffer\(id\)/);
+  assert.match(actions, /\['ODOSLANA', 'PRIJATA'\]\.includes\(persisted\.status\)/);
+  assert.match(actions, /persisted\?\.status === 'NEISTY_STAV'/);
+  assert.match(actions, /persisted\?\.status === 'PRIPRAVENA'/);
+  assert.match(actions, /expectedStatePersisted && outcome === 'sent'[\s\S]*?sent = true;[\s\S]*?sendError = ''/);
   assert.match(actions, /confirmedNotSent.*!== 'yes'/);
   assert.match(list, /offer\.status === 'PRIPRAVENA'.*sendPriceOfferAction/);
   assert.match(detail, /offer\.status === 'PRIPRAVENA'.*Odoslať zákazníkovi/);
   assert.match(detail, /skontrolovali odoslanú poštu/);
   assert.match(mail, /status: 'unknown' as const/);
   assert.match(mail, /status: 'not_sent' as const/);
+  assert.match(list, /offer\.status === 'ODOSLANA'.*updatePriceOfferStatusAction/);
+  assert.match(actions, /if \(!updated\) throw new Error\('Ako prijatú možno označiť iba odoslanú/);
+  const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
+  assert.match(db, /item\.status === 'ODOSLANA'/);
+  assert.match(db, /deleted_at IS NULL AND status = 'ODOSLANA' RETURNING \*/);
+  assert.match(db, /send_attempt_id = \$5/);
+  assert.match(db, /offer\.sendAttemptId !== attemptId/);
+  assert.match(db, /withLocalLeadSubmissionLock[\s\S]*?price_offer_status_changed[\s\S]*?writeLocalDb\(local\)/);
+  assert.match(db, /client\.query\('BEGIN'\)[\s\S]*?price_offer_status_changed[\s\S]*?client\.query\('COMMIT'\)/);
 });
 
 test('dopyty zobrazujú poslednú ponuku cez jeden dávkový, archivované ponuky ignorujúci lookup', async () => {

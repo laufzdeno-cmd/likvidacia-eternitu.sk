@@ -126,8 +126,11 @@ export async function sendPriceOfferAction(formData: FormData) {
   if (!offer) {
     redirect(`/admin/ponuky/${id}?sendError=${encodeURIComponent('Ponuku už spracúva iná požiadavka alebo sa jej stav zmenil. Obnovte stránku a skontrolujte stav.')}`);
   }
+  const sendAttemptId = offer.sendAttemptId;
+  if (!sendAttemptId) throw new Error('Pokus o odoslanie nemá bezpečný identifikátor. Ponuku neposielajte opakovane a skontrolujte jej stav.');
 
   let outcome: 'sent' | 'not_sent' | 'unknown' = 'not_sent';
+  let deliveryReason = '';
   let sent = false;
   let sendError = '';
   try {
@@ -136,30 +139,59 @@ export async function sendPriceOfferAction(formData: FormData) {
     outcome = 'unknown';
     const result = await sendPriceOfferDocumentEmail(offer, settings, pdf);
     outcome = result.status;
-    const finalized = await finishPriceOfferSending(id, result.status, actor);
+    deliveryReason = result.reason || '';
+    const finalized = await finishPriceOfferSending(id, sendAttemptId, result.status, actor);
     if (!finalized) throw new Error('Stav odoslania sa nepodarilo uzavrieť. E-mail pred ďalším pokusom overte.');
     if (result.status === 'sent') {
       sent = true;
-      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_sent', actor, { number: offer.number, email: offer.email });
-    }
-    sendError = result.status === 'unknown'
-      ? `Výsledok odoslania nie je potvrdený${result.reason ? `: ${result.reason}` : ''}. Skontrolujte schránku pred opakovaným odoslaním.`
-      : result.reason || 'E-mail sa neodoslal. Opravte nastavenie a skúste to znova.';
-    if (result.status !== 'not_sent') {
-      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_error', actor, { number: offer.number, reason: sendError });
+      try {
+        await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_sent', actor, { number: offer.number, email: offer.email });
+      } catch {
+        // Doručenie už bolo potvrdené a nesmie sa zmeniť na chybu len pre výpadok auditu.
+      }
+    } else {
+      sendError = result.status === 'unknown'
+        ? `Výsledok odoslania nie je potvrdený${result.reason ? `: ${result.reason}` : ''}. Skontrolujte schránku pred opakovaným odoslaním.`
+        : result.reason || 'E-mail sa neodoslal. Opravte nastavenie a skúste to znova.';
+      try {
+        await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_error', actor, { number: offer.number, reason: sendError });
+      } catch {
+        // Stav odoslania je autoritatívny aj pri dočasne nedostupnom audite.
+      }
     }
   } catch (error) {
     sendError = actionErrorMessage(error);
     try {
-      const finalized = await finishPriceOfferSending(id, outcome, actor);
-      if (!finalized) sendError = 'Výsledok odoslania sa nepodarilo uložiť. Pred opakovaním overte schránku.';
+      const finalized = await finishPriceOfferSending(id, sendAttemptId, outcome, actor);
+      const persisted = finalized || await getPriceOffer(id);
+      const expectedStatePersisted = outcome === 'sent'
+        ? Boolean(persisted && ['ODOSLANA', 'PRIJATA'].includes(persisted.status))
+        : outcome === 'unknown'
+          ? persisted?.status === 'NEISTY_STAV'
+          : persisted?.status === 'PRIPRAVENA';
+      if (expectedStatePersisted && outcome === 'sent') {
+        sent = true;
+        sendError = '';
+      } else if (expectedStatePersisted && outcome === 'unknown') {
+        sendError = `Výsledok odoslania nie je potvrdený${deliveryReason ? `: ${deliveryReason}` : ''}. Skontrolujte schránku pred opakovaným odoslaním.`;
+      } else if (expectedStatePersisted) {
+        sendError = deliveryReason || 'E-mail sa neodoslal. Opravte nastavenie a skúste to znova.';
+      } else {
+        sendError = 'Výsledok odoslania sa nepodarilo uložiť. Pred opakovaním overte schránku.';
+      }
     } catch {
       sendError = 'Výsledok odoslania sa nepodarilo bezpečne uložiť. Pred opakovaním overte schránku.';
     }
     try {
-      await addAuditLog('business_job', offer.jobId || offer.id, 'price_offer_email_error', actor, { number: offer.number, reason: sendError });
+      await addAuditLog(
+        'business_job',
+        offer.jobId || offer.id,
+        sent ? 'price_offer_email_sent' : 'price_offer_email_error',
+        actor,
+        sent ? { number: offer.number, email: offer.email } : { number: offer.number, reason: sendError },
+      );
     } catch {
-      // Keep the current send state fail-closed when audit storage is unavailable.
+      // Keep the authoritative send state even when this secondary audit is unavailable.
     }
   }
 
@@ -191,7 +223,10 @@ export async function updatePriceOfferStatusAction(formData: FormData) {
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   const statusValue = String(formData.get('status') || '');
-  if (id && statusValue === 'PRIJATA') await updatePriceOfferStatus(id, 'PRIJATA', actor);
+  if (id && statusValue === 'PRIJATA') {
+    const updated = await updatePriceOfferStatus(id, 'PRIJATA', actor);
+    if (!updated) throw new Error('Ako prijatú možno označiť iba odoslanú a nearchivovanú cenovú ponuku. Obnovte stránku a skontrolujte jej stav.');
+  }
   revalidatePath('/admin/ponuky');
 }
 
