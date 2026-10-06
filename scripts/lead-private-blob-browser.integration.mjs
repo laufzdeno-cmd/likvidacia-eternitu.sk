@@ -1341,6 +1341,14 @@ async function runPublicSeoCrawl(page, appOrigin) {
 }
 
 async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
+  await page.addInitScript(() => {
+    document.addEventListener('submit', () => {
+      sessionStorage.setItem(
+        'astana:visual-submit-events',
+        String(Number(sessionStorage.getItem('astana:visual-submit-events') || '0') + 1),
+      );
+    }, true);
+  });
   const stabilizeVisualPage = async () => {
     await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
     await page.addStyleTag({ content: [
@@ -1434,6 +1442,12 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
   const routes = [
     ['home', '/'], ['price', '/cena-likvidacie-azbestu/'], ['realizations', '/realizacie/'],
     ['career', '/kariera/'], ['roofers', '/strechari/'], ['process', '/postup/'], ['contact', '/kontakt/'],
+    ['service-asbestos', '/likvidacia-azbestu/'], ['service-eternit', '/likvidacia-eternitu/'],
+    ['region', '/likvidacia-azbestu-poprad/'], ['coverage', '/kde-posobime/'], ['faq', '/faq/'],
+    ['about', '/o-firme/'], ['advice', '/poradna/'],
+    ['article', '/poradna/kolko-stoji-likvidacia-azbestu/'], ['reviews', '/recenzie/'],
+    ['partner-roofers', '/spolupracujuci-strechari/'], ['privacy', '/ochrana-osobnych-udajov/'],
+    ['terms', '/podmienky-pouzivania/'], ['cookies', '/cookies/'],
   ];
   const measured = [];
   const computedStyleSnapshots = [];
@@ -1579,6 +1593,8 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
   await page.screenshot({ path: path.join(screenshotDir, 'admin-login-390.png'), type: 'png', caret: 'initial' });
   screenshotCount += 1;
   assert.deepEqual(hydrationErrors, [], `rendered pages must not have hydration errors: ${JSON.stringify(hydrationErrors)}`);
+  const formsSubmitted = await page.evaluate(() => Number(sessionStorage.getItem('astana:visual-submit-events') || '0'));
+  assert.equal(formsSubmitted, 0, 'visual audit must not submit any form');
   if (visualEvidenceLabel) {
     const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: projectRoot, encoding: 'utf8' }).trim();
     const trackedDiff = execFileSync('git', ['diff', '--binary', 'HEAD'], {
@@ -1622,7 +1638,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     viewportStates: measured.length,
     screenshots: screenshotCount,
     evidence: visualEvidenceLabel ? `tmp/visual-evidence-exports/${visualEvidenceLabel}` : 'owned temporary root; removed after test',
-    formsSubmitted: 0,
+    formsSubmitted,
     hydrationErrors: 0,
   };
 }
@@ -1890,13 +1906,19 @@ async function runHarness() {
       deviceScaleFactor: 1,
     });
     const browserDenied = [];
+    const browserNonGetBlocked = [];
     await context.route('**/*', async (route) => {
-      const requested = new URL(route.request().url());
-      if (requested.origin === appOrigin || requested.origin === blobOrigin) {
-        await route.continue(); return;
+      const request = route.request();
+      const requested = new URL(request.url());
+      if (requested.origin !== appOrigin && requested.origin !== blobOrigin) {
+        browserDenied.push(requested.origin);
+        await route.abort('blockedbyclient'); return;
       }
-      browserDenied.push(requested.origin);
-      await route.abort('blockedbyclient');
+      if (visualOnly && request.method() !== 'GET') {
+        browserNonGetBlocked.push({ method: request.method(), url: requested.pathname });
+        await route.abort('blockedbyclient'); return;
+      }
+      await route.continue();
     });
     const page = await context.newPage();
     await page.addInitScript(() => {
@@ -1933,7 +1955,15 @@ async function runHarness() {
       const visual = await runResponsiveVisualChecks(page, appOrigin, tempRoot);
       const navigation = await runPublicNavigationChecks(page, appOrigin);
       assert.equal(browserDenied.length, 0, `visual audit tried an external origin: ${browserDenied.join(', ')}`);
-      resultSummary = { result: 'PASS', ...visual, navigation, blockedBrowserOrigins: browserDenied.length };
+      assert.deepEqual(browserNonGetBlocked, [
+        { method: 'POST', url: '/api/analytics/' },
+        { method: 'POST', url: '/api/analytics/' },
+      ], `visual audit must block exactly the two expected local analytics POST requests: ${JSON.stringify(browserNonGetBlocked)}`);
+      resultSummary = {
+        result: 'PASS', ...visual, navigation,
+        blockedNonGetRequests: browserNonGetBlocked.length,
+        blockedBrowserOrigins: browserDenied.length,
+      };
       passed = true;
     } else if (navigationOnly) {
       const navigation = await runPublicNavigationChecks(page, appOrigin);
