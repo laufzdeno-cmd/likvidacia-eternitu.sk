@@ -18,6 +18,42 @@ export default function RealizationsGalleryClient() {
     const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     if (!cards.length) return;
 
+    const deferredPictures = Array.from(
+      document.querySelectorAll<HTMLPictureElement>('picture[data-deferred-responsive-image]'),
+    );
+    const activateDeferredPicture = (picture: HTMLPictureElement) => {
+      const source = picture.querySelector<HTMLSourceElement>('source[data-deferred-srcset]');
+      const deferredImage = picture.querySelector<HTMLImageElement>('img[data-deferred-src]');
+      if (!source || !deferredImage) return;
+      const sourceSizes = source.dataset.deferredSizes;
+      const sourceSrcSet = source.dataset.deferredSrcset;
+      const imageSizes = deferredImage.dataset.deferredSizes;
+      const imageSrcSet = deferredImage.dataset.deferredSrcset;
+      const imageSrc = deferredImage.dataset.deferredSrc;
+      if (sourceSizes) source.sizes = sourceSizes;
+      if (sourceSrcSet) source.srcset = sourceSrcSet;
+      if (imageSizes) deferredImage.sizes = imageSizes;
+      if (imageSrcSet) deferredImage.srcset = imageSrcSet;
+      if (imageSrc) deferredImage.src = imageSrc;
+      deferredImage.alt = deferredImage.dataset.deferredAlt || '';
+      picture.removeAttribute('aria-hidden');
+      picture.removeAttribute('data-deferred-responsive-image');
+    };
+    let galleryImageObserver: IntersectionObserver | null = null;
+    if ('IntersectionObserver' in window) {
+      galleryImageObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          const picture = entry.target as HTMLPictureElement;
+          activateDeferredPicture(picture);
+          galleryImageObserver?.unobserve(picture);
+        });
+      }, { rootMargin: '240px 0px', threshold: 0.01 });
+      deferredPictures.forEach((picture) => galleryImageObserver?.observe(picture));
+    } else {
+      deferredPictures.forEach(activateDeferredPicture);
+    }
+
     let activeCards = cards.slice(0, 12);
     let activeIndex = 0;
     let trigger: HTMLButtonElement | null = null;
@@ -160,6 +196,7 @@ export default function RealizationsGalleryClient() {
     onScroll();
 
     return () => {
+      galleryImageObserver?.disconnect();
       cards.forEach((card) => card.removeEventListener('click', onCardClick));
       filters.forEach((filter) => filter.removeEventListener('click', onFilterClick));
       loadMore?.removeEventListener('click', onLoadMore);

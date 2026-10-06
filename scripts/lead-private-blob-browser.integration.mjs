@@ -718,10 +718,21 @@ async function runNoPhotoUiChecks(page, pglite, fake, appOrigin) {
 
 async function runGalleryMobileChecks(page, appOrigin, tempRoot) {
   const browserErrors = [];
+  const heroImageRequests = [];
+  const galleryImageRequests = [];
+  const reviewedGalleryNames = new Set([
+    'azbest-134.', 'azbest-130.', 'azbest-006.', 'azbest-132.', 'azbest-011.', 'azbest-017.',
+    'azbest-014.', 'azbest-021.', 'azbest-022.', 'azbest-026.', 'azbest-118.', 'azbest-124.',
+  ]);
   page.on('pageerror', (error) => browserErrors.push(`page: ${error.message}`));
   page.on('console', (message) => { if (message.type() === 'error') browserErrors.push(`console: ${message.text()}`); });
   page.on('requestfailed', (request) => {
     if (request.failure()?.errorText !== 'net::ERR_ABORTED') browserErrors.push(`request: ${request.url()}`);
+  });
+  page.on('request', (request) => {
+    const decodedUrl = decodeURIComponent(request.url());
+    if (decodedUrl.includes('azbest-087.')) heroImageRequests.push(decodedUrl);
+    if ([...reviewedGalleryNames].some((name) => decodedUrl.includes(name))) galleryImageRequests.push(decodedUrl);
   });
   const screenshots = process.env.ASTANA_HARNESS_GALLERY_SCREENSHOTS === '1'
     ? path.join(tempRoot, 'gallery-evidence') : null;
@@ -731,6 +742,16 @@ async function runGalleryMobileChecks(page, appOrigin, tempRoot) {
   assert.equal(response?.status(), 200, 'realizations page must render in the isolated local app');
   await page.locator('[data-gallery-card]').first().waitFor({ timeout: 30_000 });
   await page.waitForFunction(() => document.querySelector('[data-gallery-filter].is-active'), null, { timeout: 30_000 });
+  await page.waitForFunction(() => {
+    const image = document.querySelector('.realizations-hero-strip img');
+    return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
+  }, null, { timeout: 30_000 });
+  assert.equal(heroImageRequests.filter((url) => url.includes('azbest-087.webp')).length, 1,
+    'the LCP hero must load one WebP resource');
+  assert.equal(heroImageRequests.filter((url) => url.includes('azbest-087.jpg')).length, 0,
+    'the WebP-capable browser must not download the hero JPG fallback');
+  assert.equal(galleryImageRequests.length, 0,
+    'reviewed gallery photos must not compete with the hero before the user approaches the gallery');
   assert.match(await page.locator('h1').innerText(), /realizácie/i);
   assert.equal(await page.locator('[data-nextjs-dialog]').count(), 0, 'no framework error overlay');
   await page.getByRole('button', { name: 'Len nevyhnutné' }).click();
@@ -761,6 +782,21 @@ async function runGalleryMobileChecks(page, appOrigin, tempRoot) {
     const whatsapp = document.querySelector('.whatsapp-btn');
     return sticky instanceof HTMLElement && sticky.inert && whatsapp instanceof HTMLElement && !whatsapp.inert;
   }, null, { timeout: 10_000 });
+
+  const initialGalleryCard = page.locator('[data-gallery-card]:not([hidden])').first();
+  await initialGalleryCard.scrollIntoViewIfNeeded();
+  await page.waitForFunction(() => {
+    const image = document.querySelector('[data-gallery-card]:not([hidden]) img[data-deferred-src]');
+    return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 1
+      && !image.src.startsWith('data:image/');
+  }, null, { timeout: 20_000 });
+  assert.ok(galleryImageRequests.length > 0, 'approaching the gallery must activate nearby reviewed photos');
+  assert.equal(galleryImageRequests.some((url) => url.endsWith('.jpg') || url.includes('.jpg&')), false,
+    'a WebP-capable browser must not download reviewed gallery JPG fallbacks');
+  const visibleGalleryWebp = new Set(await page.locator('[data-gallery-card]:not([hidden])')
+    .evaluateAll((cards) => cards.map((card) => card.dataset.galleryWebp)));
+  assert.equal(galleryImageRequests.every((url) => [...visibleGalleryWebp].some((src) => src && url.includes(src))), true,
+    'cards that remain hidden must not download their gallery photos');
 
   const category = await page.locator('[data-gallery-filter]').nth(1).getAttribute('data-gallery-filter');
   await page.locator('[data-gallery-filter]').nth(1).click();
@@ -824,8 +860,48 @@ async function runGalleryMobileChecks(page, appOrigin, tempRoot) {
   `close control must stay visible in landscape: ${JSON.stringify(landscapeClose)}`);
   if (screenshots) await page.screenshot({ path: path.join(screenshots, 'lightbox-landscape.png') });
   await page.keyboard.press('Escape');
+
+  const browser = page.context().browser();
+  assert.ok(browser, 'gallery no-JavaScript fallback requires the active local browser');
+  const noJsContext = await browser.newContext({
+    javaScriptEnabled: false,
+    serviceWorkers: 'block',
+    colorScheme: 'light',
+    reducedMotion: 'reduce',
+    deviceScaleFactor: 1,
+    viewport: { width: 390, height: 844 },
+  });
+  const noJsDenied = [];
+  await noJsContext.route('**/*', async (route) => {
+    const requested = new URL(route.request().url());
+    if (requested.origin !== appOrigin) {
+      noJsDenied.push(requested.origin);
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
+  const noJsPage = await noJsContext.newPage();
+  try {
+    const noJsResponse = await noJsPage.goto(`${appOrigin}/realizacie/`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    assert.equal(noJsResponse?.status(), 200, 'no-JavaScript realizations fallback must render');
+    const fallbackImage = noJsPage.locator('[data-gallery-card]').first()
+      .locator('picture:not([data-deferred-responsive-image]) img');
+    await fallbackImage.waitFor({ timeout: 20_000 });
+    await fallbackImage.evaluate((image) => {
+      if (!(image instanceof HTMLImageElement) || !image.complete || image.naturalWidth <= 1) {
+        throw new Error('no-JavaScript gallery image did not load');
+      }
+    });
+    assert.ok((await fallbackImage.getAttribute('alt'))?.trim(), 'no-JavaScript gallery image keeps its alternative text');
+    assert.deepEqual(noJsDenied, [], 'no-JavaScript gallery fallback must stay on the isolated app origin');
+  } finally {
+    await noJsContext.close();
+  }
   assert.deepEqual(browserErrors, [], 'gallery must not log browser errors or failed requests');
   return { gallery: 'PASS', widths: [390, 320, 568], category, visiblePhotos: visibleCategories.length,
+    controlledGalleryLoading: { beforeHero: 0, activatedNearViewport: galleryImageRequests.length, hiddenRequests: 0 },
+    noJavaScriptFallback: 'PASS',
     screenshots: screenshots ? 'captured in owned temporary root; removed after test' : null };
 }
 

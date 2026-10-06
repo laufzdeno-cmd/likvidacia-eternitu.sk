@@ -255,6 +255,7 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
                   sizes="(max-width: 760px) 300px, 25vw"
                   loading="lazy"
                   fetchPriority="low"
+                  deferUntilVisible
                 />
                 <span>
                   <strong>{photo.title}</strong>

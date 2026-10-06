@@ -22,6 +22,7 @@ test('public realization image policy accepts same-site asset paths only', () =>
 
 test('public realization section reads only records returned by published query', async () => {
   const page = await readFile(new URL('../app/realizacie/page.tsx', import.meta.url), 'utf8');
+  const responsiveImage = await readFile(new URL('../src/components/responsive-image.tsx', import.meta.url), 'utf8');
   assert.match(page, /listPublishedRealizations\(24\)/);
   assert.match(page, /publishedRealizations\.map/);
   assert.match(page, /realizationHeroStripReferences\.map\(\(photo, index\) =>/);
@@ -30,6 +31,12 @@ test('public realization section reads only records returned by published query'
   assert.match(page, /className="realizations-hero-strip"/);
   assert.match(page, /sizes="\(max-width: 760px\) 300px, 25vw"/,
     'gallery cards must not request viewport-wide images when the mobile card is capped at 300px');
+  assert.match(page, /fetchPriority="low"\s+deferUntilVisible/,
+    'only reviewed gallery cards opt into controlled deferred loading');
+  assert.match(responsiveImage, /data-deferred-responsive-image/);
+  assert.match(responsiveImage, /data-deferred-srcset=\{webpSrcSet\}/);
+  assert.match(responsiveImage, /<noscript>[\s\S]*?<source srcSet=\{webpSrcSet\}/,
+    'the deferred image must retain a complete no-JavaScript fallback');
   assert.doesNotMatch(page, /listRealizations\(/);
   assert.match(page, /normalizePublicRealizationImageUrl/);
   assert.match(page, /export const revalidate = 300/);
@@ -62,6 +69,10 @@ test('realizations-only client preserves filter, paging and accessible lightbox 
   assert.match(client, /trigger\.focus\(\{ preventScroll: true \}\)/);
   assert.match(client, /stickyCta\.inert = !stickyVisible/);
   assert.match(client, /whatsappButton\.inert = stickyVisible/);
+  assert.match(client, /IntersectionObserver/);
+  assert.match(client, /rootMargin: '240px 0px'/);
+  assert.match(client, /activateDeferredPicture/);
+  assert.match(client, /galleryImageObserver\?\.disconnect\(\)/);
   const page = await readFile(new URL('../app/realizacie/page.tsx', import.meta.url), 'utf8');
   assert.match(page, /className="mobile-sticky-cta"[^>]* inert/);
   assert.match(client, /document\.body\.classList\.remove\('is-lightbox-open'\)/);
