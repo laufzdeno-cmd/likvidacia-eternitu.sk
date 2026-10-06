@@ -45,42 +45,31 @@ test('2011 refers only to company activity, including the legacy trust-bar row',
   ]);
 });
 
-test('legacy transport copy is normalized to the owner-approved threshold and exact wording', () => {
-  const approved = ['Doprava po Slovensku od 100 m²', 'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.'];
-  assert.match(defaults, /Doprava po Slovensku od 100 m²\|Pri ploche od 100 m² dopravu po Slovensku neúčtujeme\./);
-  assert.equal(company.transport_policy, approved[1]);
-  assert.ok(llms.includes(approved[1]));
-  assert.match(homepage, /filterHomepageTrustItems\(parsePairs\(content\.trustItems, defaultTrustItems\)\)/);
+test('homepage replaces legacy free-transport claims with transparent offer pricing', () => {
+  const disclosure = ['Doprava podľa zákazky', 'Prípadná doprava je samostatne uvedená v cenovej ponuke.'];
+  assert.equal(company.transport_policy, disclosure[1]);
+  assert.ok(llms.includes(disclosure[1]));
+  assert.doesNotMatch(llms, /dopravu po Slovensku neúčtujeme|doprava nad 100 m² zdarma/i);
+  assert.match(homepage, /const transportOfferDisclosure = \[\s*'Doprava podľa zákazky',\s*'Prípadná doprava je samostatne uvedená v cenovej ponuke\.'/);
+  assert.match(homepage, /containsFreeTransportClaim\(`\$\{title\} \$\{text\}`\)\s*\? transportOfferDisclosure/);
+  assert.match(homepage, /normalizeTransportTrustItems\(\s*filterHomepageTrustItems\(parsePairs\(content\.trustItems, defaultTrustItems\)\)/);
+  assert.doesNotMatch(homepage, /Pri ploche od 100 m² dopravu po Slovensku neúčtujeme\./);
   assert.doesNotMatch(homepage, /className="transport-banner"/);
-  for (const legacy of [
-    ['Doprava nad 100 m2 zdarma', 'Pri väčších zákazkách dopravu neúčtujeme!'],
-    [' DOPRAVA  NAD   100 m² ZDARMA ', 'Pri väčších zákazkách dopravu neúčtujeme.'],
-    ['Doprava', 'Pri väčších zákazkách dopravu neúčtujeme.'],
-  ]) assert.deepEqual(filterHomepageTrustItems([legacy]), [approved]);
-  assert.deepEqual(filterHomepageTrustItems([approved, ['Doprava', 'Pri väčších zákazkách dopravu neúčtujeme.']]), [approved]);
-  for (const unknown of [
-    ['Doprava nad 100 m²', 'Doprava nie je zdarma.'],
-    ['Doprava', 'Doprava nad 100 m² zdarma iba pri osobitne dohodnutých podmienkach.'],
-  ]) assert.deepEqual(filterHomepageTrustItems([unknown]), [unknown]);
-  assert.deepEqual(filterHomepageTrustItems([['Riešime celé Slovensko', 'Zákazky podľa lokality a kapacity.']]), [
-    ['Riešime celé Slovensko', 'Zákazky podľa lokality a kapacity.'],
-  ]);
 });
 
-test('legacy transport wording in the editable nationwide coverage card is corrected before rendering', () => {
-  assert.equal(
-    normalizeHomepageCoverageText('Doprava nad 100 m2 zdarma.'),
-    'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.',
-  );
-  assert.equal(
-    normalizeHomepageCoverageText('Pri väčších zákazkách dopravu neúčtujeme'),
-    'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.',
-  );
+test('legacy transport wording from editable content is replaced again before rendering', () => {
+  assert.equal(normalizeHomepageCoverageText('Doprava nad 100 m2 zdarma.'), 'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.');
   assert.equal(
     normalizeHomepageCoverageText('Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.'),
     'Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.',
   );
-  assert.match(homepage, /whyCoverageText: normalizeHomepageCoverageText\(normalizedContent\.whyCoverageText/);
+  assert.match(homepage, /whyCoverageText: normalizeTransportDisclosureText\(\s*normalizeHomepageCoverageText\(normalizedContent\.whyCoverageText/);
+});
+
+test('contact preference explains why email stays required for the written offer', () => {
+  assert.match(homepage, /Ako vás máme prednostne kontaktovať\?/);
+  assert.match(homepage, /Vyberte, či vám máme prednostne zavolať alebo napísať\. Cenovú ponuku vám pošleme na uvedený email\./);
+  assert.match(homepage, /<input id="email" name="email" type="email"[^>]*required/);
 });
 
 test('admin edits keyed trust-card text and no longer exposes the obsolete positional field', () => {

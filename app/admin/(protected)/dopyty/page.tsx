@@ -222,7 +222,12 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <td><span className={`status-pill status-${lead.status}`}>{lead.deletedAt ? 'Archivovaný dopyt' : statusLabels[lead.status] || lead.status}</span></td>
                   <td>
                     <div className="admin-row-actions">
-                      {lead.deletedAt ? <><a className="admin-row-link is-muted" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{adminUser.role === 'SUPER_ADMIN' ? <form action={restoreLeadAction}><input type="hidden" name="id" value={lead.id} /><button className="admin-row-link is-plum" type="submit">Obnoviť</button></form> : null}</> : <><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a><a className="admin-row-link is-plum" href={`/admin/ponuky/nova?lead=${lead.id}`}>Vytvoriť CP</a></>}
+                      {lead.deletedAt ? <><a className="admin-row-link is-muted" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{adminUser.role === 'SUPER_ADMIN' ? <form action={restoreLeadAction}><input type="hidden" name="id" value={lead.id} /><button className="admin-row-link is-plum" type="submit">Obnoviť</button></form> : null}</> : <><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{(() => {
+                        const offer = latestOffers.get(lead.id);
+                        return offer
+                          ? <a className="admin-row-link is-plum" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
+                          : <a className="admin-row-link is-plum" href={`/admin/ponuky/nova?lead=${lead.id}`}>Vytvoriť CP</a>;
+                      })()}</>}
                     </div>
                   </td>
                 </tr>

@@ -572,11 +572,6 @@ export async function sendPlannerNotificationEmail(input: { to: string; subject:
   return { sent: true };
 }
 
-function surname(name: string) {
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  return parts.length > 1 ? parts[parts.length - 1] : name.trim();
-}
-
 const priceOfferMaterialLabels: Record<string, string> = {
   VLNITY_ETERNIT: 'Vlnitý eternit (AZC)',
   HLADKY_ETERNIT: 'Hladký eternit',
@@ -651,7 +646,7 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
             </td>
           </tr></table>
         </td></tr>
-        <tr><td style="background:linear-gradient(135deg,#C86432 0%,#A94722 100%);padding:20px 32px;">
+        <tr><td bgcolor="#A94722" style="background:#A94722;background-image:linear-gradient(135deg,#C86432 0%,#A94722 100%);padding:20px 32px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
             <td style="vertical-align:middle;">
               <div style="color:#ffffff;font-size:17px;font-weight:600;">Vaša cenová ponuka je pripravená</div>
@@ -669,7 +664,7 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
           </div>
         </td></tr>
         <tr><td style="background:#ffffff;padding:24px 32px;">
-          <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#1E293B;">Dobrý deň p./pani ${escapeHtml(surname(offer.contactPerson))},</p>
+          <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#1E293B;">Dobrý deň,</p>
           <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.7;">Na základe Vašej požiadavky Vám posielame cenovú ponuku na materiál ${escapeHtml(material)} na objekte typu ${escapeHtml(offer.objectType)}.</p>
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;background:#FAFAFA;border:1px solid #D7DDEA;border-left:3px solid #263451;border-radius:6px;">
@@ -721,7 +716,7 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
           </tr></table>
 
           <div style="margin:24px 0;text-align:center;">
-            <a href="mailto:astana@astana.sk?subject=${confirmSubject}&amp;body=${confirmBody}" style="display:inline-block;background:linear-gradient(135deg,#C86432 0%,#A94722 100%);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
+            <a href="mailto:astana@astana.sk?subject=${confirmSubject}&amp;body=${confirmBody}" style="display:inline-block;background:#A94722;background-image:linear-gradient(135deg,#C86432 0%,#A94722 100%);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
             <div style="margin-top:10px;color:#687284;font-size:13px;">alebo zavolajte: 0905 217 946</div>
           </div>
 
@@ -770,7 +765,7 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
   const material = priceOfferMaterialLabel(offer);
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   return [
-    `Dobrý deň p. ${surname(offer.contactPerson)},`,
+    'Dobrý deň,',
     '',
     `v prílohe posielame cenovú ponuku č. ${offer.number} na materiál ${material} na objekte typu ${offer.objectType}.`,
     '',

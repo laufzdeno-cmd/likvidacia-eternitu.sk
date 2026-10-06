@@ -62,6 +62,10 @@ test('PDF jasne označuje ASTANA s.r.o., materiál, objekt, dopravu a bezplatné
   const html = renderPriceOfferPdfHtml(offer, settings);
   assert.match(html, /data:image\/png;base64,/);
   assert.match(html, /ASTANA, s\.r\.o\./);
+  assert.match(html, /--burgundy: #8F163C/);
+  assert.match(html, /border-bottom: 3px solid var\(--burgundy\)/);
+  assert.match(html, /Vo verejnom zozname ÚVZ SR zverejnenom k 19\. 9\. 2024/);
+  assert.doesNotMatch(html, /má oprávnenie na likvidáciu a manipuláciu/);
   assert.match(html, /Azbestové rúry/);
   assert.match(html, /Hospodárska budova/);
   assert.match(html, /Dokumentácia — AKCIA 0,00 €/);
@@ -78,6 +82,11 @@ test('zákaznícky email používa dynamický opis a nezahŕňa nekúpenú dokum
   assert.match(html, /ASTANA, s\.r\.o\./);
   assert.match(html, /na objekte typu Hospodárska budova/);
   assert.match(text, /materiál Azbestové rúry na objekte typu Hospodárska budova/);
+  assert.match(html, /Dobrý deň,<\/p>/);
+  assert.match(html, /bgcolor="#A94722"/);
+  assert.match(html, /background:#A94722;background-image:linear-gradient/);
+  assert.doesNotMatch(html, /p\.\/pani/);
+  assert.match(text, /^Dobrý deň,/);
   assert.match(html, /záväznú objednávku odpoveďou na tento email/);
   assert.match(html, /číslo cenovej ponuky <strong>20260001<\/strong>/);
   assert.match(html, /ulicu, číslo a prípadne parcelu/);
@@ -121,7 +130,8 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(actions, /persisted\?\.status === 'PRIPRAVENA'/);
   assert.match(actions, /expectedStatePersisted && outcome === 'sent'[\s\S]*?sent = true;[\s\S]*?sendError = ''/);
   assert.match(actions, /confirmedNotSent.*!== 'yes'/);
-  assert.match(list, /offer\.status === 'PRIPRAVENA'.*sendPriceOfferAction/);
+  assert.doesNotMatch(list, /sendPriceOfferAction|>Odoslať<\/button>/);
+  assert.match(list, /href=\{`\/admin\/ponuky\/\$\{offer\.id\}`\}>Otvoriť CP<\/a>/);
   assert.match(detail, /offer\.status === 'PRIPRAVENA'.*Odoslať zákazníkovi/);
   assert.match(detail, /skontrolovali odoslanú poštu/);
   assert.match(mail, /status: 'unknown' as const/);
@@ -146,6 +156,7 @@ test('dopyty zobrazujú poslednú ponuku cez jeden dávkový, archivované ponuk
   assert.match(page, /Pripravená · neodoslaná/);
   assert.match(page, /Odoslaná/);
   assert.match(page, /Bez ponuky/);
+  assert.match(page, /const offer = latestOffers\.get\(lead\.id\);[\s\S]*?href=\{`\/admin\/ponuky\/\$\{offer\.id\}`\}>Otvoriť CP<\/a>[\s\S]*?: <a className="admin-row-link is-plum" href=\{`\/admin\/ponuky\/nova\?lead=\$\{lead\.id\}`\}>Vytvoriť CP<\/a>/);
 });
 
 test('detail dopytu zobrazuje novú cenovú ponuku a jej stav', async () => {

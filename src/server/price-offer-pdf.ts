@@ -89,6 +89,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
       --plum-light: #EEF2F7;
       --gold: #D4B56A;
       --accent: #B95A32;
+      --burgundy: #8F163C;
       --gray: #475569;
       --text: #1E293B;
       --muted: #94A3B8;
@@ -102,15 +103,15 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-25deg); z-index: 0; pointer-events: none; color: rgba(107,45,94,0.035); font-size: 130px; font-weight: 800; letter-spacing: 15px; white-space: nowrap; }
     .page-content { position: relative; z-index: 1; min-height: 297mm; }
     .page:last-child { page-break-after: auto; }
-    .top-header { min-height: 92px; padding: 24px 40px 20px; background: var(--white); border-bottom: 3px solid var(--navy); color: var(--text); display: table; width: 100%; }
+    .top-header { min-height: 92px; padding: 24px 40px 20px; background: var(--white); border-bottom: 3px solid var(--burgundy); color: var(--text); display: table; width: 100%; }
     .top-header-cell { display: table-cell; vertical-align: middle; }
     .brand { color: var(--navy); font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; }
     .brand-logo { display: block; width: 160px; max-height: 58px; object-fit: contain; object-position: left center; }
     .brand-legal { margin-top: 2px; color: var(--text); font-size: 11px; font-weight: 700; }
-    .gold-line { width: 58px; height: 3px; margin: 8px 0 7px; background: var(--gold); }
+    .gold-line { width: 58px; height: 3px; margin: 8px 0 7px; background: var(--burgundy); }
     .tagline { color: var(--muted); font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; }
     .header-contact { text-align: right; color: #64748B; font-size: 9px; line-height: 1.7; }
-    .accent { height: 4px; background: var(--navy); }
+    .accent { height: 4px; background: var(--burgundy); }
     .document-title { padding: 28px 40px 20px; display: table; width: 100%; }
     .document-title-left, .document-title-right { display: table-cell; vertical-align: top; }
     .document-title-right { text-align: right; color: var(--muted); font-size: 11px; padding-top: 7px; }
@@ -261,7 +262,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
       <p>Rozsah služieb a jednotlivé účtované položky sú uvedené v cenovej kalkulácii. Uvedená cena vychádza z odhadovanej výmery; pri odlišnom skutočnom množstve sa môže po dohode upraviť.</p>
       <p>Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom. Potrebné doklady Vám odovzdáme po dokončení zákazky.</p>
       <p>Potvrdenie cenovej ponuky objednávkou žiadame najmenej 30 dní pred začiatkom realizačných prác. Pri plánovanom odstraňovaní azbestu zo stavby držiteľ oprávnenia písomne oznamuje práce príslušnému orgánu verejného zdravotníctva najmenej 30 dní vopred vrátane požadovaných podkladov; nejde o žiadosť o povolenie. Pre mimoriadne havarijné alebo živelné udalosti platí osobitný režim.${offer.includeDocumentation && !offer.documentationPromotion ? ` V prípade zrušenia objednávky si spoločnosť ASTANA, s.r.o. vyhradzuje právo účtovať dohodnutú dokumentáciu vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.` : ''}</p>
-      <p>Firma ASTANA, s.r.o. má oprávnenie na likvidáciu a manipuláciu s nebezpečným odpadom č. ${escapeHtml(c.authorization)} udelené Úradom verejného zdravotníctva Slovenskej republiky.</p>
+      <p>Vo verejnom zozname ÚVZ SR zverejnenom k 19. 9. 2024 je ASTANA, s.r.o. uvedená s rozsahmi EXT, BJ a INT. Aktuálny stav po tomto dátume odporúčame overiť u príslušného úradu.</p>
     </main>
 
     <div class="two-boxes">

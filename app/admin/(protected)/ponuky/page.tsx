@@ -2,7 +2,7 @@ import { getPriceOfferStatusSummary, listPriceOffers } from '@/src/server/db';
 import { dateInBratislava } from '@/src/server/analytics-metrics';
 import { requireAdminUser } from '@/src/server/auth';
 import type { PriceOfferStatus } from '@/src/server/types';
-import { deletePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from './actions';
+import { deletePriceOfferAction, updatePriceOfferStatusAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
 
 export default async function PriceOffersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -55,9 +55,8 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   <td>{offer.validUntil}</td>
                   <td><span className={`status-pill status-${offer.status.toLowerCase()}`}>{priceOfferStatusLabels[offer.status]}</span></td>
                   <td className="admin-action-row">
-                    <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Náhľad</a>
+                    <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
-                    {!offer.deletedAt && offer.status === 'PRIPRAVENA' ? <form action={sendPriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Odoslať</button></form> : null}
                     {!offer.deletedAt && offer.status === 'ODOSLANA' ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Označiť ako prijatú</button></form> : null}
                     {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
                       <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>

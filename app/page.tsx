@@ -105,10 +105,31 @@ const defaultIncludedItems = [
 const defaultTrustItems = [
   ['Firma ASTANA pôsobí od roku 2011', 'Pôsobíme na trhu od roku 2011.'],
   ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
-  ['Doprava po Slovensku od 100 m²', 'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.'],
+  ['Doprava podľa zákazky', 'Prípadná doprava je samostatne uvedená v cenovej ponuke.'],
   ['RÚVZ / OÚŽP ku konkrétnej stavbe', 'Postup riešime legálne, nie iba všeobecným sľubom'],
   ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
 ] satisfies [string, string][];
+
+const transportOfferDisclosure = [
+  'Doprava podľa zákazky',
+  'Prípadná doprava je samostatne uvedená v cenovej ponuke.',
+] satisfies [string, string];
+
+function containsFreeTransportClaim(value: string) {
+  return /doprava/i.test(value) && /(?:zadarmo|zdarma|neúčtujeme|bezplatn)/i.test(value);
+}
+
+function normalizeTransportDisclosureText(value: string) {
+  return containsFreeTransportClaim(value) ? transportOfferDisclosure[1] : value;
+}
+
+function normalizeTransportTrustItems(items: Array<[string, string]>) {
+  return items.map(([title, text]) => (
+    containsFreeTransportClaim(`${title} ${text}`)
+      ? transportOfferDisclosure
+      : [title, text] satisfies [string, string]
+  ));
+}
 
 const defaultProcessSteps = [
   ['Zadáte m2 a údaje', 'Uveďte približnú výmeru, lokalitu a typ materiálu.'],
@@ -263,7 +284,9 @@ export default async function HomePage() {
   const content: typeof homeContentDefaults = {
     ...homeContentDefaults,
     ...normalizedContent,
-    whyCoverageText: normalizeHomepageCoverageText(normalizedContent.whyCoverageText ?? homeContentDefaults.whyCoverageText),
+    whyCoverageText: normalizeTransportDisclosureText(
+      normalizeHomepageCoverageText(normalizedContent.whyCoverageText ?? homeContentDefaults.whyCoverageText),
+    ),
     riskEyebrow: rawContent.riskEyebrow === 'Prečo odborný postup' ? 'Bezpečný postup' : rawContent.riskEyebrow,
   };
   const includedItems = parseLines(content.includedItems, defaultIncludedItems);
@@ -287,7 +310,9 @@ export default async function HomePage() {
       items: includedItems.slice(6),
     },
   ].filter((group) => group.items.length > 0);
-  const trustItems = filterHomepageTrustItems(parsePairs(content.trustItems, defaultTrustItems));
+  const trustItems = normalizeTransportTrustItems(
+    filterHomepageTrustItems(parsePairs(content.trustItems, defaultTrustItems)),
+  );
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
   const riskItems = parsePairs(content.riskItems, defaultRiskItems);
   const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
@@ -528,9 +553,10 @@ export default async function HomePage() {
               <div className="form-stage">
                 <p className="form-stage-title">3. Kontakt</p>
                 <fieldset className="field field-full contact-preference">
-                  <legend>Ako vás máme kontaktovať?</legend>
-                  <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /><span>Zavolať</span></label>
-                  <label><input type="radio" name="preferredContact" value="Napíšte mi email" /><span>Email</span></label>
+                  <legend>Ako vás máme prednostne kontaktovať?</legend>
+                  <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /><span>Zavolať mi</span></label>
+                  <label><input type="radio" name="preferredContact" value="Napíšte mi email" /><span>Napísať mi email</span></label>
+                  <p className="field-help">Vyberte, či vám máme prednostne zavolať alebo napísať. Cenovú ponuku vám pošleme na uvedený email.</p>
                 </fieldset>
                 <div className="field">
                   <label htmlFor="phone">Telefón *</label>

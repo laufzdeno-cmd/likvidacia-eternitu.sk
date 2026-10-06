@@ -2482,3 +2482,87 @@ body .admin-main .admin-page .admin-card,
   margin-top: 2px;
 }
 .admin-notification-resolution-form button { justify-self: start; }
+
+/* Keep the final mobile cascade after the desktop shell refinements above. */
+@media (max-width: 900px) {
+  .admin-shell {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-sidebar {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  .admin-main,
+  .admin-content,
+  .admin-page {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .admin-main {
+    padding: 18px !important;
+  }
+
+  .admin-page {
+    padding: 16px !important;
+  }
+
+  .admin-heading,
+  .admin-topbar {
+    flex-wrap: wrap !important;
+  }
+
+  .admin-card,
+  .admin-table-wrap {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .admin-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-filter-bar,
+  .admin-quote-form,
+  .admin-settings-grid,
+  .admin-table-inline-form,
+  .admin-table-inline-form-workers {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-sidebar nav {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-main,
+  .admin-page {
+    padding: 10px !important;
+  }
+
+  .admin-card,
+  .admin-stat-grid article {
+    padding: 16px !important;
+  }
+
+  .admin-action-row > *,
+  .admin-filter-bar button,
+  .admin-filter-bar a {
+    width: 100% !important;
+    justify-content: center;
+  }
+}

@@ -6,7 +6,7 @@
   "email": "astana@astana.sk",
   "opening_hours": "Po–Pia 7:00–18:00",
   "quote_response_time": "Nezáväznú cenovú ponuku pošleme čo najskôr, najneskôr do 24 hodín.",
-  "transport_policy": "Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.",
+  "transport_policy": "Prípadná doprava je samostatne uvedená v cenovej ponuke.",
   "website": "https://likvidacia-eternitu.sk",
   "address": {
     "street": "Scherffelova 1364/28",
@@ -24,32 +24,32 @@
   "same_as": ["https://astana.sk"],
   "authorizations": {
     "asbestos_removal_scope_as_published": ["EXT, BJ", "INT"],
-    "public_verification": "Zoznam UVZ SR zverejneny k 19. 9. 2024 uvadza ASTANA, s.r.o. s opravneniami oznacenymi EXT, BJ a INT. Ide o stav zachyteny v tomto zozname; aktualnost po uvedenom datume z neho nemožno potvrdit.",
+    "public_verification": "Zoznam ÚVZ SR zverejnený k 19. 9. 2024 uvádza ASTANA, s.r.o. s oprávneniami označenými EXT, BJ a INT. Ide o stav zachytený v tomto zozname; aktuálnosť po uvedenom dátume z neho nemožno potvrdiť.",
     "public_verification_as_of": "2024-09-19",
     "public_verification_url": "https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf",
     "internal_documents_public": false,
-    "note": "Rozsah je uvedeny iba ako stav v zozname z 19. 9. 2024; nejde o samostatne potvrdenie aktualneho stavu."
+    "note": "Rozsah je uvedený iba ako stav v zozname z 19. 9. 2024; nejde o samostatné potvrdenie aktuálneho stavu."
   },
   "services": [
-    "Likvidacia azbestu",
-    "Likvidacia eternitu",
-    "Odstranenie azbestu",
-    "Demontaz eternitu",
-    "Stabilizacia azbestoveho materialu",
-    "Balenie ako nebezpecny odpad",
-    "Odvoz nebezpecneho odpadu",
-    "Dokumentacia a potvrdenie o legalnej likvidacii"
+    "Likvidácia azbestu",
+    "Likvidácia eternitu",
+    "Odstránenie azbestu",
+    "Demontáž eternitu",
+    "Stabilizácia azbestového materiálu",
+    "Balenie ako nebezpečný odpad",
+    "Odvoz nebezpečného odpadu",
+    "Dokumentácia a potvrdenie o legálnej likvidácii"
   ],
   "trust_notes": [
-    "Recenzie sa doteraz systematicky nezbierali, preto web nepouziva Review ani AggregateRating schema.",
-    "Nezverejnujeme anonymne ani dodatocne vytvorene hodnotenia.",
-    "Interne opravnenia/PDF sa z bezpecnostnych a obchodnych dovodov nezverejnuju na stiahnutie.",
-    "Zoznam UVZ SR zverejneny k 19. 9. 2024 uvadza pri ASTANA, s.r.o. rozsahy EXT, BJ a INT; aktualny stav po tomto datume si treba overit u prislusneho uradu.",
-    "Realizacie nemaju obsahovat vymyslene mesta, mena ani m2."
+    "Recenzie sa doteraz systematicky nezbierali, preto web nepoužíva Review ani AggregateRating schema.",
+    "Nezverejňujeme anonymné ani dodatočne vytvorené hodnotenia.",
+    "Interné oprávnenia/PDF sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie.",
+    "Zoznam ÚVZ SR zverejnený k 19. 9. 2024 uvádza pri ASTANA, s.r.o. rozsahy EXT, BJ a INT; aktuálny stav po tomto dátume si treba overiť u príslušného úradu.",
+    "Realizácie nemajú obsahovať vymyslené mestá, mená ani m2."
   ],
   "gallery_policy": {
     "photos_are_real_astana_work": true,
-    "locations_and_area": "Lokality a vymery sa neuvadzaju, ak nie su spolahlivo potvrdene."
+    "locations_and_area": "Lokality a výmery sa neuvádzajú, ak nie sú spoľahlivo potvrdené."
   },
   "public_pages": [
     "https://likvidacia-eternitu.sk/",

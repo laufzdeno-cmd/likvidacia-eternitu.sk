@@ -103,9 +103,24 @@ test('machine-readable company facts carry the offer promise and date-bound auth
   assert.equal(company.authorizations.public_verification_as_of, '2024-09-19');
   assert.deepEqual(company.authorizations.asbestos_removal_scope_as_published, ['EXT, BJ', 'INT']);
   assert.match(company.authorizations.public_verification, /19\. 9\. 2024/);
-  assert.match(company.authorizations.public_verification, /aktualnost po uvedenom datume z neho nemožno potvrdit/i);
+  assert.match(company.authorizations.public_verification, /aktuálnosť po uvedenom dátume z neho nemožno potvrdiť/i);
   assert.ok(company.trust_notes.some((note) => /rozsahy EXT, BJ a INT/.test(note)));
   assert.ok(company.trust_notes.every((note) => !/firma ma opravnenie pre exterier aj interier/i.test(note)));
+  assert.deepEqual(company.services.slice(0, 4), [
+    'Likvidácia azbestu',
+    'Likvidácia eternitu',
+    'Odstránenie azbestu',
+    'Demontáž eternitu',
+  ]);
+  const slovakProse = JSON.stringify([
+    company.transport_policy,
+    company.authorizations.public_verification,
+    company.authorizations.note,
+    ...company.services,
+    ...company.trust_notes,
+    company.gallery_policy.locations_and_area,
+  ]);
+  assert.doesNotMatch(slovakProse, /\b(?:zverejneny|uvadza|opravneniami|aktualnost|likvidacia|odstranenie|demontaz|bezpecnostnych|dovodov|realizacie|vymery|neuvadzaju|spolahlivo|potvrdene)\b/i);
   assert.match(llms, /Kariéra a spolupráca.*https:\/\/likvidacia-eternitu\.sk\/kariera\//);
   assert.match(llms, /najneskôr do 24 hodín/);
   assert.match(llms, /Tento zoznam sám nepotvrdzuje zmeny po uvedenom dátume/);
