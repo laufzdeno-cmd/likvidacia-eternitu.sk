@@ -49,7 +49,39 @@ const retiredHomepageClasses = [
   "why-list",
   "why-proof-strip",
 ];
-const retiredHomepageClassSet = new Set(retiredHomepageClasses);
+const retiredLegacyMediaClasses = [
+  "gallery-card",
+  "gallery-filter-pill",
+  "gallery-grid",
+  "gallery-image",
+  "public-reviews-list",
+  "realization-card",
+  "realization-empty",
+  "realization-grid",
+  "realization-meta",
+  "realization-photos",
+  "review-author",
+  "review-avatar",
+  "review-card",
+  "review-stars",
+  "review-text",
+  "reviews-google-link",
+  "reviews-grid",
+  "reviews-heading",
+  "reviews-section",
+  "reviews-toggle",
+  "testimonial-card",
+  "testimonial-empty",
+  "testimonial-grid",
+  "testimonial-layout",
+  "testimonial-layout-form-only",
+  "testimonial-section",
+  "testimonial-section-form-only",
+  "testimonial-stars",
+  "testimonial-wide",
+];
+const retiredSharedClasses = [...retiredHomepageClasses, ...retiredLegacyMediaClasses];
+const retiredSharedClassSet = new Set(retiredSharedClasses);
 
 function walkFiles(directory) {
   if (!fs.existsSync(directory)) return [];
@@ -120,7 +152,7 @@ test("selector class extraction handles compounds without prefix collisions", ()
   assert.deepEqual(selectorClassNames(".hero-points-extra"), ["hero-points-extra"]);
 });
 
-test("retired homepage CSS cannot return without a runtime owner", () => {
+test("retired shared CSS cannot return without a runtime owner", () => {
   const runtimeSource = runtimeRoots
     .flatMap((directory) => walkFiles(path.join(root, directory)))
     .map((file) => fs.readFileSync(file, "utf8"))
@@ -133,7 +165,7 @@ test("retired homepage CSS cannot return without a runtime owner", () => {
     return result;
   });
 
-  const unownedClasses = retiredHomepageClasses.filter(
+  const unownedClasses = retiredSharedClasses.filter(
     (className) => !hasClassToken(runtimeSource, className),
   );
   const unownedClassSet = new Set(unownedClasses);
@@ -144,7 +176,7 @@ test("retired homepage CSS cannot return without a runtime owner", () => {
         branches.length > 0 &&
         branches.every((branch) =>
           selectorClassNames(branch).some(
-            (className) => retiredHomepageClassSet.has(className) && unownedClassSet.has(className),
+            (className) => retiredSharedClassSet.has(className) && unownedClassSet.has(className),
           ),
         )
       );
