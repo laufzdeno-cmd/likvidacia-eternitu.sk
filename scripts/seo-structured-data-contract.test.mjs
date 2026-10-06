@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import postcss from 'postcss';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const publicLayout = read('../app/public-layout.tsx');
@@ -14,7 +15,7 @@ const visualPolish = read('../src/final-visual-polish.css');
 const realizationsStyles = read('../app/realizacie/realizations-route.css');
 const rootLayout = read('../app/layout.tsx');
 const homepage = read('../app/page.tsx');
-const homepageCriticalStyles = read('../app/home-critical.css');
+const priceLanding = read('../app/cena-likvidacie-azbestu/page.tsx');
 const notFound = read('../app/not-found.tsx');
 const publicCompany = read('../public/data/company.json');
 const siteFacts = read('../src/content/site.ts');
@@ -132,8 +133,19 @@ test('every explicit robots group keeps API routes out of crawling', () => {
 test('mobile floating WhatsApp yields to the sticky CTA and never covers the homepage hero', () => {
   assert.match(landingClient, /whatsappButton\?\.classList\.toggle\('is-hidden-by-sticky-cta', shouldShow\)/);
   assert.match(homepage, /<PublicWidgets hideWhatsappOnMobile \/>/);
+  assert.match(priceLanding, /<PublicPageShell[^>]*hideWhatsappOnMobile>/s);
   assert.match(publicWidgets, /' homepage-mobile-whatsapp'/);
-  assert.match(homepageCriticalStyles, /@media \(max-width: 760px\)\s*\{\s*\.whatsapp-btn\.homepage-mobile-whatsapp\s*\{\s*display: none !important;/);
+  const visualRoot = postcss.parse(visualPolish, { from: 'src/final-visual-polish.css' });
+  let mobileWhatsappGuard = null;
+  visualRoot.walkRules('.whatsapp-btn.homepage-mobile-whatsapp', (rule) => {
+    if (rule.parent?.type === 'atrule' && rule.parent.params.replaceAll(' ', '') === '(max-width:760px)') {
+      mobileWhatsappGuard = rule;
+    }
+  });
+  assert.ok(mobileWhatsappGuard, 'shared mobile WhatsApp guard must stay in the 760px media query');
+  const display = mobileWhatsappGuard.nodes.find((node) => node.type === 'decl' && node.prop === 'display');
+  assert.equal(display?.value, 'none');
+  assert.equal(display?.important, true);
   assert.match(realizationsStyles, /body:has\(\.realizations-page\) \.whatsapp-btn\s*\{[^}]*display:\s*none !important;[^}]*bottom:\s*max\(12px, env\(safe-area-inset-bottom, 0px\)\)/);
   assert.match(visualPolish, /\.whatsapp-btn\.is-hidden-by-sticky-cta\s*\{\s*opacity:\s*0\s*!important;/);
 });

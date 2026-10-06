@@ -848,9 +848,3 @@ main > .hero .hero-actions .button-phone {
     display: none !important;
   }
 }
-
-@media (max-width: 760px) {
-  .whatsapp-btn.homepage-mobile-whatsapp {
-    display: none !important;
-  }
-}
