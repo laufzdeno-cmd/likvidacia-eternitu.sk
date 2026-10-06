@@ -38,6 +38,8 @@ import type {
   BusinessSettings,
   BusinessWorkType,
   CareerApplication,
+  CareerApplicationFilters,
+  CareerApplicationWorkflowInput,
   CareerApplicationCv,
   LandfillPrice,
   Lead,
@@ -842,6 +844,9 @@ async function initializeSchema() {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       status text NOT NULL DEFAULT 'new',
+      owner_email text NOT NULL DEFAULT '',
+      next_action text NOT NULL DEFAULT '',
+      followup_date date,
       full_name text NOT NULL,
       phone text NOT NULL,
       email text NOT NULL,
@@ -867,7 +872,15 @@ async function initializeSchema() {
     ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS cv_expected boolean NOT NULL DEFAULT false;
     ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS has_asbestos_experience boolean NOT NULL DEFAULT false;
     ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS asbestos_experience text NOT NULL DEFAULT '';
+    ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS owner_email text NOT NULL DEFAULT '';
+    ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS next_action text NOT NULL DEFAULT '';
+    ALTER TABLE career_applications ADD COLUMN IF NOT EXISTS followup_date date;
+    UPDATE career_applications SET status = 'new' WHERE status NOT IN ('new', 'reviewed', 'archived');
+    ALTER TABLE career_applications DROP CONSTRAINT IF EXISTS career_applications_status_check;
+    ALTER TABLE career_applications ADD CONSTRAINT career_applications_status_check
+      CHECK (status IN ('new', 'reviewed', 'archived'));
     CREATE INDEX IF NOT EXISTS career_applications_created_idx ON career_applications (created_at DESC);
+    CREATE INDEX IF NOT EXISTS career_applications_workflow_idx ON career_applications (status, followup_date, owner_email, created_at DESC);
 
     -- A token is issued only after this durable, non-public reservation exists.
     -- Keep reservations when an application is deleted until a retention worker
@@ -1528,6 +1541,9 @@ function toCareerApplication(row: Record<string, unknown>): CareerApplication {
     createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
     status: String(row.status ?? 'new') as CareerApplication['status'],
+    ownerEmail: String(row.owner_email ?? row.ownerEmail ?? '').trim().toLowerCase(),
+    nextAction: cleanSlovakText(String(row.next_action ?? row.nextAction ?? '')),
+    followupDate: dateOnly(row.followup_date ?? row.followupDate),
     fullName: cleanSlovakText(String(row.full_name ?? row.fullName ?? '')),
     phone: String(row.phone ?? ''),
     email: String(row.email ?? ''),
@@ -8415,24 +8431,65 @@ type CareerApplicationCreateResult = {
 
 const careerApplicationWrites = new Map<string, Promise<CareerApplicationCreateResult>>();
 
-export async function countCareerApplications(): Promise<{ total: number; incompleteCv: number }> {
+const careerApplicationStatuses = new Set<CareerApplication['status']>(['new', 'reviewed', 'archived']);
+
+function normalizeCareerApplicationFilters(filters: CareerApplicationFilters = {}): CareerApplicationFilters {
+  if (filters.status && !careerApplicationStatuses.has(filters.status)) throw new Error('Neplatný stav kariérnej žiadosti.');
+  const unassignedOnly = filters.unassignedOnly === true;
+  return {
+    status: filters.status,
+    ownerEmail: unassignedOnly ? undefined : filters.ownerEmail?.trim().toLowerCase() || undefined,
+    unassignedOnly,
+    dueOnly: filters.dueOnly === true,
+  };
+}
+
+function careerApplicationMatchesFilters(application: CareerApplication, filters: CareerApplicationFilters) {
+  if (filters.status ? application.status !== filters.status : application.status === 'archived') return false;
+  if (filters.unassignedOnly && application.ownerEmail !== '') return false;
+  if (filters.ownerEmail && application.ownerEmail !== filters.ownerEmail) return false;
+  if (filters.dueOnly && (!application.followupDate || application.followupDate > dateInBratislava(new Date()))) return false;
+  return true;
+}
+
+function careerApplicationFilterSql(filters: CareerApplicationFilters) {
+  const clauses: string[] = [];
+  const values: unknown[] = [];
+  const addValue = (clause: string, value: unknown) => {
+    values.push(value);
+    clauses.push(clause.replace('?', `$${values.length}`));
+  };
+  if (filters.status) addValue('status = ?', filters.status);
+  else clauses.push("status <> 'archived'");
+  if (filters.unassignedOnly) clauses.push("owner_email = ''");
+  if (filters.ownerEmail) addValue('lower(owner_email) = ?', filters.ownerEmail);
+  if (filters.dueOnly) addValue('followup_date IS NOT NULL AND followup_date <= ?', dateInBratislava(new Date()));
+  return { where: clauses.length ? `WHERE ${clauses.join(' AND ')}` : '', values };
+}
+
+export async function countCareerApplications(filters: CareerApplicationFilters = {}): Promise<{ total: number; incompleteCv: number }> {
   await ensureSchema();
+  const normalizedFilters = normalizeCareerApplicationFilters(filters);
   const db = getPool();
   if (!db) {
     const applications = (await readLocalDb()).careerApplications
-      .map((item) => toCareerApplication(item as unknown as Record<string, unknown>));
+      .map((item) => toCareerApplication(item as unknown as Record<string, unknown>))
+      .filter((item) => careerApplicationMatchesFilters(item, normalizedFilters));
     return { total: applications.length, incompleteCv: applications.filter((item) => item.cvExpected && !item.cv).length };
   }
+  const filter = careerApplicationFilterSql(normalizedFilters);
   const { rows } = await db.query(
     `SELECT COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE cv_expected AND NOT (cv_storage_key <> '' AND cv_storage_driver IN ('vercel_blob', 's3', 'local')))::int AS incomplete_cv
-     FROM career_applications`,
+     FROM career_applications ${filter.where}`,
+    filter.values,
   );
   return { total: Number(rows[0]?.total ?? 0), incompleteCv: Number(rows[0]?.incomplete_cv ?? 0) };
 }
 
-export async function listCareerApplications(page = 1, limit = 50): Promise<CareerApplication[]> {
+export async function listCareerApplications(page = 1, limit = 50, filters: CareerApplicationFilters = {}): Promise<CareerApplication[]> {
   await ensureSchema();
+  const normalizedFilters = normalizeCareerApplicationFilters(filters);
   const db = getPool();
   const pageSize = Number.isSafeInteger(limit) ? Math.max(1, Math.min(limit, 100)) : 50;
   const pageNumber = Number.isSafeInteger(page) ? Math.max(1, Math.min(page, 100_000)) : 1;
@@ -8441,14 +8498,16 @@ export async function listCareerApplications(page = 1, limit = 50): Promise<Care
     const local = await readLocalDb();
     return local.careerApplications
       .map((application) => toCareerApplication(application as unknown as Record<string, unknown>))
+      .filter((application) => careerApplicationMatchesFilters(application, normalizedFilters))
       .sort((a, b) => Number(b.cvExpected && !b.cv) - Number(a.cvExpected && !a.cv) || b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
       .slice(offset, offset + pageSize);
   }
+  const filter = careerApplicationFilterSql(normalizedFilters);
   const { rows } = await db.query(
-    `SELECT * FROM career_applications
+    `SELECT * FROM career_applications ${filter.where}
      ORDER BY (cv_expected AND NOT (cv_storage_key <> '' AND cv_storage_driver IN ('vercel_blob', 's3', 'local'))) DESC, created_at DESC, id DESC
-     LIMIT $1 OFFSET $2`,
-    [pageSize, offset],
+     LIMIT $${filter.values.length + 1} OFFSET $${filter.values.length + 2}`,
+    [...filter.values, pageSize, offset],
   );
   return rows.map(toCareerApplication);
 }
@@ -8463,6 +8522,181 @@ export async function getCareerApplication(id: string): Promise<CareerApplicatio
   }
   const { rows } = await db.query('SELECT * FROM career_applications WHERE id = $1 LIMIT 1', [id]);
   return rows[0] ? toCareerApplication(rows[0]) : null;
+}
+
+function normalizeCareerWorkflowInput(input: CareerApplicationWorkflowInput): CareerApplicationWorkflowInput {
+  if (input.status !== 'new' && input.status !== 'reviewed') throw new Error('Neplatný stav kariérnej žiadosti.');
+  const ownerEmail = input.ownerEmail.trim().toLowerCase();
+  const nextAction = cleanSlovakText(input.nextAction.trim());
+  if (nextAction.length > 300) throw new Error('Ďalší krok môže mať najviac 300 znakov.');
+  const followupDate = input.followupDate.trim();
+  if (followupDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(followupDate)) throw new Error('Neplatný termín ďalšieho kroku.');
+    const parsed = new Date(`${followupDate}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== followupDate) {
+      throw new Error('Neplatný termín ďalšieho kroku.');
+    }
+  }
+  const expectedUpdatedAt = input.expectedUpdatedAt.trim();
+  const parsedUpdatedAt = new Date(expectedUpdatedAt);
+  if (Number.isNaN(parsedUpdatedAt.getTime()) || parsedUpdatedAt.toISOString() !== expectedUpdatedAt) {
+    throw new Error('Neplatná verzia kariérnej žiadosti. Obnovte stránku a skúste to znova.');
+  }
+  return { status: input.status, ownerEmail, nextAction, followupDate, expectedUpdatedAt };
+}
+
+function careerWorkflowChangedFields(previous: CareerApplication, next: CareerApplicationWorkflowInput) {
+  return (['status', 'ownerEmail', 'nextAction', 'followupDate'] as const)
+    .filter((field) => previous[field] !== next[field]);
+}
+
+export async function updateCareerApplicationWorkflow(
+  id: string,
+  input: CareerApplicationWorkflowInput,
+  actorEmail: string,
+): Promise<CareerApplication | null> {
+  const normalized = normalizeCareerWorkflowInput(input);
+  const actor = actorEmail.trim().toLowerCase();
+  if (!actor) throw new Error('Chýba administrátor zmeny.');
+  await ensureSchema();
+  const db = getPool();
+  const timestamp = now();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const index = local.careerApplications.findIndex((item) => item.id === id);
+      if (index < 0) return null;
+      const previous = toCareerApplication(local.careerApplications[index] as unknown as Record<string, unknown>);
+      if (previous.updatedAt !== normalized.expectedUpdatedAt) {
+        throw new Error('Žiadosť bola medzitým zmenená iným používateľom. Obnovte stránku a skúste to znova.');
+      }
+      if (previous.status === 'archived') throw new Error('Archivovanú žiadosť treba najprv obnoviť.');
+      if (normalized.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.trim().toLowerCase() === normalized.ownerEmail)) {
+        throw new Error('Vlastníkom môže byť iba aktívny administrátor.');
+      }
+      const changedFields = careerWorkflowChangedFields(previous, normalized);
+      if (!changedFields.length) return previous;
+      const updated: CareerApplication = {
+        ...previous,
+        status: normalized.status,
+        ownerEmail: normalized.ownerEmail,
+        nextAction: normalized.nextAction,
+        followupDate: normalized.followupDate,
+        updatedAt: timestamp,
+      };
+      local.careerApplications[index] = updated;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'career_application', entityId: id, action: 'career_application_workflow_updated', actorEmail: actor,
+        changes: { changedFields, previousStatus: previous.status, nextStatus: updated.status, ownerEmail: updated.ownerEmail, followupDate: updated.followupDate },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return updated;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query('SELECT * FROM career_applications WHERE id=$1 FOR UPDATE', [id]);
+    if (!current.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const previous = toCareerApplication(current.rows[0]);
+    if (previous.updatedAt !== normalized.expectedUpdatedAt) {
+      throw new Error('Žiadosť bola medzitým zmenená iným používateľom. Obnovte stránku a skúste to znova.');
+    }
+    if (previous.status === 'archived') throw new Error('Archivovanú žiadosť treba najprv obnoviť.');
+    if (normalized.ownerEmail) {
+      const owner = await client.query('SELECT 1 FROM admin_users WHERE lower(email)=lower($1) AND active=true LIMIT 1', [normalized.ownerEmail]);
+      if (owner.rowCount !== 1) throw new Error('Vlastníkom môže byť iba aktívny administrátor.');
+    }
+    const changedFields = careerWorkflowChangedFields(previous, normalized);
+    if (!changedFields.length) {
+      await client.query('COMMIT');
+      return previous;
+    }
+    const updated = await client.query(
+      `UPDATE career_applications SET status=$2, owner_email=$3, next_action=$4, followup_date=NULLIF($5, '')::date, updated_at=$6
+       WHERE id=$1 AND status <> 'archived' RETURNING *`,
+      [id, normalized.status, normalized.ownerEmail, normalized.nextAction, normalized.followupDate, timestamp],
+    );
+    if (!updated.rows[0]) throw new Error('Kariérnu žiadosť sa nepodarilo uložiť.');
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'career_application', id, 'career_application_workflow_updated', actor,
+        { changedFields, previousStatus: previous.status, nextStatus: normalized.status, ownerEmail: normalized.ownerEmail, followupDate: normalized.followupDate }, timestamp],
+    );
+    await client.query('COMMIT');
+    return toCareerApplication(updated.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function setCareerApplicationArchived(id: string, archived: boolean, actorEmail: string): Promise<CareerApplication | null> {
+  const actor = actorEmail.trim().toLowerCase();
+  if (!actor) throw new Error('Chýba administrátor zmeny.');
+  await ensureSchema();
+  const db = getPool();
+  const timestamp = now();
+  const nextStatus: CareerApplication['status'] = archived ? 'archived' : 'reviewed';
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const index = local.careerApplications.findIndex((item) => item.id === id);
+      if (index < 0) return null;
+      const previous = toCareerApplication(local.careerApplications[index] as unknown as Record<string, unknown>);
+      if ((archived && previous.status === 'archived') || (!archived && previous.status !== 'archived')) return previous;
+      const updated: CareerApplication = { ...previous, status: nextStatus, updatedAt: timestamp };
+      local.careerApplications[index] = updated;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'career_application', entityId: id,
+        action: archived ? 'career_application_archived' : 'career_application_restored', actorEmail: actor,
+        changes: { previousStatus: previous.status, nextStatus }, createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return updated;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query('SELECT * FROM career_applications WHERE id=$1 FOR UPDATE', [id]);
+    if (!current.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const previous = toCareerApplication(current.rows[0]);
+    if ((archived && previous.status === 'archived') || (!archived && previous.status !== 'archived')) {
+      await client.query('COMMIT');
+      return previous;
+    }
+    const updated = await client.query('UPDATE career_applications SET status=$2, updated_at=$3 WHERE id=$1 RETURNING *', [id, nextStatus, timestamp]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'career_application', id, archived ? 'career_application_archived' : 'career_application_restored', actor,
+        { previousStatus: previous.status, nextStatus }, timestamp],
+    );
+    await client.query('COMMIT');
+    return toCareerApplication(updated.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function archiveCareerApplication(id: string, actorEmail: string) {
+  return setCareerApplicationArchived(id, true, actorEmail);
+}
+
+export async function restoreCareerApplication(id: string, actorEmail: string) {
+  return setCareerApplicationArchived(id, false, actorEmail);
 }
 
 export async function getCareerApplicationBySubmissionId(submissionId: string): Promise<CareerApplication | null> {
@@ -8818,7 +9052,7 @@ export async function completeCareerCvUploadDeletion(pathname: string, claimId: 
 }
 
 export async function createCareerApplication(
-  input: Omit<CareerApplication, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'cv'>,
+  input: Omit<CareerApplication, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'ownerEmail' | 'nextAction' | 'followupDate' | 'cv'>,
 ): Promise<CareerApplicationCreateResult> {
   const existingWrite = careerApplicationWrites.get(input.submissionId);
   if (existingWrite) return { application: (await existingWrite).application, duplicate: true };

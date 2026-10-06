@@ -2,6 +2,7 @@ param(
   [switch]$TenPhotoBrowser,
   [switch]$HistoricalClient,
   [switch]$SchemaConcurrency,
+  [switch]$CareerWorkflow,
   [switch]$ProductionBuild,
   [switch]$Lighthouse,
   [switch]$CronRoutes,
@@ -13,9 +14,9 @@ param(
 $ErrorActionPreference = 'Stop'
 if ($HistoricalClient -and -not $TenPhotoBrowser) { throw 'Historický klient vyžaduje -TenPhotoBrowser.' }
 if ($Lighthouse -and -not $ProductionBuild) { throw 'Lighthouse vyžaduje izolovaný -ProductionBuild.' }
-if ($TenPhotoBrowser -and $SchemaConcurrency) { throw 'Test prehliadača a súbehu schémy musia bežať oddelene.' }
-if (($ProductionBuild -or $CronRoutes) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $LegacyMigration -or $LegacyMixed -or ($ProductionBuild -and $CronRoutes))) { throw 'Produkčný build a cron kontroly sa spúšťajú samostatne.' }
-if (($LegacyMigration -or $LegacyMixed) -and ($TenPhotoBrowser -or $SchemaConcurrency -or ($LegacyMigration -and $LegacyMixed))) { throw 'Staré a nové migračné testy sa spúšťajú samostatne.' }
+if (($TenPhotoBrowser -and $SchemaConcurrency) -or ($CareerWorkflow -and ($TenPhotoBrowser -or $SchemaConcurrency))) { throw 'Testy prehliadača, súbehu schémy a kariérneho workflow musia bežať oddelene.' }
+if (($ProductionBuild -or $CronRoutes) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or $LegacyMigration -or $LegacyMixed -or ($ProductionBuild -and $CronRoutes))) { throw 'Produkčný build a cron kontroly sa spúšťajú samostatne.' }
+if (($LegacyMigration -or $LegacyMixed) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or ($LegacyMigration -and $LegacyMixed))) { throw 'Staré a nové migračné testy sa spúšťajú samostatne.' }
 
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ($LegacyMigration -or $LegacyMixed) {
@@ -111,6 +112,9 @@ try {
     } elseif ($SchemaConcurrency) {
       & node --import tsx (Join-Path $projectRoot 'scripts/schema-concurrency-postgres.integration.mjs')
       if ($LASTEXITCODE -ne 0) { throw 'Súbežný štart schémy na jednorazovom PostgreSQL zlyhal.' }
+    } elseif ($CareerWorkflow) {
+      & node --import tsx (Join-Path $projectRoot 'scripts/career-admin-workflow-postgres.integration.mjs')
+      if ($LASTEXITCODE -ne 0) { throw 'Kariérny workflow na jednorazovom PostgreSQL zlyhal.' }
     } elseif ($TenPhotoBrowser) {
       $env:ASTANA_HARNESS_TEN_PHOTO_ONLY = '1'
       if ($HistoricalClient) { $env:ASTANA_HARNESS_USE_PREVIOUS_CLIENT = '1' }

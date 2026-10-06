@@ -2542,6 +2542,14 @@ body .admin-main .admin-page .admin-card,
   .admin-table-inline-form-workers {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+
+  .admin-detail-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -2557,6 +2565,10 @@ body .admin-main .admin-page .admin-card,
   .admin-card,
   .admin-stat-grid article {
     padding: 16px !important;
+  }
+
+  .admin-stat-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
   }
 
   .admin-action-row > *,

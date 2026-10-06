@@ -3,26 +3,27 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const careerPage = readFileSync(new URL('../app/admin/(protected)/kariera/page.tsx', import.meta.url), 'utf8');
+const careerDetailPage = readFileSync(new URL('../app/admin/(protected)/kariera/[id]/page.tsx', import.meta.url), 'utf8');
 const rooferPage = readFileSync(new URL('../app/admin/(protected)/strechari/page.tsx', import.meta.url), 'utf8');
 const statusComponent = readFileSync(new URL('../app/admin/(protected)/notifications/notification-statuses.tsx', import.meta.url), 'utf8');
 const action = readFileSync(new URL('../app/admin/(protected)/notifications/actions.ts', import.meta.url), 'utf8');
 
 test('career admin loads persisted statuses and displays both notification recipients', () => {
-  assert.match(careerPage, /listApplicationNotificationStatuses\('career_application'/);
+  assert.match(careerPage, /listApplicationNotificationStatuses\(\s*'career_application'/);
   assert.match(careerPage, /<th>Notifikácie<\/th>/);
-  assert.match(careerPage, /NotificationStatuses entityType="career_application" csrfToken=\{csrfToken\} notifications=\{notificationsByApplication\.get\(application\.id\)/);
+  assert.match(careerPage, /<NotificationStatuses\s+entityType="career_application"\s+csrfToken=\{csrfToken\}\s+notifications=\{notificationsByApplication\.get\(application\.id\)/);
 });
 
 test('career admin distinguishes an incomplete CV from an application sent without a CV', () => {
-  assert.match(careerPage, /counts\.incompleteCv > 0/);
-  assert.match(careerPage, /Stav jednotlivých e-mailov je v stĺpci Notifikácie/);
-  assert.match(careerPage, /application\.cvExpected \? 'Nahrávanie nedokončené — overte stav notifikácií' : 'nepriložený'/);
+  assert.match(careerPage, /<span>Nedokončené vo filtri<\/span><strong>\{counts\.incompleteCv\}<\/strong>/);
+  assert.match(careerPage, /application\.cv \? 'priložený' : application\.cvExpected \? 'nahrávanie nedokončené' : 'nepriložený'/);
+  assert.match(careerDetailPage, /Uchádzač označil životopis, ale nahrávanie sa nedokončilo\./);
   assert.doesNotMatch(careerPage, /e-mailové notifikácie zatiaľ čakajú|e-maily čakajú/);
 });
 
-test('career admin pages all applications and reports a global incomplete-CV count', () => {
-  assert.match(careerPage, /countCareerApplications\(\)/);
-  assert.match(careerPage, /listCareerApplications\(page, pageSize\)/);
+test('career admin pages filtered applications and reports the filtered count', () => {
+  assert.match(careerPage, /countCareerApplications\(filters\)/);
+  assert.match(careerPage, /listCareerApplications\(page, PAGE_SIZE, filters\)/);
   assert.match(careerPage, /Strana \{page\} z \{totalPages\} · celkom \{counts\.total\} žiadostí/);
   assert.match(careerPage, /Stránkovanie kariérnych žiadostí/);
 });

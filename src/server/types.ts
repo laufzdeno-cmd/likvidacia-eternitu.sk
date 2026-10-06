@@ -723,6 +723,21 @@ export type RooferRegistration = {
 export type CareerApplicationStatus = 'new' | 'reviewed' | 'archived';
 export type CareerCooperationType = 'szco' | 'crew' | 'other';
 
+export type CareerApplicationFilters = {
+  status?: CareerApplicationStatus;
+  ownerEmail?: string;
+  unassignedOnly?: boolean;
+  dueOnly?: boolean;
+};
+
+export type CareerApplicationWorkflowInput = {
+  status: Exclude<CareerApplicationStatus, 'archived'>;
+  ownerEmail: string;
+  nextAction: string;
+  followupDate: string;
+  expectedUpdatedAt: string;
+};
+
 export type CareerApplicationCv = {
   originalName: string;
   storageDriver: 'vercel_blob' | 's3' | 'local';
@@ -755,6 +770,9 @@ export type CareerApplication = {
   createdAt: string;
   updatedAt: string;
   status: CareerApplicationStatus;
+  ownerEmail: string;
+  nextAction: string;
+  followupDate: string;
   fullName: string;
   phone: string;
   email: string;
