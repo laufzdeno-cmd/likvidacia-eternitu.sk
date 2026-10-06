@@ -18,10 +18,23 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         <a className="admin-brand" href="/admin/dashboard">
           <img src="/assets/astana-logo.png" alt="ASTANA" width="156" height="52" />
         </a>
-        <AdminNav role={user.role} />
-        <form action="/admin/logout" method="post">
-          <button type="submit">Odhlásiť</button>
-        </form>
+        <div className="admin-navigation-desktop">
+          <AdminNav role={user.role} />
+          <form action="/admin/logout" method="post">
+            <button type="submit">Odhlásiť</button>
+          </form>
+        </div>
+        <details className="admin-navigation-mobile">
+          <summary>
+            <span>Menu administrácie</span>
+            <span className="admin-navigation-open-label" aria-hidden="true">Otvoriť</span>
+            <span className="admin-navigation-close-label" aria-hidden="true">Zavrieť</span>
+          </summary>
+          <AdminNav role={user.role} />
+          <form action="/admin/logout" method="post">
+            <button type="submit">Odhlásiť</button>
+          </form>
+        </details>
       </aside>
       <div className="admin-main">
         <AdminTopbar email={email} name={user.name || email} role={user.role} initial={initial} />

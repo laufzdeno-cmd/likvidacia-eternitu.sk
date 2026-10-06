@@ -29,45 +29,49 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
           <label>€/tonu<input name="pricePerTon" type="number" step="0.01" /></label>
           <button type="submit">Pridať</button>
         </form>
-        <table className="admin-table">
-          <thead><tr><th>Rok</th><th>Skládka</th><th>€/tonu</th><th>Upraviť</th><th></th></tr></thead>
-          <tbody>{prices.map((price) => (
-            <tr key={price.id}>
-              <td colSpan={5}>
-                <div className="admin-table-inline-actions">
-                  <form action={saveLandfillPriceAction} className="admin-table-inline-form">
-                    <input name="year" type="number" defaultValue={price.year} aria-label="Rok" />
-                    <select name="landfill" defaultValue={price.landfill} aria-label="Skládka">{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select>
-                    <input name="pricePerTon" type="number" step="0.01" defaultValue={price.pricePerTon} aria-label="Cena za tonu" />
-                    <input type="hidden" name="id" value={price.id} />
-                    <button type="submit">Uložiť</button>
-                  </form>
-                  <form action={deleteLandfillPriceAction}><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form>
-                </div>
-              </td>
-            </tr>
-          ))}</tbody>
-        </table>
+        <div className="admin-table-wrap">
+          <table className="admin-table admin-settings-table">
+            <thead><tr><th>Rok</th><th>Skládka</th><th>€/tonu</th><th>Upraviť</th><th></th></tr></thead>
+            <tbody>{prices.map((price) => (
+              <tr key={price.id}>
+                <td colSpan={5}>
+                  <div className="admin-table-inline-actions">
+                    <form action={saveLandfillPriceAction} className="admin-table-inline-form">
+                      <input name="year" type="number" defaultValue={price.year} aria-label="Rok" />
+                      <select name="landfill" defaultValue={price.landfill} aria-label="Skládka">{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select>
+                      <input name="pricePerTon" type="number" step="0.01" defaultValue={price.pricePerTon} aria-label="Cena za tonu" />
+                      <input type="hidden" name="id" value={price.id} />
+                      <button type="submit">Uložiť</button>
+                    </form>
+                    <form action={deleteLandfillPriceAction}><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form>
+                  </div>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
       </section>
 
       <section className="admin-card">
         <h2>Pracovníci</h2>
-        <table className="admin-table">
-          <thead><tr><th>Meno</th><th>Sadzba €/m2</th><th>Aktívny</th><th></th></tr></thead>
-          <tbody>{workers.map((worker) => (
-            <tr key={worker.id}>
-              <td colSpan={4}>
-                <form action={saveWorkerAction} className="admin-table-inline-form admin-table-inline-form-workers">
-                  <input name="name" defaultValue={worker.name} aria-label="Meno pracovníka" />
-                  <input name="ratePerM2" type="number" step="0.01" defaultValue={worker.ratePerM2} aria-label="Sadzba za m2" />
-                  <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked={worker.active} /> Aktívny</label>
-                  <input type="hidden" name="id" value={worker.id} />
-                  <button type="submit">Uložiť</button>
-                </form>
-              </td>
-            </tr>
-          ))}</tbody>
-        </table>
+        <div className="admin-table-wrap">
+          <table className="admin-table admin-settings-table">
+            <thead><tr><th>Meno</th><th>Sadzba €/m2</th><th>Aktívny</th><th></th></tr></thead>
+            <tbody>{workers.map((worker) => (
+              <tr key={worker.id}>
+                <td colSpan={4}>
+                  <form action={saveWorkerAction} className="admin-table-inline-form admin-table-inline-form-workers">
+                    <input name="name" defaultValue={worker.name} aria-label="Meno pracovníka" />
+                    <input name="ratePerM2" type="number" step="0.01" defaultValue={worker.ratePerM2} aria-label="Sadzba za m2" />
+                    <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked={worker.active} /> Aktívny</label>
+                    <input type="hidden" name="id" value={worker.id} />
+                    <button type="submit">Uložiť</button>
+                  </form>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
         <form className="admin-filter-bar" action={saveWorkerAction}>
           <label>Meno<input name="name" /></label>
           <label>Sadzba<input name="ratePerM2" type="number" step="0.01" /></label>

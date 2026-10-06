@@ -258,6 +258,12 @@
   margin-top: auto;
   background: #f8fafc;
 }
+.admin-navigation-desktop {
+  display: contents;
+}
+.admin-navigation-mobile {
+  display: none;
+}
 .admin-main {
   min-width: 0;
 }
@@ -1454,6 +1460,10 @@ body .admin-main .admin-page .admin-card,
 }
 @media (max-width: 720px) {
 
+  .admin-queue-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-archive-banner,
   .analytics-traffic-overview .admin-section-heading {
     align-items: flex-start;
@@ -1725,6 +1735,17 @@ body .admin-main .admin-page .admin-card,
     radial-gradient(circle at 8% 0%, rgba(201, 154, 74, 0.12), transparent 22rem),
     radial-gradient(circle at 96% 4%, rgba(18, 168, 216, 0.12), transparent 28rem),
     linear-gradient(180deg, #f6fcff 0%, #ffffff 54%, #fffaf2 100%) !important;
+}
+.admin-shell,
+.admin-shell *,
+.admin-shell *::before,
+.admin-shell *::after {
+  box-sizing: border-box;
+}
+.admin-card,
+.admin-table-wrap {
+  min-width: 0;
+  max-width: 100%;
 }
 .admin-sidebar {
   background: #1e1e2e !important;
@@ -2483,6 +2504,40 @@ body .admin-main .admin-page .admin-card,
 }
 .admin-notification-resolution-form button { justify-self: start; }
 
+/* The shared stylesheet declares a second desktop offer grid after its own
+   responsive rule. Keep the calculator beside the form on desktop, but stack
+   both columns before either one can squeeze or overlap on narrower screens. */
+@media (max-width: 1200px) {
+  .price-offer-layout {
+    width: 100% !important;
+    min-width: 0 !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .price-offer-main,
+  .price-offer-summary {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .price-offer-summary {
+    position: static !important;
+    top: auto !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .admin-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .admin-filter-bar > * {
+    min-width: 0;
+  }
+}
+
 /* Keep the final mobile cascade after the desktop shell refinements above. */
 @media (max-width: 900px) {
   .admin-shell {
@@ -2500,6 +2555,69 @@ body .admin-main .admin-page .admin-card,
     height: auto !important;
     min-height: 0 !important;
     box-sizing: border-box !important;
+  }
+
+  .admin-navigation-desktop {
+    display: none !important;
+  }
+
+  .admin-navigation-mobile {
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-navigation-mobile > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 8px 10px;
+    border: 1px solid rgba(107, 45, 94, 0.24);
+    border-radius: 8px;
+    padding: 11px 13px;
+    background: #ffffff;
+    color: #1e293b;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .admin-navigation-mobile > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .admin-navigation-mobile > summary::before {
+    content: '☰';
+    color: #6b2d5e;
+    font-size: 16px;
+  }
+
+  .admin-navigation-mobile > summary > span:first-child {
+    flex: 1 1 auto;
+  }
+
+  .admin-navigation-close-label,
+  .admin-navigation-mobile[open] .admin-navigation-open-label {
+    display: none;
+  }
+
+  .admin-navigation-mobile[open] .admin-navigation-close-label {
+    display: inline;
+  }
+
+  .admin-navigation-mobile[open] > summary {
+    border-color: #6b2d5e;
+    background: #fbf7fb;
+  }
+
+  .admin-navigation-mobile nav {
+    padding-top: 0 !important;
+  }
+
+  .admin-navigation-mobile form {
+    margin: 8px 0 0;
   }
 
   .admin-main,
@@ -2522,6 +2640,50 @@ body .admin-main .admin-page .admin-card,
   .admin-heading,
   .admin-topbar {
     flex-wrap: wrap !important;
+  }
+
+  .admin-topbar {
+    height: auto !important;
+    min-height: 0 !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  .admin-topbar > span {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-user-chip {
+    display: grid !important;
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 3px 8px;
+    align-items: center;
+  }
+
+  .admin-user-chip small {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-user-chip strong {
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-user-chip em {
+    grid-column: 1 / 3;
+    grid-row: 2;
+  }
+
+  .admin-user-chip > span {
+    grid-column: 3;
+    grid-row: 1 / 3;
   }
 
   .admin-card,
@@ -2547,13 +2709,39 @@ body .admin-main .admin-page .admin-card,
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
+  .admin-settings-table {
+    min-width: 0 !important;
+    table-layout: fixed;
+  }
+
+  .admin-settings-table thead {
+    display: none;
+  }
+
+  .admin-settings-table .admin-table-inline-actions {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-settings-table .admin-table-inline-actions > form:last-child button {
+    width: 100%;
+  }
+
   .admin-stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
 
 @media (max-width: 480px) {
+  .admin-dl,
+  .admin-dl.wide {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
   .admin-sidebar nav {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .admin-queue-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 
