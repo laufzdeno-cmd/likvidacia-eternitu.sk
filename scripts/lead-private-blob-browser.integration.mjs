@@ -1531,6 +1531,35 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
           `price quote action must be visible without scrolling at 320x568: ${JSON.stringify(action)}`);
       }
       if (name === 'home') {
+        if ([320, 390, 760, 761, 1024, 1440].includes(viewport.width)) {
+          computedStyleSnapshots.push(await page.evaluate(({ width, height }) => {
+            const selectors = [
+              '.hero', '.hero-copy', '.hero-photo', '.hero-photo img', '.quote-card',
+              '.price-calculator-section', '.included-group-card',
+            ];
+            const properties = [
+              'display', 'position', 'color', 'background-color', 'background-image',
+              'border-top-width', 'border-top-color', 'border-radius', 'padding-top',
+              'grid-template-columns', 'gap', 'font-size', 'line-height', 'max-width',
+              'width', 'height', 'visibility', 'opacity',
+            ];
+            return {
+              route: 'home',
+              viewport: { width, height },
+              elements: selectors.map((selector) => {
+                const element = document.querySelector(selector);
+                if (!element) return { selector, missing: true };
+                const style = getComputedStyle(element);
+                const rect = element.getBoundingClientRect();
+                return {
+                  selector,
+                  style: Object.fromEntries(properties.map((property) => [property, style.getPropertyValue(property)])),
+                  rect: Object.fromEntries(['x', 'y', 'width', 'height'].map((key) => [key, Number(rect[key].toFixed(3))])),
+                };
+              }),
+            };
+          }, viewport));
+        }
         if (viewport.width === 320) {
           await resetVisualScroll();
           await page.locator('.hero-counters').screenshot({ path: path.join(screenshotDir, 'home-counters-320.png'), type: 'png', caret: 'initial' });

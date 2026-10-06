@@ -3,9 +3,18 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import postcss from 'postcss';
 
+const globalCssFiles = [
+  'src/styles.css',
+  'src/premium-overrides.css',
+  'src/final-visual-polish.css',
+  'src/responsive-audit-hotfix.css',
+];
+const homepageAnchor = /\.(?:hero-photo|quote-card|price-calculator-section|included-group-card)(?![A-Za-z0-9_-])/;
+const isSafelyHomepageOwnedRule = (rule) => (rule.selectors ?? []).length > 0
+  && rule.selectors.every((selector) => homepageAnchor.test(selector));
+
 test('homepage presentation is route-scoped and absent from the final shared polish layer', () => {
   const page = readFileSync('app/page.tsx', 'utf8');
-  const shared = readFileSync('src/final-visual-polish.css', 'utf8');
   const criticalCss = readFileSync('app/home-critical.css', 'utf8');
   const deferredCss = readFileSync('public/assets/home-below-fold.css', 'utf8');
   const routeCss = `${criticalCss}\n${deferredCss}`;
@@ -13,7 +22,17 @@ test('homepage presentation is route-scoped and absent from the final shared pol
   assert.match(criticalCss, /--home-route-css:\s*1/);
   for (const criticalClass of ['hero-photo', 'quote-card', 'price-calculator-section', 'included-group-card']) {
     assert.match(routeCss, new RegExp(`\\.${criticalClass}\\b`));
-    assert.doesNotMatch(shared, new RegExp(`\\.${criticalClass}\\b`));
+  }
+
+  for (const file of globalCssFiles) {
+    const root = postcss.parse(readFileSync(file, 'utf8'), { from: file });
+    root.walkRules((rule) => {
+      assert.equal(
+        isSafelyHomepageOwnedRule(rule),
+        false,
+        `${file} still contains a safely route-owned homepage rule: ${rule.selector}`,
+      );
+    });
   }
 
   const root = postcss.parse(routeCss, { from: 'homepage route CSS layers' });
