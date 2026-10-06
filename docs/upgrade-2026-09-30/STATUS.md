@@ -6,13 +6,13 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 
 | Release brána | Stav | Aktuálny dôkaz alebo chýbajúci dôkaz |
 |---|---|---|
-| Celá unit/kontraktná sada | **PASS** | 253 MJS + 21 TypeScript testov |
+| Celá unit/kontraktná sada | **PASS** | 261 MJS + 21 TypeScript testov; dva testy závislé od lokálneho portu/Edge prešli po bezpečnom opakovaní mimo obmedzeného procesu |
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
 | Verejná responzivita | **ČIASTOČNE PASS** | 7 kľúčových stránok × 9 viewportov = 63 stavov, 21 záberov, 0 hydration chýb a 0 odoslaných formulárov; ešte nejde o každú verejnú URL ani fyzické zariadenie |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
-| Nemenný release SHA a čistý kandidát | **STOP** | pracovný strom je stále rozsiahly a zatiaľ nie je zafixovaný ako jeden prijatý release artefakt |
+| Nemenný release SHA a čistý kandidát | **ČIASTOČNE PASS** | aktuálny lokálny checkpoint `441cf9c7` je čistý; finálny release SHA sa zmrazí až po uzavretí otvorených obchodných, vizuálnych a S08 brán |
 | Kompletný vizuálny audit administrácie | **OTVORENÉ** | treba prejsť všetky obchodné obrazovky, nie iba zdrojové kontrakty |
-| S08 / Core Web Vitals | **OTVORENÉ** | posledné diagnostické LCP merania prekročili cieľ na všetkých piatich trasách |
+| S08 / Core Web Vitals | **FAIL** | čerstvá 5 × 3 matica: domov 3 370 ms, cena 2 739 ms, realizácie 3 818 ms, článok 2 392 ms PASS, kariéra 2 761 ms; cieľ LCP je najviac 2 500 ms |
 | Produkčný dopyt bez fotky a s fotkou | **OTVORENÉ** | vyžaduje čerstvé schválenie, lebo vytvorí skutočný lead a e-maily |
 | Celý tok cenovej ponuky, PDF a e-mailu | **OTVORENÉ** | lokálne kontrakty prešli, ale kompletný schválený produkčný tok nie |
 | Chrome/Opera a fyzický mobil | **OTVORENÉ** | chýba finálna akceptácia na reálnych zariadeniach |
@@ -26,15 +26,15 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 - Verejná analytika a reklamná konverzia používajú ľahké klientské fasády; ťažší engine sa načíta až pri potrebe. Fronty sú ohraničené a viazané na aktuálne obdobie súhlasu. Odvolanie súhlasu zahodí staré čakajúce udalosti, nezmenený súhlas ich nestratí ani pri dvoch registráciách. Cielené analytické testy prešli **32/32** a nezávislý re-review vrátil **PASS**.
 - Izolovaný produkčný prehliadač potvrdil, že odložený domovský stylesheet vyhovuje CSP, formulár ostáva viditeľný a má natívny POST aj bez JavaScriptu, kontaktné prepínače majú viditeľný 3 px klávesnicový fokus a SPA prechod domov → postup → kontakt nezanechá route CSS na cudzej stránke.
 - Vizuálny harness na 320, 360, 390, 568 landscape, 760, 761, 768, 1024 a 1440 px teraz pokrýva domov, cenu, realizácie, kariéru, strechárov, postup a kontakt. Opakovaný beh prešiel **63/63** stavov, vytvoril 21 záberov, vykonal 7 navigačných interakcií, odoslal 0 formulárov a nezaznamenal hydration chybu ani nepovolený externý origin.
-- Aktuálne lokálne dôkazy: `npm run test:unit` **253 MJS + 21 TypeScript PASS**, `npm run typecheck` **PASS**, izolovaný PostgreSQL/webpack build **PASS 96/96**, SEO metadata/obsah **32 statických URL PASS**, dynamické realizácie a recenzie **PASS**. Produkcia sa pri týchto kontrolách nepoužila ani nezmenila.
+- Aktuálne lokálne dôkazy: `npm run test:unit` **261 MJS + 21 TypeScript PASS**, `npm run typecheck` **PASS**, izolovaný PostgreSQL/webpack build **PASS 96/96**, SEO metadata/obsah **32 statických URL PASS**, dynamické realizácie a recenzie **PASS**. Dva testy závislé od lokálneho portu a headless Edge prešli po bezpečnom opakovaní mimo obmedzeného procesu. Produkcia sa pri týchto kontrolách nepoužila ani nezmenila.
 - Nezávislý read-only kontrolór po finálnych opravách vrátil pre tento úzky CSS/QA rez **PASS**. Potvrdil route izoláciu, zhodu 6 snapshotov/66 meraných prvkov, breakpoint 760/761 px, neprázdny manifest a fail-closed porovnávač. Tento PASS neprijíma celý rozsiahly checkout ani produkciu.
 
 ### Čerstvá S08 akceptačná matica po CSS úpravách
 
-- Povinných 5 stránok × 3 mobilné Lighthouse behy sa vykonalo nad izolovaným lokálnym produkčným buildom. S08 zostáva **FAIL**: homepage Performance 94 / LCP **2 965 ms**, cena 97 / **2 519 ms**, realizácie 85 / **4 099 ms**, článok 97 / **2 518 ms**, kariéra 96 / **2 694 ms**. CLS bolo najviac 0,024.
-- Pozorované LCP bolo iba približne 105–276 ms; simulovaný mobilný prah je však zámerná release podmienka a nenahrádza sa priaznivejším číslom. Cena a článok sú tesne nad limitom, realizácie sú najväčší potvrdený problém.
+- Povinných 5 stránok × 3 mobilné Lighthouse behy sa vykonalo nad izolovaným lokálnym produkčným buildom. S08 zostáva **FAIL**: homepage Performance 81 / LCP **3 370 ms**, cena 95 / **2 739 ms**, realizácie 88 / **3 818 ms**, článok 98 / **2 392 ms** (**PASS**), kariéra 96 / **2 761 ms**. Accessibility bolo 96–100, SEO 100 a CLS najviac 0,024.
+- Pozorované LCP bolo iba približne 105–276 ms; simulovaný mobilný prah je však zámerná release podmienka a nenahrádza sa priaznivejším číslom. Článok limit splnil, cena a kariéra sú tesne nad ním a realizácie sú najväčší potvrdený problém.
 - Harness správne skončil nenulovým stavom, potom odstránil dočasný browser projekt, zastavil jednorazový PostgreSQL a odstránil jeho dáta. Nešlo o chybu buildu ani produkcie; zlyhala výkonnostná akceptačná hranica, presne ako má.
-- Následný jednorazový diagnostický beh po route CSS a odložení analytických enginov nameral simulované LCP: domov **3 281 ms**, cena **2 759 ms**, realizácie **2 841 ms**, článok **2 717 ms**, kariéra **2 741 ms**. Pozorované LCP bolo 123–274 ms. Realizácie sa oproti predchádzajúcej diagnostike zlepšili približne o 0,17 s, ale všetkých päť trás stále prekračuje prísny cieľ 2,5 s; plná trojbehová S08 brána sa preto zatiaľ neopakuje a zostáva otvorená.
+- Následný úzky pokus presunúť iba posledné pravidlá hero CSS bol po nezávislej kontrole úplne zahodený: menil vzhľad pri 360 px, pridával ďalší stylesheet a neprinášal dostatočný výkonový úžitok. Checkout bol vrátený do čistého stavu `441cf9c7`; neúspešný experiment nie je súčasťou kandidáta. Ďalší výkonový zásah musí mať merateľný prínos a nesmie meniť vizuál.
 
 ## E1 – oprava opakovaného odoslania staršieho formulára (6. 10. 2026)
 
