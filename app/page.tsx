@@ -443,14 +443,14 @@ export default async function HomePage() {
             <div className="quote-info-panel">
               <div className="quote-panel-main">
               <p className="eyebrow">Rýchla cenová ponuka</p>
-              <h2>Čo bude nasledovať po odoslaní dopytu?</h2>
+              <h2>Nezáväznú ponuku pošleme do 24 hodín</h2>
               <p>
-                Dopyt si skontrolujeme. Ak bude treba, doplníme s vami detaily a potom vám pripravíme konkrétnu cenovú ponuku.
+                Nezáväznú cenovú ponuku vám pošleme čo najskôr, najneskôr do 24 hodín.
               </p>
               <ul>
                 <li><VisualIcon name="check" className="quote-panel-icon" />Bez záväzku a bez automatickej objednávky</li>
                 <li><VisualIcon name="check" className="quote-panel-icon" />Fotky sú voliteľné, ale výrazne pomôžu</li>
-                <li><VisualIcon name="check" className="quote-panel-icon" />Cenová ponuka odíde až po kontrole</li>
+                <li><VisualIcon name="check" className="quote-panel-icon" />Ponuku pošleme na váš email</li>
               </ul>
               <a className="quote-panel-phone" href="tel:+421905217946">0905 217 946</a>
               </div>

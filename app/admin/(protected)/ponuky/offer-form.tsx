@@ -107,7 +107,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
             <label>Kontaktná osoba<input name="contactPerson" defaultValue={offer?.contactPerson || selectedJob?.customerName || ''} required /></label>
             <label>Telefón<input name="phone" type="tel" defaultValue={offer?.phone || selectedJob?.customerPhone || ''} required /></label>
             <label>Email<input name="email" type="email" defaultValue={offer?.email || selectedJob?.customerEmail || ''} required /></label>
-            <label className="admin-form-wide">Termín realizácie<input name="realizationTerm" defaultValue={offer?.realizationTerm || selectedJob?.term || 'dohodou - po vydaní rozhodnutí z úradov'} /></label>
+            <label className="admin-form-wide">Termín realizácie<input name="realizationTerm" maxLength={250} defaultValue={offer?.realizationTerm || selectedJob?.term || 'dohodou - po vydaní rozhodnutí z úradov'} /></label>
           </div>
         </section>
 

@@ -94,6 +94,7 @@ export async function savePriceOfferAction(formData: FormData) {
   if (!input.objectType || input.objectType.length > 120 || !input.objectAddress || input.objectAddress.length > 250
     || !input.municipality || input.municipality.length > 120 || input.district.length > 120
     || !input.contactPerson || input.contactPerson.length > 160 || input.phone.length > 40
+    || input.realizationTerm.length > 250
     || !/^\S+@\S+\.\S+$/.test(input.email) || input.email.length > 254
     || input.areaM2 <= 0 || input.areaM2 > 100_000
     || input.pricePerM2WithoutVat < 0 || input.pricePerM2WithoutVat > 100_000

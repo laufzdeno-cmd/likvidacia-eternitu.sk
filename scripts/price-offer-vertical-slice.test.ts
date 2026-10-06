@@ -74,6 +74,29 @@ test('PDF jasne označuje ASTANA s.r.o., materiál, objekt, dopravu a bezplatné
   assert.match(html, /po dokončení zákazky/);
 });
 
+test('PDF pri hranične dlhých údajoch zachová dve pevné A4 strany a presunie dlhú poznámku', () => {
+  const longOffer = {
+    ...base,
+    objectType: 'Hospodárska budova '.repeat(7),
+    objectAddress: 'Veľmi dlhá skúšobná adresa '.repeat(9),
+    municipality: 'Banská Bystrica '.repeat(7),
+    district: 'Banskobystrický okres '.repeat(6),
+    contactPerson: 'Ing. Alexandra Katarína Veľmi-Dlhé-Priezvisko '.repeat(4),
+    realizationTerm: 'Po dohode v nadväznosti na pripravenosť strechárov '.repeat(5),
+    includeTransport: true,
+    transportFrom: 'Poprad Scherffelova 1364/28 '.repeat(9),
+    transportTo: 'Bratislava cieľová adresa '.repeat(10),
+    offerNote: 'TEST - NEKONTAKTOVAŤ. Dlhá poznámka pre tlačový test. '.repeat(9).slice(0, 500),
+  };
+  const html = renderPriceOfferPdfHtml(longOffer, settings);
+  assert.match(html, /@page \{ size: A4; margin: 0; \}/);
+  assert.match(html, /height: 297mm; min-height: 297mm/);
+  assert.match(html, /<section class="page page--compact">/);
+  assert.match(html, /<section class="page page--terms-note">/);
+  assert.equal((html.match(/Poznámka k cenovej ponuke/g) || []).length, 1);
+  assert.equal((html.match(/TEST - NEKONTAKTOVAŤ/g) || []).length, 9);
+});
+
 test('zákaznícky email používa dynamický opis a nezahŕňa nekúpenú dokumentáciu', () => {
   const offer = { ...base, includeDocumentation: false, includeTransport: false };
   const html = priceOfferEmailHtml(offer, settings);
@@ -173,8 +196,10 @@ test('server action validuje cenu a Maps ostáva serverové s ručným fallbacko
   assert.match(actions, /await verifyCsrf\(formData\);\s*await requireAdmin\(\);/);
   assert.match(actions, /process\.env\.GOOGLE_MAPS_API_KEY/);
   assert.match(actions, /input\.includeTransport && \(!input\.transportFrom \|\| !input\.transportTo \|\| input\.transportRoundTripKm <= 0\)/);
+  assert.match(actions, /input\.realizationTerm\.length > 250/);
   assert.match(form, /Cena za km bez DPH/);
   assert.match(form, /Vzdialenosť a sadzbu môžete upraviť ručne/);
+  assert.match(form, /name="realizationTerm" maxLength=\{250\}/);
   assert.match(form, /const vatRate = offer\?\.vatRate \?\? settings\.vatRate/);
   assert.match(form, /const requestId = \+\+routeRequestId\.current/);
   assert.match(form, /requestId !== routeRequestId\.current/);
