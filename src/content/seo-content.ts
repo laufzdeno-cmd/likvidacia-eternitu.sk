@@ -399,3 +399,54 @@ export const articles = [
     ],
   },
 ] as const;
+
+export type ArticleEditorialSource = {
+  title: string;
+  publisher: string;
+  url: string;
+  supports: string;
+};
+
+export const articleEditorial = {
+  reviewedAt: '2026-10-07',
+  reviewedLabel: '7. októbra 2026',
+  scopeNote:
+    'Oficiálne zdroje podporujú zdravotné, právne a odpadové tvrdenia. Praktické údaje k výmere, fotkám a cenovej ponuke vychádzajú z pracovného postupu ASTANA a nenahrádzajú individuálne posúdenie konkrétnej stavby.',
+  methodologyNote:
+    'Tento článok opisuje praktický postup ASTANA pri príprave cenovej ponuky. Neodvoláva sa na externý cenník ani normu; konkrétny rozsah a cena sa určujú až podľa údajov o stavbe.',
+} as const;
+
+const whoAsbestosSource = {
+  title: 'Asbestos',
+  publisher: 'Svetová zdravotnícka organizácia (WHO)',
+  url: 'https://www.who.int/news-room/fact-sheets/asbestos',
+  supports: 'Zdravotné riziká azbestu a potrebu obmedziť expozíciu pri odstraňovaní.',
+} as const satisfies ArticleEditorialSource;
+
+const slovLexAsbestosSource = {
+  title: 'Zákon č. 355/2007 Z. z., § 41 — časová verzia účinná od 1. augusta 2026',
+  publisher: 'Slov-Lex',
+  url: 'https://static.slov-lex.sk/static/SK/ZZ/2007/355/20260801.print.html',
+  supports: 'Právny rámec odstraňovania azbestu zo stavieb na Slovensku.',
+} as const satisfies ArticleEditorialSource;
+
+const euConstructionWasteSource = {
+  title: 'Construction and demolition waste',
+  publisher: 'Európska komisia',
+  url: 'https://environment.ec.europa.eu/topics/waste-and-recycling/construction-and-demolition-waste_en',
+  supports: 'Nakladanie so stavebným odpadom a oddelené riešenie nebezpečných zložiek vrátane azbestu.',
+} as const satisfies ArticleEditorialSource;
+
+export const articleEditorialBySlug: Record<
+  (typeof articles)[number]['slug'],
+  { sources: readonly ArticleEditorialSource[] }
+> = {
+  'co-je-eternit-a-kedy-obsahuje-azbest': { sources: [whoAsbestosSource, slovLexAsbestosSource] },
+  'preco-neodstranovat-eternit-svojpomocne': { sources: [whoAsbestosSource, slovLexAsbestosSource] },
+  'kolko-stoji-likvidacia-azbestu': { sources: [] },
+  'ake-doklady-dostanete-po-likvidacii-azbestu': { sources: [slovLexAsbestosSource, euConstructionWasteSource] },
+  'ako-zmerat-strechu-pre-cenovu-ponuku': { sources: [] },
+  'co-poslat-pre-nacenenie-likvidacie-eternitu': { sources: [] },
+  'azbest-v-interieri-vs-exterieri': { sources: [whoAsbestosSource, slovLexAsbestosSource] },
+  'odvoz-a-balenie-azbestoveho-odpadu': { sources: [euConstructionWasteSource, slovLexAsbestosSource] },
+};

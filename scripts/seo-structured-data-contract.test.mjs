@@ -43,7 +43,13 @@ test('advice articles emit Article JSON-LD sourced from visible article content'
   assert.match(seoJsonLd, /mainEntityOfPage: \{ '@type': 'WebPage', '@id': url \}/);
   assert.match(seoJsonLd, /author: \{ '@id': organizationId \}/);
   assert.match(seoJsonLd, /publisher: \{ '@id': organizationId \}/);
-  assert.doesNotMatch(seoJsonLd, /datePublished|dateModified/);
+  assert.match(seoComponents, /image: article\.image/);
+  assert.match(seoComponents, /dateModified: articleEditorial\.reviewedAt/);
+  assert.match(seoComponents, /citations: editorial\.sources\.map/);
+  assert.match(seoJsonLd, /image: absoluteUrl\(image\)/);
+  assert.match(seoJsonLd, /dateModified/);
+  assert.match(seoJsonLd, /citations\.length \? \{ citation: citations \} : \{\}/);
+  assert.doesNotMatch(seoJsonLd, /datePublished/, 'neoverený dátum prvého publikovania sa nesmie vymýšľať');
 });
 
 test('company identity is represented by one linked Organization and ProfessionalService entity', () => {

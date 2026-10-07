@@ -1,5 +1,12 @@
 import type { Metadata } from 'next';
-import { articles, commonProcessSteps, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
+import {
+  articleEditorial,
+  articleEditorialBySlug,
+  articles,
+  commonProcessSteps,
+  type FaqItem,
+  type ServicePageContent,
+} from '@/src/content/seo-content';
 import { companyAddressLine, emailLink, phoneLink, serviceOffer, site } from '@/src/content/site';
 import { PublicPageShell } from './public-layout';
 import { PublicFontPreload } from '@/src/components/public-font-preload';
@@ -10,11 +17,13 @@ export function buildPageMetadata({
   description,
   path,
   image = '/og/homepage.jpg',
+  pageType = 'website',
 }: {
   title: string;
   description: string;
   path: string;
   image?: string;
+  pageType?: 'website' | 'article';
 }): Metadata {
   return {
     title,
@@ -26,7 +35,7 @@ export function buildPageMetadata({
       url: path,
       siteName: `${site.brandName} - likvidácia azbestu a eternitu`,
       locale: 'sk_SK',
-      type: 'website',
+      type: pageType,
       images: [image],
     },
     twitter: {
@@ -354,9 +363,45 @@ export function LocationPage({
   );
 }
 
+export function ArticleEditorialSection({ slug }: { slug: (typeof articles)[number]['slug'] }) {
+  const editorial = articleEditorialBySlug[slug];
+
+  return (
+    <section className="seo-section seo-article-editorial" aria-labelledby="article-editorial-title">
+      <p className="eyebrow">Zodpovednosť a zdroje</p>
+      <h2 id="article-editorial-title">Kto zodpovedá za obsah</h2>
+      <p className="seo-lead">
+        Za obsah zodpovedá <strong>{site.legalName}</strong> Posledná vecná a redakčná kontrola:{' '}
+        <time dateTime={articleEditorial.reviewedAt}>{articleEditorial.reviewedLabel}</time>.
+      </p>
+      <p>{articleEditorial.scopeNote}</p>
+      {editorial.sources.length ? (
+        <>
+          <h3>Použité oficiálne zdroje</h3>
+          <ul className="seo-source-list">
+            {editorial.sources.map((source) => (
+              <li key={source.url}>
+                <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}</a>
+                <span>{source.publisher}</span>
+                <p>{source.supports}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <div className="seo-methodology-note">
+          <h3>Praktická metodika ASTANA</h3>
+          <p>{articleEditorial.methodologyNote}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function ArticlePage({ article }: { article: (typeof articles)[number] }) {
   const path = `/poradna/${article.slug}/`;
   const faqs = article.faqs;
+  const editorial = articleEditorialBySlug[article.slug];
 
   return (
     <PublicPageShell
@@ -371,6 +416,9 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
             description: article.quickAnswer,
             path,
             articleBody: article.body.map(([, text]) => text).join('\n\n'),
+            image: article.image,
+            dateModified: articleEditorial.reviewedAt,
+            citations: editorial.sources.map((source) => source.url),
           }),
           buildFaqJsonLd(faqs),
         ]} />
@@ -385,6 +433,7 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
             <p className="seo-lead">{text}</p>
           </section>
         ))}
+        <ArticleEditorialSection slug={article.slug} />
         <InternalLinks context="article" />
         <FaqSection faqs={faqs} />
         <QuoteCTA title="Potrebujete naceniť likvidáciu?" />

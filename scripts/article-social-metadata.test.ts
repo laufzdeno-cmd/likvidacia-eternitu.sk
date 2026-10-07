@@ -16,4 +16,5 @@ test('každý článok používa existujúci tematický Open Graph obrázok', as
 test('článková route odovzdáva vlastný obrázok do metadata helpera', async () => {
   const source = await readFile(path.join(process.cwd(), 'app', 'poradna', '[slug]', 'page.tsx'), 'utf8');
   assert.match(source, /image:\s*article\.image/);
+  assert.match(source, /pageType:\s*'article'/);
 });

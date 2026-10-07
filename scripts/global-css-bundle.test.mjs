@@ -9,6 +9,7 @@ const sourceFiles = [
   'src/final-visual-polish.css',
   'src/responsive-audit-hotfix.css',
   'src/public-header-stability.css',
+  'src/article-editorial.css',
 ];
 
 function normalize(source) {

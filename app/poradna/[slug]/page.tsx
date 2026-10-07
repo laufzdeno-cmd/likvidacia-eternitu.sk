@@ -20,6 +20,7 @@ export async function generateMetadata({ params }: PageProps) {
     description: article.description,
     path: `/poradna/${article.slug}/`,
     image: article.image,
+    pageType: 'article',
   });
 }
 

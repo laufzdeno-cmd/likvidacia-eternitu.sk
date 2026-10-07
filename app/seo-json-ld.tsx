@@ -61,11 +61,17 @@ export function buildArticleJsonLd({
   description,
   path,
   articleBody,
+  image,
+  dateModified,
+  citations,
 }: {
   headline: string;
   description: string;
   path: string;
   articleBody: string;
+  image: string;
+  dateModified: string;
+  citations: readonly string[];
 }) {
   const url = absoluteUrl(path);
   const organizationId = `${SITE_URL}/#organization`;
@@ -77,6 +83,9 @@ export function buildArticleJsonLd({
     description,
     articleBody,
     articleSection: 'Poradňa',
+    image: absoluteUrl(image),
+    dateModified,
+    ...(citations.length ? { citation: citations } : {}),
     inLanguage: 'sk-SK',
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
     author: { '@id': organizationId },
