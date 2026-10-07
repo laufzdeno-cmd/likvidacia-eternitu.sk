@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { trackAnalyticsEvent } from '@/src/lib/analytics-client';
 import { attachAcceptedLeadConversionTracking } from '@/src/lib/ad-conversion-tracking.mjs';
-import { hasMarketingConsent } from '@/src/lib/marketing-consent';
-import { readConsentPreferences, saveConsentPreferences, type ConsentPreferences } from '@/src/lib/marketing-consent';
+import { ensureMarketingConsentSubject, hasAnalyticsConsent, hasMarketingConsent, hasPendingMarketingRevocation, marketingConsentSubject, readConsentCategoryPreferences, readConsentPreferences, revokePendingMetaCapiOutbox, saveConsentPreferences, type ConsentPreferences } from '@/src/lib/marketing-consent';
 import PublicWhatsapp from './public-whatsapp';
 
 const openConsentEvent = 'astana:open-cookie-settings';
@@ -28,7 +27,9 @@ export default function PublicWidgets({
   const analyticsCheckboxRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    return attachAcceptedLeadConversionTracking({
+    if (hasMarketingConsent()) ensureMarketingConsentSubject();
+    else if (hasPendingMarketingRevocation() || marketingConsentSubject()) void revokePendingMetaCapiOutbox();
+    const detachTracking = attachAcceptedLeadConversionTracking({
       window: window as Window & { dataLayer?: unknown[][]; gtag?: (...args: unknown[]) => void; fbq?: (...args: unknown[]) => void },
       document,
       hasMarketingConsent,
@@ -36,15 +37,30 @@ export default function PublicWidgets({
       googleAdsConversionId: process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID?.trim(),
       googleAdsConversionLabel: process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL?.trim(),
     });
+    const retryRevocation = () => {
+      if (!hasMarketingConsent() && (hasPendingMarketingRevocation() || marketingConsentSubject())) {
+        void revokePendingMetaCapiOutbox();
+      }
+    };
+    const retryVisibleRevocation = () => {
+      if (document.visibilityState === 'visible') retryRevocation();
+    };
+    window.addEventListener('online', retryRevocation);
+    document.addEventListener('visibilitychange', retryVisibleRevocation);
+    return () => {
+      detachTracking();
+      window.removeEventListener('online', retryRevocation);
+      document.removeEventListener('visibilitychange', retryVisibleRevocation);
+    };
   }, []);
 
   useEffect(() => {
     if (initialOpenSettings) {
-      setPreferences(readConsentPreferences() ?? { analytics: false, marketing: false });
+      setPreferences(readConsentCategoryPreferences());
     }
     setShowCookieBanner(readConsentPreferences() === null);
     const openSettings = () => {
-      setPreferences(readConsentPreferences() ?? { analytics: false, marketing: false });
+      setPreferences(readConsentCategoryPreferences());
       setShowCookiePreferences(true);
       setShowCookieBanner(true);
     };
@@ -57,10 +73,11 @@ export default function PublicWidgets({
   }, [showCookieBanner, showCookiePreferences]);
 
   const save = (next: ConsentPreferences) => {
-    const previous = readConsentPreferences();
+    const analyticsWasGranted = hasAnalyticsConsent();
     saveConsentPreferences(next);
+    if (!next.marketing) void revokePendingMetaCapiOutbox();
     setShowCookieBanner(false);
-    if (next.analytics && !previous?.analytics) trackAnalyticsEvent('page_view');
+    if (next.analytics && !analyticsWasGranted) trackAnalyticsEvent('page_view');
   };
 
   return (
@@ -76,7 +93,7 @@ export default function PublicWidgets({
                 <span><strong>Analytika</strong><small>Meranie návštevnosti, navštívených stránok a zdroja kampane pomocou pseudonymného ID v tomto prehliadači.</small></span>
               </label>
               <label><input type="checkbox" checked={preferences.marketing} onChange={(event) => setPreferences((current) => ({ ...current, marketing: event.target.checked }))} />
-                <span><strong>Marketingové meranie</strong><small>Po úspešnom dopyte môžeme Google Ads a Meta poslať konverznú udalosť bez mena, telefónu a emailu. Identifikátory kliknutia uložíme iba pri zapnutej analytike aj marketingu.</small></span>
+                <span><strong>Marketingové meranie</strong><small>Po úspešnom dopyte môžeme Google Ads poslať konverznú udalosť. Meta môže dostať aj zahashovaný email a telefón; zahashovanie nie je anonymizácia. Identifikátory kliknutia uložíme iba pri zapnutej analytike aj marketingu.</small></span>
               </label>
             </div>
           </div>

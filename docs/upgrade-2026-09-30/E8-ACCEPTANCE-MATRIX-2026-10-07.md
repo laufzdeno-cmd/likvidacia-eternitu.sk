@@ -1,5 +1,11 @@
 # E8 — aktuálna akceptačná matica 7. 10. 2026
 
+## Najnovší lokálny checkpoint
+
+Aktuálny pracovný rez po doplnení súhlasovo viazaného Meta CAPI outboxu a kontrolovaného Vercel promote mechanizmu prešiel: **344/344 MJS + 24/24 TypeScript unit testov**, lead-form **65/65**, analytika **35/35**, DB integrácie **8/8** plus oba Meta race/outbox scenáre, release guard **12/12**, release API klient **8/8**, TypeScript a diff kontrolu. Úplný izolovaný produkčný build: **99/99** trás, SEO **32 statických URL**, dynamické realizácie/recenzie a route izolácia PASS; `productionAccess:false` a jednorazová DB odstránená. Predchádzajúci plný verejný responzívny audit je **220/220**. Oba nezávislé úzke re-review verdikty sú po opravách **PASS**. Produkčný deploy, alias, formulár, email, Blob a reklamný účet zostali bez zmeny.
+
+Lokálny technický stav tohto rezu je **PASS**. Celkový release zostáva **WAITING** na externú Vercel IAM kontrolu, produkčné tajomstvá, staged kandidáta/rollback a výslovne schválený produkčný smoke vrátane dopytu bez fotky a s fotkou, oboch schránok, Chrome/Opera a fyzického mobilu. Tieto externé brány sa nesmú nahradiť lokálnym skóre.
+
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
 Kontrolovaný aplikačný a QA checkpoint: commit `918477e5` na vetve `codex/astana-upgrade-rc1`. Obsahuje právny/GEO rez, bezpečný dopytový a foto tok, cenové ponuky, PDF/email, admin, verejný vizuál, regresné testy a výkonové úpravy. Nasledujúci dokumentačný commit nemení aplikačný kód.

@@ -1,5 +1,15 @@
 # Stav a poradie práce
 
+## Aktuálny lokálny release checkpoint — meranie konverzií a fail-closed nasadenie (7. 10. 2026)
+
+- Marketingové meranie je viazané na prijatý dopyt a platný marketingový súhlas. Odvolanie súhlasu vytvára trvalú internú blokáciu, odstráni reklamné identifikátory aj vtedy, keď pre chýbajúce produkčné tajomstvo nevznikol outbox, a súbeh prijatia dopytu s odvolaním nemôže ponechať odosielateľnú Meta udalosť. Meta odpoveď HTTP 2xx sa považuje za potvrdenú iba pri kladnom `events_received`; nejednoznačný stav zostáva bezpečne viditeľný ako neoverený.
+- Nový release vstup najprv overí čistý presne povolený Git balík, chránené runtime súbory, nemenný manifest, kandidátsky aj rollback deployment, ich Git SHA a aktuálne produkčné aliasy. Produkčné povýšenie používa oficiálne Vercel API bez odovzdania celého lokálneho prostredia. Zmena aliasov alebo SHA počas kontroly spôsobí zastavenie. Repozitár nedokáže vynútiť oprávnenia Vercel dashboardu, cudzích tokenov alebo deploy hookov; pred ostrým vydaním preto zostáva povinné samostatné potvrdenie IAM hranice.
+- Čerstvé lokálne dôkazy: `test:unit` **344/344 MJS + 24/24 TypeScript PASS**, `test:lead-form` **65/65**, analytika **35/35**, databázové integrácie **8/8** plus oba Meta race/outbox integračné scenáre PASS, release guard **12/12**, release API klient **8/8**, TypeScript a `git diff --check` PASS.
+- Úplný izolovaný Next.js 16.4.0 produkčný build prešiel kompiláciou, TypeScriptom a generovaním **99/99** stránok/trás. Obe renderované SEO kontroly prešli na **32 statických URL**, dynamické realizácie a recenzie prešli HTTP/browser kontrolou, route CSS/JS izolácia prešla a runner potvrdil `productionAccess:false`. Jednorazový PostgreSQL 17 bol po teste zastavený a jeho vlastné dočasné dáta odstránené.
+- Predchádzajúci aktuálny verejný responzívny audit zostáva **20 trás × 11 stavov = 220/220**, 25 snímok, 0 odoslaných formulárov, 0 hydratácií a 0 externých originov. Tento serverový/release rez verejný render nemení.
+- Produkcia, Vercel alias, ostrý formulár, skutočný email, Blob ani reklamný účet sa pri tomto checkpointe nepoužili alebo nezmenili. Produkčné prostredie ešte vyžaduje schválené tajomstvá pre konverzný worker, overený Vercel IAM, nemenný staged kandidát, rollback a čerstvé výslovné schválenie ostrého smoke testu.
+- Dvaja nezávislí read-only kontrolóri vydali po opravách **PASS**: jeden pre Meta/marketing-consent rez a druhý pre release/deploy rez. Release kontrola pred PASS odhalila a regresne uzavrela meniaci sa čas v digeste, oneskorené aliasy, nepriamy wrapper, nejednoznačný POST a chýbajúce timeouty zápisu aj čítania.
+
 ## Právna faktická kontrola — 7. 10. 2026
 
 - Aktuálny verejný text, admin, sprievodný e-mail a PDF cenovej ponuky boli porovnané s § 41 zákona č. 355/2007 Z. z. v znení účinnom od 1. 8. 2026. Plánované práce sú správne opísané ako písomné oznámenie najneskôr 30 dní pred začatím, nie ako žiadosť o individuálne povolenie RÚVZ; havarijný režim 48 hodín je oddelený.

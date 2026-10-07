@@ -1,5 +1,12 @@
 # E8 — pracovný súpis balíka vydania
 
+## Lokálny checkpoint 7. 10. 2026 — consent race a kontrolované povýšenie
+
+- Meta CAPI vrstva má trvalú pseudonymnú blokáciu po odvolaní súhlasu, serializovaný create/revoke tok v PostgreSQL aj lokálnom úložisku, bezpečné vyčistenie click ID a fail-closed správanie pri chýbajúcom `CONVERSION_EVENT_SECRET`. Provider HTTP 2xx bez kladného `events_received` sa neoznačí za odoslaný.
+- Jediný repozitárový deploy vstup používa kontrolovaný manifest snapshot s SHA-256, presnú väzbu kandidáta a rollbacku na Git SHA, dvojitú kontrolu produkčných aliasov a oficiálny Vercel promote endpoint. Token sa neprenáša do cudzieho procesu ani celého child environmentu. Externá Vercel IAM hranica zostáva povinným release dokladom.
+- Overenie aktuálneho pracovného rezu: unit **344/344 MJS + 24/24 TypeScript**, lead-form **65/65**, analytika **35/35**, DB **8/8** plus Meta local/PGlite race scenáre, release guard **12/12**, release klient **8/8**, TypeScript a diff kontrola PASS. Izolovaný Next.js build **99/99**, SEO **32 statických URL**, dynamické stránky a route izolácia PASS, `productionAccess:false`; jednorazová DB zastavená a odstránená. Nezávislé Meta aj release re-review po opravách vydali **PASS**.
+- Bez produkčného deploymentu, zmeny aliasu, ostrého formulára, emailu, Blobu alebo reklamného účtu. Kandidát ešte nie je produkčne prijatý.
+
 Stav: 2. 10. 2026. **NOT READY / nič nenasadené.** Tento súpis je kontrola lokálneho zdroja, nie skutočný manifest uploadu do Vercelu ani dôkaz produkčného správania.
 
 > **Dodatok 2. 10. 2026:** medzi read-only kontrolami sa pracovný stav `artifacts/e8-candidate-20261002` menil (raz sa objavila zmena automaticky generovaného `next-env.d.ts`, posledný zaznamenaný check bol čistý). Historické tvrdenia nižšie platia len pre checkpoint pri danom commite, nie automaticky pre neskorší checkout. [E8-CURRENT-STATE-RECONCILIATION.md](E8-CURRENT-STATE-RECONCILIATION.md) zachytáva starší kontrolný bod `f1be6b74`; najnovší datovaný dodatok nižšie má prednosť.

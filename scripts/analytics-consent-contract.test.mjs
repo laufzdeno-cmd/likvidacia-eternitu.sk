@@ -91,10 +91,10 @@ test('consent stores separate categories and removes analytics identifiers on de
   assert.match(homepageWidgets, /loadWidgets\(true\)/,
     'manual cookie settings still load and open the deferred consent widget');
   assert.match(widgets, /initialOpenSettings/);
-  assert.match(widgets, /if \(initialOpenSettings\) \{\s*setPreferences\(readConsentPreferences\(\) \?\?/,
-    'deferred manual opening restores the visitor current consent choices');
+  assert.match(widgets, /if \(initialOpenSettings\) \{\s*setPreferences\(readConsentCategoryPreferences\(\)\)/,
+    'deferred manual opening restores each visitor consent category independently');
   assert.match(widgets, /renderWhatsapp \? <PublicWhatsapp/);
-  assert.match(widgets, /Po úspešnom dopyte môžeme Google Ads a Meta/);
+  assert.match(widgets, /Po úspešnom dopyte môžeme Google Ads poslať konverznú udalosť\. Meta môže dostať aj zahashovaný email a telefón/);
   assert.match(adConversion, /import\('\.\/ad-conversion-engine\.mjs'\)/,
     'provider code stays behind the public dynamic facade');
   assert.match(adConversion, /maximumQueuedEvents/);
@@ -106,7 +106,9 @@ test('consent stores separate categories and removes analytics identifiers on de
   assert.match(adConversionEngine, /autoConfig', false/);
   assert.match(cookies, /Pri súhlase s marketingovým meraním sa reklamné značky Google Ads alebo Meta načítajú počas návštevy stránky/);
   assert.match(cookies, /Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu/);
-  assert.match(cookies, /neposielame meno, telefón, email, poznámku ani fotografie/);
+  assert.match(cookies, /zahashovaný email a telefón/);
+  assert.match(cookies, /Hashovanie nie je anonymizácia/);
+  assert.match(cookies, /Neposielame meno, poznámku ani fotografie/);
   assert.match(adConversionTests, /marketing consent loads tags on the landing page, but only an accepted lead sends a conversion/);
   assert.match(adConversionTests, /granting consent does not send a lead conversion/);
 });

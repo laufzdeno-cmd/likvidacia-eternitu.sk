@@ -5,7 +5,7 @@ import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
 export function createAcceptedLeadConversion(
   submissionId: string,
   materialType: string,
-  secret = process.env.AUTH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-auth-secret-change-me'),
+  secret = process.env.CONVERSION_EVENT_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-conversion-event-secret-change-me'),
 ): PendingMetaLead | null {
   if (!isValidLeadSubmissionId(submissionId)) return null;
   if (!secret) return null;

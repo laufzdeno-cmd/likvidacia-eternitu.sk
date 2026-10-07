@@ -9,7 +9,7 @@ import { sendLeadEmails } from '@/src/server/mail';
 import { attachDirectLeadUpload, deleteStoredLeadFile, readStoredLeadFile, storeLeadFile, type DirectLeadUpload } from '@/src/server/storage';
 import { createLeadSubmissionFingerprint, recordLeadAuditNonFatal } from '@/src/server/lead-submission-policy';
 import { parseLeadAttribution } from '@/src/server/lead-attribution';
-import { analyticsConsentCookieName, marketingConsentCookieName } from '@/src/lib/marketing-consent';
+import { analyticsConsentCookieName, isMarketingConsentSubject, marketingConsentCookieName, marketingConsentSubjectCookieName } from '@/src/lib/marketing-consent';
 import { leadSchema, maxLeadFiles, maxLeadFileSize } from '@/src/server/validation';
 import { createLeadReceiptToken, leadReceiptSecret } from '@/src/server/lead-receipt';
 import { createNativeLeadSubmissionId, nativeLeadRetryWindowMs } from '@/src/server/native-lead-id';
@@ -328,6 +328,7 @@ export async function POST(request: NextRequest) {
     });
     const analyticsConsentAtSubmit = request.cookies.get(analyticsConsentCookieName)?.value === 'granted';
     const marketingConsentAtSubmit = request.cookies.get(marketingConsentCookieName)?.value === 'granted';
+    const marketingConsentSubject = request.cookies.get(marketingConsentSubjectCookieName)?.value || '';
     const submittedAnalyticsSessionId = String(formData.get('analyticsSessionId') || '');
     const analyticsSessionId = analyticsConsentAtSubmit
       ? (/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submittedAnalyticsSessionId)
@@ -357,7 +358,9 @@ export async function POST(request: NextRequest) {
         wantsRooferRecommendation,
         selectedRooferId,
         ...(analyticsSessionId ? { analyticsConsentAtSubmit: true, analyticsSessionId } : {}),
-        ...(marketingConsentAtSubmit ? { marketingConsentAtSubmit: true } : {}),
+        ...(marketingConsentAtSubmit && isMarketingConsentSubject(marketingConsentSubject)
+          ? { marketingConsentAtSubmit: true, marketingConsentSubjectAtSubmit: marketingConsentSubject }
+          : {}),
         ...(leadAttribution ? { attribution: leadAttribution } : {}),
       },
     };

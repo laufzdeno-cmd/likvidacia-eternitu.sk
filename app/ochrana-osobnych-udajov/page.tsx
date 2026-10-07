@@ -37,7 +37,7 @@ export default function PrivacyPage() {
         },
         {
           title: 'Poskytovanie údajov',
-          text: 'Dáta neposkytujeme tretím stranám okrem prepravcov, skládok, účtovníctva a technických dodávateľov v nevyhnutnom rozsahu pre plnenie zmluvy, zákonných povinností a bezpečnú prevádzku služby. Ak udelíte samostatný súhlas s marketingovým meraním, po potvrdenom dopyte odošleme platforme Google Ads alebo Meta iba konverznú udalosť s pseudonymným ID; Meta dostane aj všeobecnú kategóriu materiálu. Neodosielame meno, telefón, email, poznámku ani nahraté fotografie. Pri načítaní značiek môžu platformy spracovať technické údaje prehliadača a pripojenia.',
+          text: 'Dáta neposkytujeme tretím stranám okrem prepravcov, skládok, účtovníctva a technických dodávateľov v nevyhnutnom rozsahu pre plnenie zmluvy, zákonných povinností a bezpečnú prevádzku služby. Ak udelíte samostatný súhlas s marketingovým meraním, po potvrdenom dopyte môžeme platforme Google Ads alebo Meta odoslať konverznú udalosť. Meta dostane stabilné ID udalosti, všeobecnú kategóriu materiálu, zdrojovú stránku, obmedzený údaj o prehliadači a zahashovaný email a telefón na priradenie konverzie. Hashovanie nie je anonymizácia. Neodosielame meno, poznámku ani nahraté fotografie. Pri načítaní značiek môžu platformy spracovať technické údaje prehliadača a pripojenia. Odvolanie marketingového súhlasu zastaví nové udalosti a zruší ešte neodoslané udalosti priradené k danému prehliadaču.',
         },
         {
           title: 'Cookies a analytika',

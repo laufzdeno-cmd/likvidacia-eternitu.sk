@@ -1,5 +1,6 @@
 export const analyticsConsentCookieName = 'astana_analytics_consent';
 export const marketingConsentCookieName = 'astana_marketing_consent';
+export const marketingConsentSubjectCookieName = 'astana_marketing_consent_subject';
 export const marketingConsentChangedEvent = 'astana:marketing-consent';
 
 export type MarketingConsent = 'granted' | 'denied';
@@ -9,6 +10,8 @@ const consentMaxAge = 31536000;
 const analyticsSessionStorageKey = 'astana_analytics_session';
 const analyticsAttributionStorageKey = 'astana_analytics_attribution';
 const analyticsLastActivityStorageKey = 'astana_analytics_last_activity';
+const marketingRevocationPendingStorageKey = 'astana_marketing_revocation_pending';
+let marketingRevocationRequest: Promise<boolean> | null = null;
 
 function removeSessionItem(key: string) {
   try {
@@ -28,6 +31,75 @@ function readBrowserCookie(name: string) {
     ?.slice(prefix.length) || '';
 }
 
+export function isMarketingConsentSubject(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+export function marketingConsentSubject() {
+  return readBrowserCookie(marketingConsentSubjectCookieName);
+}
+
+export function ensureMarketingConsentSubject() {
+  if (typeof window === 'undefined') return '';
+  const existing = marketingConsentSubject();
+  if (isMarketingConsentSubject(existing)) return existing;
+  const subject = window.crypto?.randomUUID?.();
+  if (!subject || !isMarketingConsentSubject(subject)) return '';
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${encodeURIComponent(marketingConsentSubjectCookieName)}=${subject}; Path=/; Max-Age=${consentMaxAge}; SameSite=Lax${secure}`;
+  return subject;
+}
+
+function setMarketingRevocationPending(pending: boolean) {
+  try {
+    if (pending) window.localStorage.setItem(marketingRevocationPendingStorageKey, '1');
+    else window.localStorage.removeItem(marketingRevocationPendingStorageKey);
+  } catch {
+    // Private browsing may disable storage. The immediate request still runs.
+  }
+}
+
+export function hasPendingMarketingRevocation() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(marketingRevocationPendingStorageKey) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function revokePendingMetaCapiOutbox() {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (marketingRevocationRequest) return marketingRevocationRequest;
+  marketingRevocationRequest = (async () => {
+    const subject = marketingConsentSubject();
+    if (!isMarketingConsentSubject(subject)) {
+      setMarketingRevocationPending(false);
+      return true;
+    }
+    setMarketingRevocationPending(true);
+    try {
+      const response = await fetch('/api/marketing-consent/revoke/', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        keepalive: true,
+      });
+      if (!response.ok) return false;
+      const body = await response.json().catch(() => null) as { ok?: unknown } | null;
+      if (body?.ok !== true) return false;
+      setMarketingRevocationPending(false);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    marketingRevocationRequest = null;
+  });
+  return marketingRevocationRequest;
+}
+
 function readConsentCookie(name: string): boolean | null {
   const value = readBrowserCookie(name);
   if (value === 'granted') return true;
@@ -42,12 +114,19 @@ export function readConsentPreferences(): ConsentPreferences | null {
   return analytics === null || marketing === null ? null : { analytics, marketing };
 }
 
+export function readConsentCategoryPreferences(): ConsentPreferences {
+  return {
+    analytics: readConsentCookie(analyticsConsentCookieName) === true,
+    marketing: readConsentCookie(marketingConsentCookieName) === true,
+  };
+}
+
 export function hasAnalyticsConsent() {
-  return readConsentPreferences()?.analytics === true;
+  return readConsentCookie(analyticsConsentCookieName) === true;
 }
 
 export function marketingConsent(): MarketingConsent {
-  return readConsentPreferences()?.marketing === true ? 'granted' : 'denied';
+  return readConsentCookie(marketingConsentCookieName) === true ? 'granted' : 'denied';
 }
 
 export function hasMarketingConsent() {
@@ -60,6 +139,7 @@ export function saveConsentPreferences(preferences: ConsentPreferences) {
   const secure = window.location.protocol === 'https:' ? '; Secure' : '';
   document.cookie = `${encodeURIComponent(analyticsConsentCookieName)}=${normalized.analytics ? 'granted' : 'denied'}; Path=/; Max-Age=${consentMaxAge}; SameSite=Lax${secure}`;
   document.cookie = `${encodeURIComponent(marketingConsentCookieName)}=${normalized.marketing ? 'granted' : 'denied'}; Path=/; Max-Age=${consentMaxAge}; SameSite=Lax${secure}`;
+  if (normalized.marketing) ensureMarketingConsentSubject();
   if (!normalized.analytics) {
     removeSessionItem(analyticsSessionStorageKey);
     removeSessionItem(analyticsAttributionStorageKey);

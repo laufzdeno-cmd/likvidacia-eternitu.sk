@@ -32,6 +32,32 @@ test('accepted conversion is stable, pseudonymous and material is a bounded cate
   assert.equal(createAcceptedLeadConversion('', 'Vlnitý eternit', secret), null);
 });
 
+test('default conversion ID ignores AUTH_SECRET rotation and requires its own production secret', () => {
+  const previous = {
+    auth: process.env.AUTH_SECRET,
+    conversion: process.env.CONVERSION_EVENT_SECRET,
+    nodeEnv: process.env.NODE_ENV,
+  };
+  try {
+    process.env.NODE_ENV = 'production';
+    process.env.CONVERSION_EVENT_SECRET = 'fixed-conversion-secret';
+    process.env.AUTH_SECRET = 'admin-auth-secret-before-rotation';
+    const before = createAcceptedLeadConversion(id, 'Vlnitý eternit');
+    process.env.AUTH_SECRET = 'admin-auth-secret-after-rotation';
+    const after = createAcceptedLeadConversion(id, 'Vlnitý eternit');
+    assert.deepEqual(after, before);
+
+    process.env.CONVERSION_EVENT_SECRET = 'different-conversion-secret';
+    assert.notEqual(createAcceptedLeadConversion(id, 'Vlnitý eternit')?.eventId, before?.eventId);
+    delete process.env.CONVERSION_EVENT_SECRET;
+    assert.equal(createAcceptedLeadConversion(id, 'Vlnitý eternit'), null);
+  } finally {
+    if (previous.auth === undefined) delete process.env.AUTH_SECRET; else process.env.AUTH_SECRET = previous.auth;
+    if (previous.conversion === undefined) delete process.env.CONVERSION_EVENT_SECRET; else process.env.CONVERSION_EVENT_SECRET = previous.conversion;
+    if (previous.nodeEnv === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous.nodeEnv;
+  }
+});
+
 test('lead input and direct conversion reject shared nil/max UUIDs but accept newer versions', () => {
   for (const invalid of ['00000000-0000-0000-0000-000000000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff']) {
     assert.equal(isValidLeadSubmissionId(invalid), false);

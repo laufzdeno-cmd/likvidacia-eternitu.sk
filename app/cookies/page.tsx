@@ -32,7 +32,7 @@ export default function CookiesPage() {
           </article>
           <article>
             <h2>Analytika a marketingové meranie</h2>
-            <p>Analytika sa zapne iba po vašom súhlase. Používa pseudonymné ID relácie a môže zaznamenať navštívenú cestu, šírku obrazovky, doménu odkazujúcej stránky a UTM zdroj kampane. Pri súhlase s marketingovým meraním sa reklamné značky Google Ads alebo Meta načítajú počas návštevy stránky. Poskytovatelia môžu pri načítaní spracovať technické údaje prehliadača a pripojenia. Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu. Obsahuje pseudonymné ID a Meta dostane aj obmedzenú kategóriu materiálu; neposielame meno, telefón, email, poznámku ani fotografie. Značky sa nenačítajú pri odmietnutí marketingového merania.</p>
+            <p>Analytika sa zapne iba po vašom súhlase. Používa pseudonymné ID relácie a môže zaznamenať navštívenú cestu, šírku obrazovky, doménu odkazujúcej stránky a UTM zdroj kampane. Pri súhlase s marketingovým meraním sa reklamné značky Google Ads alebo Meta načítajú počas návštevy stránky. Poskytovatelia môžu pri načítaní spracovať technické údaje prehliadača a pripojenia. Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu. Meta dostane stabilné ID udalosti, všeobecnú kategóriu materiálu, zdrojovú stránku, obmedzený údaj o prehliadači a zahashovaný email a telefón na priradenie konverzie. Hashovanie nie je anonymizácia. Neposielame meno, poznámku ani fotografie. Pri odmietnutí marketingového merania sa nové udalosti nevytvoria a čakajúce udalosti z daného prehliadača zrušíme.</p>
           </article>
           <article>
             <h2 id="nastavenia">Zmena voľby</h2>

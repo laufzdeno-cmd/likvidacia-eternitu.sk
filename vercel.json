@@ -1,6 +1,9 @@
 {
   "framework": "nextjs",
   "buildCommand": "npm run build",
+  "git": {
+    "deploymentEnabled": false
+  },
   "functions": {
     "app/api/admin/ponuka/[id]/pdf/route.ts": {
       "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
@@ -21,6 +24,10 @@
     },
     {
       "path": "/api/cron/lead-email-delivery/",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/meta-capi/",
       "schedule": "*/5 * * * *"
     },
     {

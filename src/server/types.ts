@@ -93,6 +93,43 @@ export type LeadFile = {
   createdAt: string;
 };
 
+export type MetaCapiOutboxStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'unknown' | 'cancelled';
+
+export type MetaCapiOutboxClaim = {
+  id: string;
+  leadId: string;
+  eventId: string;
+  eventTime: string;
+  eventSourceUrl: string;
+  material: 'vlnity' | 'plocha' | 'iny' | 'neviem';
+  attempt: number;
+  claimId: string;
+};
+
+export type MetaCapiDispatchInput = MetaCapiOutboxClaim & {
+  email: string;
+  phone: string;
+  clientUserAgent?: string;
+};
+
+export type MetaCapiDeliveryOutcome = {
+  status: 'sent' | 'failed' | 'unknown';
+  httpStatus?: number;
+  retryable: boolean;
+  errorCode?: 'provider_rejected' | 'provider_unavailable' | 'transport_unknown' | 'invalid_event'
+    | `meta_rejected_${number}` | `meta_rejected_${number}_${number}`
+    | `meta_unavailable_${number}` | `meta_unavailable_${number}_${number}`;
+};
+
+export type MetaCapiOutboxSummary = {
+  pending: number;
+  sending: number;
+  sent: number;
+  failed: number;
+  unknown: number;
+  cancelled: number;
+};
+
 export type AuditLog = {
   id: string;
   entityType:

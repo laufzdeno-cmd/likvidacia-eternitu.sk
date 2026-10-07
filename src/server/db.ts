@@ -52,6 +52,11 @@ import type {
   LeadSummaryPage,
   LeadStatus,
   LeadSummary,
+  MetaCapiDeliveryOutcome,
+  MetaCapiDispatchInput,
+  MetaCapiOutboxClaim,
+  MetaCapiOutboxStatus,
+  MetaCapiOutboxSummary,
   PriceOffer,
   PriceOfferInput,
   PriceOfferMaterialType,
@@ -83,6 +88,7 @@ import type {
   TestimonialStatus,
   Worker,
 } from './types';
+import { createAcceptedLeadConversion } from './lead-conversion';
 import { cleanSlovakText } from './slovak-text';
 import { mergeSiteContent } from './site-content-map';
 import { canUseTestimonialStatus, testimonialPublicContentHash } from './testimonial-policy';
@@ -110,6 +116,8 @@ type LocalDb = {
   leadFiles: LeadFile[];
   leadFileDeletionJobs: LeadFileDeletionJob[];
   leadEmailOutbox: LeadEmailOutbox[];
+  metaCapiOutbox: MetaCapiOutboxRecord[];
+  metaCapiConsentRevocations: MetaCapiConsentRevocation[];
   auditLogs: AuditLog[];
   quotes: Quote[];
   testimonials: Testimonial[];
@@ -352,6 +360,7 @@ async function cleanupLegacyData(db: Pool | PoolClient) {
       realization_term = replace(realization_term, '?o najsk?r', 'Čo najskôr')
     WHERE object_type LIKE '%?%' OR realization_term LIKE '%?%'
   `);
+  await migrateLegacyMetaCapiOutbox(db);
   // Never infer that a lead, job, or offer is disposable from its name/email.
   // Historical records are retained; archival/deletion must be an explicit admin action.
 }
@@ -363,6 +372,71 @@ async function ensureSchema() {
     throw error;
   });
   await schemaInitialization;
+}
+
+export async function migrateLegacyMetaCapiOutbox(db: Pool | PoolClient) {
+  const legacyExists = (await db.query("SELECT to_regclass('public.meta_capi_delivery_outbox') AS relation")).rows[0]?.relation;
+  if (!legacyExists) return;
+
+  await db.query(`
+    UPDATE meta_capi_delivery_outbox
+    SET client_ip=NULL, client_user_agent=NULL, fbp=NULL, fbc=NULL, updated_at=now()
+    WHERE client_ip IS NOT NULL OR client_user_agent IS NOT NULL OR fbp IS NOT NULL OR fbc IS NOT NULL
+  `);
+  const legacy = await db.query(`
+    SELECT old.*, leads.submission_id, leads.material_type, leads.raw_data, leads.deleted_at
+    FROM meta_capi_delivery_outbox old
+    INNER JOIN leads ON leads.id=old.event_id
+    WHERE old.state IN ('pending','retrying','sending')
+    ORDER BY old.created_at, old.event_id
+    FOR UPDATE OF old
+  `);
+  for (const row of legacy.rows) {
+    const conversion = row.submission_id && !row.deleted_at
+      ? createAcceptedLeadConversion(String(row.submission_id), String(row.material_type ?? row.material ?? ''))
+      : null;
+    const consentSubject = String(row.consent_subject ?? '');
+    const canMigrate = row.state !== 'sending' && conversion && validMetaCapiConsentSubject(consentSubject);
+    let migrated = false;
+    if (canMigrate && conversion) {
+      const rawData = row.raw_data && typeof row.raw_data === 'object' ? { ...row.raw_data } : {};
+      rawData.marketingConsentAtSubmit = true;
+      rawData.marketingConsentSubjectAtSubmit = consentSubject;
+      await db.query('UPDATE leads SET raw_data=$2::jsonb, updated_at=now() WHERE id=$1', [row.event_id, rawData]);
+      const sourceUrl = /^https:\/\/likvidacia-eternitu\.sk\/(?:[^\s#]{0,500})$/u.test(String(row.event_source_url ?? ''))
+        ? String(row.event_source_url)
+        : 'https://likvidacia-eternitu.sk/';
+      const inserted = await db.query(
+        `INSERT INTO lead_meta_capi_outbox (
+          id, lead_id, event_id, consent_subject, event_time, event_source_url, material, status, attempts,
+          max_attempts, retryable, next_attempt_at, last_error_code, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',$8,$9,true,$10,'legacy_migrated',$11,$11)
+        ON CONFLICT (lead_id) DO NOTHING RETURNING id`,
+        [
+          randomUUID(), row.event_id, conversion.eventId, consentSubject, row.event_time,
+          sourceUrl, conversion.material, Math.max(0, Number(row.attempt_count ?? 0)),
+          Math.max(1, Number(row.max_attempts ?? 5), Number(row.attempt_count ?? 0) + 1), new Date().toISOString(), row.created_at,
+        ],
+      );
+      migrated = Boolean(inserted.rowCount);
+      if (inserted.rows[0]) {
+        await db.query(
+          `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+           VALUES ($1,'system',$2,'meta_capi_legacy_migrated','system',$3,now())`,
+          [randomUUID(), inserted.rows[0].id, { previousState: row.state, status: 'pending' }],
+        );
+      }
+    }
+    const terminalCode = row.state === 'sending'
+      ? 'legacy_delivery_unknown_no_retry'
+      : migrated ? 'migrated_to_privacy_safe_outbox' : 'legacy_event_superseded';
+    await db.query(
+      `UPDATE meta_capi_delivery_outbox
+       SET state='permanently_failed', lease_token=NULL, lease_expires_at=NULL,
+           last_error_code=$2, updated_at=now() WHERE event_id=$1`,
+      [row.event_id, terminalCode],
+    );
+  }
 }
 
 async function initializeSchema() {
@@ -668,6 +742,54 @@ async function initializeSchema() {
 
     ALTER TABLE lead_email_outbox ADD COLUMN IF NOT EXISTS message_id text NOT NULL DEFAULT '';
     ALTER TABLE lead_email_outbox ADD COLUMN IF NOT EXISTS retryable boolean NOT NULL DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS lead_meta_capi_outbox (
+      id uuid PRIMARY KEY,
+      lead_id uuid NOT NULL UNIQUE REFERENCES leads(id) ON DELETE CASCADE,
+      event_id text NOT NULL UNIQUE,
+      consent_subject uuid,
+      event_time timestamptz NOT NULL,
+      event_source_url text NOT NULL,
+      material text NOT NULL CHECK (material IN ('vlnity', 'plocha', 'iny', 'neviem')),
+      status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled')),
+      attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+      max_attempts integer NOT NULL DEFAULT 6 CHECK (max_attempts > 0),
+      retryable boolean NOT NULL DEFAULT true,
+      next_attempt_at timestamptz NOT NULL DEFAULT now(),
+      claim_id uuid,
+      claimed_until timestamptz,
+      last_http_status integer,
+      last_error_code text NOT NULL DEFAULT '',
+      consent_revoked_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      sent_at timestamptz
+    );
+    CREATE TABLE IF NOT EXISTS lead_meta_capi_consent_subjects (
+      consent_subject uuid PRIMARY KEY,
+      revoked_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    ALTER TABLE lead_meta_capi_outbox ALTER COLUMN event_id TYPE text USING event_id::text;
+    ALTER TABLE lead_meta_capi_outbox ADD COLUMN IF NOT EXISTS consent_subject uuid;
+    CREATE INDEX IF NOT EXISTS lead_meta_capi_outbox_due_idx
+      ON lead_meta_capi_outbox (next_attempt_at, created_at)
+      WHERE status IN ('pending', 'failed', 'unknown', 'sending');
+    CREATE INDEX IF NOT EXISTS lead_meta_capi_outbox_consent_subject_idx
+      ON lead_meta_capi_outbox (consent_subject)
+      WHERE consent_subject IS NOT NULL AND status NOT IN ('sent', 'cancelled');
+
+    -- A short-lived predecessor stored advertising identifiers in its outbox.
+    -- If that table exists from a mixed-version environment, neutralize those
+    -- values instead of importing them into the privacy-minimal replacement.
+    DO $$
+    BEGIN
+      IF to_regclass('public.meta_capi_delivery_outbox') IS NOT NULL THEN
+        EXECUTE 'UPDATE meta_capi_delivery_outbox SET client_ip = NULL, client_user_agent = NULL, fbp = NULL, fbc = NULL';
+      END IF;
+    END
+    $$;
 
     CREATE TABLE IF NOT EXISTS photo_upload_invites (
       id uuid PRIMARY KEY,
@@ -1284,7 +1406,7 @@ async function initializeSchema() {
   // DDL edits change this signature automatically. Bump the data version when
   // changing cleanupLegacyData without changing DDL.
   const schemaSignature = createHash('sha256')
-    .update('astana-schema-data-v1\n')
+    .update('astana-schema-data-v2\n')
     .update(schemaSql)
     .digest('hex');
   const client = await db.connect();
@@ -1368,6 +1490,59 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
   };
 }
 
+function normalizeLocalMetaCapiOutbox(rows: unknown[]): MetaCapiOutboxRecord[] {
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const metaEventId = /^lead:[a-f0-9]{64}$/;
+  const statuses = new Set<MetaCapiOutboxStatus>(['pending', 'sending', 'sent', 'failed', 'unknown', 'cancelled']);
+  const materials = new Set<MetaCapiOutboxClaim['material']>(['vlnity', 'plocha', 'iny', 'neviem']);
+  const safeIso = (value: unknown, fallback: string) => {
+    const timestamp = Date.parse(String(value ?? ''));
+    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : fallback;
+  };
+  return rows.flatMap((value) => {
+    if (!value || typeof value !== 'object') return [];
+    const row = value as Record<string, unknown>;
+    const leadId = String(row.leadId ?? row.lead_id ?? '');
+    const eventId = String(row.eventId ?? row.event_id ?? '');
+    const legacy = typeof row.id !== 'string' || typeof row.status !== 'string' || !metaEventId.test(eventId);
+    const consentSubject = String(row.consentSubject ?? row.consent_subject ?? '');
+    const id = String(row.id ?? eventId);
+    if (!uuid.test(id) || !uuid.test(leadId) || (!metaEventId.test(eventId) && !uuid.test(eventId))) return [];
+    const requestedStatus = String(row.status ?? row.state ?? 'cancelled') as MetaCapiOutboxStatus;
+    const status: MetaCapiOutboxStatus = legacy || !uuid.test(consentSubject)
+      ? (requestedStatus === 'sent' ? 'sent' : 'cancelled')
+      : (statuses.has(requestedStatus) ? requestedStatus : 'cancelled');
+    const createdAt = safeIso(row.createdAt ?? row.created_at, new Date(0).toISOString());
+    const updatedAt = safeIso(row.updatedAt ?? row.updated_at, createdAt);
+    const eventTime = safeIso(row.eventTime ?? row.event_time, createdAt);
+    const material = String(row.material ?? 'iny') as MetaCapiOutboxClaim['material'];
+    return [{
+      id,
+      leadId,
+      eventId,
+      consentSubject: uuid.test(consentSubject) ? consentSubject : undefined,
+      eventTime,
+      eventSourceUrl: /^https:\/\/likvidacia-eternitu\.sk\//.test(String(row.eventSourceUrl ?? row.event_source_url ?? ''))
+        ? String(row.eventSourceUrl ?? row.event_source_url)
+        : 'https://likvidacia-eternitu.sk/',
+      material: materials.has(material) ? material : 'iny',
+      status,
+      attempts: Math.max(0, Number(row.attempts ?? row.attempt_count ?? 0) || 0),
+      maxAttempts: Math.max(1, Number(row.maxAttempts ?? row.max_attempts ?? 6) || 6),
+      retryable: !legacy && Boolean(row.retryable) && !['sent', 'cancelled'].includes(status),
+      nextAttemptAt: safeIso(row.nextAttemptAt ?? row.next_attempt_at, createdAt),
+      claimId: !legacy && uuid.test(String(row.claimId ?? row.claim_id ?? '')) ? String(row.claimId ?? row.claim_id) : undefined,
+      claimedUntil: !legacy && (row.claimedUntil || row.claimed_until) ? safeIso(row.claimedUntil ?? row.claimed_until, createdAt) : undefined,
+      lastHttpStatus: Number.isInteger(Number(row.lastHttpStatus ?? row.last_http_status)) ? Number(row.lastHttpStatus ?? row.last_http_status) : undefined,
+      lastErrorCode: legacy ? 'legacy_record_neutralized' : String(row.lastErrorCode ?? row.last_error_code ?? '').slice(0, 80),
+      consentRevokedAt: row.consentRevokedAt || row.consent_revoked_at ? safeIso(row.consentRevokedAt ?? row.consent_revoked_at, createdAt) : undefined,
+      createdAt,
+      updatedAt,
+      sentAt: row.sentAt || row.sent_at ? safeIso(row.sentAt ?? row.sent_at, createdAt) : undefined,
+    }];
+  });
+}
+
 function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
   const existingJobIds = new Set((data.businessJobs ?? []).map((job) => job.id));
   const auditedJobsByOfferNumber = new Map<string, Set<string>>();
@@ -1385,6 +1560,10 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     leadFiles: data.leadFiles ?? [],
     leadFileDeletionJobs: data.leadFileDeletionJobs ?? [],
     leadEmailOutbox: data.leadEmailOutbox ?? [],
+    metaCapiOutbox: normalizeLocalMetaCapiOutbox(data.metaCapiOutbox ?? []),
+    metaCapiConsentRevocations: (data.metaCapiConsentRevocations ?? []).filter((item) => (
+      validMetaCapiConsentSubject(item.consentSubject) && Boolean(item.revokedAt)
+    )),
     auditLogs: data.auditLogs ?? [],
     quotes: data.quotes ?? [],
     testimonials: data.testimonials ?? [],
@@ -1755,6 +1934,8 @@ async function readLocalDb(): Promise<LocalDb> {
       leadFiles: [],
       leadFileDeletionJobs: [],
       leadEmailOutbox: [],
+      metaCapiOutbox: [],
+      metaCapiConsentRevocations: [],
       auditLogs: [],
       quotes: [],
       testimonials: [],
@@ -2355,6 +2536,50 @@ export async function getLeadSubmissionForRetry(submissionId: string): Promise<L
   };
 }
 
+function validMetaCapiConsentSubject(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function requestedMetaCapiConsentSubject(rawData: Record<string, unknown> | undefined) {
+  const subject = rawData?.marketingConsentSubjectAtSubmit;
+  return rawData?.marketingConsentAtSubmit === true && validMetaCapiConsentSubject(subject)
+    ? subject
+    : undefined;
+}
+
+function metaCapiEventSourceUrl(rawData: Record<string, unknown> | undefined) {
+  const attribution = rawData?.attribution && typeof rawData.attribution === 'object'
+    ? rawData.attribution as Record<string, unknown>
+    : {};
+  const landingPath = typeof attribution.landingPath === 'string' ? attribution.landingPath.trim() : '';
+  return /^\/(?!\/)[A-Za-z0-9._~/%-]{0,299}$/u.test(landingPath)
+    ? `https://likvidacia-eternitu.sk${landingPath}`
+    : 'https://likvidacia-eternitu.sk/';
+}
+
+function buildMetaCapiOutboxRecord(lead: Lead, submissionId: string, timestamp: string): MetaCapiOutboxRecord | undefined {
+  const consentSubject = lead.rawData?.marketingConsentSubjectAtSubmit;
+  const conversion = createAcceptedLeadConversion(submissionId, lead.materialType);
+  if (!validMetaCapiConsentSubject(consentSubject) || !conversion) return undefined;
+  return {
+    id: randomUUID(),
+    leadId: lead.id,
+    eventId: conversion.eventId,
+    consentSubject,
+    eventTime: lead.createdAt,
+    eventSourceUrl: metaCapiEventSourceUrl(lead.rawData),
+    material: conversion.material,
+    status: 'pending',
+    attempts: 0,
+    maxAttempts: 6,
+    retryable: true,
+    nextAttemptAt: timestamp,
+    lastErrorCode: '',
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
 export async function createLeadSubmission(
   input: LeadInput & { submissionId: string; submissionHash: string },
   uploadedFiles: Omit<LeadFile, 'id' | 'createdAt'>[],
@@ -2384,6 +2609,9 @@ export async function createLeadSubmission(
       };
     }
 
+    const consentSubject = requestedMetaCapiConsentSubject(input.rawData);
+    const consentRevoked = Boolean(consentSubject && local.metaCapiConsentRevocations.some((item) => item.consentSubject === consentSubject));
+    const storedRawData = consentRevoked ? neutralizedMarketingRawData(input.rawData) : input.rawData;
     const leadId = randomUUID();
     const lead: Lead = {
       ...input,
@@ -2400,7 +2628,7 @@ export async function createLeadSubmission(
       selectedRooferId: input.selectedRooferId ?? '',
       ownerEmail: '',
       nextAction: '',
-      rawData: { ...(input.rawData ?? {}), submissionFingerprintHash: input.submissionHash },
+      rawData: { ...(storedRawData ?? {}), submissionFingerprintHash: input.submissionHash },
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -2445,16 +2673,21 @@ export async function createLeadSubmission(
       createdAt: timestamp,
       updatedAt: timestamp,
     }));
+    const metaOutbox = lead.rawData?.marketingConsentAtSubmit === true && validMetaCapiConsentSubject(lead.rawData?.marketingConsentSubjectAtSubmit)
+      ? buildMetaCapiOutboxRecord(lead, input.submissionId, timestamp)
+      : undefined;
     const auditLogs: AuditLog[] = [
       { id: randomUUID(), entityType: 'lead', entityId: leadId, action: 'lead_created', actorEmail: 'system', changes: { status: 'novy' }, createdAt: timestamp },
       { id: randomUUID(), entityType: 'business_job', entityId: businessJob.id, action: 'business_job_created', actorEmail: 'system', changes: { status: businessJob.status, leadId }, createdAt: timestamp },
       { id: randomUUID(), entityType: 'business_job', entityId: businessJob.id, action: 'business_job_lead_received', actorEmail: 'system', changes: { leadId }, createdAt: timestamp },
       ...(files.length ? [{ id: randomUUID(), entityType: 'lead' as const, entityId: leadId, action: 'files_uploaded', actorEmail: 'system', changes: { count: files.length }, createdAt: timestamp }] : []),
+      ...(metaOutbox ? [{ id: randomUUID(), entityType: 'system' as const, entityId: metaOutbox.id, action: 'meta_capi_queued', actorEmail: 'system', changes: { status: 'pending' }, createdAt: timestamp }] : []),
     ];
     local.leads.unshift(lead);
     local.businessJobs.unshift(businessJob);
     local.leadFiles.unshift(...files);
     local.leadEmailOutbox.unshift(...outbox);
+    if (metaOutbox) local.metaCapiOutbox.unshift(metaOutbox);
     local.auditLogs.unshift(...auditLogs);
     await writeLocalDb(local);
     return { lead, businessJobId: businessJob.id, files, duplicate: false };
@@ -2464,6 +2697,20 @@ export async function createLeadSubmission(
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const consentSubject = requestedMetaCapiConsentSubject(input.rawData);
+    let storedRawData = { ...(input.rawData ?? {}) };
+    if (consentSubject) {
+      await client.query(
+        `INSERT INTO lead_meta_capi_consent_subjects (consent_subject, created_at, updated_at)
+         VALUES ($1,$2,$2) ON CONFLICT (consent_subject) DO NOTHING`,
+        [consentSubject, timestamp],
+      );
+      const consentState = await client.query(
+        'SELECT revoked_at FROM lead_meta_capi_consent_subjects WHERE consent_subject=$1 FOR UPDATE',
+        [consentSubject],
+      );
+      if (consentState.rows[0]?.revoked_at) storedRawData = neutralizedMarketingRawData(storedRawData);
+    }
     const leadId = randomUUID();
     const jobId = randomUUID();
     const insertLead = await client.query(
@@ -2477,7 +2724,7 @@ export async function createLeadSubmission(
         leadId, input.submissionId, input.submissionHash, timestamp, timestamp, input.fullName, input.phone, input.email,
         input.city, input.district ?? '', input.objectType, input.materialType, input.areaEstimate,
         input.preferredContact ?? 'Zavolajte mi', input.roofer ?? '', input.term ?? '', input.note ?? '', input.gdpr,
-        input.source ?? 'web', '', { ...(input.rawData ?? {}), submissionFingerprintHash: input.submissionHash },
+        input.source ?? 'web', '', { ...storedRawData, submissionFingerprintHash: input.submissionHash },
         Boolean(input.wantsRooferRecommendation), input.selectedRooferId ?? '',
       ],
     );
@@ -2566,11 +2813,15 @@ export async function createLeadSubmission(
       [input.submissionId, timestamp, directDraftKeys],
     );
 
+    const metaOutbox = lead.rawData?.marketingConsentAtSubmit === true && validMetaCapiConsentSubject(lead.rawData?.marketingConsentSubjectAtSubmit)
+      ? buildMetaCapiOutboxRecord(lead, input.submissionId, timestamp)
+      : undefined;
     const auditRows = [
       ['lead', lead.id, 'lead_created', { status: 'novy' }],
       ['business_job', jobId, 'business_job_created', { status: 'DOPYT', leadId: lead.id }],
       ['business_job', jobId, 'business_job_lead_received', { leadId: lead.id }],
       ...(files.length ? [['lead', lead.id, 'files_uploaded', { count: files.length }]] : []),
+      ...(metaOutbox ? [['system', metaOutbox.id, 'meta_capi_queued', { status: 'pending' }]] : []),
     ] as const;
     for (const [entityType, entityId, action, changes] of auditRows) {
       await client.query(
@@ -2586,6 +2837,15 @@ export async function createLeadSubmission(
         [randomUUID(), lead.id, recipientRole, `lead:${input.submissionId}:${recipientRole}`, timestamp],
       );
     }
+    if (metaOutbox) {
+      await client.query(
+        `INSERT INTO lead_meta_capi_outbox (
+          id, lead_id, event_id, consent_subject, event_time, event_source_url, material, status, attempts,
+          max_attempts, retryable, next_attempt_at, last_error_code, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending',0,$8,true,$9,'',$9,$9)`,
+        [metaOutbox.id, lead.id, metaOutbox.eventId, metaOutbox.consentSubject, lead.createdAt, metaOutbox.eventSourceUrl, metaOutbox.material, metaOutbox.maxAttempts, timestamp],
+      );
+    }
 
     await client.query('COMMIT');
     return { lead, businessJobId: jobId, files, duplicate: false };
@@ -2595,6 +2855,495 @@ export async function createLeadSubmission(
   } finally {
     client.release();
   }
+}
+
+const metaCapiClaimDurationMs = 5 * 60_000;
+
+function metaCapiRetryAt(at: Date, attempts: number) {
+  const delay = Math.min(30_000 * 2 ** Math.max(0, attempts - 1), 60 * 60_000);
+  return new Date(at.getTime() + delay).toISOString();
+}
+
+function metaCapiClaim(record: MetaCapiOutboxRecord): MetaCapiOutboxClaim {
+  return {
+    id: record.id,
+    leadId: record.leadId,
+    eventId: record.eventId,
+    eventTime: record.eventTime,
+    eventSourceUrl: record.eventSourceUrl,
+    material: record.material,
+    attempt: record.attempts,
+    claimId: record.claimId || '',
+  };
+}
+
+function neutralizedMarketingRawData(rawData: Record<string, unknown> | undefined) {
+  const next = { ...(rawData ?? {}) };
+  delete next.marketingConsentAtSubmit;
+  delete next.marketingConsentSubjectAtSubmit;
+  if (next.attribution && typeof next.attribution === 'object') {
+    const attribution = { ...(next.attribution as Record<string, unknown>) };
+    delete attribution.fbclid;
+    delete attribution.gclid;
+    delete attribution.gbraid;
+    delete attribution.wbraid;
+    next.attribution = attribution;
+  }
+  return next;
+}
+
+function safeMetaCapiOutcome(outcome: MetaCapiDeliveryOutcome): MetaCapiDeliveryOutcome {
+  const allowedCodes = new Set(['provider_rejected', 'provider_unavailable', 'transport_unknown', 'invalid_event']);
+  const providerCode = typeof outcome.errorCode === 'string' && /^meta_(?:rejected|unavailable)_\d{1,10}(?:_\d{1,10})?$/.test(outcome.errorCode)
+    ? outcome.errorCode
+    : undefined;
+  return {
+    status: ['sent', 'failed', 'unknown'].includes(outcome.status) ? outcome.status : 'unknown',
+    httpStatus: Number.isInteger(outcome.httpStatus) && Number(outcome.httpStatus) >= 100 && Number(outcome.httpStatus) <= 599
+      ? Number(outcome.httpStatus)
+      : undefined,
+    retryable: Boolean(outcome.retryable),
+    errorCode: outcome.errorCode && allowedCodes.has(outcome.errorCode) ? outcome.errorCode : providerCode,
+  };
+}
+
+export async function claimMetaCapiOutboxEvents(limit = 10, at = new Date()): Promise<MetaCapiOutboxClaim[]> {
+  await ensureSchema();
+  const boundedLimit = Math.min(Math.max(Math.trunc(limit), 1), 25);
+  const timestamp = at.toISOString();
+  const claimedUntil = new Date(at.getTime() + metaCapiClaimDurationMs).toISOString();
+  const claimId = randomUUID();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      let changed = false;
+      for (const record of local.metaCapiOutbox) {
+        const lead = local.leads.find((item) => item.id === record.leadId);
+        if (['sent', 'cancelled'].includes(record.status) || record.consentRevokedAt) continue;
+        if (!lead || lead.deletedAt || lead.rawData?.marketingConsentAtSubmit !== true
+          || !record.consentSubject || lead.rawData?.marketingConsentSubjectAtSubmit !== record.consentSubject) {
+          record.status = 'cancelled';
+          record.retryable = false;
+          record.claimId = undefined;
+          record.claimedUntil = undefined;
+          record.lastErrorCode = 'consent_unavailable';
+          record.consentRevokedAt = timestamp;
+          record.updatedAt = timestamp;
+          local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: 'meta_capi_cancelled', actorEmail: 'meta-capi-cron', changes: { status: 'cancelled', reason: 'consent_unavailable' }, createdAt: timestamp });
+          changed = true;
+        }
+      }
+      const candidates = local.metaCapiOutbox
+        .filter((record) => {
+          if (record.attempts >= record.maxAttempts || record.consentRevokedAt) return false;
+          const due = record.nextAttemptAt <= timestamp;
+          const abandoned = record.status === 'sending' && (!record.claimedUntil || record.claimedUntil <= timestamp);
+          return abandoned || (due && (record.status === 'pending' || ((record.status === 'failed' || record.status === 'unknown') && record.retryable)));
+        })
+        .sort((left, right) => left.nextAttemptAt.localeCompare(right.nextAttemptAt) || left.id.localeCompare(right.id))
+        .slice(0, boundedLimit);
+      for (const record of candidates) {
+        const reclaimed = record.status === 'sending';
+        if (reclaimed) local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: 'meta_capi_unknown', actorEmail: 'meta-capi-cron', changes: { status: 'unknown', reason: 'claim_expired', attempt: record.attempts }, createdAt: timestamp });
+        record.status = 'sending';
+        record.attempts += 1;
+        record.retryable = false;
+        record.claimId = claimId;
+        record.claimedUntil = claimedUntil;
+        record.updatedAt = timestamp;
+        local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: 'meta_capi_claimed', actorEmail: 'meta-capi-cron', changes: { status: 'sending', attempt: record.attempts, reclaimed }, createdAt: timestamp });
+        changed = true;
+      }
+      if (changed) await writeLocalDb(local);
+      return candidates.map(metaCapiClaim);
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const cancelled = await client.query(
+      `UPDATE lead_meta_capi_outbox outbox
+       SET status='cancelled', retryable=false, claim_id=NULL, claimed_until=NULL,
+           last_error_code='consent_unavailable', consent_revoked_at=COALESCE(consent_revoked_at,$1), updated_at=$1
+       FROM leads
+       WHERE leads.id=outbox.lead_id AND outbox.status NOT IN ('sent','cancelled')
+         AND (leads.deleted_at IS NOT NULL
+           OR leads.raw_data->>'marketingConsentAtSubmit' IS DISTINCT FROM 'true'
+           OR outbox.consent_subject IS NULL
+           OR leads.raw_data->>'marketingConsentSubjectAtSubmit' IS DISTINCT FROM outbox.consent_subject::text)
+       RETURNING outbox.id`,
+      [timestamp],
+    );
+    for (const row of cancelled.rows) await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'system',$2,'meta_capi_cancelled','meta-capi-cron',$3,$4)`,
+      [randomUUID(), row.id, { status: 'cancelled', reason: 'consent_unavailable' }, timestamp],
+    );
+    const claimed = await client.query(
+      `WITH candidates AS (
+         SELECT outbox.id, outbox.status='sending' AS reclaimed
+         FROM lead_meta_capi_outbox outbox
+         INNER JOIN leads ON leads.id=outbox.lead_id
+         WHERE outbox.consent_revoked_at IS NULL AND leads.deleted_at IS NULL
+           AND leads.raw_data->>'marketingConsentAtSubmit'='true'
+           AND outbox.consent_subject IS NOT NULL
+           AND leads.raw_data->>'marketingConsentSubjectAtSubmit'=outbox.consent_subject::text
+           AND outbox.attempts < outbox.max_attempts
+           AND (
+             (outbox.status='pending' AND outbox.next_attempt_at <= $1)
+             OR (outbox.status IN ('failed','unknown') AND outbox.retryable=true AND outbox.next_attempt_at <= $1)
+             OR (outbox.status='sending' AND (outbox.claimed_until IS NULL OR outbox.claimed_until <= $1))
+           )
+         ORDER BY outbox.next_attempt_at, outbox.created_at, outbox.id
+         FOR UPDATE OF outbox SKIP LOCKED
+         LIMIT $2
+       )
+       UPDATE lead_meta_capi_outbox outbox
+       SET status='sending', attempts=outbox.attempts+1, retryable=false,
+           claim_id=$3, claimed_until=$4, updated_at=$1
+       FROM candidates
+       WHERE outbox.id=candidates.id
+       RETURNING outbox.*, candidates.reclaimed`,
+      [timestamp, boundedLimit, claimId, claimedUntil],
+    );
+    for (const row of claimed.rows) {
+      if (row.reclaimed) await client.query(
+        `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+         VALUES ($1,'system',$2,'meta_capi_unknown','meta-capi-cron',$3,$4)`,
+        [randomUUID(), row.id, { status: 'unknown', reason: 'claim_expired', attempt: Number(row.attempts) - 1 }, timestamp],
+      );
+      await client.query(
+        `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+         VALUES ($1,'system',$2,'meta_capi_claimed','meta-capi-cron',$3,$4)`,
+        [randomUUID(), row.id, { status: 'sending', attempt: Number(row.attempts), reclaimed: Boolean(row.reclaimed) }, timestamp],
+      );
+    }
+    await client.query('COMMIT');
+    return claimed.rows.map((row) => ({
+      id: String(row.id), leadId: String(row.lead_id), eventId: String(row.event_id),
+      eventTime: new Date(String(row.event_time)).toISOString(), eventSourceUrl: String(row.event_source_url),
+      material: String(row.material) as MetaCapiOutboxClaim['material'], attempt: Number(row.attempts), claimId: String(row.claim_id),
+    }));
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function prepareClaimedMetaCapiEvent(
+  claim: MetaCapiOutboxClaim,
+  at = new Date(),
+): Promise<MetaCapiDispatchInput | null> {
+  await ensureSchema();
+  const timestamp = at.toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const record = local.metaCapiOutbox.find((item) => item.id === claim.id && item.status === 'sending' && item.claimId === claim.claimId);
+      const lead = record ? local.leads.find((item) => item.id === record.leadId) : undefined;
+      if (!record || !lead || lead.deletedAt || lead.rawData?.marketingConsentAtSubmit !== true || record.consentRevokedAt
+        || !record.consentSubject || lead.rawData?.marketingConsentSubjectAtSubmit !== record.consentSubject) {
+        if (record) {
+          record.status = 'cancelled'; record.retryable = false; record.claimId = undefined; record.claimedUntil = undefined;
+          record.lastErrorCode = 'consent_unavailable'; record.consentRevokedAt = timestamp; record.updatedAt = timestamp;
+          local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: 'meta_capi_cancelled', actorEmail: 'meta-capi-cron', changes: { status: 'cancelled', reason: 'consent_unavailable' }, createdAt: timestamp });
+          await writeLocalDb(local);
+        }
+        return null;
+      }
+      return {
+        ...claim,
+        email: lead.email,
+        phone: lead.phone,
+        clientUserAgent: typeof lead.rawData?.userAgent === 'string' ? lead.rawData.userAgent : undefined,
+      };
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const locked = await client.query(
+      `SELECT outbox.*, leads.email, leads.phone, leads.raw_data, leads.deleted_at
+       FROM lead_meta_capi_outbox outbox
+       INNER JOIN leads ON leads.id=outbox.lead_id
+       WHERE outbox.id=$1 AND outbox.status='sending' AND outbox.claim_id=$2
+       FOR UPDATE OF outbox, leads`,
+      [claim.id, claim.claimId],
+    );
+    const row = locked.rows[0];
+    if (!row) { await client.query('ROLLBACK'); return null; }
+    if (row.deleted_at || row.consent_revoked_at || row.raw_data?.marketingConsentAtSubmit !== true
+      || !row.consent_subject || row.raw_data?.marketingConsentSubjectAtSubmit !== String(row.consent_subject)) {
+      await client.query(
+        `UPDATE lead_meta_capi_outbox SET status='cancelled', retryable=false, claim_id=NULL, claimed_until=NULL,
+         last_error_code='consent_unavailable', consent_revoked_at=COALESCE(consent_revoked_at,$2), updated_at=$2 WHERE id=$1`,
+        [claim.id, timestamp],
+      );
+      await client.query(
+        `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+         VALUES ($1,'system',$2,'meta_capi_cancelled','meta-capi-cron',$3,$4)`,
+        [randomUUID(), claim.id, { status: 'cancelled', reason: 'consent_unavailable' }, timestamp],
+      );
+      await client.query('COMMIT');
+      return null;
+    }
+    const input: MetaCapiDispatchInput = {
+        ...claim,
+        email: String(row.email),
+        phone: String(row.phone),
+        clientUserAgent: typeof row.raw_data?.userAgent === 'string' ? row.raw_data.userAgent : undefined,
+    };
+    await client.query('COMMIT');
+    return input;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function settleClaimedMetaCapiEvent(
+  claim: MetaCapiOutboxClaim,
+  rawOutcome: MetaCapiDeliveryOutcome,
+  at = new Date(),
+): Promise<MetaCapiOutboxStatus | null> {
+  await ensureSchema();
+  const timestamp = at.toISOString();
+  const outcome = safeMetaCapiOutcome(rawOutcome);
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const record = local.metaCapiOutbox.find((item) => item.id === claim.id && item.status === 'sending' && item.claimId === claim.claimId);
+      if (!record) return null;
+      const exhausted = record.attempts >= record.maxAttempts;
+      record.status = outcome.status;
+      record.retryable = outcome.status !== 'sent' && outcome.retryable && !exhausted;
+      record.nextAttemptAt = record.retryable ? metaCapiRetryAt(at, record.attempts) : record.nextAttemptAt;
+      record.claimId = undefined;
+      record.claimedUntil = undefined;
+      record.lastHttpStatus = outcome.httpStatus;
+      record.lastErrorCode = outcome.status === 'sent' ? '' : exhausted ? 'retry_limit_reached' : outcome.errorCode || 'provider_unavailable';
+      record.updatedAt = timestamp;
+      if (outcome.status === 'sent') record.sentAt = timestamp;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: `meta_capi_${outcome.status}`, actorEmail: 'meta-capi-cron', changes: { status: outcome.status, attempt: record.attempts, httpStatus: outcome.httpStatus ?? null, retryable: record.retryable, errorCode: record.lastErrorCode || null }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return record.status;
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const locked = await client.query(
+      `SELECT attempts, max_attempts
+       FROM lead_meta_capi_outbox
+       WHERE id=$1 AND status='sending' AND claim_id=$2
+       FOR UPDATE`,
+      [claim.id, claim.claimId],
+    );
+    const row = locked.rows[0];
+    if (!row) { await client.query('ROLLBACK'); return null; }
+    const attempts = Number(row.attempts);
+    const exhausted = attempts >= Number(row.max_attempts);
+    const retryable = outcome.status !== 'sent' && outcome.retryable && !exhausted;
+    const errorCode = outcome.status === 'sent' ? '' : exhausted ? 'retry_limit_reached' : outcome.errorCode || 'provider_unavailable';
+    const nextAttemptAt = retryable ? metaCapiRetryAt(at, attempts) : null;
+    await client.query(
+      `UPDATE lead_meta_capi_outbox
+       SET status=$3, retryable=$4, next_attempt_at=COALESCE($5,next_attempt_at), claim_id=NULL, claimed_until=NULL,
+           last_http_status=$6, last_error_code=$7, updated_at=$8,
+           sent_at=CASE WHEN $3='sent' THEN $8 ELSE sent_at END
+       WHERE id=$1 AND claim_id=$2`,
+      [claim.id, claim.claimId, outcome.status, retryable, nextAttemptAt, outcome.httpStatus ?? null, errorCode, timestamp],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'system',$2,$3,'meta-capi-cron',$4,$5)`,
+      [randomUUID(), claim.id, `meta_capi_${outcome.status}`, { status: outcome.status, attempt: attempts, httpStatus: outcome.httpStatus ?? null, retryable, errorCode: errorCode || null }, timestamp],
+    );
+    await client.query('COMMIT');
+    return outcome.status;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function revokeMetaCapiConsentForLead(leadId: string, actor = 'consent-revocation', at = new Date()) {
+  await ensureSchema();
+  const timestamp = at.toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const lead = local.leads.find((item) => item.id === leadId);
+      if (!lead) return 0;
+      lead.rawData = neutralizedMarketingRawData(lead.rawData);
+      delete lead.rawData.marketingConsentSubjectAtSubmit;
+      lead.updatedAt = timestamp;
+      const records = local.metaCapiOutbox.filter((item) => item.leadId === leadId);
+      for (const record of records) {
+        const previousStatus = record.status;
+        record.consentRevokedAt = timestamp;
+        if (record.status === 'sending') record.status = 'unknown';
+        else if (record.status !== 'sent') record.status = 'cancelled';
+        record.retryable = false; record.claimId = undefined; record.claimedUntil = undefined;
+        record.lastErrorCode = 'consent_revoked'; record.updatedAt = timestamp;
+        local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: 'meta_capi_consent_revoked', actorEmail: actor, changes: { previousStatus, status: record.status }, createdAt: timestamp });
+      }
+      await writeLocalDb(local);
+      return records.length;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const lead = await client.query('SELECT id FROM leads WHERE id=$1 FOR UPDATE', [leadId]);
+    if (!lead.rowCount) { await client.query('ROLLBACK'); return 0; }
+    await client.query(
+      `UPDATE leads SET raw_data=jsonb_set(
+         raw_data - 'marketingConsentAtSubmit' - 'marketingConsentSubjectAtSubmit', '{attribution}',
+         COALESCE(raw_data->'attribution','{}'::jsonb) - 'fbclid' - 'gclid' - 'gbraid' - 'wbraid', true
+       ), updated_at=$2 WHERE id=$1`,
+      [leadId, timestamp],
+    );
+    const before = await client.query('SELECT id, status FROM lead_meta_capi_outbox WHERE lead_id=$1 FOR UPDATE', [leadId]);
+    await client.query(
+      `UPDATE lead_meta_capi_outbox
+       SET status=CASE WHEN status='sent' THEN status WHEN status='sending' THEN 'unknown' ELSE 'cancelled' END, retryable=false,
+           claim_id=NULL, claimed_until=NULL, last_error_code='consent_revoked', consent_revoked_at=$2, updated_at=$2
+       WHERE lead_id=$1`,
+      [leadId, timestamp],
+    );
+    for (const row of before.rows) await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'system',$2,'meta_capi_consent_revoked',$3,$4,$5)`,
+      [randomUUID(), row.id, actor, { previousStatus: row.status, status: row.status === 'sent' ? 'sent' : row.status === 'sending' ? 'unknown' : 'cancelled' }, timestamp],
+    );
+    await client.query('COMMIT');
+    return before.rowCount ?? 0;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function revokeMetaCapiOutboxForConsentSubject(consentSubject: string, at = new Date()) {
+  if (!validMetaCapiConsentSubject(consentSubject)) return 0;
+  await ensureSchema();
+  const timestamp = at.toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const existingRevocation = local.metaCapiConsentRevocations.find((item) => item.consentSubject === consentSubject);
+      if (existingRevocation) existingRevocation.revokedAt = existingRevocation.revokedAt || timestamp;
+      else local.metaCapiConsentRevocations.push({ consentSubject, revokedAt: timestamp });
+      const leads = local.leads.filter((item) => item.rawData?.marketingConsentSubjectAtSubmit === consentSubject);
+      const records = local.metaCapiOutbox.filter((item) => item.consentSubject === consentSubject);
+      const affectedLeadIds = new Set([...leads.map((item) => item.id), ...records.map((item) => item.leadId)]);
+      for (const lead of leads) {
+        lead.rawData = neutralizedMarketingRawData(lead.rawData);
+        lead.updatedAt = timestamp;
+        local.auditLogs.unshift({ id: randomUUID(), entityType: 'lead', entityId: lead.id, action: 'marketing_consent_revoked', actorEmail: 'consent-revocation', changes: { marketingDataCleared: true }, createdAt: timestamp });
+      }
+      for (const record of records) {
+        const previousStatus = record.status;
+        record.status = record.status === 'sent' ? 'sent' : record.status === 'sending' ? 'unknown' : 'cancelled';
+        record.retryable = false;
+        record.claimId = undefined;
+        record.claimedUntil = undefined;
+        record.lastErrorCode = 'consent_revoked';
+        record.consentRevokedAt = timestamp;
+        record.updatedAt = timestamp;
+        local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: record.id, action: 'meta_capi_consent_revoked', actorEmail: 'consent-revocation', changes: { previousStatus, status: record.status }, createdAt: timestamp });
+      }
+      await writeLocalDb(local);
+      return affectedLeadIds.size;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO lead_meta_capi_consent_subjects (consent_subject, revoked_at, created_at, updated_at)
+       VALUES ($1,$2,$2,$2)
+       ON CONFLICT (consent_subject) DO UPDATE
+       SET revoked_at=COALESCE(lead_meta_capi_consent_subjects.revoked_at, EXCLUDED.revoked_at), updated_at=EXCLUDED.updated_at`,
+      [consentSubject, timestamp],
+    );
+    const matchingLeads = await client.query(
+      `SELECT id FROM leads
+       WHERE raw_data->>'marketingConsentSubjectAtSubmit'=$1
+       FOR UPDATE`,
+      [consentSubject],
+    );
+    const before = await client.query(
+      `SELECT id, lead_id, status FROM lead_meta_capi_outbox
+       WHERE consent_subject=$1 FOR UPDATE`,
+      [consentSubject],
+    );
+    await client.query(
+      `UPDATE leads SET raw_data=jsonb_set(
+         (raw_data - 'marketingConsentAtSubmit' - 'marketingConsentSubjectAtSubmit'), '{attribution}',
+         COALESCE(raw_data->'attribution','{}'::jsonb) - 'fbclid' - 'gclid' - 'gbraid' - 'wbraid', true
+       ), updated_at=$2 WHERE raw_data->>'marketingConsentSubjectAtSubmit'=$1`,
+      [consentSubject, timestamp],
+    );
+    await client.query(
+      `UPDATE lead_meta_capi_outbox
+       SET status=CASE WHEN status='sent' THEN status WHEN status='sending' THEN 'unknown' ELSE 'cancelled' END, retryable=false, claim_id=NULL, claimed_until=NULL,
+           last_error_code='consent_revoked', consent_revoked_at=$2, updated_at=$2
+       WHERE consent_subject=$1`,
+      [consentSubject, timestamp],
+    );
+    for (const row of matchingLeads.rows) await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'lead',$2,'marketing_consent_revoked','consent-revocation',$3,$4)`,
+      [randomUUID(), row.id, { marketingDataCleared: true }, timestamp],
+    );
+    for (const row of before.rows) await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'system',$2,'meta_capi_consent_revoked','consent-revocation',$3,$4)`,
+      [randomUUID(), row.id, { previousStatus: row.status, status: row.status === 'sent' ? 'sent' : row.status === 'sending' ? 'unknown' : 'cancelled' }, timestamp],
+    );
+    await client.query('COMMIT');
+    return new Set([
+      ...matchingLeads.rows.map((row) => String(row.id)),
+      ...before.rows.map((row) => String(row.lead_id)),
+    ]).size;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getMetaCapiOutboxHealth(): Promise<MetaCapiOutboxSummary> {
+  await ensureSchema();
+  const empty: MetaCapiOutboxSummary = { pending: 0, sending: 0, sent: 0, failed: 0, unknown: 0, cancelled: 0 };
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    for (const item of local.metaCapiOutbox) empty[item.status] += 1;
+    return empty;
+  }
+  const { rows } = await db.query('SELECT status, count(*)::int AS count FROM lead_meta_capi_outbox GROUP BY status');
+  for (const row of rows) if (row.status in empty) empty[row.status as keyof MetaCapiOutboxSummary] = Number(row.count);
+  return empty;
 }
 
 export async function claimLeadEmailOutbox(leadId: string, recipientRole?: 'customer' | 'internal') {
@@ -6629,6 +7378,34 @@ type LeadEmailOutbox = {
   sentAt?: string;
 };
 
+type MetaCapiOutboxRecord = {
+  id: string;
+  leadId: string;
+  eventId: string;
+  consentSubject?: string;
+  eventTime: string;
+  eventSourceUrl: string;
+  material: MetaCapiOutboxClaim['material'];
+  status: MetaCapiOutboxStatus;
+  attempts: number;
+  maxAttempts: number;
+  retryable: boolean;
+  nextAttemptAt: string;
+  claimId?: string;
+  claimedUntil?: string;
+  lastHttpStatus?: number;
+  lastErrorCode: string;
+  consentRevokedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  sentAt?: string;
+};
+
+type MetaCapiConsentRevocation = {
+  consentSubject: string;
+  revokedAt: string;
+};
+
 type LeadFileDeletionJob = {
   id: string;
   leadId: string;
@@ -8146,10 +8923,16 @@ export async function archiveLead(id: string, actorEmail: string, reason = '') {
         item.lastError = 'Dopyt bol archivovaný pred odoslaním; výsledok vyžaduje samostatné preverenie.';
         item.updatedAt = archivedAt;
       }
+      const frozenMetaEvents = local.metaCapiOutbox.filter((item) => item.leadId === id && !['sent', 'cancelled'].includes(item.status));
+      for (const item of frozenMetaEvents) {
+        item.status = 'cancelled'; item.retryable = false; item.claimId = undefined; item.claimedUntil = undefined;
+        item.lastErrorCode = 'lead_archived'; item.updatedAt = archivedAt;
+      }
       lead.deletedAt = archivedAt;
       lead.updatedAt = archivedAt;
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'lead', entityId: id, action: 'lead_archived', actorEmail, changes: { deletedAt: archivedAt, reason: reason.trim().slice(0, 500) }, createdAt: archivedAt });
       if (frozenRecipients.length) local.auditLogs.unshift({ id: randomUUID(), entityType: 'lead', entityId: id, action: 'lead_email_archive_frozen', actorEmail, changes: { recipientRoles: frozenRecipients.map((item) => item.recipientRole) }, createdAt: archivedAt });
+      for (const item of frozenMetaEvents) local.auditLogs.unshift({ id: randomUUID(), entityType: 'system', entityId: item.id, action: 'meta_capi_cancelled', actorEmail, changes: { status: 'cancelled', reason: 'lead_archived' }, createdAt: archivedAt });
       await writeLocalDb(local);
       return lead;
     });
@@ -8181,6 +8964,11 @@ export async function archiveLead(id: string, actorEmail: string, reason = '') {
        WHERE lead_id = $1 AND (status = 'pending' OR (status = 'failed' AND retryable = true)) RETURNING recipient_role`,
       [id, archivedAt],
     );
+    const frozenMeta = await client.query(
+      `UPDATE lead_meta_capi_outbox SET status='cancelled', retryable=false, claim_id=NULL, claimed_until=NULL,
+       last_error_code='lead_archived', updated_at=$2 WHERE lead_id=$1 AND status NOT IN ('sent','cancelled') RETURNING id`,
+      [id, archivedAt],
+    );
     await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [randomUUID(), 'lead', id, 'lead_archived', actorEmail, { deletedAt: archivedAt, reason: reason.trim().slice(0, 500) }, archivedAt],
@@ -8188,6 +8976,10 @@ export async function archiveLead(id: string, actorEmail: string, reason = '') {
     if (frozen.rows.length) await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [randomUUID(), 'lead', id, 'lead_email_archive_frozen', actorEmail, { recipientRoles: frozen.rows.map((row) => row.recipient_role) }, archivedAt],
+    );
+    for (const row of frozenMeta.rows) await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'system', row.id, 'meta_capi_cancelled', actorEmail, { status: 'cancelled', reason: 'lead_archived' }, archivedAt],
     );
     await client.query('COMMIT');
     return toLead(rows[0]);
@@ -8311,6 +9103,7 @@ export async function destroyArchivedLead(id: string, actorEmail: string, reason
       local.leads = local.leads.filter((item) => item.id !== id);
       local.leadFiles = local.leadFiles.filter((file) => file.leadId !== id);
       local.leadEmailOutbox = local.leadEmailOutbox.filter((item) => item.leadId !== id);
+      local.metaCapiOutbox = local.metaCapiOutbox.filter((item) => item.leadId !== id);
       local.quotes = local.quotes.filter((quote) => quote.leadId !== id);
       local.reviewRequests = local.reviewRequests.map((request) => request.leadId === id ? { ...request, leadId: undefined } : request);
       local.auditLogs = local.auditLogs.filter((log) => !(log.entityType === 'lead' && log.entityId === id));

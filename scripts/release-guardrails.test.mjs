@@ -26,6 +26,8 @@ const mandatoryProtectedFiles = [
   'src/server/storage.ts',
   'src/server/types.ts',
   'src/server/validation.ts',
+  'scripts/check-release-guardrails.mjs',
+  'scripts/deploy-reviewed-release.mjs',
   'next.config.mjs',
   'vercel.json',
   'package-lock.json',
@@ -62,7 +64,10 @@ function createRepository() {
     engines: { node: '>=22' },
     dependencies: { next: '16.2.6' },
     devDependencies: { typescript: '5.9.3' },
-    scripts: { 'release:guard': 'node scripts/check-release-guardrails.mjs' },
+    scripts: {
+      deploy: 'node scripts/deploy-reviewed-release.mjs',
+      'release:guard': 'node scripts/check-release-guardrails.mjs',
+    },
   }, null, 2)}\n`);
   write(repo, 'package-lock.json', '{"lockfileVersion":3}\n');
   write(repo, 'vercel.json', `${JSON.stringify({ framework: 'nextjs', git: { deploymentEnabled: false } }, null, 2)}\n`);
@@ -88,6 +93,7 @@ function approvedArguments(fixture, overrides = {}) {
     '--protected-baseline', overrides.protectedBaseline ?? fixture.protectedBaseline,
     '--rollback-sha', overrides.rollbackSha ?? fixture.rollbackSha,
     '--rollback-deployment', overrides.rollbackDeployment ?? 'dpl_ReleaseGuard123',
+    '--acknowledge-vercel-iam-boundary',
     '--allow', overrides.allow ?? 'docs/release-note.md',
     '--protected', overrides.protected ?? 'runtime/protected.ts',
   ];
@@ -131,6 +137,7 @@ test('passes only for exact reviewed inputs and writes a PASS manifest under ign
     assert.equal(manifest.protectedBaseline, fixture.protectedBaseline);
     assert.equal(manifest.rollback.sourceSha, fixture.rollbackSha);
     assert.equal(manifest.rollback.deployment, 'dpl_ReleaseGuard123');
+    assert.equal(manifest.checks.vercelIamBoundary.passed, true);
     assert.deepEqual(manifest.checks.allowedReleaseScope.changedFiles, ['docs/release-note.md']);
     assert.equal(git(fixture.repo, ['status', '--porcelain=v1', '--untracked-files=all']), '');
   });
@@ -142,6 +149,7 @@ test('fails closed for missing, malformed, duplicated and unknown approval argum
     const baselineIndex = valid.indexOf('--protected-baseline');
     const cases = [
       [],
+      valid.filter((argument) => argument !== '--acknowledge-vercel-iam-boundary'),
       valid.filter((_, index) => index !== baselineIndex && index !== baselineIndex + 1),
       valid.with(1, 'abc'),
       [...valid, '--expected-head', fixture.expectedHead],
@@ -249,10 +257,10 @@ test('rejects changed or missing protected runtime files', () => {
   });
 });
 
-test('allows reviewed package script changes but rejects dependency and runtime configuration changes', () => {
+test('allows only reviewed package script changes and rejects dependency and runtime configuration changes', () => {
   withRepository((fixture) => {
     const packageJson = JSON.parse(readFileSync(join(fixture.repo, 'package.json'), 'utf8'));
-    packageJson.scripts.example = 'node example.mjs';
+    packageJson.scripts['test:unit'] = 'node --test scripts/*.test.mjs';
     write(fixture.repo, 'package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
     const scriptsHead = commitAll(fixture.repo, 'reviewed scripts only');
     const result = runGuard(fixture.repo, [
@@ -292,6 +300,44 @@ test('rejects an altered release command and enabled Vercel Git deployments', ()
         '--allow', 'package.json',
       ]),
       /očakávaný fail-closed príkaz release:guard/,
+    );
+  });
+  withRepository((fixture) => {
+    const packageJson = JSON.parse(readFileSync(join(fixture.repo, 'package.json'), 'utf8'));
+    packageJson.scripts.deploy = 'vercel --prod';
+    write(fixture.repo, 'package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+    const changedHead = commitAll(fixture.repo, 'bypass guarded deploy');
+    assertFails(
+      runGuard(fixture.repo, [
+        ...approvedArguments(fixture, { expectedHead: changedHead }),
+        '--allow', 'package.json',
+      ]),
+      /povinný príkaz deploy s release guardom/,
+    );
+  });
+  withRepository((fixture) => {
+    const packageJson = JSON.parse(readFileSync(join(fixture.repo, 'package.json'), 'utf8'));
+    packageJson.scripts['deploy:direct'] = 'vercel promote dpl_Bypass123';
+    write(fixture.repo, 'package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+    const changedHead = commitAll(fixture.repo, 'add alternate deploy entrypoint');
+    assertFails(
+      runGuard(fixture.repo, [...approvedArguments(fixture, { expectedHead: changedHead }), '--allow', 'package.json']),
+      /ďalšie obchádzateľné deploy vstupy/,
+    );
+  });
+  withRepository((fixture) => {
+    const packageJson = JSON.parse(readFileSync(join(fixture.repo, 'package.json'), 'utf8'));
+    packageJson.scripts.ship = 'node scripts/cloud.mjs';
+    write(fixture.repo, 'package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+    write(fixture.repo, 'scripts/cloud.mjs', 'throw new Error("must never run");\n');
+    const changedHead = commitAll(fixture.repo, 'add indirect deploy wrapper');
+    assertFails(
+      runGuard(fixture.repo, [
+        ...approvedArguments(fixture, { expectedHead: changedHead }),
+        '--allow', 'package.json',
+        '--allow', 'scripts/cloud.mjs',
+      ]),
+      /mení neschválené skripty/,
     );
   });
   withRepository((fixture) => {

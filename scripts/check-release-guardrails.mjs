@@ -5,6 +5,17 @@ import { dirname, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RELEASE_GUARD_COMMAND = 'node scripts/check-release-guardrails.mjs';
+const REVIEWED_DEPLOY_COMMAND = 'node scripts/deploy-reviewed-release.mjs';
+const VERCEL_IAM_ACKNOWLEDGEMENT = '--acknowledge-vercel-iam-boundary';
+const APPROVED_RELEASE_SCRIPT_NAMES = new Set(['deploy', 'release:guard', 'test:release-guard', 'test:release-deploy']);
+const APPROVED_CHANGED_SCRIPT_NAMES = new Set([
+  'deploy',
+  'release:guard',
+  'test:release-guard',
+  'test:release-deploy',
+  'test:unit',
+  'test:db-integration',
+]);
 const MANIFEST_RELATIVE_PATH = 'test-results/release-manifest.json';
 const SINGLE_VALUE_ARGUMENTS = new Set([
   '--repo',
@@ -15,6 +26,7 @@ const SINGLE_VALUE_ARGUMENTS = new Set([
   '--rollback-deployment',
 ]);
 const REPEATABLE_ARGUMENTS = new Set(['--allow', '--protected']);
+const BOOLEAN_ARGUMENTS = new Set([VERCEL_IAM_ACKNOWLEDGEMENT]);
 const DEFAULT_PROTECTED_FILES = [
   'app/api/dopyt/route.ts',
   'app/api/lead/route.ts',
@@ -35,6 +47,8 @@ const DEFAULT_PROTECTED_FILES = [
   'src/server/storage.ts',
   'src/server/types.ts',
   'src/server/validation.ts',
+  'scripts/check-release-guardrails.mjs',
+  'scripts/deploy-reviewed-release.mjs',
   'next.config.mjs',
   'vercel.json',
   'package-lock.json',
@@ -55,11 +69,19 @@ function gitText(repo, args, options = {}) {
 function parseArguments(argv) {
   const single = new Map();
   const repeated = new Map([...REPEATABLE_ARGUMENTS].map((name) => [name, []]));
+  const booleans = new Set();
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     const equalsIndex = argument.indexOf('=');
     const name = equalsIndex === -1 ? argument : argument.slice(0, equalsIndex);
+
+    if (BOOLEAN_ARGUMENTS.has(name)) {
+      if (equalsIndex !== -1) throw new Error(`Parameter ${name} neprijíma hodnotu.`);
+      if (booleans.has(name)) throw new Error(`Parameter ${name} bol zadaný viackrát.`);
+      booleans.add(name);
+      continue;
+    }
 
     if (name === '--output') {
       throw new Error('Vlastná cesta manifestu nie je povolená. Používa sa iba test-results/release-manifest.json.');
@@ -98,6 +120,12 @@ function parseArguments(argv) {
   if (repeated.get('--allow').length === 0) {
     throw new Error('Chýba explicitný allowlist. Zadajte každý schválený súbor cez --allow.');
   }
+  if (!booleans.has(VERCEL_IAM_ACKNOWLEDGEMENT)) {
+    throw new Error(
+      `Chýba ${VERCEL_IAM_ACKNOWLEDGEMENT}; repozitár nevie zablokovať Vercel dashboard, API, deploy hook ani cudzí CLI token. `
+      + 'Pokračujte iba po overení IAM oprávnení a ochrany produkčného prostredia vo Verceli.',
+    );
+  }
 
   return {
     repo: single.get('--repo'),
@@ -108,6 +136,7 @@ function parseArguments(argv) {
     rollbackDeployment: single.get('--rollback-deployment'),
     allowedFiles: repeated.get('--allow'),
     protectedFiles: repeated.get('--protected'),
+    vercelIamBoundaryAcknowledged: true,
   };
 }
 
@@ -341,6 +370,21 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     if (changedKeys.length > 0) {
       failures.push(`Balíky alebo runtime konfigurácia v package.json sa zmenili: ${changedKeys.join(', ')}.`);
     }
+    const baselineScripts = baselinePackage?.scripts ?? {};
+    const currentScripts = currentPackage?.scripts ?? {};
+    const changedScriptNames = [...new Set([...Object.keys(baselineScripts), ...Object.keys(currentScripts)])]
+      .filter((name) => baselineScripts[name] !== currentScripts[name])
+      .sort();
+    const unexpectedScriptChanges = changedScriptNames.filter((name) => !APPROVED_CHANGED_SCRIPT_NAMES.has(name));
+    checks.reviewedPackageScriptChanges = {
+      allowedNames: [...APPROVED_CHANGED_SCRIPT_NAMES].sort(),
+      changedNames: changedScriptNames,
+      unexpectedNames: unexpectedScriptChanges,
+      passed: unexpectedScriptChanges.length === 0,
+    };
+    if (unexpectedScriptChanges.length > 0) {
+      failures.push(`package.json mení neschválené skripty: ${unexpectedScriptChanges.join(', ')}.`);
+    }
     checks.releaseGuardCommand = {
       expected: RELEASE_GUARD_COMMAND,
       actual: currentPackage?.scripts?.['release:guard'] ?? null,
@@ -348,6 +392,30 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     };
     if (!checks.releaseGuardCommand.passed) {
       failures.push('package.json neobsahuje očakávaný fail-closed príkaz release:guard.');
+    }
+    checks.reviewedDeployCommand = {
+      expected: REVIEWED_DEPLOY_COMMAND,
+      actual: currentPackage?.scripts?.deploy ?? null,
+      passed: currentPackage?.scripts?.deploy === REVIEWED_DEPLOY_COMMAND,
+    };
+    if (!checks.reviewedDeployCommand.passed) {
+      failures.push('package.json neobsahuje očakávaný povinný príkaz deploy s release guardom.');
+    }
+    const alternateDeployScripts = Object.entries(currentPackage?.scripts ?? {})
+      .filter(([name, command]) => !APPROVED_RELEASE_SCRIPT_NAMES.has(name) && typeof command === 'string' && (
+        /(?:^|[:_-])(?:deploy|promote|rollback|publish|release)(?:$|[:_-])/i.test(name)
+        || /(?:deploy|promote|rollback|publish|release)/i.test(command)
+        || /(?:^|\s)(?:npx\s+)?vercel(?:@\S+)?\s+(?:deploy|promote|rollback)\b/i.test(command)
+        || /(?:^|\s)vercel(?:@\S+)?\s+--prod\b/i.test(command)
+        || command.includes('scripts/deploy-reviewed-release.mjs')
+      ))
+      .map(([name]) => name);
+    checks.singleReviewedDeployEntrypoint = {
+      scripts: alternateDeployScripts,
+      passed: alternateDeployScripts.length === 0,
+    };
+    if (!checks.singleReviewedDeployEntrypoint.passed) {
+      failures.push(`package.json obsahuje ďalšie obchádzateľné deploy vstupy: ${alternateDeployScripts.join(', ')}.`);
     }
   } catch (error) {
     checks.packageRuntime = { passed: false, error: error instanceof Error ? error.message : String(error) };
@@ -370,6 +438,12 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
   }
 
   checks.rollback = { sourceSha: rollbackSha, deployment: rollbackDeployment, sourceIsAncestor: true, passed: true };
+  checks.vercelIamBoundary = {
+    acknowledged: parsed.vercelIamBoundaryAcknowledged,
+    repositoryEnforcement: 'git.deploymentEnabled=false + jediný npm deploy vstup',
+    externalBoundary: 'Vercel dashboard/API/deploy hooks/tokens musia byť obmedzené cez IAM a ochranu produkčného prostredia',
+    passed: parsed.vercelIamBoundaryAcknowledged,
+  };
 
   const manifest = {
     generatedAt: new Date().toISOString(),
@@ -383,11 +457,17 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     failures,
   };
 
+  const { generatedAt: _generatedAt, ...stableManifest } = manifest;
+  const releaseStateDigest = hash(JSON.stringify(stableManifest));
+  manifest.releaseStateDigest = releaseStateDigest;
+
+  const manifestSnapshot = `${JSON.stringify(manifest, null, 2)}\n`;
+  const manifestDigest = hash(manifestSnapshot);
   await mkdir(dirname(output), { recursive: true });
-  await writeFile(output, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  await writeFile(output, manifestSnapshot, 'utf8');
 
   if (failures.length > 0) throw new Error(`Release guard FAIL: ${failures.join(' ')}`);
-  return { branch: actualBranch, manifest: output, sha: actualHead };
+  return { branch: actualBranch, manifest: output, manifestDigest, manifestSnapshot, releaseStateDigest, sha: actualHead };
 }
 
 const isDirectInvocation = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
