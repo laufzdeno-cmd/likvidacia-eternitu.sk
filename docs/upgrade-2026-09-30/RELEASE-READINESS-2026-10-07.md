@@ -6,8 +6,9 @@ Kontrola bola iba na čítanie. Nebol vytvorený deployment, zmenený alias, upr
 
 ## Živý stav
 
-- Aktuálny produkčný deployment `FYaPKy6tk` je **Ready**, **Current**, vznikol 4. 10. 2026 a Vercel ho viaže na vetvu `codex/private-photo-upload`.
-- Tento deployment neobsahuje aktuálny lokálny aplikačný checkpoint `ae206c0f` ani jeho následné dôkazové dokumenty.
+- Aktuálny produkčný deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` je **Ready**, **Current**, vznikol 4. 10. 2026 a Vercel ho viaže na vetvu `codex/private-photo-upload` a Git SHA `c98c630c1af467c51c615980841630a4cabf6c29`.
+- Táto dvojica deployment + plný Git SHA identifikuje skutočný živý návratový bod. SHA však nie je predkom checkpointu `0ed98252`, preto ju aktuálny release guard správne odmieta. Staged release zostáva **STOP**, kým sa história transparentne nezosúladí bez zmeny kandidátskeho stromu a nový topologický stav neprejde samostatnou kontrolou; guard sa nesmie oslabovať.
+- Tento deployment neobsahuje aktuálny lokálny aplikačný checkpoint `0ed98252` ani jeho následné dôkazové dokumenty.
 - Za posledných 30 minút Vercel pri tomto deploymente zobrazoval 0 warning, 0 error a 0 fatal záznamov. Krátke okno nenahrádza produkčný monitoring ani post-release smoke.
 - Produkčný HTTPS a `www` používajú trvalé presmerovanie na kanonický host; kontrolované hlavné trasy vracajú 200 a neexistujúca cesta 404.
 
@@ -27,16 +28,21 @@ Overené boli iba názvy, prostredia a typ premenných, nikdy nie ich hodnoty.
 - `CONVERSION_EVENT_SECRET` chýba. Nový konverzný outbox ostane fail-closed a nesmie predstierať odoslanie Meta konverzie.
 - Všetky `PHOTO_INTAKE_*` premenné aj `PHOTO_UPLOAD_SESSION_SECRET` chýbajú. Nový tímový foto-intake preto ostane bezpečne vypnutý.
 - Retenčné prepínače a väzby pre prílohy, CV a tímové fotografie chýbajú. Mazanie sa nesmie zapnúť bez inventarizácie a presného projektu/DB/store bindingu.
-- `DATABASE_URL` aj `BLOB_READ_WRITE_TOKEN` sú vo Verceli uložené ako **Config** a Vercel ich označuje `Needs Attention`; pred release ich treba bezpečne previesť na **Secret** bez zmeny hodnoty.
+- `DATABASE_URL` aj `BLOB_READ_WRITE_TOKEN` sú integračne vytvorené šifrované systémové premenné pripojených Vercel úložísk pre Production, Preview aj Development. Nemajú sa ručne duplikovať ani konvertovať; pred staged testom treba iba read-only potvrdiť ich väzbu na správny projekt a úložisko bez odkrytia hodnoty.
 - Existujúci store `astana-lead-files-prod` je **Private**, je pripojený k projektu pre Production, Preview aj Development a obsahuje približne 77,2 MB. Jeho firewall je označený **Not Protected**; ochranu projektu treba zapnúť iba ako osobitne schválenú zmenu prístupu.
+- Živý deployment má iba tri staršie cron definície (backup, notifications a lead-upload-retention), zatiaľ čo kandidát má deväť kontrolovaných cron trás. Pred povýšením musia mať všetky nové crony buď úplný fail-closed konfiguračný kontrakt, alebo sa nesmú plánovať.
+- Dva novšie Ready preview deploymenty z 5. 10. 2026 stále používajú starý Git SHA `c98c630c1af467c51c615980841630a4cabf6c29`, majú `gitDirty=1` a nie sú vhodné ako release kandidát ani rollback dôkaz.
 
 ## Bezpečný ďalší krok
 
-1. S výslovným súhlasom upraviť iba Vercel bezpečnostnú konfiguráciu a chýbajúce tajomstvá; hodnoty nevypisovať do chatu ani logov.
-2. Vytvoriť staged **production** deployment s `--skip-domain`, nie preview a nie živý alias.
-3. Na presnom staged deploymente zopakovať build/route smoke, admin prihlásenie, súkromný Blob a označený test dopytu bez fotografie aj s fotografiou do oboch schránok.
-4. Až po úspešnom nezávislom re-review a samostatnom súhlase povýšiť presne overený deployment na produkčný alias.
-5. Ihneď po povýšení overiť kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
+1. Lokálne zosúladiť Git topológiu živého návratového commitu a kandidáta bez zmeny kandidátskeho stromu; potom zopakovať guard a nezávislú kontrolu.
+2. S výslovným súhlasom upraviť iba Vercel bezpečnostnú konfiguráciu a chýbajúce tajomstvá; hodnoty nevypisovať do chatu ani logov.
+3. Vytvoriť staged **production** deployment s `--skip-domain`, nie preview a nie živý alias.
+4. Na presnom staged deploymente zopakovať build/route smoke, admin prihlásenie, súkromný Blob a označený test dopytu bez fotografie aj s fotografiou do oboch schránok.
+5. Až po úspešnom nezávislom re-review a samostatnom súhlase povýšiť presne overený deployment na produkčný alias.
+6. Ihneď po povýšení overiť kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
+
+Lokálny build checkpointu `0ed98252` je viazaný na nemenný [buildový dôkaz](LOCAL-BUILD-EVIDENCE-0ed98252.json): 99/99 trás, 32 statických SEO URL, BUILD_ID `4ey56w9UMb8HOU0p4vWan`, `productionAccess:false` a odstránená jednorazová databáza.
 
 ## Oddelené účtové zosúladenie
 

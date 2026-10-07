@@ -26,6 +26,7 @@ const leadDetail = read('../app/admin/(protected)/dopyty/[id]/page.tsx');
 const leadAdminActions = read('../app/admin/(protected)/dopyty/[id]/actions.ts');
 const mailer = read('../src/server/mail.ts');
 const relay = read('../src/server/astana-local-relay.ts');
+const envExample = read('../.env.example');
 const privacyPage = read('../app/ochrana-osobnych-udajov/page.tsx');
 const browserHarness = read('../scripts/lead-private-blob-browser.integration.mjs');
 
@@ -36,6 +37,13 @@ test('customer confirmation email clearly identifies ASTANA, s.r.o.', () => {
   assert.match(mailer, /<img src="\$\{customerLeadLogoUrl\}" width="190" alt="ASTANA, s\.r\.o\."/);
   assert.match(mailer, />ASTANA, s\.r\.o\.<\/div>/);
   assert.match(mailer, /ASTANA, s\.r\.o\. – odborná likvidácia azbestu a eternitu/);
+});
+
+test('sample environment makes the active lead email transport explicit', () => {
+  assert.match(envExample, /^LEAD_EMAIL_DELIVERY_MODE=smtp$/m);
+  assert.match(envExample, /^ASTANA_RELAY_URL=$/m);
+  assert.match(envExample, /^ASTANA_RELAY_SECRET=$/m);
+  assert.match(envExample, /smtp, local_relay alebo smtp_then_local_relay/);
 });
 
 test('homepage rejects unsupported photo metadata before upload and offers only decodable image types', () => {

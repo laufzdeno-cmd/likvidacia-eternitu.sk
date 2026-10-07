@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "0ed98252e3b2c0783df51b4c9f6e6d2ed277d6c0",
+  "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-isolated-postgres.ps1 -ProductionBuild",
+  "result": "PASS",
+  "nextVersion": "16.4.0",
+  "buildId": "4ey56w9UMb8HOU0p4vWan",
+  "generatedRouteCount": 99,
+  "staticSeoUrlCount": 32,
+  "dynamicRouteChecks": [
+    "/realizacie/",
+    "/recenzie/"
+  ],
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true
+}
