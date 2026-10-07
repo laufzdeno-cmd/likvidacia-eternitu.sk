@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-test('homepage keeps above-fold CSS critical and loads below-fold CSS without render blocking', () => {
+test('homepage loads below-fold CSS after first paint and keeps direct anchors styled by critical CSS', () => {
   const page = readFileSync('app/page.tsx', 'utf8');
   const critical = readFileSync('app/home-critical.css', 'utf8');
   const deferred = readFileSync('public/assets/home-below-fold.css', 'utf8');
@@ -14,7 +14,35 @@ test('homepage keeps above-fold CSS critical and loads below-fold CSS without re
   assert.doesNotMatch(critical, /\.included-group-card\b/);
   assert.match(deferred, /--home-deferred-css:\s*1/);
   assert.match(deferred, /\.included-group-card\b/);
-  assert.match(loader, /media="print"/);
-  assert.match(loader, /linkRef\.current\.media = 'all'/);
-  assert.match(loader, /<noscript><link rel="stylesheet"/);
+  assert.match(loader, /<noscript><link rel="stylesheet" href=\{stylesheet\} \/><\/noscript>/);
+  const client = readFileSync('app/homepage-deferred-client.tsx', 'utf8');
+  assert.match(client, /link\[data-home-deferred-styles\]/);
+  assert.match(client, /requestAnimationFrame/);
+  assert.match(client, /immediateStyleHashes\.has\(window\.location\.hash\)/);
+  assert.match(client, /document\.addEventListener\('pointerdown', loadStylesFromIntent, true\)/);
+  assert.match(client, /document\.addEventListener\('focusin', loadStylesFromIntent, true\)/);
+  assert.match(client, /document\.removeEventListener\('pointerdown', loadStylesFromIntent, true\)/);
+  assert.match(client, /document\.removeEventListener\('focusin', loadStylesFromIntent, true\)/);
+  assert.match(client, /document\.createElement\('link'\)/);
+  assert.match(client, /deferredStyles\.href = '\/assets\/home-below-fold\.css'/);
+  assert.match(client, /deferredStyles\.fetchPriority = 'low'/);
+  assert.match(client, /deferredStyles\.media = immediate \? 'all' : 'print'/);
+  assert.match(client, /addEventListener\('load', activateDeferredStyles, \{ once: true \}\)/);
+  assert.match(client, /if \(immediate\) activateDeferredStyles\(\)/);
+  assert.match(client, /ensureDeferredStyles\(true\)/);
+  assert.match(client, /document\.head\.append\(deferredStyles\)/);
+  assert.match(client, /cancelAnimationFrame\(styleFrame\)/);
+  assert.match(client, /if \(createdDeferredStyles\) deferredStyles\?\.remove\(\)/);
+  assert.match(critical, /\.quote-section\{/);
+  assert.match(critical, /\.quote-section-inner\{/);
+  assert.match(critical, /\.form-stage\{/);
+  assert.match(critical, /\.price-calculator-section\{display:grid;grid-template-columns:minmax\(0,\.9fr\) minmax\(360px,\.72fr\)/);
+  assert.match(critical, /main \.quote-section-inner\{display:grid;grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\)/);
+  assert.match(critical, /min-height:600px/);
+  assert.match(critical, /main \.quote-section-inner>\.quote-info-panel\{position:sticky/);
+  assert.match(critical, /@media \(max-width:900px\)[\s\S]*grid-template-columns:minmax\(0,1fr\);gap:34px/);
+  assert.match(critical, /@media \(max-width:900px\)[\s\S]*main \.quote-section-inner>\.quote-info-panel,\s*\n\s*main \.quote-section-inner>\.quote-card\{position:static;width:100%;max-width:none;margin:0\}/);
+  assert.match(critical, /@media \(max-width:900px\)[\s\S]*main \.quote-section-inner>\.quote-info-panel\{max-height:none;padding:40px 28px;overflow-y:visible\}/,
+    'tablet direct-hash paint must not inherit the desktop sticky-panel scroll container');
+  assert.match(critical, /@media \(max-width:760px\)[\s\S]*main \.quote-section-inner\{display:flex;flex-direction:column/);
 });

@@ -3,6 +3,7 @@ import { PublicPageShell } from '../public-layout';
 import { buildPageMetadata } from '../seo-components';
 import { JsonLd, buildFaqJsonLd } from '../seo-json-ld';
 import styles from './career.module.css';
+import { PublicFontPreload } from '@/src/components/public-font-preload';
 
 export const metadata = buildPageMetadata({
   title: 'Kariéra: živnostníci a partie | ASTANA',
@@ -20,6 +21,7 @@ const faqs = [
 export default function CareerPage() {
   return (
     <PublicPageShell breadcrumb={{ name: 'Kariéra', path: '/kariera/' }}>
+      <PublicFontPreload />
       <main className={`career-page ${styles.page}`}>
         <JsonLd data={buildFaqJsonLd(faqs)} />
         <section className={`career-hero ${styles.hero}`}>

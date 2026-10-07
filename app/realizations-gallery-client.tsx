@@ -1,10 +1,72 @@
-'use client';
-
-import { useEffect } from 'react';
 import { trackAnalyticsEvent } from '@/src/lib/analytics-client';
+import { galleryReferences } from '@/src/data/azbestReferences';
 
-export default function RealizationsGalleryClient() {
-  useEffect(() => {
+const optimizedImageUrl = (src: string, width: number) =>
+  `/_next/image/?url=${encodeURIComponent(src)}&w=${width}&q=75`;
+
+const categoryBadgeCopy: Record<string, string> = {
+  'rodinne-domy': 'rodinný dom',
+  'hospodarske-budovy': 'hospodárska budova',
+  priemysel: 'priemyselný objekt',
+  interier: 'interiér',
+  'balenie-odvoz': 'balenie a odvoz',
+  strechari: 'strecha pripravená pre strechára',
+};
+
+const appendDeferredGalleryCards = (grid: HTMLElement, renderedCount: number) => {
+  galleryReferences.slice(renderedCount).forEach((photo, offset) => {
+    const index = renderedCount + offset;
+    const card = document.createElement('button');
+    card.className = 'real-gallery-card';
+    card.type = 'button';
+    card.dataset.galleryCard = '';
+    card.dataset.galleryIndex = String(index);
+    card.dataset.galleryCategory = photo.category;
+    card.dataset.galleryWebp = photo.webp;
+    card.dataset.galleryJpg = photo.jpg;
+    card.dataset.galleryTitle = photo.title;
+    card.dataset.galleryAlt = photo.alt;
+    card.hidden = index >= 12;
+
+    const picture = document.createElement('picture');
+    const source = document.createElement('source');
+    source.type = 'image/webp';
+    source.sizes = '(max-width: 760px) 300px, 25vw';
+    source.srcset = [384, 640, 828]
+      .map((width) => `${optimizedImageUrl(photo.webp, width)} ${width}w`)
+      .join(', ');
+    const image = document.createElement('img');
+    image.src = optimizedImageUrl(photo.jpg, 640);
+    image.srcset = [384, 640, 828]
+      .map((width) => `${optimizedImageUrl(photo.jpg, width)} ${width}w`)
+      .join(', ');
+    image.sizes = '(max-width: 760px) 300px, 25vw';
+    image.alt = photo.alt;
+    image.title = photo.title;
+    image.loading = 'lazy';
+    image.decoding = 'async';
+    image.fetchPriority = 'low';
+    image.width = 520;
+    image.height = 420;
+    picture.append(source, image);
+
+    const copy = document.createElement('span');
+    const title = document.createElement('strong');
+    title.textContent = photo.title;
+    const badge = document.createElement('small');
+    badge.textContent = categoryBadgeCopy[photo.category] || 'realizácia ASTANA';
+    copy.append(title, badge);
+    card.append(picture, copy);
+    grid.append(card);
+  });
+};
+
+export default function initializeRealizationsGalleryClient() {
+    const grid = document.querySelector<HTMLElement>('#realizacie-galeria .real-gallery-grid');
+    const renderedCards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
+    if (grid && renderedCards.length < galleryReferences.length) {
+      appendDeferredGalleryCards(grid, renderedCards.length);
+    }
     const cards = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-card]'));
     const filters = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-filter]'));
     const loadMore = document.querySelector<HTMLButtonElement>('[data-gallery-load-more]');
@@ -14,45 +76,7 @@ export default function RealizationsGalleryClient() {
     const closeButton = document.querySelector<HTMLButtonElement>('[data-lightbox-close]');
     const previousButton = document.querySelector<HTMLButtonElement>('[data-lightbox-prev]');
     const nextButton = document.querySelector<HTMLButtonElement>('[data-lightbox-next]');
-    const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
-    const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     if (!cards.length) return;
-
-    const deferredPictures = Array.from(
-      document.querySelectorAll<HTMLPictureElement>('picture[data-deferred-responsive-image]'),
-    );
-    const activateDeferredPicture = (picture: HTMLPictureElement) => {
-      const source = picture.querySelector<HTMLSourceElement>('source[data-deferred-srcset]');
-      const deferredImage = picture.querySelector<HTMLImageElement>('img[data-deferred-src]');
-      if (!source || !deferredImage) return;
-      const sourceSizes = source.dataset.deferredSizes;
-      const sourceSrcSet = source.dataset.deferredSrcset;
-      const imageSizes = deferredImage.dataset.deferredSizes;
-      const imageSrcSet = deferredImage.dataset.deferredSrcset;
-      const imageSrc = deferredImage.dataset.deferredSrc;
-      if (sourceSizes) source.sizes = sourceSizes;
-      if (sourceSrcSet) source.srcset = sourceSrcSet;
-      if (imageSizes) deferredImage.sizes = imageSizes;
-      if (imageSrcSet) deferredImage.srcset = imageSrcSet;
-      if (imageSrc) deferredImage.src = imageSrc;
-      deferredImage.alt = deferredImage.dataset.deferredAlt || '';
-      picture.removeAttribute('aria-hidden');
-      picture.removeAttribute('data-deferred-responsive-image');
-    };
-    let galleryImageObserver: IntersectionObserver | null = null;
-    if ('IntersectionObserver' in window) {
-      galleryImageObserver = new IntersectionObserver((entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          const picture = entry.target as HTMLPictureElement;
-          activateDeferredPicture(picture);
-          galleryImageObserver?.unobserve(picture);
-        });
-      }, { rootMargin: '240px 0px', threshold: 0.01 });
-      deferredPictures.forEach((picture) => galleryImageObserver?.observe(picture));
-    } else {
-      deferredPictures.forEach(activateDeferredPicture);
-    }
 
     let activeCards = cards.slice(0, 12);
     let activeIndex = 0;
@@ -166,14 +190,6 @@ export default function RealizationsGalleryClient() {
       if (event.key === 'ArrowRight') { event.preventDefault(); moveLightbox(1); }
       if (event.key === 'ArrowLeft') { event.preventDefault(); moveLightbox(-1); }
     };
-    const onScroll = () => {
-      const stickyVisible = window.innerWidth <= 760 && window.scrollY > 280;
-      stickyCta?.classList.toggle('is-visible', stickyVisible);
-      if (stickyCta) stickyCta.inert = !stickyVisible;
-      whatsappButton?.classList.toggle('is-hidden-by-sticky-cta', stickyVisible);
-      if (whatsappButton) whatsappButton.inert = stickyVisible;
-    };
-
     cards.forEach((card) => card.addEventListener('click', onCardClick));
     filters.forEach((filter) => {
       const active = filter.dataset.galleryFilter === 'vsetko';
@@ -191,12 +207,7 @@ export default function RealizationsGalleryClient() {
     nextButton?.addEventListener('click', onNextClick);
     lightbox?.addEventListener('click', onLightboxClick);
     window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    onScroll();
-
     return () => {
-      galleryImageObserver?.disconnect();
       cards.forEach((card) => card.removeEventListener('click', onCardClick));
       filters.forEach((filter) => filter.removeEventListener('click', onFilterClick));
       loadMore?.removeEventListener('click', onLoadMore);
@@ -205,15 +216,6 @@ export default function RealizationsGalleryClient() {
       nextButton?.removeEventListener('click', onNextClick);
       lightbox?.removeEventListener('click', onLightboxClick);
       window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      stickyCta?.classList.remove('is-visible');
-      if (stickyCta) stickyCta.inert = true;
-      whatsappButton?.classList.remove('is-hidden-by-sticky-cta');
-      if (whatsappButton) whatsappButton.inert = false;
       document.body.classList.remove('is-lightbox-open');
     };
-  }, []);
-
-  return null;
 }

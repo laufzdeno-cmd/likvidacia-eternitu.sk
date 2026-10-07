@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
-import HomepageCriticalClient from './homepage-critical-client';
+import HomepageClientBoundary from './homepage-client-boundary';
 import HomepageDeferredClient from './homepage-deferred-client';
-import PublicWidgets from './public-widgets';
+import HomepageDeferredWidgets from './homepage-deferred-widgets';
+import HeaderBrandLogo from './header-brand-logo';
 import { TrustComplianceSection } from './seo-components';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
@@ -22,6 +23,9 @@ export const metadata: Metadata = {
 };
 
 const heroImage = {
+  mobileAvif: '/assets/azbest/hero/azbest-087-mobile-432.avif',
+  mobileAvifSrcSet:
+    '/assets/azbest/hero/azbest-087-mobile-432.avif 432w, /assets/azbest/hero/azbest-087-mobile-824.avif 824w',
   mobileWebp: '/assets/azbest/hero/azbest-087-mobile-480.webp',
   mobileWebpSrcSet: '/assets/azbest/hero/azbest-087-mobile-480.webp 480w',
   mobileJpgSrcSet: '/assets/azbest/hero/azbest-087-mobile-480.jpg 480w',
@@ -324,12 +328,21 @@ export default async function HomePage() {
     <>
       <HomeDeferredStyles />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLd) }} />
-      <link rel="preload" as="image" href={heroImage.mobileWebp} type="image/webp" media="(max-width: 767px)" fetchPriority="high" />
+      <link
+        rel="preload"
+        as="image"
+        href={heroImage.mobileAvif}
+        imageSrcSet={heroImage.mobileAvifSrcSet}
+        imageSizes="100vw"
+        type="image/avif"
+        media="(max-width: 767px)"
+        fetchPriority="high"
+      />
       <link rel="preload" as="image" href={heroImage.desktopWebp} type="image/webp" media="(min-width: 768px)" fetchPriority="high" />
       <header className="site-header" id="top">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
-            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+            <HeaderBrandLogo />
             <span>
               <small>Bezpečná likvidácia azbestu</small>
             </span>
@@ -402,6 +415,7 @@ export default async function HomePage() {
 
           <div className="hero-photo real-hero-photo" role="group" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
             <picture>
+              <source media="(max-width: 767px)" srcSet={heroImage.mobileAvifSrcSet} sizes="100vw" type="image/avif" />
               <source media="(max-width: 767px)" srcSet={heroImage.mobileWebpSrcSet} sizes="100vw" type="image/webp" />
               <source media="(max-width: 767px)" srcSet={heroImage.mobileJpgSrcSet} sizes="100vw" type="image/jpeg" />
               <source srcSet={heroImage.desktopWebpSrcSet} sizes="34vw" type="image/webp" />
@@ -413,7 +427,7 @@ export default async function HomePage() {
                 width={720}
                 height={525}
                 loading="eager"
-                decoding="async"
+                decoding="sync"
                 fetchPriority="high"
               />
             </picture>
@@ -886,7 +900,7 @@ export default async function HomePage() {
       <footer className="site-footer" id="kontakt">
         <div>
           <a className="brand footer-brand" href="/" aria-label="ASTANA">
-            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+            <img className="brand-logo" src="/assets/astana-logo.png?surface=header" alt="ASTANA" width="195" height="65" loading="lazy" decoding="async" fetchPriority="low" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <p>{content.footerText}</p>
@@ -943,9 +957,9 @@ export default async function HomePage() {
         <a href="tel:+421905217946">Zavolať</a>
         <a href="#dopyt">Cenová ponuka</a>
       </nav>
-      <HomepageCriticalClient />
+      <HomepageClientBoundary />
       <HomepageDeferredClient />
-      <PublicWidgets hideWhatsappOnMobile />
+      <HomepageDeferredWidgets />
     </>
   );
 }

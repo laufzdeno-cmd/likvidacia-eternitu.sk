@@ -1,7 +1,9 @@
-'use client';
-
-import { useEffect } from 'react';
-import { getAnalyticsSessionId, getLeadAttribution, trackAnalyticsEvent } from '@/src/lib/analytics-client';
+import {
+  getAnalyticsSessionId,
+  getLeadAttribution,
+  preserveCampaignAttributionOnInternalLink,
+  trackAnalyticsEvent,
+} from '@/src/lib/analytics-client';
 import { publishAcceptedLeadConversion } from '@/src/lib/ad-conversion-tracking.mjs';
 import { leadPhotoUploadErrorMessage } from '@/src/lib/lead-upload-error';
 import { leadPhotoContentType, leadPhotoExtension } from '@/src/lib/lead-photo-content-type';
@@ -16,9 +18,14 @@ import {
   type PendingMetaLead,
 } from '@/src/lib/marketing-consent';
 
-export default function HomepageCriticalClient() {
-  useEffect(() => {
-    const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
+export default function initializeHomepageCriticalClient({
+  pageViewAlreadyTracked = false,
+  clickAnalyticsAlreadyTracked = false,
+}: {
+  pageViewAlreadyTracked?: boolean;
+  clickAnalyticsAlreadyTracked?: boolean;
+}) {
+  const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
     const nav = document.querySelector<HTMLElement>('#site-nav');
     const header = document.querySelector<HTMLElement>('.site-header');
     const form = document.querySelector<HTMLFormElement>('.lead-form');
@@ -371,7 +378,7 @@ export default function HomepageCriticalClient() {
 
     const uploadLeadPhotos = async () => {
       if (!selectedFiles.length) return [];
-      const { upload } = await import('@vercel/blob/client');
+      const { uploadLeadPhoto } = await import('@/src/lib/lead-photo-browser-upload');
       const submissionId = submissionIdInput?.value || '';
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
         throw new Error('Fotky sa nepodarilo pripraviť na nahratie. Skúste formulár odoslať znova.');
@@ -405,7 +412,7 @@ export default function HomepageCriticalClient() {
         const controller = new AbortController();
         controllers.push(controller);
         const timeoutId = window.setTimeout(() => controller.abort(), 120_000);
-        const promise = upload(state.pathname, file, {
+        const promise = uploadLeadPhoto(state.pathname, file, {
           access: 'private',
           contentType,
           handleUploadUrl: '/api/lead-upload/',
@@ -585,8 +592,9 @@ export default function HomepageCriticalClient() {
     form?.addEventListener('submit', onSubmit);
     form?.addEventListener('focusin', onFormStart);
     form?.addEventListener('input', onFormStart);
-    document.addEventListener('click', onAnalyticsClick);
-    trackAnalytics('page_view');
+    if (!clickAnalyticsAlreadyTracked) document.addEventListener('click', onAnalyticsClick);
+    document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
+    if (!pageViewAlreadyTracked) trackAnalytics('page_view');
 
     let heroSectionObserver: IntersectionObserver | null = null;
     if (heroSection && stickyCta && 'IntersectionObserver' in window) {
@@ -703,7 +711,8 @@ export default function HomepageCriticalClient() {
       form?.removeEventListener('submit', onSubmit);
       form?.removeEventListener('focusin', onFormStart);
       form?.removeEventListener('input', onFormStart);
-      document.removeEventListener('click', onAnalyticsClick);
+      if (!clickAnalyticsAlreadyTracked) document.removeEventListener('click', onAnalyticsClick);
+      document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       heroSectionObserver?.disconnect();
       cookieBannerObserver?.disconnect();
       quoteSectionObserver?.disconnect();
@@ -713,7 +722,4 @@ export default function HomepageCriticalClient() {
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('hashchange', onHashChange);
     };
-  }, []);
-
-  return null;
 }

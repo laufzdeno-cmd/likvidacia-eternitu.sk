@@ -19,8 +19,15 @@ test('approved case map is server-rendered only from the public allow-list and s
   assert.match(route, /Stránky schválených realizácií/);
   assert.match(route, /casesPage=\$\{currentCasePage \+ 1\}/);
   assert.match(route, /export async function generateMetadata\(\{ searchParams \}: PageProps\)/);
+  assert.match(route, /if \(requestedPage === 1\) return pageMetadata;/,
+    'the main realizations URL must not wait for a database count before rendering metadata');
   assert.match(route, /canonical: canonicalPage > 1 \? `\/realizacie\/\?casesPage=\$\{canonicalPage\}` : '\/realizacie\/'/);
   assert.match(route, /Promise\.all\(\[[\s\S]*?loadPublishedRealizations\(\),[\s\S]*?loadApprovedCaseStudies\(safeRequestedPage\),[\s\S]*?\]\)/);
+  assert.match(route, /async function PublishedRealizationsContent\(\{ searchParams \}: PageProps\)/);
+  assert.match(route, /export default function RealizationsPage\(\{ searchParams \}: PageProps\)/,
+    'the static page shell must remain synchronous so it can stream before database content');
+  assert.match(route, /<Suspense fallback=\{null\}>[\s\S]*?<PublishedRealizationsContent searchParams=\{searchParams\} \/>[\s\S]*?<\/Suspense>/,
+    'published database content must stay behind the streaming boundary');
   assert.match(route, /<ApprovedCaseMap cases=\{approvedCaseStudies\} \/>/);
   assert.match(homepage, /<a className="hero-real-note" href="\/realizacie\/">Ukážky reálnych striech ASTANA\.<\/a>/,
     'hlavný odkaz na ukážky musí otvoriť stránku realizácií');

@@ -10,11 +10,75 @@ const globalCssFiles = [
   'src/responsive-audit-hotfix.css',
 ];
 
+const semanticAdminOnlyAnchors = [
+  'analytics-bars',
+  'analytics-card',
+  'analytics-day',
+  'analytics-funnel',
+  'analytics-overview-grid',
+  'analytics-stat-grid',
+  'attachment-pill',
+  'business-chart',
+  'business-chart-placeholder',
+  'business-form',
+  'dashboard-period-pills',
+  'health-caution',
+  'health-grid',
+  'health-ok',
+  'health-warn',
+  'is-error-row',
+  'lead-insight-card',
+  'lead-pipeline',
+  'no-print',
+  'photo-admin-created-code',
+  'photo-admin-grid',
+  'planner-calendar',
+  'planner-event',
+  'planner-grid',
+  'planner-notifications',
+  'planner-print-list',
+  'planner-weather',
+  'planner-weekdays',
+  'planner-workers',
+  'price-offer-actions',
+  'price-offer-heading',
+  'price-offer-layout',
+  'price-offer-summary',
+  'price-offer-total',
+  'print-report-heading',
+  'quote-live-preview',
+  'quote-preview',
+  'quote-preview-header',
+  'quote-warning',
+  'score-pill',
+  'status-pill',
+  'tag-list',
+  'worker-checks',
+  'year-report-page',
+];
+const semanticAdminOnlyAnchor = new RegExp(
+  `\\.(?:${semanticAdminOnlyAnchors.join('|')})(?![A-Za-z0-9_-])`,
+);
+
 const adminRule = (rule) => {
   const selectors = rule.selectors ?? [];
   return selectors.length > 0
-    && selectors.every((selector) => /\.admin(?:-|\b)/.test(selector))
-    && selectors.every((selector) => !selector.includes('.admin-pagination'));
+    && selectors.every((selector) => (
+      /\.admin(?:-|\b)/.test(selector)
+      || semanticAdminOnlyAnchor.test(selector)
+    ))
+    && selectors.every((selector) => !selector.includes('.admin-pagination'))
+    && selectors.every((selector) => !selector.includes('.photo-intake-metadata-form'));
+};
+
+const countRulesBetweenMarkers = (css, start, end) => {
+  const startIndex = css.indexOf(start);
+  const endIndex = css.indexOf(end);
+  assert.ok(startIndex >= 0, `missing marker: ${start}`);
+  assert.ok(endIndex > startIndex, `missing marker: ${end}`);
+  let count = 0;
+  postcss.parse(css.slice(startIndex + start.length, endIndex)).walkRules(() => { count += 1; });
+  return count;
 };
 
 test('admin-only CSS is route-owned and the shared photo portal pagination remains global', () => {
@@ -38,6 +102,23 @@ test('admin-only CSS is route-owned and the shared photo portal pagination remai
     });
   }
   assert.equal(sharedPaginationFound, true, 'photo intake pagination must retain shared styling');
+
+  assert.equal(
+    countRulesBetweenMarkers(
+      adminCss,
+      '/* S08 admin-only extraction from src/styles.css: start */',
+      '/* S08 admin-only extraction from src/styles.css: end */',
+    ),
+    100,
+  );
+  assert.equal(
+    countRulesBetweenMarkers(
+      adminCss,
+      '/* S08 admin-only extraction from src/final-visual-polish.css: start */',
+      '/* S08 admin-only extraction from src/final-visual-polish.css: end */',
+    ),
+    26,
+  );
 });
 
 test('final mobile admin cascade wins over the late 200px desktop sidebar', () => {

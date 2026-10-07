@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 import postcss from 'postcss';
+
+const require = createRequire(import.meta.url);
+const fontkit = require('fontkit');
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const publicLayout = read('../app/public-layout.tsx');
@@ -11,11 +15,16 @@ const sitemap = read('../app/sitemap.ts');
 const robots = read('../public/robots.txt');
 const landingClient = read('../app/landing-client.tsx');
 const publicWidgets = read('../app/public-widgets.tsx');
+const publicWhatsapp = read('../app/public-whatsapp.tsx');
 const visualPolish = read('../src/final-visual-polish.css');
 const realizationsStyles = read('../app/realizacie/realizations-route.css');
 const rootLayout = read('../app/layout.tsx');
+const fontFace = read('../src/font-face.css');
+const publicFontPreload = read('../src/components/public-font-preload.tsx');
 const homepage = read('../app/page.tsx');
 const priceLanding = read('../app/cena-likvidacie-azbestu/page.tsx');
+const careerLanding = read('../app/kariera/page.tsx');
+const realizationsLanding = read('../app/realizacie/page.tsx');
 const notFound = read('../app/not-found.tsx');
 const publicCompany = read('../public/data/company.json');
 const siteFacts = read('../src/content/site.ts');
@@ -147,9 +156,9 @@ test('every explicit robots group keeps API routes out of crawling', () => {
 
 test('mobile floating WhatsApp yields to the sticky CTA and never covers the homepage hero', () => {
   assert.match(landingClient, /whatsappButton\?\.classList\.toggle\('is-hidden-by-sticky-cta', shouldShow\)/);
-  assert.match(homepage, /<PublicWidgets hideWhatsappOnMobile \/>/);
+  assert.match(homepage, /<HomepageDeferredWidgets \/>/);
   assert.match(priceLanding, /<PublicPageShell[^>]*hideWhatsappOnMobile>/s);
-  assert.match(publicWidgets, /' homepage-mobile-whatsapp'/);
+  assert.match(publicWhatsapp, /' homepage-mobile-whatsapp'/);
   const visualRoot = postcss.parse(visualPolish, { from: 'src/final-visual-polish.css' });
   let mobileWhatsappGuard = null;
   visualRoot.walkRules('.whatsapp-btn.homepage-mobile-whatsapp', (rule) => {
@@ -165,10 +174,68 @@ test('mobile floating WhatsApp yields to the sticky CTA and never covers the hom
   assert.match(visualPolish, /\.whatsapp-btn\.is-hidden-by-sticky-cta\s*\{\s*opacity:\s*0\s*!important;/);
 });
 
-test('Plus Jakarta Sans is self-hosted so builds do not depend on Google Fonts availability', () => {
-  assert.match(rootLayout, /@fontsource-variable\/plus-jakarta-sans\/wght\.css/);
+test('Plus Jakarta Sans is self-hosted and optional so it never delays the first render', () => {
+  assert.match(rootLayout, /\.\.\/src\/global-bundle\.css/);
   assert.doesNotMatch(rootLayout, /next\/font\/google|fonts\.googleapis\.com|fonts\.gstatic\.com/);
+  assert.match(fontFace, /font-family:\s*['"]Plus Jakarta Sans Variable['"]/);
+  assert.match(fontFace, /font-display:\s*optional/);
+  assert.match(fontFace, /url\(['"]?\/assets\/fonts\/plus-jakarta-sans-sk-wght-normal\.woff2['"]?\)/);
+  const headerStability = read('../src/public-header-stability.css');
+  assert.match(headerStability, /@media \(max-width: 760px\)[\s\S]*html,\s*\n\s*body\s*\{[\s\S]*font-family: ui-sans-serif/);
+  assert.match(headerStability, /\.site-header \.header-brand-picture\s*\{[\s\S]*display:\s*block/);
+  assert.match(headerStability, /\.site-header \.header-brand-picture \.brand-logo\s*\{[\s\S]*content:\s*normal\s*!important/,
+    'the picture element must neutralize the legacy content:url logo swap');
+  assert.match(headerStability, /\.site-footer \.footer-brand \.brand-logo\[src\^="\/assets\/astana-logo\.png"\][^{]*\{[^}]*width:\s*195px\s*!important/,
+    'the shared cache URL must preserve the reviewed footer-logo geometry');
+  assert.doesNotMatch(read('../src/final-visual-polish.css'),
+    /\.site-header \.brand:not\(\.footer-brand\) \.brand-logo[^{}]*\{[^{}]*content:\s*url\(/,
+    'legacy CSS must not initiate a second responsive header-logo request');
+  const headerLogo = read('../app/header-brand-logo.tsx');
+  for (const publicShell of [read('../app/page.tsx'), read('../app/public-layout.tsx'), read('../app/realizacie/page.tsx')]) {
+    assert.match(publicShell,
+      /<img className="brand-logo" src="\/assets\/astana-logo\.png\?surface=header" alt="ASTANA" width="195" height="65" loading="lazy" decoding="async" fetchPriority="low" \/>/,
+      'below-fold footer logos must reuse the already cached mobile header asset');
+  }
+  assert.match(headerLogo, /<source media="\(min-width: 821px\)" srcSet="\/assets\/astana-logo-dark\.png" \/>/);
+  assert.match(headerLogo, /loading="eager"[\s\S]*decoding="async"[\s\S]*fetchPriority="low"/,
+    'the non-LCP header logo must not compete with the high-priority hero image');
+  assert.match(headerLogo, /src="\/assets\/astana-logo\.png\?surface=header"/);
+  assert.equal((fontFace.match(/@font-face/g) || []).length, 1);
+  const slovakSubset = readFileSync(new URL('../public/assets/fonts/plus-jakarta-sans-sk-wght-normal.woff2', import.meta.url));
+  assert.ok(slovakSubset.byteLength > 20_000 && slovakSubset.byteLength < 35_000);
+  const font = fontkit.create(slovakSubset);
+  assert.equal(font.type, 'WOFF2');
+  assert.deepEqual(font.variationAxes?.wght && {
+    min: font.variationAxes.wght.min,
+    default: font.variationAxes.wght.default,
+    max: font.variationAxes.wght.max,
+  }, { min: 200, default: 400, max: 800 });
+  for (const glyph of 'áäčďéíĺľňóôŕšťúýžÁÄČĎÉÍĹĽŇÓÔŔŠŤÚÝŽ€–„“') {
+    assert.equal(font.hasGlyphForCodePoint(glyph.codePointAt(0)), true, `font is missing Slovak glyph ${glyph}`);
+  }
   assert.match(read('../src/styles.css'), /--font-plus-jakarta:\s*["']Plus Jakarta Sans Variable["']/);
+});
+
+test('mobile homepage hero serves a Retina AVIF candidate through matching preload data', () => {
+  const page = readFileSync('app/page.tsx', 'utf8');
+  assert.match(page, /azbest-087-mobile-432\.avif 432w, \/assets\/azbest\/hero\/azbest-087-mobile-824\.avif 824w/);
+  assert.match(page, /imageSrcSet=\{heroImage\.mobileAvifSrcSet\}/);
+  assert.match(page, /imageSizes="100vw"/);
+  const retinaHero = readFileSync(new URL('../public/assets/azbest/hero/azbest-087-mobile-824.avif', import.meta.url));
+  assert.ok(retinaHero.byteLength > 24_000 && retinaHero.byteLength < 30_000,
+    `mobile Retina hero must stay detailed but lightweight, got ${retinaHero.byteLength} bytes`);
+});
+
+test('font preloads stay off the image-led homepage and are scoped to the measured public routes', () => {
+  assert.doesNotMatch(rootLayout, /rel=["']preload["'][^>]+plus-jakarta-sans/);
+  assert.doesNotMatch(homepage, /PublicFontPreload/);
+  assert.match(publicFontPreload, /preload\('\/assets\/fonts\/plus-jakarta-sans-sk-wght-normal\.woff2'/);
+  assert.equal((publicFontPreload.match(/\bpreload\(/g) || []).length, 1);
+  assert.match(priceLanding, /<PublicFontPreload\s*\/>/);
+  assert.match(careerLanding, /<PublicFontPreload\s*\/>/);
+  assert.doesNotMatch(realizationsLanding, /PublicFontPreload/,
+    'the realizations route must not let a font preload compete with its measured hero proof');
+  assert.match(seoComponents, /export function ArticlePage[\s\S]*<PublicFontPreload\s*\/>/);
 });
 
 test('homepage retains ISR and CMS build fallback is limited to the reviewed database policy', () => {

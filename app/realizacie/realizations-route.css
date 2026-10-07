@@ -450,14 +450,31 @@
 }
 @media (max-width: 760px) {
 .realizations-hero-strip {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
 }
 @media (max-width: 760px) {
 .realizations-hero-strip figure,
   .realizations-hero-strip picture,
   .realizations-hero-strip img {
-    min-height: 240px;
+    min-height: 134px;
+  }
+}
+@media (max-width: 760px) {
+.realizations-hero-strip figure {
+    border-radius: 18px;
+  }
+}
+@media (max-width: 760px) {
+.realizations-hero-strip figcaption {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    padding: 8px 9px;
+    border-radius: 12px;
+    font-size: 11px;
+    line-height: 1.18;
   }
 }
 @media (max-width: 760px) {
@@ -529,7 +546,7 @@ body:has(.realizations-page) .whatsapp-btn {
 }
 
 @media (max-width: 760px) {
-  .realizations-hero-strip figure:nth-child(n + 2) {
+  .realizations-hero-strip figure:nth-child(n + 3) {
     display: none;
   }
 }

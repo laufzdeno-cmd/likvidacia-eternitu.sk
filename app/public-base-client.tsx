@@ -3,13 +3,17 @@
 import { useEffect } from 'react';
 import { preserveCampaignAttributionOnInternalLink, trackAnalyticsEvent } from '@/src/lib/analytics-client';
 
-export default function PublicBaseClient() {
+export default function PublicBaseClient({ analyticsScope = 'all' }: { analyticsScope?: 'all' | 'none' }) {
   useEffect(() => {
     const menuToggle = document.querySelector<HTMLButtonElement>('.menu-toggle');
     const nav = document.querySelector<HTMLElement>('#site-nav');
     const header = document.querySelector<HTMLElement>('.site-header');
     const navLinks = Array.from(nav?.querySelectorAll<HTMLAnchorElement>('a') || []);
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
+    const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
+    const heroSection = document.querySelector<HTMLElement>('main > .hero');
+    const quoteSection = document.getElementById('dopyt');
+    const priceCalculatorCard = document.querySelector<HTMLElement>('[data-price-calculator]');
 
     const trackAnalytics = trackAnalyticsEvent;
 
@@ -26,11 +30,32 @@ export default function PublicBaseClient() {
       nav.classList.remove('is-open');
     };
 
+    const isVisibleInViewport = (element: HTMLElement | null) => {
+      if (!element) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0;
+    };
+
+    const isCookieBannerVisible = () => {
+      const cookieBanner = document.querySelector<HTMLElement>('.cookie-banner');
+      if (!cookieBanner) return false;
+      const style = window.getComputedStyle(cookieBanner);
+      const rect = cookieBanner.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && rect.height > 0 && rect.bottom > 0;
+    };
+
     const onScroll = () => {
       header?.classList.toggle('is-compact', window.scrollY > 28);
-      const stickyVisible = window.innerWidth <= 760 && window.scrollY > 280;
+      const stickyVisible = window.innerWidth <= 760
+        && window.scrollY > 280
+        && !isVisibleInViewport(heroSection)
+        && !isCookieBannerVisible()
+        && !isVisibleInViewport(quoteSection)
+        && !isVisibleInViewport(priceCalculatorCard);
       stickyCta?.classList.toggle('is-visible', stickyVisible);
       if (stickyCta) stickyCta.inert = !stickyVisible;
+      whatsappButton?.classList.toggle('is-hidden-by-sticky-cta', stickyVisible);
+      if (whatsappButton) whatsappButton.inert = stickyVisible;
     };
 
     const onAnalyticsClick = (event: MouseEvent) => {
@@ -61,15 +86,30 @@ export default function PublicBaseClient() {
     };
 
     let sectionObserver: IntersectionObserver | undefined;
-    if ('IntersectionObserver' in window && observedSections.length) {
-      sectionObserver = new IntersectionObserver((entries) => {
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-        if (visible?.target instanceof HTMLElement) setActiveNav(`#${visible.target.id}`);
-      }, { rootMargin: '-18% 0px -62% 0px', threshold: [0.16, 0.35, 0.55] });
-      observedSections.forEach((section) => sectionObserver?.observe(section));
-    }
+    let cookieBannerObserver: MutationObserver | null = null;
+    let firstObserverFrame = 0;
+    let secondObserverFrame = 0;
+    const startDeferredObservers = () => {
+      firstObserverFrame = window.requestAnimationFrame(() => {
+        secondObserverFrame = window.requestAnimationFrame(() => {
+          if ('IntersectionObserver' in window && observedSections.length) {
+            sectionObserver = new IntersectionObserver((entries) => {
+              const visible = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+              if (visible?.target instanceof HTMLElement) setActiveNav(`#${visible.target.id}`);
+            }, { rootMargin: '-18% 0px -62% 0px', threshold: [0.16, 0.35, 0.55] });
+            observedSections.forEach((section) => sectionObserver?.observe(section));
+          }
+          if (stickyCta && 'MutationObserver' in window) {
+            cookieBannerObserver = new MutationObserver(onScroll);
+            cookieBannerObserver.observe(document.body, { childList: true, subtree: true });
+          }
+        });
+      });
+    };
+    if (document.readyState === 'complete') startDeferredObservers();
+    else window.addEventListener('load', startDeferredObservers, { once: true });
 
     const scrollToCurrentHash = () => {
       const rawHash = window.location.hash;
@@ -83,16 +123,20 @@ export default function PublicBaseClient() {
       setActiveNav(rawHash);
     };
 
-    const hashScrollTimers = [
-      window.setTimeout(scrollToCurrentHash, 80),
-      window.setTimeout(scrollToCurrentHash, 420),
-      window.setTimeout(scrollToCurrentHash, 1200),
-    ];
-    const onHashChange = () => window.setTimeout(scrollToCurrentHash, 20);
+    const hashScrollTimers = new Set<number>();
+    const scheduleHashScroll = (delay: number) => {
+      const timer = window.setTimeout(() => {
+        hashScrollTimers.delete(timer);
+        scrollToCurrentHash();
+      }, delay);
+      hashScrollTimers.add(timer);
+    };
+    if (window.location.hash) [80, 420, 1200].forEach(scheduleHashScroll);
+    const onHashChange = () => scheduleHashScroll(20);
 
     menuToggle?.addEventListener('click', onMenuClick);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
-    document.addEventListener('click', onAnalyticsClick);
+    if (analyticsScope !== 'none') document.addEventListener('click', onAnalyticsClick);
     document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
@@ -103,15 +147,21 @@ export default function PublicBaseClient() {
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
-      document.removeEventListener('click', onAnalyticsClick);
+      if (analyticsScope !== 'none') document.removeEventListener('click', onAnalyticsClick);
       document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
       window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('load', startDeferredObservers);
+      if (firstObserverFrame) window.cancelAnimationFrame(firstObserverFrame);
+      if (secondObserverFrame) window.cancelAnimationFrame(secondObserverFrame);
       hashScrollTimers.forEach((timer) => window.clearTimeout(timer));
       sectionObserver?.disconnect();
+      cookieBannerObserver?.disconnect();
+      whatsappButton?.classList.remove('is-hidden-by-sticky-cta');
+      if (whatsappButton) whatsappButton.inert = false;
     };
-  }, []);
+  }, [analyticsScope]);
 
   return null;
 }

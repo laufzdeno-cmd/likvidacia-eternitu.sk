@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import PublicBaseClient from '../public-base-client';
 import PublicWidgets from '../public-widgets';
-import RealizationsGalleryClient from '../realizations-gallery-client';
+import RealizationsClientBoundary from '../realizations-client-boundary';
+import HeaderBrandLogo from '../header-brand-logo';
 import Image from 'next/image';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import { galleryCategories, galleryReferences, realizationHeroStripReferences } from '@/src/data/azbestReferences';
@@ -44,6 +46,7 @@ function requestedCasePage(params: { casesPage?: string | string[] }) {
 
 export async function generateMetadata({ searchParams }: PageProps): Promise<Metadata> {
   const requestedPage = requestedCasePage(await searchParams);
+  if (requestedPage === 1) return pageMetadata;
   let canonicalPage = requestedPage;
   try {
     const totalPages = Math.ceil(await countPublishedRealizationCases() / 12);
@@ -139,7 +142,7 @@ async function loadApprovedCaseStudies(page: number): Promise<{ cases: Published
   }
 }
 
-export default async function RealizationsPage({ searchParams }: PageProps) {
+async function PublishedRealizationsContent({ searchParams }: PageProps) {
   const params = await searchParams;
   const safeRequestedPage = requestedCasePage(params);
   const [publishedRealizations, caseStudiesPage] = await Promise.all([
@@ -153,11 +156,132 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
     : await listPublishedRealizationCases(caseStudiesPerPage, (currentCasePage - 1) * caseStudiesPerPage);
   return (
     <>
+      {publishedRealizations.length > 0 ? (
+        <section className="section realizations-gallery-section" aria-labelledby="approved-realizations-title">
+          <div className="section-heading split">
+            <div>
+              <p className="eyebrow">Schválené realizácie</p>
+              <h2 id="approved-realizations-title">Práce zverejnené ASTANA</h2>
+            </div>
+            <p>Každý záznam v tejto časti bol na zverejnenie vybraný a schválený v administrácii.</p>
+          </div>
+          <div className="real-gallery-grid">
+            {publishedRealizations.map((realization) => {
+              const imageUrl = realization.imageUrls.map(normalizePublicRealizationImageUrl).find((url) => url !== null);
+              return (
+                <article className="real-gallery-card published-realization-card" key={realization.id}>
+                  {imageUrl ? (
+                    <Image
+                      src={imageUrl}
+                      alt={realization.title}
+                      width={520}
+                      height={420}
+                      sizes="(max-width: 760px) 100vw, 25vw"
+                      unoptimized
+                    />
+                  ) : null}
+                  <span>
+                    <strong>{realization.title}</strong>
+                    <small>{realization.materialType}</small>
+                    {realization.description ? <small>{realization.description}</small> : null}
+                  </span>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <ApprovedCaseMap cases={approvedCaseStudies} />
+      {totalCasePages > 1 ? (
+        <nav className="realization-case-pagination" aria-label="Stránky schválených realizácií">
+          <span>Strana {currentCasePage} z {totalCasePages} · {caseStudiesPage.total} schválených realizácií</span>
+          {currentCasePage > 1 ? <a className="button button-outline" href={`/realizacie/?casesPage=${currentCasePage - 1}#approved-case-map-title`}>Predchádzajúce</a> : null}
+          {currentCasePage < totalCasePages ? <a className="button button-outline" href={`/realizacie/?casesPage=${currentCasePage + 1}#approved-case-map-title`}>Ďalšie realizácie</a> : null}
+        </nav>
+      ) : null}
+    </>
+  );
+}
+
+function ReviewedGallery() {
+  return (
+    <section className="section gallery-section realizations-gallery-section" id="realizacie-galeria" aria-labelledby="gallery-title">
+      <div className="section-heading split">
+        <div>
+          <p className="eyebrow">Filtrovaná galéria</p>
+          <h2 id="gallery-title">Fotogaléria realizácií ASTANA</h2>
+        </div>
+        <p>
+          Vyberte typ objektu alebo fázu procesu. Na stránke nezobrazujeme súkromné údaje zákazníkov ani citlivé
+          detaily, ktoré by nemali byť verejné. Lokality a m2 pri fotkách nevymýšľame.
+        </p>
+      </div>
+      <div className="gallery-filters" aria-label="Filtrovanie galérie">
+        {galleryCategories.map((category) => (
+          <button className={category.key === 'vsetko' ? 'is-active' : undefined} key={category.key} type="button" data-gallery-filter={category.key} title={categoryCopy[category.key]} aria-pressed={category.key === 'vsetko'}>
+            {category.label}
+          </button>
+        ))}
+      </div>
+      <div className="real-gallery-grid">
+        {galleryReferences.slice(0, 12).map((photo, index) => (
+          <button
+            className="real-gallery-card"
+            type="button"
+            key={photo.id}
+            data-gallery-card
+            data-gallery-index={index}
+            data-gallery-category={photo.category}
+            data-gallery-webp={photo.webp}
+            data-gallery-jpg={photo.jpg}
+            data-gallery-title={photo.title}
+            data-gallery-alt={photo.alt}
+          >
+            <ResponsiveImage
+              image={photo}
+              width={520}
+              height={420}
+              sizes="(max-width: 760px) 300px, 25vw"
+              loading="lazy"
+              fetchPriority="low"
+              deferUntilVisible
+            />
+            <span>
+              <strong>{photo.title}</strong>
+              <small>{categoryBadgeCopy[photo.category] || 'realizácia ASTANA'}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+      <div className="gallery-actions">
+        <button className="button button-outline" type="button" data-gallery-load-more>
+          Zobraziť ďalšie realizácie
+        </button>
+        <a className="button button-primary" href="/#dopyt">Naceniť podobnú realizáciu</a>
+      </div>
+      <div className="gallery-lightbox" data-gallery-lightbox hidden aria-modal="true" role="dialog" aria-label="Fotografia realizácie">
+        <button type="button" className="gallery-lightbox-close" data-lightbox-close aria-label="Zatvoriť galériu">×</button>
+        <button type="button" className="gallery-lightbox-prev" data-lightbox-prev aria-label="Predchádzajúca fotka">‹</button>
+        <figure>
+          <img data-lightbox-image src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="" width="960" height="720" />
+          <figcaption data-lightbox-caption></figcaption>
+        </figure>
+        <button type="button" className="gallery-lightbox-next" data-lightbox-next aria-label="Ďalšia fotka">›</button>
+      </div>
+    </section>
+  );
+}
+
+export default function RealizationsPage({ searchParams }: PageProps) {
+  return (
+    <>
+      <noscript><link rel="stylesheet" href="/assets/realizations-below-fold.css" /></noscript>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: serializeJsonLd(realizationsJsonLd) }} />
       <header className="site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
-            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+            <HeaderBrandLogo />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <div className="header-meta">
@@ -190,8 +314,8 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
             <p className="eyebrow">Fotodokumentácia z realizácií</p>
             <h1 id="realizations-page-title">Reálne realizácie ASTANA</h1>
             <p>
-              Fotky používame ako dôkaz práce, nie ako dekoráciu. Všetky zábery v galérii sú reálne práce ASTANA. Pri starších
-              fotkách neuvádzame lokality ani výmery, ak si ich nevieme spoľahlivo potvrdiť.
+              Reálne práce ASTANA: stabilizácia, demontáž, balenie a odvoz. Pri starších fotkách neuvádzame lokalitu ani výmeru
+              bez spoľahlivého podkladu.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="/#dopyt">Naceniť podobnú realizáciu</a>
@@ -207,7 +331,7 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
                   height={360}
                   sizes="(max-width: 760px) 50vw, 16vw"
                   loading={index === 0 ? 'eager' : 'lazy'}
-                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                  fetchPriority={index === 0 ? 'high' : 'low'}
                 />
                 <figcaption>{photo.title}</figcaption>
               </figure>
@@ -215,116 +339,11 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
           </div>
         </section>
 
-        <section className="section gallery-section realizations-gallery-section" id="realizacie-galeria" aria-labelledby="gallery-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">Filtrovaná galéria</p>
-              <h2 id="gallery-title">Fotogaléria realizácií ASTANA</h2>
-            </div>
-            <p>
-              Vyberte typ objektu alebo fázu procesu. Na stránke nezobrazujeme súkromné údaje zákazníkov ani citlivé
-              detaily, ktoré by nemali byť verejné. Lokality a m2 pri fotkách nevymýšľame.
-            </p>
-          </div>
-          <div className="gallery-filters" aria-label="Filtrovanie galérie">
-            {galleryCategories.map((category) => (
-              <button key={category.key} type="button" data-gallery-filter={category.key} title={categoryCopy[category.key]} aria-pressed={category.key === 'vsetko'}>
-                {category.label}
-              </button>
-            ))}
-          </div>
-          <div className="real-gallery-grid">
-            {galleryReferences.map((photo, index) => (
-              <button
-                className="real-gallery-card"
-                type="button"
-                key={photo.id}
-                data-gallery-card
-                data-gallery-index={index}
-                data-gallery-category={photo.category}
-                data-gallery-webp={photo.webp}
-                data-gallery-jpg={photo.jpg}
-                data-gallery-title={photo.title}
-                data-gallery-alt={photo.alt}
-                hidden={index >= 12}
-              >
-                <ResponsiveImage
-                  image={photo}
-                  width={520}
-                  height={420}
-                  sizes="(max-width: 760px) 300px, 25vw"
-                  loading="lazy"
-                  fetchPriority="low"
-                  deferUntilVisible
-                />
-                <span>
-                  <strong>{photo.title}</strong>
-                  <small>{categoryBadgeCopy[photo.category] || 'realizácia ASTANA'}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-          <div className="gallery-actions">
-            <button className="button button-outline" type="button" data-gallery-load-more>
-              Zobraziť ďalšie realizácie
-            </button>
-            <a className="button button-primary" href="/#dopyt">Naceniť podobnú realizáciu</a>
-          </div>
-          <div className="gallery-lightbox" data-gallery-lightbox hidden aria-modal="true" role="dialog" aria-label="Fotografia realizácie">
-            <button type="button" className="gallery-lightbox-close" data-lightbox-close aria-label="Zatvoriť galériu">×</button>
-            <button type="button" className="gallery-lightbox-prev" data-lightbox-prev aria-label="Predchádzajúca fotka">‹</button>
-            <figure>
-              <img data-lightbox-image src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="" width="960" height="720" />
-              <figcaption data-lightbox-caption></figcaption>
-            </figure>
-            <button type="button" className="gallery-lightbox-next" data-lightbox-next aria-label="Ďalšia fotka">›</button>
-          </div>
-        </section>
+        <ReviewedGallery />
 
-        {publishedRealizations.length > 0 ? (
-          <section className="section realizations-gallery-section" aria-labelledby="approved-realizations-title">
-            <div className="section-heading split">
-              <div>
-                <p className="eyebrow">Schválené realizácie</p>
-                <h2 id="approved-realizations-title">Práce zverejnené ASTANA</h2>
-              </div>
-              <p>Každý záznam v tejto časti bol na zverejnenie vybraný a schválený v administrácii.</p>
-            </div>
-            <div className="real-gallery-grid">
-              {publishedRealizations.map((realization) => {
-                const imageUrl = realization.imageUrls.map(normalizePublicRealizationImageUrl).find((url) => url !== null);
-                return (
-                  <article className="real-gallery-card published-realization-card" key={realization.id}>
-                    {imageUrl ? (
-                      <Image
-                        src={imageUrl}
-                        alt={realization.title}
-                        width={520}
-                        height={420}
-                        sizes="(max-width: 760px) 100vw, 25vw"
-                        unoptimized
-                      />
-                    ) : null}
-                    <span>
-                      <strong>{realization.title}</strong>
-                      <small>{realization.materialType}</small>
-                      {realization.description ? <small>{realization.description}</small> : null}
-                    </span>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ) : null}
-
-        <ApprovedCaseMap cases={approvedCaseStudies} />
-        {totalCasePages > 1 ? (
-          <nav className="realization-case-pagination" aria-label="Stránky schválených realizácií">
-            <span>Strana {currentCasePage} z {totalCasePages} · {caseStudiesPage.total} schválených realizácií</span>
-            {currentCasePage > 1 ? <a className="button button-outline" href={`/realizacie/?casesPage=${currentCasePage - 1}#approved-case-map-title`}>Predchádzajúce</a> : null}
-            {currentCasePage < totalCasePages ? <a className="button button-outline" href={`/realizacie/?casesPage=${currentCasePage + 1}#approved-case-map-title`}>Ďalšie realizácie</a> : null}
-          </nav>
-        ) : null}
+        <Suspense fallback={null}>
+          <PublishedRealizationsContent searchParams={searchParams} />
+        </Suspense>
 
         <section className="final-cta realizations-final" aria-labelledby="realizations-final-title">
           <div>
@@ -342,7 +361,7 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
       <footer className="site-footer" id="kontakt">
         <div>
           <a className="brand footer-brand" href="/" aria-label="ASTANA">
-            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+            <img className="brand-logo" src="/assets/astana-logo.png?surface=header" alt="ASTANA" width="195" height="65" loading="lazy" decoding="async" fetchPriority="low" />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <p>Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.</p>
@@ -376,7 +395,7 @@ export default async function RealizationsPage({ searchParams }: PageProps) {
         <a href="/#dopyt">Cenová ponuka</a>
       </div>
       <PublicBaseClient />
-      <RealizationsGalleryClient />
+      <RealizationsClientBoundary />
       <PublicWidgets />
     </>
   );

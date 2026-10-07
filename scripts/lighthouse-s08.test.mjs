@@ -28,9 +28,27 @@ assert.notEqual(result.status, 0, 'S08 must reject a production URL before launc
 assert.match(result.stderr, /S08 may only audit a loopback HTTP origin/);
 assert.doesNotMatch(result.stdout + result.stderr, /lighthouse@13\.5\.0|Starting Chrome/);
 assert.match(lighthouseSource, /observedLargestContentfulPaint/);
+assert.match(lighthouseSource, /ASTANA_LIGHTHOUSE_PAGE_KEYS/);
+assert.match(lighthouseSource, /Unknown Lighthouse page keys/);
 assert.match(summarySource, /wastedBytes/);
 assert.match(lighthouseSource, /resourceBytes/);
+assert.match(lighthouseSource, /item\.networkRequestTime/);
+assert.match(lighthouseSource, /item\.networkEndTime/);
+assert.match(lighthouseSource, /item\.networkEndTime - item\.networkRequestTime/);
+assert.doesNotMatch(lighthouseSource, /item\.startTime|item\.endTime|item\.duration/,
+  'network request diagnostics must use the current Lighthouse timing fields');
+assert.match(lighthouseSource, /\['VeryHigh', 'High', 'Medium', 'Low', 'VeryLow'\]\.includes\(item\.priority\)/,
+  'network priority must be reduced to a bounded allow-list');
+assert.match(lighthouseSource, /details\?\.debugData\?\.initiators/,
+  'initiator diagnostics must use the current Lighthouse debugData collection');
+assert.match(lighthouseSource, /initiatorTypeCounts/);
+assert.doesNotMatch(lighthouseSource, /item\.initiatorType/,
+  'network request rows do not carry initiatorType and must not pretend to do so');
 assert.match(lighthouseSource, /renderBlocking/);
+assert.doesNotMatch(lighthouseSource, /reportDirectory:\s*resolvedReportRoot/,
+  'result output must not expose the absolute temporary report directory');
+assert.doesNotMatch(lighthouseSource, /completed\.stdout[^\n]*completed\.stderr|completed\.stderr[^\n]*completed\.stdout/,
+  'failed Lighthouse runs must not print a raw report or verbose browser output');
 assert.match(lighthouseSource, /'--output=json', '--output-path=stdout'/,
   'the Lighthouse report must be streamed to memory instead of written to disk');
 assert.doesNotMatch(lighthouseSource, /--save-assets|trace\.json|devtoolslog\.json/,
@@ -50,4 +68,9 @@ assert.match(browserHarnessSource, /if \(lighthouseS08\) \{/,
 assert.match(browserHarnessSource, /ASTANA_LIGHTHOUSE_DIAGNOSTIC !== '1'/,
   'diagnostic mode must skip only CSS coverage, not the Lighthouse diagnostic run');
 assert.match(browserHarnessSource, /ASTANA_LIGHTHOUSE_DIAGNOSTIC === '1' \? '1' : '0'/);
+assert.match(browserHarnessSource, /ASTANA_LIGHTHOUSE_PAGE_KEYS: process\.env\.ASTANA_LIGHTHOUSE_PAGE_KEYS \|\| ''/);
+assert.match(browserHarnessSource, /const expectedPageCount = requestedPageCount \|\| 5/,
+  'both diagnostic and acceptance mode must honor a narrowed page selection');
+assert.match(browserHarnessSource, /lighthouseSummary\.results\.length, expectedPageCount/,
+  'acceptance mode must not require all five pages during a targeted performance run');
 console.log('Lighthouse S08 production-origin and bounded-report guards: PASS');

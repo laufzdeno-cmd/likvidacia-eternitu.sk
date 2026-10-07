@@ -602,8 +602,9 @@ async function runTenPhotoUploadChecks(page, pglite, fake, appOrigin, tempRoot, 
     await route.continue();
   });
 
-  const response = await page.goto(appOrigin, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+  const response = await page.goto(`${appOrigin}/#dopyt`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   assert.equal(response?.status(), 200, 'the ten-photo form must render');
+  await page.locator('a[href="#dopyt"]').first().click();
   await page.waitForFunction(() => window.__astanaPhotoHandlerReady === true, null, { timeout: 30_000 });
   assert.equal(await page.locator('[data-nextjs-dialog]').count(), 0, 'no development error overlay before submission');
   await page.locator('#areaEstimate').fill('120');
@@ -671,8 +672,10 @@ async function runNoPhotoUiChecks(page, pglite, fake, appOrigin) {
     leadPosts++;
     await route.continue();
   });
-  const response = await page.goto(appOrigin, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+  const response = await page.goto(`${appOrigin}/#dopyt`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   assert.equal(response?.status(), 200, 'the no-photo lead form must render');
+  await page.locator('#dopyt').scrollIntoViewIfNeeded();
+  await page.locator('#areaEstimate').focus();
   await page.waitForFunction(() => window.__astanaPhotoHandlerReady === true, null, { timeout: 30_000 });
   await page.locator('#areaEstimate').fill('120');
   await page.locator('#city').fill('Poprad');
@@ -786,9 +789,8 @@ async function runGalleryMobileChecks(page, appOrigin, tempRoot) {
   const initialGalleryCard = page.locator('[data-gallery-card]:not([hidden])').first();
   await initialGalleryCard.scrollIntoViewIfNeeded();
   await page.waitForFunction(() => {
-    const image = document.querySelector('[data-gallery-card]:not([hidden]) img[data-deferred-src]');
-    return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 1
-      && !image.src.startsWith('data:image/');
+    const image = document.querySelector('[data-gallery-card]:not([hidden]) img');
+    return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 1;
   }, null, { timeout: 20_000 });
   assert.ok(galleryImageRequests.length > 0, 'approaching the gallery must activate nearby reviewed photos');
   assert.equal(galleryImageRequests.some((url) => url.endsWith('.jpg') || url.includes('.jpg&')), false,
@@ -1444,8 +1446,8 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     });
   };
   const resetVisualScroll = async () => {
-    await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
-    await page.waitForFunction(() => scrollY === 0 && !document.querySelector('.site-header')?.classList.contains('is-compact'));
+    await page.evaluate(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+    await page.waitForFunction(() => scrollX === 0 && scrollY === 0 && !document.querySelector('.site-header')?.classList.contains('is-compact'));
     await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   };
   const hydrationErrors = [];
@@ -1507,12 +1509,108 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
   assert.ok(initial.phoneHeight >= 44, `phone action must keep a 44px minimum touch target: ${JSON.stringify(initial)}`);
   await page.screenshot({ path: path.join(screenshotDir, 'home-320-cookie.png'), type: 'png', caret: 'initial' });
   screenshotCount += 1;
+  for (const width of [320, 390]) {
+    await page.setViewportSize({ width, height: width === 320 ? 568 : 844 });
+    await page.evaluate(() => window.scrollTo({ top: 420, behavior: 'instant' }));
+    await page.waitForFunction(() => {
+      const sticky = document.querySelector('.mobile-sticky-cta');
+      const cookie = document.querySelector('.cookie-banner');
+      return sticky instanceof HTMLElement && sticky.inert && cookie instanceof HTMLElement;
+    });
+    const hiddenStickyFocus = await page.evaluate(() => {
+      const link = document.querySelector('.mobile-sticky-cta a');
+      if (!(link instanceof HTMLElement)) return null;
+      link.focus();
+      return document.activeElement === link;
+    });
+    assert.equal(hiddenStickyFocus, false, `${width}px sticky CTA under the cookie banner must not receive focus`);
+  }
+  await page.setViewportSize({ width: 320, height: 568 });
+  await resetVisualScroll();
   await page.getByRole('button', { name: 'Len nevyhnutné' }).click();
+
+  for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
+    await page.setViewportSize(viewport);
+    await page.evaluate(() => {
+      const hero = document.querySelector('main > .hero');
+      if (!(hero instanceof HTMLElement)) return;
+      const heroBottom = hero.offsetTop + hero.offsetHeight;
+      window.scrollTo({ top: Math.min(420, Math.max(300, heroBottom - 40)), behavior: 'instant' });
+    });
+    await page.waitForFunction(() => {
+      const hero = document.querySelector('main > .hero');
+      const sticky = document.querySelector('.mobile-sticky-cta');
+      if (!(hero instanceof HTMLElement) || !(sticky instanceof HTMLElement)) return false;
+      const rect = hero.getBoundingClientRect();
+      return window.scrollY > 280
+        && rect.top < window.innerHeight
+        && rect.bottom > 0
+        && sticky.inert
+        && !sticky.classList.contains('is-visible');
+    });
+    const heroStickyState = await page.evaluate(() => {
+      const hero = document.querySelector('main > .hero');
+      const sticky = document.querySelector('.mobile-sticky-cta');
+      const link = sticky?.querySelector('a');
+      if (!(hero instanceof HTMLElement) || !(sticky instanceof HTMLElement) || !(link instanceof HTMLElement)) return null;
+      const rect = hero.getBoundingClientRect();
+      link.focus();
+      return {
+        scrollY: window.scrollY,
+        heroVisible: rect.top < window.innerHeight && rect.bottom > 0,
+        stickyVisible: sticky.classList.contains('is-visible'),
+        stickyInert: sticky.inert,
+        stickyFocused: document.activeElement === link,
+      };
+    });
+    assert.deepEqual(heroStickyState, {
+      scrollY: heroStickyState?.scrollY,
+      heroVisible: true,
+      stickyVisible: false,
+      stickyInert: true,
+      stickyFocused: false,
+    }, `${viewport.width}x${viewport.height} sticky CTA must stay hidden and inert while the hero remains visible`);
+  }
+  await page.setViewportSize({ width: 320, height: 568 });
+  await resetVisualScroll();
+
+  const browser = page.context().browser();
+  assert.ok(browser, 'responsive logo checks require a browser instance');
+  for (const viewport of [{ width: 820, height: 900 }, { width: 821, height: 900 }]) {
+    const logoContext = await browser.newContext({ viewport });
+    const logoPage = await logoContext.newPage();
+    const logoRequests = [];
+    logoPage.on('request', (request) => {
+      const requestUrl = new URL(request.url());
+      if (requestUrl.origin === appOrigin && /\/assets\/astana-logo(?:-dark)?\.png$/.test(requestUrl.pathname)) {
+        logoRequests.push(`${requestUrl.pathname}${requestUrl.search}`);
+      }
+    });
+    try {
+      const logoResponse = await logoPage.goto(appOrigin, { waitUntil: 'networkidle', timeout: 45_000 });
+      assert.equal(logoResponse?.status(), 200);
+      await logoPage.locator('.site-header .brand-logo').waitFor({ state: 'visible' });
+      const currentLogoUrl = new URL(await logoPage.locator('.site-header .brand-logo').evaluate((image) => image.currentSrc));
+      const expectedHeaderLogo = viewport.width === 820
+        ? '/assets/astana-logo.png?surface=header'
+        : '/assets/astana-logo-dark.png';
+      assert.equal(`${currentLogoUrl.pathname}${currentLogoUrl.search}`, expectedHeaderLogo,
+        `header contrast source must switch exactly at ${viewport.width}px`);
+      assert.equal(logoRequests.filter((url) => url === expectedHeaderLogo).length, 1,
+        `header logo must be requested exactly once at ${viewport.width}px: ${JSON.stringify(logoRequests)}`);
+      if (viewport.width === 820) {
+        assert.equal(logoRequests.includes('/assets/astana-logo-dark.png'), false,
+          `mobile header must not download the desktop contrast variant: ${JSON.stringify(logoRequests)}`);
+      }
+    } finally {
+      await logoContext.close();
+    }
+  }
 
   const viewports = [
     { width: 320, height: 568 }, { width: 360, height: 800 }, { width: 390, height: 844 },
     { width: 568, height: 320 }, { width: 760, height: 900 }, { width: 761, height: 900 },
-    { width: 768, height: 1024 },
+    { width: 768, height: 1024 }, { width: 820, height: 900 }, { width: 821, height: 900 },
     { width: 1024, height: 768 }, { width: 1440, height: 900 },
   ];
   const routes = [
@@ -1545,10 +1643,30 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await page.waitForFunction(() => {
+        const logo = document.querySelector('.site-header .brand-logo');
+        return logo instanceof HTMLImageElement && logo.complete && logo.naturalWidth > 0;
+      });
       const metrics = await page.evaluate(() => ({
         viewport: innerWidth,
         document: document.documentElement.scrollWidth,
         body: document.body.scrollWidth,
+        logo: (() => {
+          const image = document.querySelector('.site-header .brand-logo');
+          if (!(image instanceof HTMLImageElement)) return null;
+          const rect = image.getBoundingClientRect();
+          return {
+            complete: image.complete,
+            naturalWidth: image.naturalWidth,
+            left: rect.left,
+            right: rect.right,
+            width: rect.width,
+            height: rect.height,
+            src: image.getAttribute('src'),
+            currentSrc: image.currentSrc,
+          };
+        })(),
+        headerMainDisplay: getComputedStyle(document.querySelector('.site-header .header-main')).display,
         h1: (() => {
           const heading = document.querySelector('h1');
           if (!heading) return null;
@@ -1560,6 +1678,21 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
       assert.ok(metrics.h1 && metrics.h1.display !== 'none' && metrics.h1.visibility !== 'hidden'
         && Number(metrics.h1.opacity) > 0 && metrics.h1.width > 0 && metrics.h1.height > 0,
       `${route} H1 hidden at ${viewport.width}px: ${JSON.stringify(metrics)}`);
+      assert.ok(metrics.logo && metrics.logo.complete && metrics.logo.naturalWidth > 0
+        && metrics.logo.left >= -1 && metrics.logo.right <= metrics.viewport + 1
+        && metrics.logo.width > 0 && metrics.logo.height > 0,
+      `${route} header logo missing or clipped at ${viewport.width}px: ${JSON.stringify(metrics)}`);
+      assert.equal(metrics.logo.src, '/assets/astana-logo.png?surface=header',
+        `${route} header logo must use the stable public source at ${viewport.width}px`);
+      const currentLogoUrl = new URL(metrics.logo.currentSrc);
+      assert.equal(currentLogoUrl.origin, appOrigin, `${route} header logo must stay on the isolated app origin`);
+      assert.equal(currentLogoUrl.pathname, viewport.width <= 820 ? '/assets/astana-logo.png' : '/assets/astana-logo-dark.png',
+        `${route} header logo contrast variant changed at ${viewport.width}px`);
+      assert.equal(currentLogoUrl.search, viewport.width <= 820 ? '?surface=header' : '',
+        `${route} header logo surface marker changed at ${viewport.width}px`);
+      if (viewport.width <= 760) {
+        assert.equal(metrics.headerMainDisplay, 'flex', `${route} mobile header must keep a stable flex paint layer at ${viewport.width}px`);
+      }
       assert.ok(Math.max(metrics.document, metrics.body) <= metrics.viewport + 1,
         `${route} overflows horizontally at ${viewport.width}px: ${JSON.stringify(metrics)}`);
       if (['career', 'realizations'].includes(name) && viewport.width <= 760) {
@@ -1612,6 +1745,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
             const selectors = [
               '.hero', '.hero-copy', '.hero-photo', '.hero-photo img', '.quote-card',
               '.price-calculator-section', '.included-group-card',
+              '.why-card-grid', '.caution-grid', '.roofers-grid', '.faq-grid',
             ];
             const properties = [
               'display', 'position', 'color', 'background-color', 'background-image',
@@ -1636,6 +1770,27 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
             };
           }, viewport));
         }
+        const homepageGridColumns = await page.evaluate(() => Object.fromEntries([
+          ['why', '.why-card-grid'],
+          ['caution', '.caution-grid'],
+          ['roofers', '.roofers-grid'],
+          ['faq', '.faq-grid'],
+        ].map(([key, selector]) => {
+          const element = document.querySelector(selector);
+          const value = element ? getComputedStyle(element).gridTemplateColumns : '';
+          return [key, value === 'none' || !value ? 0 : value.trim().split(/\s+/).length];
+        })));
+        const expectedHomepageColumns = {
+          why: viewport.width <= 900 ? 1 : 3,
+          caution: viewport.width <= 760 ? 1 : viewport.width <= 1080 ? 2 : 3,
+          roofers: viewport.width <= 760 ? 1 : viewport.width <= 1080 ? 2 : 3,
+          faq: viewport.width <= 860 ? 1 : viewport.width <= 1320 ? 2 : 3,
+        };
+        assert.deepEqual(
+          homepageGridColumns,
+          expectedHomepageColumns,
+          `homepage responsive grids changed at ${viewport.width}px`,
+        );
         if (viewport.width === 320) {
           await resetVisualScroll();
           await page.locator('.hero-counters').screenshot({ path: path.join(screenshotDir, 'home-counters-320.png'), type: 'png', caret: 'initial' });
@@ -1665,10 +1820,35 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
         assert.ok(counter.lines.every((line) => counter.neighbors.every((neighbor) =>
           line.right <= neighbor.left || neighbor.right <= line.left || line.bottom <= neighbor.top || neighbor.bottom <= line.top)),
         `homepage nationwide label overlaps another fact at ${viewport.width}px: ${JSON.stringify(counter)}`);
+        if (viewport.width === 390) {
+          for (const [sectionName, selector] of [
+            ['why', '.why-section'],
+            ['caution', '.caution-section'],
+            ['roofers', '.roofers-section'],
+            ['faq', '.faq-section'],
+          ]) {
+            await page.locator(selector).screenshot({
+              path: path.join(screenshotDir, `home-${sectionName}-390.png`),
+              type: 'png',
+              caret: 'initial',
+            });
+            screenshotCount += 1;
+          }
+        }
       }
       measured.push(`${name}:${viewport.width}x${viewport.height}`);
       if (['home', 'price', 'career', 'realizations', 'roofers', 'process'].includes(name) && [320, 390, 1440].includes(viewport.width)) {
+        const screenshotResponse = await page.goto(`${appOrigin}${route === '/' ? '' : route}`, {
+          waitUntil: 'networkidle',
+          timeout: 45_000,
+        });
+        assert.equal(screenshotResponse?.status(), 200, `${route} should reload at ${viewport.width}px for visual evidence`);
+        await stabilizeVisualPage();
         await resetVisualScroll();
+        await page.waitForFunction(() => {
+          const logo = document.querySelector('.site-header .brand-logo');
+          return logo instanceof HTMLImageElement && logo.complete && logo.naturalWidth > 0;
+        });
         await page.screenshot({ path: path.join(screenshotDir, `${name}-${viewport.width}.png`), type: 'png', caret: 'initial' });
         screenshotCount += 1;
       }
@@ -1849,8 +2029,25 @@ async function runPublicNavigationChecks(page, appOrigin) {
   ], 'campaign navigation records each expected funnel event exactly once and in order');
   assert.equal(await page.evaluate(() => Number(sessionStorage.getItem('astana:nav-submit-events') || '0')), 0,
     'navigation must not submit a form');
+
+  const homepageAnalyticsStart = postRequests.length;
+  const directHomepageView = waitForAnalyticsRequest('page_view', '/');
+  await page.goto(appOrigin, { waitUntil: 'networkidle' });
+  await directHomepageView;
+  const directHomepageCta = page.waitForRequest((request) => {
+    if (request.method() !== 'POST' || new URL(request.url()).pathname !== '/api/analytics/') return false;
+    try { return request.postDataJSON()?.eventType === 'cta_click'; } catch { return false; }
+  }, { timeout: 10_000 });
+  await page.locator('.hero-actions a[href="#dopyt"]').click();
+  await page.waitForURL(`${appOrigin}/#dopyt`);
+  await directHomepageCta;
+  await page.waitForTimeout(150);
+  const directHomepageCtaEvents = postRequests.slice(homepageAnalyticsStart)
+    .filter(({ eventType, path }) => eventType === 'cta_click' && (path === '/' || path === '/#dopyt'));
+  assert.equal(directHomepageCtaEvents.length, 1,
+    'the first homepage quote click must survive the lightweight-to-full-client handoff exactly once');
   page.off('request', onRequest);
-  return { interactions: 7, campaignAttribution: true, consentDeniedCampaignParametersForwarded: false, analyticsPosts: campaignPosts.length, formsSubmitted: 0 };
+  return { interactions: 8, campaignAttribution: true, consentDeniedCampaignParametersForwarded: false, analyticsPosts: campaignPosts.length + 2, formsSubmitted: 0 };
 }
 
 async function runConsentedLeadConversionCheck(page, pglite, appOrigin, authSecret) {
@@ -1992,6 +2189,10 @@ async function runHarness() {
       NODE_ENV: 'development',
       NEXT_TELEMETRY_DISABLED: '1',
       DATABASE_URL: databaseUrl,
+      // PGlite's socket adapter cannot safely multiplex unnamed PostgreSQL portals.
+      // Keep this emulator serialized; real PostgreSQL concurrency is covered by
+      // the dedicated database integration suites.
+      DATABASE_POOL_MAX: isolatedPgUrl ? '' : '1',
       BLOB_READ_WRITE_TOKEN: careerOnly ? '' : readWriteToken,
       VERCEL_BLOB_API_URL: blobOrigin,
       NEXT_PUBLIC_VERCEL_BLOB_API_URL: blobOrigin,
@@ -2090,7 +2291,9 @@ async function runHarness() {
         { method: 'POST', url: '/api/analytics/', eventType: 'cta_click' },
         { method: 'POST', url: '/api/analytics/', eventType: 'page_view' },
         { method: 'POST', url: '/api/analytics/', eventType: 'quote_section_view' },
-      ], `visual audit must block exactly the four expected local funnel events: ${JSON.stringify(browserNonGetBlocked)}`);
+        { method: 'POST', url: '/api/analytics/', eventType: 'page_view' },
+        { method: 'POST', url: '/api/analytics/', eventType: 'cta_click' },
+      ], `visual audit must block exactly the six expected local funnel events: ${JSON.stringify(browserNonGetBlocked)}`);
       resultSummary = {
         result: 'PASS', ...visual, navigation,
         blockedNonGetRequests: browserNonGetBlocked.length,
@@ -2162,7 +2365,9 @@ async function runHarness() {
         }
       }
     });
-    await page.goto(appOrigin, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.goto(`${appOrigin}/#dopyt`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+    await page.locator('#dopyt').scrollIntoViewIfNeeded();
+    await page.locator('#areaEstimate').focus();
     await page.waitForFunction(() => window.__astanaPhotoHandlerReady === true, null, { timeout: 30_000 });
     await page.locator('#areaEstimate').fill('120');
     await page.locator('#city').fill('Poprad');

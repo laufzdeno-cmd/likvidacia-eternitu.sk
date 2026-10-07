@@ -1,5 +1,6 @@
 import PublicBaseClient from './public-base-client';
 import PublicWidgets from './public-widgets';
+import HeaderBrandLogo from './header-brand-logo';
 import { companyAddressLine, emailLink, phoneLink, site } from '@/src/content/site';
 import { BreadcrumbJsonLd } from './seo-json-ld';
 
@@ -8,7 +9,7 @@ export function PublicHeader() {
     <header className="site-header simple-header">
       <div className="header-main">
         <a className="brand" href="/" aria-label="ASTANA">
-          <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+          <HeaderBrandLogo />
           <span><small>Bezpečná likvidácia azbestu</small></span>
         </a>
         <div className="header-meta">
@@ -43,7 +44,7 @@ export function PublicFooter() {
     <footer className="site-footer" id="kontakt">
       <div>
         <a className="footer-brand" href="/" aria-label="ASTANA">
-          <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+          <img className="brand-logo" src="/assets/astana-logo.png?surface=header" alt="ASTANA" width="195" height="65" loading="lazy" decoding="async" fetchPriority="low" />
           <span><small>Likvidácia azbestu a eternitu</small></span>
         </a>
         <p>Odborná likvidácia azbestu, eternitu a nebezpečného odpadu po celom Slovensku.</p>

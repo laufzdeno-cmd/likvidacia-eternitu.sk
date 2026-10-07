@@ -698,7 +698,9 @@ async function runHarness() {
         ]);
         assert.match(careerCss.source, /--career-route-css:\s*1/, 'career route must load its dedicated stylesheet');
         assert.match(rooferCss.source, /--roofer-route-css:\s*1/, 'roofer route must load its dedicated stylesheet');
-        assert.match(realizationsCss.source, /--realizations-route-css:\s*1/, 'realizations route must load its dedicated stylesheet');
+        assert.match(realizationsCss.source, /--realizations-critical-css:\s*1/, 'realizations route must load its critical stylesheet');
+        assert.match(await readFile(path.join(tempRoot, 'public', 'assets', 'realizations-below-fold.css'), 'utf8'),
+          /--realizations-route-css:\s*1/, 'realizations route must retain its preloaded below-fold stylesheet');
         assert.match(homeCss.source, /--home-route-css:\s*1/, 'homepage must load its dedicated stylesheet');
         assert.match(processCss.source, /--postup-route-css:\s*1/, 'process route must load its dedicated stylesheet');
         assert.match(reviewsCss.source, /--reviews-route-css:\s*1/, 'reviews route must load its dedicated stylesheet');
@@ -787,7 +789,8 @@ async function runHarness() {
       assert.match((await homeResponse.allHeaders())['content-security-policy'] || '', /style-src 'self'/,
         'homepage CSP must allow the same-origin deferred stylesheet');
       assert.equal(await seoPage.evaluate(() => getComputedStyle(document.documentElement)
-        .getPropertyValue('--home-deferred-css').trim()), '1', 'deferred homepage CSS must be applied');
+        .getPropertyValue('--home-deferred-css').trim()), '1',
+      'route-owned homepage CSS must be applied before an anchored section can be displayed');
 
       let focusedContactPreference = false;
       for (let index = 0; index < 100; index += 1) {
@@ -873,12 +876,11 @@ async function runHarness() {
       assert.ok(await visibleGalleryCards.count() > 0, 'reviewed gallery must contain a visible card without approved case rows');
       const fallbackCard = visibleGalleryCards.first();
       await fallbackCard.scrollIntoViewIfNeeded();
-      await seoPage.waitForFunction(() => {
-        const image = document.querySelector('[data-gallery-card]:not([hidden]) img');
-        return image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0;
-      }, undefined, { timeout: 30_000 });
-      assert.ok(await fallbackCard.locator('img').evaluate((image) => image.complete && image.naturalWidth > 0),
-        'the visible reviewed gallery photo must finish loading');
+      const fallbackImage = fallbackCard.locator('img').first();
+      const fallbackImageHandle = await fallbackImage.elementHandle();
+      assert.ok(fallbackImageHandle, 'the first visible reviewed gallery card must contain an image');
+      await seoPage.waitForFunction((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+        fallbackImageHandle, { timeout: 30_000 });
       assert.equal(await seoPage.locator('[data-nextjs-dialog]').count(), 0, 'no Next error overlay on dynamic realizations');
       assert.deepEqual(pageErrors, [], 'no uncaught browser error on dynamic realizations');
       assert.deepEqual(consoleErrors, [], 'no browser console error on dynamic realizations');
@@ -931,6 +933,7 @@ async function runHarness() {
           env: {
             ...env,
             ASTANA_LIGHTHOUSE_DIAGNOSTIC: process.env.ASTANA_LIGHTHOUSE_DIAGNOSTIC === '1' ? '1' : '0',
+            ASTANA_LIGHTHOUSE_PAGE_KEYS: process.env.ASTANA_LIGHTHOUSE_PAGE_KEYS || '',
             ASTANA_LIGHTHOUSE_BASE_URL: appOrigin + '/',
             ASTANA_LIGHTHOUSE_REPORT_ROOT: path.join(tempRoot, 'lighthouse-s08'),
             ASTANA_HARNESS_TEMP_ROOT: tempRoot,
@@ -944,14 +947,17 @@ async function runHarness() {
         assert.equal(lighthouse.status, 0,
           `Isolated mobile Lighthouse S08 failed: ${(lighthouse.stderr || lighthouse.stdout || lighthouse.error?.message || 'unknown error').slice(-5000)}`);
         const lighthouseSummary = JSON.parse(lighthouse.stdout.trim().split(/\r?\n/).at(-1));
+        const requestedPageCount = (process.env.ASTANA_LIGHTHOUSE_PAGE_KEYS || '')
+          .split(',').map((key) => key.trim()).filter(Boolean).length;
+        const expectedPageCount = requestedPageCount || 5;
         if (process.env.ASTANA_LIGHTHOUSE_DIAGNOSTIC === '1') {
           assert.equal(lighthouseSummary.result, 'DIAGNOSTIC_ONLY');
-          assert.equal(lighthouseSummary.pages.length, 5);
+          assert.equal(lighthouseSummary.pages.length, expectedPageCount);
           assert.ok(lighthouseSummary.pages.every((page) => page.runs.length === 1));
           summary.lighthouseDiagnostic = lighthouseSummary;
         } else {
           assert.equal(lighthouseSummary.result, 'PASS');
-          assert.equal(lighthouseSummary.results.length, 5);
+          assert.equal(lighthouseSummary.results.length, expectedPageCount);
           assert.ok(lighthouseSummary.results.every((page) => page.runs.length === 3));
           summary.lighthouseS08 = lighthouseSummary;
         }
@@ -990,7 +996,7 @@ async function runHarness() {
       assert.match(portalHeaders['cache-control'] || '', /private.*no-store/i,
         `production worker history must be private and non-cacheable (received: ${portalHeaders['cache-control'] || 'missing'})`);
     } else {
-      assert.match(portalHeaders['cache-control'] || '', /no-cache|private.*no-store/i,
+      assert.match(portalHeaders['cache-control'] || '', /no-cache|no-store|private.*no-store/i,
         `development worker history must require revalidation (received: ${portalHeaders['cache-control'] || 'missing'})`);
     }
     assert.match(portalHeaders['x-robots-tag'] || '', /noindex.*nofollow/i, 'the private invite route must stay outside search indexes');

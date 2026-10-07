@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import sharp from 'sharp';
 
 const mail = readFileSync(new URL('../src/server/mail.ts', import.meta.url), 'utf8');
 const offerEmail = mail.slice(mail.indexOf('export function priceOfferEmailHtml'), mail.indexOf('export async function sendPriceOfferDocumentEmail'));
@@ -25,6 +27,33 @@ test('both offer templates separate booking terms from the statutory notice rule
   assert.doesNotMatch(offerEmail, /Dokumentácia RÚVZ \+ OÚ|Áno — RÚVZ a OÚ ŽP/);
   assert.doesNotMatch(offerPdf, /Dokumentácia RÚVZ a OÚ ŽP/);
   assert.match(offerPdf, /V prípade zrušenia objednávky si spoločnosť ASTANA, s\.r\.o\. vyhradzuje právo účtovať dohodnutú dokumentáciu/i, 'PDF discloses the agreed documentation fee when documentation is charged');
+});
+
+test('price offer PDF keeps a decodable high-resolution print logo separate from optimized public logos', async () => {
+  assert.match(offerPdf, /astana-logo-print\.png/);
+  const publicLogoUrl = new URL('../public/assets/astana-logo.png', import.meta.url);
+  const publicDarkLogoUrl = new URL('../public/assets/astana-logo-dark.png', import.meta.url);
+  const printLogoUrl = new URL('../public/assets/astana-logo-print.png', import.meta.url);
+  const publicLogo = statSync(publicLogoUrl);
+  const publicDarkLogo = statSync(publicDarkLogoUrl);
+  const printLogo = statSync(printLogoUrl);
+  assert.ok(publicLogo.size <= 15_000, 'public logo stays optimized for page delivery');
+  assert.ok(publicDarkLogo.size <= 15_000, 'public dark logo stays optimized for page delivery');
+  assert.ok(printLogo.size > publicLogo.size, 'PDF keeps the separate high-resolution source');
+  const [publicMetadata, publicDarkMetadata, printMetadata, publicStats, publicDarkStats, printStats] = await Promise.all([
+    sharp(fileURLToPath(publicLogoUrl)).metadata(),
+    sharp(fileURLToPath(publicDarkLogoUrl)).metadata(),
+    sharp(fileURLToPath(printLogoUrl)).metadata(),
+    sharp(fileURLToPath(publicLogoUrl)).stats(),
+    sharp(fileURLToPath(publicDarkLogoUrl)).stats(),
+    sharp(fileURLToPath(printLogoUrl)).stats(),
+  ]);
+  assert.deepEqual([publicMetadata.format, publicMetadata.width, publicMetadata.height, publicMetadata.hasAlpha], ['png', 480, 144, true]);
+  assert.deepEqual([publicDarkMetadata.format, publicDarkMetadata.width, publicDarkMetadata.height, publicDarkMetadata.hasAlpha], ['png', 480, 144, true]);
+  assert.deepEqual([printMetadata.format, printMetadata.width, printMetadata.height, printMetadata.hasAlpha], ['png', 960, 288, true]);
+  assert.ok(publicStats.entropy > 0.5, 'public logo must decode to non-empty visual content');
+  assert.ok(publicDarkStats.entropy > 0.5, 'public dark logo must decode to non-empty visual content');
+  assert.ok(printStats.entropy > 0.5, 'print logo must decode to non-empty visual content');
 });
 
 test('public compliance component accurately scopes statutory notice and links to current law', () => {

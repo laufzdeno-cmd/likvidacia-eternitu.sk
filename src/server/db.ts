@@ -187,9 +187,14 @@ function getPool() {
     throw new Error('Database access is disabled without verified production deployment identity.');
   }
   if (!databaseUrl) return undefined;
+  const configuredPoolMax = Number.parseInt(process.env.DATABASE_POOL_MAX || '', 10);
+  const poolMax = Number.isSafeInteger(configuredPoolMax) && configuredPoolMax >= 1 && configuredPoolMax <= 50
+    ? configuredPoolMax
+    : undefined;
   pool ??= new Pool({
     connectionString: databaseUrl,
     ssl: databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1') ? undefined : { rejectUnauthorized: false },
+    ...(poolMax ? { max: poolMax } : {}),
   });
   return pool;
 }

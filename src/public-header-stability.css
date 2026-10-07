@@ -1,0 +1,47 @@
+@media (max-width: 760px) {
+  .site-header .header-main {
+    display: flex !important;
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 72px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .site-header .brand:not(.footer-brand),
+  .site-header .menu-toggle {
+    grid-column: auto !important;
+    grid-row: auto !important;
+  }
+}
+
+@media (max-width: 760px) {
+  html,
+  body {
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  }
+}
+
+.site-header .header-brand-picture {
+  display: block;
+  line-height: 0;
+}
+
+.site-header .header-brand-picture .brand-logo {
+  /* The picture element owns the responsive source. Neutralize the legacy
+     content:url logo swap so the browser never downloads both variants. */
+  content: normal !important;
+}
+
+.brand.footer-brand .brand-logo[src^="/assets/astana-logo.png"],
+.site-footer .footer-brand .brand-logo[src^="/assets/astana-logo.png"] {
+  width: 195px !important;
+  max-width: 195px !important;
+  max-height: 59px !important;
+  border-radius: 6px !important;
+  filter: none !important;
+}

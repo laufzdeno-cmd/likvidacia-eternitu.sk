@@ -80,7 +80,17 @@ const auditedPages = [
   { key: 'article', path: '/poradna/co-je-eternit-a-kedy-obsahuje-azbest/' },
   { key: 'career', path: '/kariera/' },
 ];
-const pages = smokeMode ? [auditedPages[0]] : auditedPages;
+const requestedPageKeys = (process.env.ASTANA_LIGHTHOUSE_PAGE_KEYS || '')
+  .split(',')
+  .map((key) => key.trim())
+  .filter(Boolean);
+const unknownPageKeys = requestedPageKeys.filter((key) => !auditedPages.some((page) => page.key === key));
+assert.deepEqual(unknownPageKeys, [], `Unknown Lighthouse page keys: ${unknownPageKeys.join(', ')}`);
+const selectedPages = requestedPageKeys.length > 0
+  ? auditedPages.filter((page) => requestedPageKeys.includes(page.key))
+  : auditedPages;
+assert.ok(selectedPages.length > 0, 'Lighthouse page selection must not be empty.');
+const pages = smokeMode ? [selectedPages[0]] : selectedPages;
 const runsPerPage = smokeMode || diagnosticMode ? 1 : 3;
 const results = [];
 const chromeFlags = [
@@ -102,7 +112,9 @@ for (const page of pages) {
       `--chrome-flags=${chromeFlags}`, '--verbose',
     ];
     const completed = await runLighthouse(lighthouseArgs, 120_000);
-    assert.equal(completed.status, 0, `Lighthouse ${page.key} run ${index} failed: ${(completed.stdout || '')}\n${completed.stderr || completed.error?.message || 'unknown error'}`.slice(-7000));
+    if (completed.status !== 0) {
+      throw new Error(`Lighthouse ${page.key} run ${index} failed with status ${completed.status ?? 'unknown'}.`);
+    }
     const report = JSON.parse(completed.stdout);
     assert.equal(new URL(report.finalUrl).origin, origin.origin, 'Lighthouse must remain on the isolated local origin.');
     assert.equal(report.runtimeError, undefined, `Lighthouse reported a runtime error for ${url}`);
@@ -144,8 +156,35 @@ for (const page of pages) {
     const diagnosticAudits = diagnosticMode ? Object.fromEntries(diagnosticAuditIds
       .filter((id) => report.audits[id])
       .map((id) => [id, summarizeLighthouseAudit(report.audits[id], origin.origin)])) : null;
+    const networkItems = report.audits['network-requests']?.details?.items || [];
+    const diagnosticMetrics = diagnosticMode ? Object.fromEntries([
+      'first-contentful-paint',
+      'speed-index',
+      'total-blocking-time',
+      'interactive',
+    ].map((id) => [id, Number.isFinite(report.audits[id]?.numericValue)
+      ? Math.round(report.audits[id].numericValue)
+      : null])) : null;
+    const documentRequest = diagnosticMode
+      ? networkItems.find((item) => item.resourceType === 'Document')
+      : null;
+    const allowedInitiatorTypes = ['parser', 'script', 'preload', 'preflight', 'other'];
+    const initiatorTypes = diagnosticMode
+      ? (report.audits['network-requests']?.details?.debugData?.initiators || [])
+        .map((item) => item?.type)
+        .filter((type) => allowedInitiatorTypes.includes(type))
+      : [];
+    const transferSummary = diagnosticMode ? {
+      requestCount: networkItems.length,
+      totalTransferBytes: Math.round(networkItems.reduce((sum, item) => sum + (Number.isFinite(item.transferSize) ? item.transferSize : 0), 0)),
+      documentTransferBytes: Number.isFinite(documentRequest?.transferSize) ? Math.round(documentRequest.transferSize) : null,
+      documentResourceBytes: Number.isFinite(documentRequest?.resourceSize) ? Math.round(documentRequest.resourceSize) : null,
+      initiatorTypeCounts: Object.fromEntries(allowedInitiatorTypes
+        .map((type) => [type, initiatorTypes.filter((value) => value === type).length])
+        .filter(([, count]) => count > 0)),
+    } : null;
     const criticalAssets = diagnosticMode
-      ? (report.audits['network-requests']?.details?.items || [])
+      ? networkItems
         .filter((item) => ['Stylesheet', 'Script', 'Image', 'Font'].includes(item.resourceType))
         .sort((left, right) => (right.transferSize || 0) - (left.transferSize || 0))
         .slice(0, 10)
@@ -154,9 +193,14 @@ for (const page of pages) {
           type: item.resourceType,
           transferBytes: Number.isFinite(item.transferSize) ? Math.round(item.transferSize) : null,
           resourceBytes: Number.isFinite(item.resourceSize) ? Math.round(item.resourceSize) : null,
-          startTimeMs: Number.isFinite(item.startTime) ? Math.round(item.startTime) : null,
-          endTimeMs: Number.isFinite(item.endTime) ? Math.round(item.endTime) : null,
-          durationMs: Number.isFinite(item.duration) ? Math.round(item.duration) : null,
+          startTimeMs: Number.isFinite(item.networkRequestTime) ? Math.round(item.networkRequestTime) : null,
+          endTimeMs: Number.isFinite(item.networkEndTime) ? Math.round(item.networkEndTime) : null,
+          durationMs: Number.isFinite(item.networkRequestTime) && Number.isFinite(item.networkEndTime)
+            ? Math.max(0, Math.round(item.networkEndTime - item.networkRequestTime))
+            : null,
+          priority: ['VeryHigh', 'High', 'Medium', 'Low', 'VeryLow'].includes(item.priority)
+            ? item.priority
+            : null,
           renderBlocking: ['blocking', 'non-blocking'].includes(item.renderBlocking) ? item.renderBlocking : null,
         }))
       : null;
@@ -177,6 +221,8 @@ for (const page of pages) {
           pass: typeof item.pass === 'boolean' ? item.pass : null,
           value: typeof item.value === 'boolean' ? item.value : null,
         })),
+        diagnosticMetrics,
+        transferSummary,
         diagnosticAudits,
         criticalAssets,
       } : {}),
@@ -201,11 +247,10 @@ for (const page of pages) {
 const result = {
   result: results.every((item) => item.pass) ? 'PASS' : diagnosticMode ? 'DIAGNOSTIC_ONLY' : 'FAIL',
   lighthouseVersion,
-  origin: origin.origin,
+  originKind: 'isolated-loopback',
   runsPerPage,
   thresholds: { medianPerformance: 90, medianLcpMs: 2500, medianCls: 0.1 },
   results,
-  reportDirectory: resolvedReportRoot,
 };
 const output = diagnosticMode ? {
   result: 'DIAGNOSTIC_ONLY',
@@ -213,7 +258,7 @@ const output = diagnosticMode ? {
   runsPerPage,
   pages: result.results.map(({ key, path: pagePath, runs }) => ({
     key, path: pagePath,
-    runs: runs.map(({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticAudits, criticalAssets }) => ({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticAudits, criticalAssets })),
+    runs: runs.map(({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticMetrics, transferSummary, diagnosticAudits, criticalAssets }) => ({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticMetrics, transferSummary, diagnosticAudits, criticalAssets })),
   })),
 } : result;
 console.log(JSON.stringify(output));

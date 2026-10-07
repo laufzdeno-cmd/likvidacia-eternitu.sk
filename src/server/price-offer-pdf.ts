@@ -5,7 +5,7 @@ import { calculatePriceOfferPricing, reconcilePriceOfferGrossLines } from '../li
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 
 function astanaLogoDataUri() {
-  const logo = readFileSync(path.join(process.cwd(), 'public', 'assets', 'astana-logo.png'));
+  const logo = readFileSync(path.join(process.cwd(), 'public', 'assets', 'astana-logo-print.png'));
   return `data:image/png;base64,${logo.toString('base64')}`;
 }
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { articles, commonProcessSteps, type FaqItem, type ServicePageContent } from '@/src/content/seo-content';
 import { companyAddressLine, emailLink, phoneLink, serviceOffer, site } from '@/src/content/site';
 import { PublicPageShell } from './public-layout';
+import { PublicFontPreload } from '@/src/components/public-font-preload';
 import { JsonLd, buildArticleJsonLd, buildFaqJsonLd, buildServiceJsonLd } from './seo-json-ld';
 
 export function buildPageMetadata({
@@ -362,6 +363,7 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
       breadcrumb={{ name: article.title, path }}
       breadcrumbParents={[{ name: 'Poradňa', path: '/poradna/' }]}
     >
+      <PublicFontPreload />
       <main className="seo-page">
         <JsonLd data={[
           buildArticleJsonLd({

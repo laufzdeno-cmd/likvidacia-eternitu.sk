@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import LandingClient from '../landing-client';
 import PublicWidgets from '../public-widgets';
+import HeaderBrandLogo from '../header-brand-logo';
 import { PublicFooter } from '../public-layout';
 import { BreadcrumbJsonLd } from '../seo-json-ld';
 import { buildPageMetadata } from '../seo-components';
@@ -79,7 +80,7 @@ export default function RoofersPage() {
       <header className="site-header roofer-b2b-site-header">
         <div className="header-main">
           <a className="brand" href="/" aria-label="ASTANA - likvidácia azbestu a eternitu">
-            <img className="brand-logo" src="/assets/astana-logo.png" alt="ASTANA" width="195" height="65" />
+            <HeaderBrandLogo />
             <span><small>Bezpečná likvidácia azbestu</small></span>
           </a>
           <div className="header-meta">

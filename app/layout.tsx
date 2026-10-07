@@ -2,11 +2,7 @@ import type { Metadata } from 'next';
 import { site } from '@/src/content/site';
 import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import { buildOrganizationJsonLd } from './seo-json-ld';
-import '@fontsource-variable/plus-jakarta-sans/wght.css';
-import '../src/styles.css';
-import '../src/premium-overrides.css';
-import '../src/final-visual-polish.css';
-import '../src/responsive-audit-hotfix.css';
+import '../src/global-bundle.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.website),

@@ -80,7 +80,25 @@ const retiredLegacyMediaClasses = [
   "testimonial-stars",
   "testimonial-wide",
 ];
-const retiredSharedClasses = [...retiredHomepageClasses, ...retiredLegacyMediaClasses];
+const retiredExplicitClasses = [
+  "final-phone",
+  "info-strip",
+  "lightbox-close",
+  "lightbox-content",
+  "meta-item",
+  "photo-badge",
+  "price-check-icon",
+  "proof-step",
+  "roof-sky",
+  "transport-icon",
+];
+const retiredClassPrefixes = ["partner-table", "roof-label", "roof-pin", "roof-plane"];
+const retiredExactSelectorBranches = new Set(["body.is-menu-open"]);
+const retiredSharedClasses = [
+  ...retiredHomepageClasses,
+  ...retiredLegacyMediaClasses,
+  ...retiredExplicitClasses,
+];
 const retiredSharedClassSet = new Set(retiredSharedClasses);
 
 function walkFiles(directory) {
@@ -145,11 +163,49 @@ function selectorClassNames(selector) {
   );
 }
 
+function isRetiredSharedClass(className) {
+  return (
+    retiredSharedClassSet.has(className) ||
+    retiredClassPrefixes.some(
+      (prefix) => className === prefix || className.startsWith(`${prefix}-`),
+    )
+  );
+}
+
+function findUnownedSelectorBranches(selectors, unownedClassSet) {
+  return selectors.flatMap(({ file, selector }) =>
+    splitSelectorList(selector)
+      .filter((branch) =>
+        retiredExactSelectorBranches.has(branch) ||
+        selectorClassNames(branch).some(
+          (className) => isRetiredSharedClass(className) && unownedClassSet.has(className),
+        ),
+      )
+      .map((branch) => ({ file, selector, branch })),
+  );
+}
+
 test("selector class extraction handles compounds without prefix collisions", () => {
   assert.deepEqual(selectorClassNames(".hero-points"), ["hero-points"]);
   assert.deepEqual(selectorClassNames(".foo.hero-points"), ["foo", "hero-points"]);
   assert.deepEqual(selectorClassNames("main.hero-points"), ["hero-points"]);
   assert.deepEqual(selectorClassNames(".hero-points-extra"), ["hero-points-extra"]);
+});
+
+test("mixed selector lists reject an unowned retired branch", () => {
+  assert.deepEqual(
+    findUnownedSelectorBranches(
+      [{ file: "fixture.css", selector: ".live-owner,.hero-points" }],
+      new Set(["hero-points"]),
+    ),
+    [
+      {
+        file: "fixture.css",
+        selector: ".live-owner,.hero-points",
+        branch: ".hero-points",
+      },
+    ],
+  );
 });
 
 test("retired shared CSS cannot return without a runtime owner", () => {
@@ -165,23 +221,19 @@ test("retired shared CSS cannot return without a runtime owner", () => {
     return result;
   });
 
-  const unownedClasses = retiredSharedClasses.filter(
+  const selectorClasses = selectors.flatMap(({ selector }) =>
+    splitSelectorList(selector).flatMap(selectorClassNames),
+  );
+  const candidateClasses = [...new Set([...retiredSharedClasses, ...selectorClasses])].filter(
+    isRetiredSharedClass,
+  );
+  const unownedClasses = candidateClasses.filter(
     (className) => !hasClassToken(runtimeSource, className),
   );
   const unownedClassSet = new Set(unownedClasses);
-  const violations = selectors
-    .filter(({ selector }) => {
-      const branches = splitSelectorList(selector);
-      return (
-        branches.length > 0 &&
-        branches.every((branch) =>
-          selectorClassNames(branch).some(
-            (className) => retiredSharedClassSet.has(className) && unownedClassSet.has(className),
-          ),
-        )
-      );
-    })
-    .map(({ file, selector }) => `${file}: ${selector}`);
+  const violations = findUnownedSelectorBranches(selectors, unownedClassSet).map(
+    ({ file, selector, branch }) => `${file}: ${selector} -> ${branch}`,
+  );
 
   assert.deepEqual(
     violations,

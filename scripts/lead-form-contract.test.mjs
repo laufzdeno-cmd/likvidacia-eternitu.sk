@@ -27,6 +27,7 @@ const leadAdminActions = read('../app/admin/(protected)/dopyty/[id]/actions.ts')
 const mailer = read('../src/server/mail.ts');
 const relay = read('../src/server/astana-local-relay.ts');
 const privacyPage = read('../app/ochrana-osobnych-udajov/page.tsx');
+const browserHarness = read('../scripts/lead-private-blob-browser.integration.mjs');
 
 test('customer confirmation email clearly identifies ASTANA, s.r.o.', () => {
   assert.match(mailer, /customerLeadEmailSubject = '✅ ASTANA, s\.r\.o\. prijala váš dopyt \| likvidacia-eternitu\.sk'/);
@@ -81,7 +82,7 @@ test('the active homepage form fingerprints actual photo bytes before reusing a 
   const photoUploader = homepageClient.slice(homepageClient.indexOf('const uploadLeadPhotos'), homepageClient.indexOf('const onSubmit'));
   assert.match(photoUploader, /state\.promise = undefined/);
   assert.match(photoUploader, /uploadedFilesByFingerprint\.set\(fileFingerprint, state\)/);
-  assert.match(photoUploader, /upload\(state\.pathname, file/);
+  assert.match(photoUploader, /uploadLeadPhoto\(state\.pathname, file/);
   assert.match(photoUploader, /leadPhotoUploadErrorMessage\(error, file\.name, controller\.signal\.aborted\)/);
   assert.match(publicClient, /createLeadFormSnapshot\(payload, selectedFiles\)/);
 });
@@ -255,6 +256,13 @@ test('lead rate limiting uses a shared hashed database bucket in production', ()
   assert.match(leadRoute, /createHmac\('sha256', secret\)\.update\(`lead-submit:\$\{ip\}`\)\.digest\('hex'\)/);
   assert.match(leadRoute, /await rateLimited\(request\)/);
   assert.match(leadRoute, /Lead rate limit unavailable[\s\S]{0,240}503/);
+});
+
+test('the PGlite browser harness serializes its pool without changing the production default', () => {
+  assert.match(database, /process\.env\.DATABASE_POOL_MAX/);
+  assert.match(database, /configuredPoolMax >= 1 && configuredPoolMax <= 50/);
+  assert.match(database, /\.\.\.\(poolMax \? \{ max: poolMax \} : \{\}\)/);
+  assert.match(browserHarness, /DATABASE_POOL_MAX:\s*isolatedPgUrl \? '' : '1'/);
 });
 
 test('lead endpoint enforces its request limit before parsing multipart bodies', () => {

@@ -9,6 +9,7 @@ const attributionClient = read('../src/lib/analytics-attribution-client.ts');
 const analyticsEngine = read('../src/lib/analytics-event-engine.ts');
 const consent = read('../src/lib/marketing-consent.ts');
 const widgets = read('../app/public-widgets.tsx');
+const homepageWidgets = read('../app/homepage-deferred-widgets.tsx');
 const publicLayout = read('../app/public-layout.tsx');
 const cookies = read('../app/cookies/page.tsx');
 const privacy = read('../app/ochrana-osobnych-udajov/page.tsx');
@@ -78,6 +79,21 @@ test('consent stores separate categories and removes analytics identifiers on de
     'opening category choices must move keyboard focus off the hidden customize button');
   assert.match(widgets, /ref=\{analyticsCheckboxRef\} type="checkbox"/);
   assert.match(widgets, /attachAcceptedLeadConversionTracking/);
+  assert.match(homepageWidgets, /import\('\.\/public-widgets'\)/,
+    'homepage keeps the consent and conversion widget out of the initial client bundle');
+  assert.match(homepageWidgets, /document\.readyState === 'complete'/);
+  assert.match(homepageWidgets, /window\.addEventListener\('load', scheduleWidgets, \{ once: true \}\)/);
+  assert.match(homepageWidgets, /setTimeout\(\(\) => loadWidgets\(\), 3000\)/);
+  assert.match(homepageWidgets, /\.catch\(\(\) => \{\s*if \(!cancelled\) loading = false;/,
+    'a transient widget chunk failure must allow a later consent-settings retry');
+  assert.match(homepageWidgets, /\}, \[\]\);/,
+    'deferred consent loader installs its global listeners only once');
+  assert.match(homepageWidgets, /loadWidgets\(true\)/,
+    'manual cookie settings still load and open the deferred consent widget');
+  assert.match(widgets, /initialOpenSettings/);
+  assert.match(widgets, /if \(initialOpenSettings\) \{\s*setPreferences\(readConsentPreferences\(\) \?\?/,
+    'deferred manual opening restores the visitor current consent choices');
+  assert.match(widgets, /renderWhatsapp \? <PublicWhatsapp/);
   assert.match(widgets, /Po úspešnom dopyte môžeme Google Ads a Meta/);
   assert.match(adConversion, /import\('\.\/ad-conversion-engine\.mjs'\)/,
     'provider code stays behind the public dynamic facade');

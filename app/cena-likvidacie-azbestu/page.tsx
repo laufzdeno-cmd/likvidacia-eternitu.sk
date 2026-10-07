@@ -3,6 +3,7 @@ import { buildPageMetadata, FaqSection, QuoteCTA, QuickAnswer, SummaryBox } from
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 import PricePageClient from '../price-page-client';
+import { PublicFontPreload } from '@/src/components/public-font-preload';
 
 export const metadata = buildPageMetadata({
   title: 'Cena likvidácie azbestu a eternitu | Faktory ceny | ASTANA',
@@ -24,6 +25,7 @@ const priceFactors = [
 export default function AsbestosPricePage() {
   return (
     <PublicPageShell breadcrumb={{ name: 'Cena likvidácie azbestu', path: '/cena-likvidacie-azbestu/' }} hideWhatsappOnMobile>
+      <PublicFontPreload />
       <main className="seo-page price-seo-page">
         <JsonLd data={[buildServiceJsonLd('Cena likvidácie azbestu a eternitu', 'Cena závisí od výmery, typu materiálu, prístupu, lokality, dokumentácie a objemu odpadu.', '/cena-likvidacie-azbestu/'), buildFaqJsonLd(coreFaqs.slice(3, 7))]} />
         <section className="seo-hero">
