@@ -14,7 +14,7 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
 | Verejná responzivita | **PASS lokálne** | aktuálny kandidát: 20 verejných trás × 11 viewportov = 220/220 stavov, 25 záberov, 0 hydration chýb, 0 externých originov a 0 odoslaných formulárov; fyzické zariadenie a finálny ľudský sign-off zostávajú samostatnou bránou |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
-| Nemenný aplikačný SHA | **ROZPRACOVANÉ** | základný HEAD je `5cf9831b`; aktuálny kontrast/reduced-motion/QA diff ešte čaká na nezávislú kontrolu a checkpoint commit |
+| Nemenný aplikačný SHA | **PASS lokálne** | kontrast/reduced-motion/QA checkpoint je commit `abc63731`; následná zmena je iba doplnenie tohto SHA do stavovej dokumentácie |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
 | Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
 | S08 / Core Web Vitals | **PASS lokálne** | build `DjT2355rS4NIWewKmyTMZ`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 285–2 455 ms a CLS 0 |

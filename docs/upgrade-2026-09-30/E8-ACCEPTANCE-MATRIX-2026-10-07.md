@@ -2,7 +2,7 @@
 
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
-Kontrolovaný stav: vetva `codex/astana-upgrade-rc1`, základný HEAD `5cf9831b`, aktuálny pracovný diff ešte nie je uzamknutý commitom. Izolovaný produkčný build má ID `DjT2355rS4NIWewKmyTMZ`. Kým diff neprejde nezávislou kontrolou a nebude commitnutý, nejde o nemenný release artefakt.
+Kontrolovaný aplikačný a QA checkpoint: commit `abc63731` na vetve `codex/astana-upgrade-rc1`. Izolovaný produkčný build má ID `DjT2355rS4NIWewKmyTMZ`. Nezávislý kontrolór posudzoval presný diff, ktorý tvorí tento commit; následná zmena je iba toto doplnenie identifikátora do dokumentácie.
 
 Legenda:
 
@@ -109,4 +109,4 @@ Lokálne je preukázaných **13/14 funkčných kritérií**. F08 je finálny rel
 
 ## Rozhodnutie
 
-Aktuálny zdroj je **technicky pripravený na uzamknutie lokálneho kandidáta**, ale projekt ešte nie je hotový ani schválený na produkciu. Blokujú ho najmä G04/G05/G08/G09/G10/G11, F08, U10 a O03–O06/O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny zdroj je **uzamknutý ako lokálny technický checkpoint `abc63731`**, ale projekt ešte nie je hotový ani schválený na produkciu. Blokujú ho najmä G04/G05/G08/G09/G10/G11, F08, U10 a zostávajúce O04–O06/O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
