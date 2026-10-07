@@ -47,6 +47,7 @@ test('photo intake routes keep private provider details out of responses and gen
     assert.doesNotMatch(source, /NextResponse\.json\(\{ error: error instanceof Error \? error\.message/, `${name} route must not return internal messages`);
   }
   assert.match(confirm, /error instanceof z\.ZodError/);
+  assert.match(confirm, /rawPayload = await request\.json\(\);[\s\S]*?Údaje fotografie nie sú platné\.' \}, \{ status: 400 \}/);
   assert.match(confirm, /Photo intake confirmation failed\.', error instanceof Error \? error\.name : 'unknown'/);
   assert.match(upload, /Photo intake upload request rejected\.', error instanceof Error \? error\.name : 'unknown'/);
 });

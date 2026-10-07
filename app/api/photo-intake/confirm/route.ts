@@ -27,7 +27,13 @@ export async function POST(request: NextRequest) {
   if (!invite) return NextResponse.json({ error: 'Nahrávacia relácia už nie je platná.' }, { status: 401 });
 
   try {
-    const payload = payloadSchema.parse(await request.json());
+    let rawPayload: unknown;
+    try {
+      rawPayload = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Údaje fotografie nie sú platné.' }, { status: 400 });
+    }
+    const payload = payloadSchema.parse(rawPayload);
     if (payload.locality && !isApproximateLocality(payload.locality)) return NextResponse.json({ error: 'Uveďte iba obec alebo širšiu oblasť, bez ulice a čísla domu.' }, { status: 400 });
     if (payload.categories.some((item) => !isPhotoCategory(item)) || new Set(payload.categories).size !== payload.categories.length) {
       return NextResponse.json({ error: 'Vyberte iba ponúknuté typy objektov.' }, { status: 400 });

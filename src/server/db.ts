@@ -11,6 +11,7 @@ import { isAstanaLocalRelayConfigured, leadDeliveryMode } from './astana-local-r
 import { describeLeadMailHealth } from './lead-mail-health';
 import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
 import { isValidIsoCalendarDate } from '../lib/date-only';
+import { priceOfferNumberYear } from '../lib/price-offer-number-year';
 import {
   shouldFallbackToDefaultSiteContent,
   shouldInitializeSiteContentSchema,
@@ -5751,7 +5752,7 @@ function defaultValidUntil(days = 60) {
 
 export async function nextPriceOfferNumber() {
   await ensureSchema();
-  const year = String(new Date().getFullYear());
+  const year = priceOfferNumberYear();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
@@ -5844,7 +5845,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       offer.sourceJobIds = [...new Set([...(currentExisting?.sourceJobIds ?? []), ...(currentExisting?.jobId ? [currentExisting.jobId] : []), ...(input.jobId ? [input.jobId] : [])])];
       offer.isTestData = Boolean(currentExisting?.isTestData);
       if (!offer.number) {
-        const year = String(new Date().getFullYear());
+        const year = priceOfferNumberYear();
         const highest = local.priceOffers
           .map((item) => item.number)
           .filter((number) => number.startsWith(year))
@@ -5864,7 +5865,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
   try {
     await client.query('BEGIN');
     if (!offer.number) {
-      const year = String(new Date().getFullYear());
+      const year = priceOfferNumberYear();
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`price-offer-number:${year}`]);
       const numberResult = await client.query(
         'SELECT number FROM price_offers WHERE number LIKE $1 ORDER BY number DESC LIMIT 1',
