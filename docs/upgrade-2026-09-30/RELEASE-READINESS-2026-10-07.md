@@ -37,10 +37,10 @@ Overené boli iba názvy, prostredia a typ premenných, nikdy nie ich hodnoty.
 ## Bezpečný ďalší krok
 
 1. S výslovným súhlasom upraviť iba Vercel bezpečnostnú konfiguráciu a chýbajúce tajomstvá; hodnoty nevypisovať do chatu ani logov.
-2. Vytvoriť staged **production** deployment s `--skip-domain`, nie preview a nie živý alias.
-3. Na presnom staged deploymente zopakovať build/route smoke, admin prihlásenie, súkromný Blob a označený test dopytu bez fotografie aj s fotografiou do oboch schránok.
-4. Až po úspešnom nezávislom re-review a samostatnom súhlase povýšiť presne overený deployment na produkčný alias.
-5. Ihneď po povýšení overiť kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
+2. Vytvoriť vlastné Vercel prostredie **Staging** s oddelenou databázou, súkromným Blob úložiskom, bezpečným testovacím príjemcom emailov a vypnutými alebo fail-closed cronmi. Bežný Preview ani `--prod --skip-domain` sa nesmú používať na mutačné testy, pretože môžu zdediť produkčné zdroje.
+3. V izolovanom Staging prostredí zopakovať build/route smoke, admin prihlásenie, súkromný Blob a označený test dopytu bez fotografie aj s fotografiou do testovacích schránok.
+4. Až potom vytvoriť presný staged **Production** deployment s `--skip-domain` a vykonať na ňom iba read-only kontroly. Po nezávislom re-review a samostatnom súhlase možno povýšiť presne overený deployment na produkčný alias.
+5. Ihneď po povýšení a po čerstvom výslovnom súhlase vykonať minimálny označený ostrý smoke: kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
 
 Lokálny build checkpointu `d6fd3268` je viazaný na nemenný [buildový dôkaz](LOCAL-BUILD-EVIDENCE-d6fd3268.json): 99/99 trás, 32 statických SEO URL, BUILD_ID `Ln09kj6_3dgzCiW5Ny2pa`, `productionAccess:false`, odstránená jednorazová databáza a presný rollback test PASS.
 
