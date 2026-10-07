@@ -299,7 +299,8 @@ test('crew invite labels are required and stay inside private intake surfaces', 
   assert.match(confirmationRoute, /prepareSanitizedPrivatePhoto\(bytes, Boolean\(attempt\.sanitizedAt && actualMime === 'image\/jpeg'\), async \(\) => undefined\)/);
   assert.match(confirmationRoute, /allowOverwrite: false/);
   assert.match(confirmationRoute, /token: privatePhotoIntakeBlobToken\(\)/);
-  assert.match(cronRoute, /del\(cleanup\.storageKey, \{ token: privatePhotoIntakeBlobToken\(\) \}\)/);
+  assert.match(cronRoute, /deletePrivateBlobOrConfirmAbsent\(cleanup\.storageKey, blobToken\)/);
+  assert.match(cronRoute, /BlobNotFoundError, del, head/);
   assert.match(confirmationRoute, /createHash\('sha256'\)\.update\(sanitized\)\.digest\('hex'\)/);
   assert.match(confirmationRoute, /contentHash:/);
   assert.match(confirmationRoute, /isApproximateLocality\(payload\.locality\)/);
@@ -359,7 +360,8 @@ test('crew can save changed locality and categories after upload instead of only
   assert.doesNotMatch(uploaderFlow, /error\.status !== 400/);
   assert.match(storage, /if \(!result\) throw new PhotoIntakeSourceMissingError\(\)/);
   assert.match(confirmationRoute, /error instanceof PhotoIntakeSourceMissingError[\s\S]*status: 404/);
-  assert.match(confirmationRoute, /Potvrdenie fotografie zlyhalo\.' \}, \{ status: 400 \}/);
+  assert.match(confirmationRoute, /Fotografiu sa nepodarilo potvrdiť\. Skúste to znova\.' \}, \{ status: 503 \}/);
+  assert.doesNotMatch(confirmationRoute, /NextResponse\.json\(\{ error: error instanceof Error \? error\.message/);
   assert.match(privatePage, /Miesto a kategóriu môžeš doplniť aj neskôr/);
   assert.match(privatePage, /metadataVersion/);
   assert.match(client, /fetch\('\/api\/photo-intake\/metadata\/'/);

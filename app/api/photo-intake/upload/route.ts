@@ -94,7 +94,9 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(result);
   } catch (error) {
-    console.error('Photo intake upload request rejected', error instanceof Error ? error.message : 'unknown');
+    // The message may contain a private pathname or provider response. Keep
+    // logs and the public response deliberately free of storage identifiers.
+    console.error('Photo intake upload request rejected.', error instanceof Error ? error.name : 'unknown');
     return NextResponse.json({ error: 'Fotografiu sa nepodarilo pripraviť na nahratie.' }, { status: 400 });
   }
 }

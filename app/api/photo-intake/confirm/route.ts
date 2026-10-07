@@ -73,6 +73,12 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error && error.message === 'PHOTO_INTAKE_UNSUPPORTED_FORMAT') {
       return NextResponse.json({ error: 'Obsah fotografie nezodpovedá deklarovanému formátu. Skúste ju uložiť ako JPG alebo PNG.' }, { status: 415 });
     }
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Potvrdenie fotografie zlyhalo.' }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Údaje fotografie nie sú platné.' }, { status: 400 });
+    }
+    // Do not expose database, storage URL or provider-token details to the
+    // worker. The error class is sufficient for an operational correlation.
+    console.error('Photo intake confirmation failed.', error instanceof Error ? error.name : 'unknown');
+    return NextResponse.json({ error: 'Fotografiu sa nepodarilo potvrdiť. Skúste to znova.' }, { status: 503 });
   }
 }
