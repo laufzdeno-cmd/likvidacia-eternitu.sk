@@ -6,19 +6,20 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 
 | Release brána | Stav | Aktuálny dôkaz alebo chýbajúci dôkaz |
 |---|---|---|
-| Celá unit/kontraktná sada | **PASS** | 281 MJS + 22 TypeScript testov; úplný beh mimo obmedzeného procesu prešiel 303/303 |
+| Celá unit/kontraktná sada | **PASS** | aktuálny kandidát: 287/287 MJS + 22/22 TypeScript testov; formulárová sada 65/65 a databázové integrácie 8/8 |
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
-| Verejná responzivita | **ČIASTOČNE PASS** | aktuálny kandidát: 20 typov verejných stránok × 9 viewportov = 180/180 stavov, 25 záberov, 0 hydration chýb, 0 nepovolených originov a 0 odoslaných formulárov; ešte nejde o fyzické zariadenie ani finálny ľudský sign-off |
+| Verejná responzivita | **PASS lokálne** | aktuálny kandidát: 20 verejných trás × 11 viewportov = 220/220 stavov, 25 záberov, 0 hydration chýb, 0 externých originov a 0 odoslaných formulárov; fyzické zariadenie a finálny ľudský sign-off zostávajú samostatnou bránou |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
-| Nemenný release SHA a čistý kandidát | **ČIASTOČNE PASS** | overené zmeny sa ukladajú v samostatných lokálnych checkpointoch; finálny release SHA sa zmrazí až po uzavretí otvorených obchodných, vizuálnych a S08 brán |
+| Nemenný aplikačný SHA | **PASS lokálne** | zmrazený a overený aplikačný kandidát `2d8ed4e4` na vetve `codex/astana-upgrade-rc1`; následná zmena je iba táto stavová dokumentácia |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
 | Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
-| S08 / Core Web Vitals | **ČIASTOČNE PASS** | posledná úplná 5 × 3 matica: cena 2 391 ms, článok 2 397 ms a kariéra 2 379 ms prešli; domov 2 919 ms a realizácie po DB streamingu približne 2 640 ms zostávajú nad cieľom 2 500 ms. Najnovší smerový beh domov po zmenšení CSS: 2 814 ms |
+| S08 / Core Web Vitals | **PASS lokálne** | povinná matica 5 trás × 3 mobilné behy: mediány LCP 2 285–2 450 ms, Performance 97–98, CLS 0 a SEO 100 na všetkých piatich trasách |
 | Produkčný dopyt bez fotky a s fotkou | **OTVORENÉ** | vyžaduje čerstvé schválenie, lebo vytvorí skutočný lead a e-maily |
 | Celý tok cenovej ponuky, PDF a e-mailu | **OTVORENÉ** | lokálne kontrakty prešli, ale kompletný schválený produkčný tok nie |
 | Chrome/Opera a fyzický mobil | **OTVORENÉ** | chýba finálna akceptácia na reálnych zariadeniach |
 | Obchodná a používateľská akceptácia | **OTVORENÉ** | treba prejsť dôveru, zrozumiteľnosť, konverziu, cenovú ponuku a admin pracovný tok |
-| Nezávislý finálny review + produkčný smoke/rollback | **OTVORENÉ** | vykoná sa až nad nemenným kandidátom; úzke PASS-y nenahrádzajú finálne prijatie |
+| Nezávislý finálny review | **PASS lokálne** | kontrolór po oprave retry importu a čistenia hash časovačov vydal pre aktuálny kandidát PASS bez zostávajúcich P1–P3 nálezov |
+| Produkčný deploy + smoke/rollback | **OTVORENÉ** | vyžaduje samostatný schválený release; produkčný alias ani dáta sa pri lokálnej akceptácii nemenili |
 
 ### Aktuálny kandidát po vizuálnej a CSS optimalizácii (7. 10. 2026)
 
