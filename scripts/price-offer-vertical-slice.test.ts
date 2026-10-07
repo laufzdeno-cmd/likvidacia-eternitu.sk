@@ -47,9 +47,9 @@ test('historická DPH sa bezpečne odvodí a null nikdy neznamená 0 %', () => {
   assert.equal(resolvePriceOfferVatRate({ vatRate: 'invalid', totalWithoutVat: 10.5, totalWithVat: 12.92 }, 20), 23.05);
 });
 
-test('úprava odoslanej ponuky ju vráti na pripravenú; prijatú zamkne', () => {
+test('odoslaná aj prijatá ponuka zostávajú nemenným obchodným dokladom', () => {
   assert.deepEqual(priceOfferUpdateLifecycle({ status: 'ODOSLANA', sentAt: '2026-10-04T12:00:00Z' }), {
-    allowed: true, status: 'PRIPRAVENA', sentAt: undefined, requiresResend: true,
+    allowed: false, status: 'ODOSLANA', sentAt: '2026-10-04T12:00:00Z', requiresResend: false,
   });
   assert.equal(priceOfferUpdateLifecycle({ status: 'PRIJATA' }).allowed, false);
   assert.equal(priceOfferUpdateLifecycle({ status: 'ODOSIELA' }).allowed, false);
@@ -130,9 +130,11 @@ test('DB schema má aditívne defaulty pre historické ponuky a zamyká súbežn
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_price_per_km numeric\(12,2\) NOT NULL DEFAULT 0\.70/);
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS documentation_promotion boolean NOT NULL DEFAULT false/);
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_started_at timestamptz/);
-  assert.match(db, /WHERE price_offers\.status NOT IN \('PRIJATA', 'ODOSIELA', 'NEISTY_STAV'\)\s+RETURNING id/);
+  assert.match(db, /WHERE price_offers\.status NOT IN \('PRIJATA', 'ODOSLANA', 'ODOSIELA', 'NEISTY_STAV'\)\s+RETURNING id/);
   assert.match(db, /status = 'ODOSIELA', send_started_at = \$2[\s\S]*?status = 'PRIPRAVENA' RETURNING \*/);
   assert.match(db, /status IN \('NEISTY_STAV', 'ODOSIELA'\)[\s\S]*?interval '15 minutes'/);
+  assert.match(db, /SELECT pg_advisory_xact_lock\(hashtext\(\$1\)\)[\s\S]*?price-offer-number:/);
+  assert.match(db, /client\.query\('BEGIN'\)[\s\S]*?INSERT INTO price_offers[\s\S]*?INSERT INTO audit_logs[\s\S]*?client\.query\('COMMIT'\)/);
 });
 
 test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje opakovanie', async () => {
@@ -157,8 +159,9 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(list, /href=\{`\/admin\/ponuky\/\$\{offer\.id\}`\}>Otvoriť CP<\/a>/);
   assert.match(detail, /offer\.status === 'PRIPRAVENA'.*Odoslať zákazníkovi/);
   assert.match(detail, /skontrolovali odoslanú poštu/);
-  assert.match(mail, /status: 'unknown' as const/);
-  assert.match(mail, /status: 'not_sent' as const/);
+  assert.match(mail, /status === 'failed' \? 'not_sent' as const : 'unknown' as const/);
+  assert.match(mail, /classifyRequiredSmtpRecipient\(info, offer\.email\)/);
+  assert.match(mail, /Interná kópia nemení stav ponuky na odoslanú/);
   assert.match(list, /offer\.status === 'ODOSLANA'.*updatePriceOfferStatusAction/);
   assert.match(actions, /if \(!updated\) throw new Error\('Ako prijatú možno označiť iba odoslanú/);
   const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
@@ -197,6 +200,11 @@ test('server action validuje cenu a Maps ostáva serverové s ručným fallbacko
   assert.match(actions, /process\.env\.GOOGLE_MAPS_API_KEY/);
   assert.match(actions, /input\.includeTransport && \(!input\.transportFrom \|\| !input\.transportTo \|\| input\.transportRoundTripKm <= 0\)/);
   assert.match(actions, /input\.realizationTerm\.length > 250/);
+  assert.match(actions, /allowedMaterialTypes\.has\(input\.materialType\)/);
+  assert.match(actions, /isSingleEmailAddress\(input\.email\)/);
+  assert.match(actions, /isUsablePhone\(input\.phone\)/);
+  assert.match(actions, /isValidIsoCalendarDate\(input\.validUntil\)/);
+  assert.match(actions, /input\.validUntil < todayInSlovakia\(\)/);
   assert.match(form, /Cena za km bez DPH/);
   assert.match(form, /Vzdialenosť a sadzbu môžete upraviť ručne/);
   assert.match(form, /name="realizationTerm" maxLength=\{250\}/);
@@ -206,5 +214,14 @@ test('server action validuje cenu a Maps ostáva serverové s ručným fallbacko
   assert.match(form, /routeRequestId\.current \+= 1; setTransportFrom/);
   assert.match(form, /routeRequestId\.current \+= 1; setTransportTo/);
   assert.match(form, /routeRequestId\.current \+= 1; setTransportRoundTripKm/);
+  assert.match(form, /Uložiť a skontrolovať odoslanie/);
   assert.doesNotMatch(form, /GOOGLE_MAPS_API_KEY|routes\.googleapis\.com/);
+});
+
+test('detail dopytu ponúka stav Nacenený a odoslaná CP je iba na čítanie', async () => {
+  const leadDetail = await readFile(new URL('../app/admin/(protected)/dopyty/[id]/page.tsx', import.meta.url), 'utf8');
+  const offerDetail = await readFile(new URL('../app/admin/(protected)/ponuky/[id]/page.tsx', import.meta.url), 'utf8');
+  assert.match(leadDetail, /'kontaktovany',\s*'naceneny',\s*'cenova_ponuka_odoslana'/);
+  assert.match(offerDetail, /offer\.status === 'PRIPRAVENA' \? <form/);
+  assert.match(offerDetail, /Odoslaná verzia je uzamknutá/);
 });

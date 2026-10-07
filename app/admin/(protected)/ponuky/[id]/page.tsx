@@ -88,12 +88,15 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         <article className={isExpired(offer.validUntil) ? 'is-expired' : ''}><span>Platná do</span><strong>{dateSk(offer.validUntil)}</strong></article>
       </section>
 
-      <form
+      {offer.status === 'PRIPRAVENA' ? <form
         action={savePriceOfferAction}
         className="admin-pending-form"
       >
         <PriceOfferForm jobs={jobs} settings={settings} offer={offer} />
-      </form>
+      </form> : <section className="admin-card">
+        <h2>Odoslaná verzia je uzamknutá</h2>
+        <p>Obsah odoslanej alebo prijatej ponuky sa už nemení, aby PDF, email a obchodná história zostali zhodné. Ak treba cenu alebo rozsah upraviť, vytvorte novú cenovú ponuku.</p>
+      </section>}
     </main>
   );
 }

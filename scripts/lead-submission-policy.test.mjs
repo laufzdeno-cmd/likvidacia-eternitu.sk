@@ -5,7 +5,7 @@ const { createLeadSubmissionFingerprint, sameLeadSubmissionFingerprint, recordLe
 const relayModule = await import('../src/server/astana-local-relay.ts');
 const { canSafelyFallbackToLocalRelay, sendLeadThroughAstanaLocalRelay } = relayModule.default ?? relayModule;
 const emailPolicyModule = await import('../src/server/email-delivery-policy.ts');
-const { classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } = emailPolicyModule.default ?? emailPolicyModule;
+const { classifyRequiredSmtpRecipient, classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } = emailPolicyModule.default ?? emailPolicyModule;
 
 test('lead fingerprints do not depend on input object key order', () => {
   const first = createLeadSubmissionFingerprint({ fullName: 'Jana Nová', city: 'Poprad', areaEstimate: 120 });
@@ -160,4 +160,11 @@ test('SMTP acceptance requires all envelope recipients to be accepted', () => {
   assert.equal(classifySmtpAcceptance({ accepted: [], rejected: ['customer@example.test'] }), 'failed');
   assert.equal(classifySmtpAcceptance({ accepted: ['one@example.test'], rejected: ['two@example.test'] }), 'unknown');
   assert.equal(classifySmtpAcceptance({}), 'unknown');
+});
+
+test('cenová ponuka vyžaduje prijatie presne zákazníckou adresou', () => {
+  assert.equal(classifyRequiredSmtpRecipient({ accepted: ['customer@example.test', 'astana@astana.sk'], rejected: [] }, 'customer@example.test'), 'sent');
+  assert.equal(classifyRequiredSmtpRecipient({ accepted: ['astana@astana.sk'], rejected: ['customer@example.test'] }, 'customer@example.test'), 'failed');
+  assert.equal(classifyRequiredSmtpRecipient({ accepted: ['ASTANA <astana@astana.sk>'], rejected: [] }, 'customer@example.test'), 'unknown');
+  assert.equal(classifyRequiredSmtpRecipient({ accepted: ['Customer <CUSTOMER@example.test>'], rejected: ['astana@astana.sk'] }, 'customer@example.test'), 'sent');
 });

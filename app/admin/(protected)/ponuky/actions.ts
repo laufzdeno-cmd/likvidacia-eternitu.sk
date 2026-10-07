@@ -18,7 +18,34 @@ import { sendPriceOfferDocumentEmail } from '@/src/server/mail';
 import { renderPriceOfferPdf } from '@/src/server/price-offer-pdf';
 import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
 import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
+import { isValidIsoCalendarDate } from '@/src/lib/date-only';
 import type { PriceOfferInput, PriceOfferMaterialType } from '@/src/server/types';
+
+const allowedMaterialTypes = new Set<PriceOfferMaterialType>([
+  'VLNITY_ETERNIT',
+  'HLADKY_ETERNIT',
+  'AZBESTOVE_RURY',
+  'PODHLADOVE_DOSKY',
+  'BOLETICKY',
+  'INE',
+]);
+
+function isSingleEmailAddress(value: string) {
+  return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(value);
+}
+
+function isUsablePhone(value: string) {
+  return /^[+\d][\d\s().\/-]{6,39}$/.test(value) && value.replace(/\D/g, '').length >= 7;
+}
+
+function todayInSlovakia() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Bratislava',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
 
 function num(value: FormDataEntryValue | null) {
   return Number(String(value || '').replace(',', '.')) || 0;
@@ -93,9 +120,11 @@ export async function savePriceOfferAction(formData: FormData) {
   const input = parseOffer(formData);
   if (!input.objectType || input.objectType.length > 120 || !input.objectAddress || input.objectAddress.length > 250
     || !input.municipality || input.municipality.length > 120 || input.district.length > 120
-    || !input.contactPerson || input.contactPerson.length > 160 || input.phone.length > 40
+    || !input.contactPerson || input.contactPerson.length > 160 || !isUsablePhone(input.phone)
     || input.realizationTerm.length > 250
-    || !/^\S+@\S+\.\S+$/.test(input.email) || input.email.length > 254
+    || !isSingleEmailAddress(input.email) || input.email.length > 254
+    || !allowedMaterialTypes.has(input.materialType)
+    || !isValidIsoCalendarDate(input.validUntil) || input.validUntil < todayInSlovakia()
     || input.areaM2 <= 0 || input.areaM2 > 100_000
     || input.pricePerM2WithoutVat < 0 || input.pricePerM2WithoutVat > 100_000
     || input.documentationFeeWithoutVat < 0 || input.documentationFeeWithoutVat > 1_000_000
@@ -103,7 +132,7 @@ export async function savePriceOfferAction(formData: FormData) {
     || input.transportPricePerKm < 0 || input.transportPricePerKm > 100
     || input.transportFrom.length > 250 || input.transportTo.length > 250
     || (input.includeTransport && (!input.transportFrom || !input.transportTo || input.transportRoundTripKm <= 0))) {
-    throw new Error('Skontrolujte povinné údaje a hodnoty cenovej ponuky. Pri účtovanej doprave zadajte trasu, kilometre aj sadzbu.');
+    throw new Error('Skontrolujte povinné údaje, telefón, email, platnosť a hodnoty cenovej ponuky. Pri účtovanej doprave zadajte trasu, kilometre aj sadzbu.');
   }
   const offer = await savePriceOffer(input, actor, id);
   revalidatePath('/admin/ponuky');

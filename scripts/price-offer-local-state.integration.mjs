@@ -28,6 +28,21 @@ const input = {
 };
 
 try {
+  for (const validUntil of ['2027-02-31', '2026-13-01', '2027-02-29']) {
+    await assert.rejects(
+      savePriceOffer({ ...input, validUntil, sourceInquiry: `test:${randomUUID()}` }, 'local-integration-test'),
+      /skutočný kalendárny dátum/,
+    );
+  }
+  const leapDayOffer = await savePriceOffer({ ...input, validUntil: '2028-02-29', sourceInquiry: `test:${randomUUID()}` }, 'local-integration-test');
+  assert.equal(leapDayOffer.validUntil, '2028-02-29');
+  const stateAfterDateValidation = JSON.parse(await readFile(databasePath, 'utf8'));
+  assert.equal(stateAfterDateValidation.priceOffers.length, 1, 'neplatné dátumy nesmú vytvoriť lokálnu ponuku');
+  assert.equal(stateAfterDateValidation.auditLogs.filter((entry) => entry.action === 'price_offer_created').length, 1,
+    'neplatné dátumy nesmú vytvoriť lokálny audit');
+
+  const concurrentOffers = await Promise.all(Array.from({ length: 8 }, () => savePriceOffer({ ...input, sourceInquiry: `test:${randomUUID()}` }, 'local-integration-test')));
+  assert.equal(new Set(concurrentOffers.map((item) => item.number)).size, concurrentOffers.length, 'súbežné lokálne ponuky musia mať jedinečné čísla');
   const offer = await savePriceOffer(input, 'local-integration-test');
   assert.equal(await updatePriceOfferStatus(offer.id, 'PRIJATA', 'local-integration-test'), null);
   const claims = await Promise.all([
@@ -38,6 +53,10 @@ try {
   const claimed = claims.find(Boolean);
   assert.ok(claimed?.sendAttemptId);
   assert.equal((await finishPriceOfferSending(offer.id, claimed.sendAttemptId, 'sent', 'local-integration-test'))?.status, 'ODOSLANA');
+  await assert.rejects(
+    savePriceOffer({ ...input, areaM2: 11 }, 'local-integration-test', offer.id),
+    /Odoslanú alebo prijatú cenovú ponuku nie je možné upraviť/,
+  );
   const accepted = await Promise.all([
     updatePriceOfferStatus(offer.id, 'PRIJATA', 'local-integration-test'),
     updatePriceOfferStatus(offer.id, 'PRIJATA', 'local-integration-test'),
@@ -50,7 +69,7 @@ try {
   assert.equal(actions.filter((action) => action === 'price_offer_send_claimed').length, 1);
   assert.equal(actions.filter((action) => action === 'price_offer_send_sent').length, 1);
   assert.equal(actions.filter((action) => action === 'price_offer_status_changed').length, 1);
-  console.log('PASS: lokálna CP používa atómový claim, odoslanie, prijatie a audit bez zacyklenia.');
+  console.log('PASS: lokálna CP používa jedinečné čísla, nemennú odoslanú verziu, atómový claim, prijatie a audit.');
 } finally {
   await rm(temporaryDirectory, { recursive: true, force: true });
 }

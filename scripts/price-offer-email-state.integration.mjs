@@ -64,6 +64,25 @@ async function testConcurrentClaimAndUnknownDelivery() {
   assert.equal((await getPriceOffer(offer.id))?.sendStartedAt, undefined);
 }
 
+async function testConcurrentOfferNumbers() {
+  const offers = await Promise.all(Array.from({ length: 8 }, () => savePriceOffer(offerInput(), 'integration-test')));
+  assert.equal(new Set(offers.map((offer) => offer.number)).size, offers.length, 'concurrent PostgreSQL saves must reserve unique offer numbers');
+}
+
+async function testCalendarDateValidation() {
+  const valid = await savePriceOffer({ ...offerInput(), validUntil: '2028-02-29' }, 'integration-test');
+  assert.equal(valid.validUntil, '2028-02-29');
+  const before = await pglite.query("SELECT (SELECT COUNT(*)::int FROM price_offers) AS offers, (SELECT COUNT(*)::int FROM audit_logs WHERE action='price_offer_created') AS audits");
+  for (const validUntil of ['2027-02-31', '2026-13-01', '2027-02-29']) {
+    await assert.rejects(
+      savePriceOffer({ ...offerInput(), validUntil }, 'integration-test'),
+      /skutočný kalendárny dátum/,
+    );
+  }
+  const after = await pglite.query("SELECT (SELECT COUNT(*)::int FROM price_offers) AS offers, (SELECT COUNT(*)::int FROM audit_logs WHERE action='price_offer_created') AS audits");
+  assert.deepEqual(after.rows[0], before.rows[0], 'neplatné dátumy nesmú vytvoriť PostgreSQL ponuku ani audit');
+}
+
 async function testKnownNoSendAndSuccess() {
   const offer = await savePriceOffer(offerInput(), 'integration-test');
   assert.equal(await updatePriceOfferStatus(offer.id, 'PRIJATA', 'integration-test'), null, 'a prepared offer cannot be accepted before it is sent');
@@ -87,9 +106,11 @@ async function testKnownNoSendAndSuccess() {
 let exitCode = 0;
 try {
   await startDatabase();
+  await testCalendarDateValidation();
+  await testConcurrentOfferNumbers();
   await testConcurrentClaimAndUnknownDelivery();
   await testKnownNoSendAndSuccess();
-  console.log('PASS: izolovaný PostgreSQL offer claim, súbežnosť, unknown delivery, manuálna obnova a retry po potvrdenom no-send. Bez SMTP, Blobu, produkčnej DB alebo deployu.');
+  console.log('PASS: izolovaný PostgreSQL offer numbering, claim, unknown delivery, manuálna obnova a retry po potvrdenom no-send. Bez SMTP, Blobu, produkčnej DB alebo deployu.');
 } catch (error) {
   console.error(error);
   exitCode = 1;

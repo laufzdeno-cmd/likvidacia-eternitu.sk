@@ -10,6 +10,7 @@ import { canManuallyRetryLeadEmail, isLeadSmtpConfigured } from './mail';
 import { isAstanaLocalRelayConfigured, leadDeliveryMode } from './astana-local-relay';
 import { describeLeadMailHealth } from './lead-mail-health';
 import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
+import { isValidIsoCalendarDate } from '../lib/date-only';
 import {
   shouldFallbackToDefaultSiteContent,
   shouldInitializeSiteContentSchema,
@@ -5772,6 +5773,9 @@ function calculatePriceOfferTotals(input: PriceOfferInput, vatRate: number) {
 }
 
 export async function savePriceOffer(input: PriceOfferInput, actorEmail: string, id?: string): Promise<PriceOffer> {
+  if (input.validUntil && !isValidIsoCalendarDate(input.validUntil)) {
+    throw new Error('Platnosť cenovej ponuky musí byť skutočný kalendárny dátum.');
+  }
   await ensureSchema();
   const settings = await getPriceOfferSettings();
   const timestamp = now();
@@ -5779,7 +5783,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
   const existing = id ? await getPriceOffer(id) : null;
   const lifecycle = priceOfferUpdateLifecycle(existing || undefined);
   if (!lifecycle.allowed) {
-    if (lifecycle.status === 'PRIJATA') throw new Error('Prijatú cenovú ponuku nie je možné upraviť. Vytvorte novú ponuku, aby zostala história prijatia zachovaná.');
+    if (lifecycle.status === 'PRIJATA' || lifecycle.status === 'ODOSLANA') throw new Error('Odoslanú alebo prijatú cenovú ponuku nie je možné upraviť. Vytvorte novú ponuku, aby zostala obchodná história zachovaná.');
     throw new Error('Ponuka sa práve odosiela alebo má neoverený stav doručenia. Najprv overte e-mail; ponuku zatiaľ neupravujte.');
   }
   const normalizedInput: PriceOfferInput = {
@@ -5804,7 +5808,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
     leadId: offerLeadId,
     sourceJobIds: [...new Set([...(existing?.sourceJobIds ?? []), ...(existing?.jobId ? [existing.jobId] : []), ...(input.jobId ? [input.jobId] : [])])],
     isTestData: Boolean(existing?.isTestData),
-    number: existing?.number || (await nextPriceOfferNumber()),
+    number: existing?.number || '',
     createdAt: existing?.createdAt || timestamp,
     validUntil: input.validUntil || defaultValidUntil(),
     vatRate,
@@ -5839,20 +5843,37 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       offer.leadId = input.jobId ? currentJob?.leadId : currentDirectLead?.id ?? currentExisting?.leadId ?? currentPreviousJob?.leadId;
       offer.sourceJobIds = [...new Set([...(currentExisting?.sourceJobIds ?? []), ...(currentExisting?.jobId ? [currentExisting.jobId] : []), ...(input.jobId ? [input.jobId] : [])])];
       offer.isTestData = Boolean(currentExisting?.isTestData);
-      const current = local.priceOffers.find((item) => item.id === offerId && !item.deletedAt);
-      if (current?.status === 'PRIJATA') throw new Error('Cenová ponuka bola počas úpravy prijatá. Vytvorte novú ponuku, ak potrebujete zmenu.');
-      if (current?.status === 'ODOSIELA' || current?.status === 'NEISTY_STAV') throw new Error('Odoslanie ponuky prebieha alebo sa musí overiť. Zatiaľ ju neupravujte ani neodosielajte znova.');
-      if (current?.status === 'ODOSLANA') {
-        offer.status = 'PRIPRAVENA';
-        offer.sentAt = undefined;
+      if (!offer.number) {
+        const year = String(new Date().getFullYear());
+        const highest = local.priceOffers
+          .map((item) => item.number)
+          .filter((number) => number.startsWith(year))
+          .reduce((max, number) => Math.max(max, Number(number.slice(4)) || 0), 0);
+        offer.number = `${year}${String(highest + 1).padStart(4, '0')}`;
       }
+      const current = local.priceOffers.find((item) => item.id === offerId && !item.deletedAt);
+      if (current?.status === 'PRIJATA' || current?.status === 'ODOSLANA') throw new Error('Cenová ponuka už bola odoslaná alebo prijatá. Vytvorte novú ponuku, ak potrebujete zmenu.');
+      if (current?.status === 'ODOSIELA' || current?.status === 'NEISTY_STAV') throw new Error('Odoslanie ponuky prebieha alebo sa musí overiť. Zatiaľ ju neupravujte ani neodosielajte znova.');
       local.priceOffers = [offer, ...local.priceOffers.filter((item) => item.id !== offerId)];
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id, action: id ? 'price_offer_updated' : 'price_offer_created', actorEmail, changes: { number: offer.number, requiresResend: lifecycle.requiresResend }, createdAt: timestamp });
       await writeLocalDb(local);
       return offer;
     });
   }
-  const result = await db.query(
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    if (!offer.number) {
+      const year = String(new Date().getFullYear());
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`price-offer-number:${year}`]);
+      const numberResult = await client.query(
+        'SELECT number FROM price_offers WHERE number LIKE $1 ORDER BY number DESC LIMIT 1',
+        [`${year}%`],
+      );
+      const last = numberResult.rows[0]?.number ? Number(String(numberResult.rows[0].number).slice(4)) : 0;
+      offer.number = `${year}${String(last + 1).padStart(4, '0')}`;
+    }
+    const result = await client.query(
     `INSERT INTO price_offers (
       id, number, job_id, created_at, valid_until, object_type, object_address, municipality, district,
       contact_person, phone, email, realization_term, material_type, area_m2, price_per_m2_without_vat,
@@ -5871,7 +5892,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       documentation_promotion = $31, include_transport = $32, transport_from = $33, transport_to = $34,
       transport_round_trip_km = $35, transport_price_per_km = $36, vat_rate = $37,
       status = $24, sent_at = $25
-     WHERE price_offers.status NOT IN ('PRIJATA', 'ODOSIELA', 'NEISTY_STAV')
+     WHERE price_offers.status NOT IN ('PRIJATA', 'ODOSLANA', 'ODOSIELA', 'NEISTY_STAV')
     RETURNING id`,
     [
       offer.id,
@@ -5912,10 +5933,22 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       offer.transportPricePerKm,
       offer.vatRate,
     ],
-  );
-  if (!result.rows.length) throw new Error('Cenová ponuka bola počas úpravy prijatá a nebola zmenená. Vytvorte novú ponuku.');
-  await addAuditLog('business_job', offer.jobId || offer.id, id ? 'price_offer_updated' : 'price_offer_created', actorEmail, { number: offer.number, requiresResend: lifecycle.requiresResend });
-  return offer;
+    );
+    if (!result.rows.length) throw new Error('Cenová ponuka bola počas úpravy odoslaná, prijatá alebo uzamknutá a nebola zmenená. Vytvorte novú ponuku.');
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'business_job',$2,$3,$4,$5,$6)`,
+      [randomUUID(), offer.jobId || offer.id, id ? 'price_offer_updated' : 'price_offer_created', actorEmail,
+        { number: offer.number, requiresResend: lifecycle.requiresResend }, timestamp],
+    );
+    await client.query('COMMIT');
+    return offer;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function listPriceOffers(filters: { status?: PriceOfferStatus | ''; month?: string; jobId?: string; includeArchived?: boolean } = {}): Promise<PriceOffer[]> {

@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import { canSafelyFallbackToLocalRelay, isAstanaLocalRelayConfigured, leadDeliveryMode, sendCareerApplicationThroughAstanaLocalRelay, sendLeadThroughAstanaLocalRelay, type LeadDeliveryMode, type LeadDeliveryResult, type LeadRecipientDeliveryRecorder } from './astana-local-relay';
 import { cleanSlovakText } from './slovak-text';
-import { classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } from './email-delivery-policy';
+import { classifyRequiredSmtpRecipient, classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } from './email-delivery-policy';
 import type { ApplicationNotificationRecipient } from './types';
 import type { BusinessJob, CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
@@ -557,7 +557,7 @@ export async function sendPlannerNotificationEmail(input: { to: string; subject:
   if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
 
   try {
-    await client.sendMail({
+    const info = await client.sendMail({
       from: namedFromHeader('ASTANA plánovač'),
       to: input.to,
       replyTo: input.replyTo || leadRecipient(),
@@ -808,7 +808,7 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
   const location = offer.municipality || offer.objectAddress || offer.district;
 
   try {
-    await client.sendMail({
+    const info = await client.sendMail({
       from: namedFromHeader('ASTANA s.r.o. - likvidácia azbestu'),
       to: offer.email,
       cc: c.email,
@@ -818,8 +818,21 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
       html: priceOfferEmailHtml(offer, settings),
       attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],
     });
+    const status = classifyRequiredSmtpRecipient(info, offer.email);
+    if (status !== 'sent') {
+      return {
+        status: status === 'failed' ? 'not_sent' as const : 'unknown' as const,
+        reason: status === 'failed'
+          ? 'SMTP odmietlo adresu zákazníka. Interná kópia nemení stav ponuky na odoslanú.'
+          : 'SMTP nepotvrdilo prijatie adresou zákazníka. Pred opakovaním skontrolujte odoslanú poštu.',
+      };
+    }
   } catch (error) {
-    return { status: 'unknown' as const, reason: mailErrorMessage(error) };
+    const status = classifySmtpError(error);
+    return {
+      status: status === 'failed' ? 'not_sent' as const : 'unknown' as const,
+      reason: mailErrorMessage(error),
+    };
   }
 
   return { status: 'sent' as const };

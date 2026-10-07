@@ -9,6 +9,7 @@ import { archiveLeadAction, cancelLeadFollowup, deleteLeadFileAction, destroyArc
 const statuses = [
   'novy',
   'kontaktovany',
+  'naceneny',
   'cenova_ponuka_odoslana',
   'objednane',
   'nevyslo',

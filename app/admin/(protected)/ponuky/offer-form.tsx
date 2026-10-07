@@ -187,7 +187,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
         </div>
         <div className="price-offer-actions">
           <button className="admin-secondary-link" type="submit">{offer ? 'Uložiť zmeny' : 'Uložiť ako koncept'}</button>
-          <button className="admin-primary-button" type="submit" name="next" value="send">Uložiť a odoslať</button>
+          <button className="admin-primary-button" type="submit" name="next" value="send">Uložiť a skontrolovať odoslanie</button>
         </div>
       </aside>
     </div>
