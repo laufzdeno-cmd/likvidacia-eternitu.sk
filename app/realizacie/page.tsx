@@ -177,13 +177,16 @@ async function PublishedRealizationsContent({ searchParams }: PageProps) {
                       width={520}
                       height={420}
                       sizes="(max-width: 760px) 100vw, 25vw"
-                      unoptimized
                     />
                   ) : null}
                   <span>
                     <strong>{realization.title}</strong>
                     <small>{realization.materialType}</small>
                     {realization.description ? <small>{realization.description}</small> : null}
+                    <span className="published-realization-links">
+                      <a href="/likvidacia-azbestu/">Ako likvidujeme azbest</a>
+                      <a href="/kde-posobime/">Kde pôsobíme</a>
+                    </span>
                   </span>
                 </article>
               );

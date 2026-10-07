@@ -36,7 +36,18 @@ test('approved case map is server-rendered only from the public allow-list and s
   assert.match(component, /cases: readonly PublishedRealizationCase\[\]/);
   assert.match(component, /if \(cases\.length === 0\) return null/);
   assert.match(component, /mapPublishedRealizationLocalityPoints\(cases\)/);
-  assert.match(component, /\/api\/realization-case-media\/\$\{encodeURIComponent\(imageId\)\}/);
+  assert.match(component, /`\/api\/realization-case-media\/\$\{encodeURIComponent\(imageId\)\}\/`/);
+  assert.match(component, /sizes="\(max-width: 700px\) 100vw, \(max-width: 1100px\) 50vw, 33vw"/);
+  assert.match(component, /srcSet=\{`\$\{imagePath\}\?w=360 360w, \$\{imagePath\}\?w=720 720w, \$\{imagePath\}\?w=1080 1080w`\}/);
+  assert.match(component, /loading="lazy"/);
+  assert.match(component, /decoding="async"/);
+  assert.doesNotMatch(component, /\/_next\/image\?url=.*realization-case-media/,
+    'odvolateľná fotografia nesmie vstúpiť do cache Next Image');
+  assert.match(component, /src="\/assets\/maps\/slovakia-admin-3\.svg"[\s\S]*?unoptimized/,
+    'mapové SVG má zostať bez rasterizácie v Next Image');
+  assert.match(component, /href="\/likvidacia-azbestu\/">Ako likvidujeme azbest<\/a>/);
+  assert.match(component, /href="\/kde-posobime\/">Kde pôsobíme<\/a>/);
+  assert.match(component, /aria-label=\{`Súvisiace informácie k realizácii \$\{item\.title\}`\}/);
   assert.match(component, /localityDataset\.attribution|localityDataset\.source/);
   assert.match(component, /creativecommons\.org\/licenses\/by\/4\.0/);
   assert.match(component, /Body zobrazujú približnú obec alebo okres/);
@@ -66,4 +77,14 @@ test('approved case map is server-rendered only from the public allow-list and s
   assert.match(styles, /\.markerLink:focus-visible \{[^}]*outline: 3px solid/);
   assert.match(styles, /\.clusterCaseList a:focus-visible \{[^}]*outline: 3px solid/);
   assert.match(styles, /\.card:target \{[^}]*outline: 3px solid/);
+  assert.match(styles, /\.relatedLinks \{[^}]*display: flex/);
+  assert.match(styles, /\.relatedLinks a:focus-visible|\.card a:focus-visible/);
+  assert.match(route, /className="published-realization-links"/);
+  assert.match(route, /href="\/likvidacia-azbestu\/">Ako likvidujeme azbest<\/a>/);
+  assert.match(route, /href="\/kde-posobime\/">Kde pôsobíme<\/a>/);
+  assert.doesNotMatch(
+    route.match(/src=\{imageUrl\}[\s\S]*?\/>/)?.[0] ?? '',
+    /unoptimized/,
+    'schválená fotografia realizácie musí používať responzívnu optimalizáciu Next Image',
+  );
 });

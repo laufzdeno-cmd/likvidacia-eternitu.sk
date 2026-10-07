@@ -115,5 +115,12 @@ test('case drafts require audited super-admin review before any public access', 
   assert.match(mediaRoute, /privatePhotoIntakeStorageReady\(\)/);
   assert.match(mediaRoute, /verifiedImageMime\(bytes\) !== 'image\/jpeg'/);
   assert.match(mediaRoute, /Cache-Control': 'no-store/);
+  assert.match(mediaRoute, /parsePublicRealizationImageWidth\(request\.url\)/);
+  assert.match(mediaRoute, /getPublicRealizationPhotoVariant\(photo\.storageKey, width, loadVerifiedSource\)/);
+  assert.match(mediaRoute, /width === undefined/);
+  assert.match(mediaRoute, /consumeSharedRateLimit\([\s\S]*?'public-realization-image'[\s\S]*?120,[\s\S]*?60_000/);
+  assert.doesNotMatch(mediaRoute, /width\s*!==\s*null\s*&&\s*await\s+consumeSharedRateLimit/);
+  assert.match(mediaRoute, /PublicRealizationMediaBusyError/);
+  assert.match(mediaRoute, /Cross-Origin-Resource-Policy': 'same-origin'/);
   assert.match(mediaRoute, /Referrer-Policy': 'no-referrer/);
 });

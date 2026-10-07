@@ -108,17 +108,20 @@ export default function ApprovedCaseMap({ cases }: Props) {
         {cases.map((item) => {
           const pointAvailable = points.some((point) => point.caseId === item.id);
           const imageId = item.photoIds[0];
+          const imagePath = imageId ? `/api/realization-case-media/${encodeURIComponent(imageId)}/` : null;
           const localityLabel = item.localityPrecision === 'municipality' ? 'obec' : item.localityPrecision === 'district' ? 'okres' : 'lokalita';
           return (
             <article className={styles.card} id={`realizacia-${item.id}`} key={item.id}>
-              {imageId ? (
-                <Image
-                  src={`/api/realization-case-media/${encodeURIComponent(imageId)}`}
+              {imagePath ? (
+                <img
+                  src={`${imagePath}?w=720`}
+                  srcSet={`${imagePath}?w=360 360w, ${imagePath}?w=720 720w, ${imagePath}?w=1080 1080w`}
                   alt={`${item.objectType} – ${item.materialType}${item.locality ? `, ${item.locality}` : ''}`}
                   width={720}
                   height={480}
                   sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
-                  unoptimized
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : null}
               <div className={styles.cardBody}>
@@ -131,6 +134,10 @@ export default function ApprovedCaseMap({ cases }: Props) {
                   {item.areaEstimate ? <div><dt>Približná výmera</dt><dd>{item.areaEstimate} m²</dd></div> : null}
                   {item.workPeriod ? <div><dt>Obdobie realizácie</dt><dd>{item.workPeriod}</dd></div> : null}
                 </dl>
+                <nav className={styles.relatedLinks} aria-label={`Súvisiace informácie k realizácii ${item.title}`}>
+                  <a href="/likvidacia-azbestu/">Ako likvidujeme azbest</a>
+                  <a href="/kde-posobime/">Kde pôsobíme</a>
+                </nav>
               </div>
             </article>
           );

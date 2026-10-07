@@ -1417,10 +1417,21 @@ async function runHarness() {
     assert.ok(publicCasesHtml.includes(mapEntryHref), 'published case must have a concrete map link to its realization card');
     caseState = await pglite.query('SELECT lifecycle FROM realization_case_drafts WHERE id=$1', [caseRow.rows[0].id]);
     assert.deepEqual(caseState.rows[0], { lifecycle: 'published' }, 'publishing action must persist the published lifecycle');
-    const publicMediaResponse = await localFetch(appOrigin + '/api/realization-case-media/' + uploaded.id + '/');
+    const publicMediaResponse = await localFetch(appOrigin + '/api/realization-case-media/' + uploaded.id + '/?w=360');
     assert.equal(publicMediaResponse.status, 200, 'sanitized approved photo must be accessible while its case is published');
     assert.match(publicMediaResponse.headers.get('cache-control') || '', /no-store/i,
       'publicly approved case photos must still avoid persistent CDN/browser storage');
+    const publishedStorage = await pglite.query('SELECT storage_key FROM realization_media_intake WHERE id=$1', [uploaded.id]);
+    const publishedStorageKey = publishedStorage.rows[0]?.storage_key;
+    const validBlob = fake.blobs.get(publishedStorageKey);
+    assert.ok(validBlob, 'published sanitized Blob must exist in the isolated emulator');
+    fake.blobs.set(publishedStorageKey, {
+      blob: { ...validBlob.blob, size: 18, contentType: 'application/octet-stream' },
+      bytes: Buffer.from('not-a-jpeg-payload'),
+    });
+    const invalidMimeResponse = await localFetch(appOrigin + '/api/realization-case-media/' + uploaded.id + '/?w=720');
+    assert.equal(invalidMimeResponse.status, 415, 'a different responsive width must re-check the private Blob signature');
+    fake.blobs.set(publishedStorageKey, validBlob);
     await adminPage.getByRole('button', { name: 'Stiahnuť z verejnej stránky' }).click();
     await adminPage.getByText('Stiahnutý z webu', { exact: false }).waitFor();
     const withdrawnHtmlResponse = await localFetch(appOrigin + '/realizacie/');
@@ -1428,7 +1439,7 @@ async function runHarness() {
     const withdrawnHtml = await withdrawnHtmlResponse.text();
     assert.ok(!withdrawnHtml.includes(caseTitle), 'withdrawn case must disappear from the public page');
     assert.ok(!withdrawnHtml.includes(mapEntryHref), 'withdrawn case must no longer have a map link');
-    const withdrawnMediaResponse = await localFetch(appOrigin + '/api/realization-case-media/' + uploaded.id + '/');
+    const withdrawnMediaResponse = await localFetch(appOrigin + '/api/realization-case-media/' + uploaded.id + '/?w=360');
     assert.equal(withdrawnMediaResponse.status, 404, 'withdrawn case photo must no longer use the public media route');
     caseState = await pglite.query('SELECT lifecycle FROM realization_case_drafts WHERE id=$1', [caseRow.rows[0].id]);
     assert.deepEqual(caseState.rows[0], { lifecycle: 'withdrawn' });

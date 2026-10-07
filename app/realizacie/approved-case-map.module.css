@@ -307,6 +307,28 @@
   overflow-wrap: anywhere;
 }
 
+.relatedLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #e7ebf0;
+}
+
+.relatedLinks a {
+  color: #173f72;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.relatedLinks a:hover {
+  color: #a73527;
+}
+
 @media (max-width: 980px) {
   .cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));

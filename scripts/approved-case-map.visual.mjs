@@ -40,7 +40,12 @@ const testCase = {
 const html = renderToStaticMarkup(React.createElement(ApprovedCaseMap, { cases: [testCase] }));
 assert.match(html, /TEST – vizuálna kontrola, nezverejňovať/);
 assert.match(html, /Konkrétne práce, nie iba sľuby/);
-assert.match(html, new RegExp(`/api/realization-case-media/${photoId}`));
+assert.match(html, new RegExp(`/api/realization-case-media/${photoId}/\\?w=720`));
+assert.match(html, new RegExp(`srcSet="/api/realization-case-media/${photoId}/\\?w=360 360w,`),
+  'publikovaná fotografia musí mať responzívny srcset bez zdieľanej image cache');
+assert.match(html, /sizes="\(max-width: 700px\) 100vw, \(max-width: 1100px\) 50vw, 33vw"/);
+assert.match(html, /href="\/likvidacia-azbestu\/"/);
+assert.match(html, /href="\/kde-posobime\/"/);
 assert.match(html, new RegExp(`href="#realizacia-${caseId}"`));
 assert.doesNotMatch(html, /publicationEvidence|businessJobId|privatePhoto|storageKey/i);
 const ambiguousHtml = renderToStaticMarkup(React.createElement(ApprovedCaseMap, {
@@ -83,7 +88,8 @@ await context.route('**/*', async (route) => {
     await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: mapSvg });
     return;
   }
-  if (url.pathname === `/api/realization-case-media/${photoId}`) {
+  if (url.pathname === `/api/realization-case-media/${photoId}/`
+    && ['360', '720', '1080'].includes(url.searchParams.get('w') || '')) {
     await route.fulfill({ status: 200, contentType: 'image/jpeg', body: testPhoto });
     return;
   }
