@@ -9,7 +9,7 @@ Produkčná kontrola bola iba na čítanie. Lokálne sa 8. 10. uzavrela kompatib
 - Aktuálny produkčný deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` je **Ready**, **Current**, vznikol 4. 10. 2026 a Vercel ho viaže na vetvu `codex/private-photo-upload` a Git SHA `c98c630c1af467c51c615980841630a4cabf6c29`.
 - Táto dvojica deployment + plný Git SHA identifikuje skutočný živý návratový bod. Checkpoint `f4f1eb31` ho transparentne zaznamenáva ako druhého rodiča grafového merge bez zmeny aplikačného stromu; strom sa zhoduje s prvým rodičom `0efdcbb6` a produkčný SHA je jeho predkom.
 - Presný izolovaný test nad plnou schémou a skutočnými DB funkciami commitu `c98c630c…` potvrdil migráciu, nový tok, dokončenie uploadu po návrate starej aplikácie, pripojenie aj retenciu. Samotný živý rollback deploymentu sa nevykonal.
-- Tento deployment neobsahuje aktuálny lokálny aplikačný checkpoint `854fac66` ani jeho následné dôkazové dokumenty.
+- Tento deployment neobsahuje aktuálny lokálny aplikačný checkpoint `d6fd3268` ani jeho následné dôkazové dokumenty.
 - Za posledných 30 minút Vercel pri tomto deploymente zobrazoval 0 warning, 0 error a 0 fatal záznamov. Krátke okno nenahrádza produkčný monitoring ani post-release smoke.
 - Produkčný HTTPS a `www` používajú trvalé presmerovanie na kanonický host; kontrolované hlavné trasy vracajú 200 a neexistujúca cesta 404.
 
@@ -42,7 +42,7 @@ Overené boli iba názvy, prostredia a typ premenných, nikdy nie ich hodnoty.
 4. Až po úspešnom nezávislom re-review a samostatnom súhlase povýšiť presne overený deployment na produkčný alias.
 5. Ihneď po povýšení overiť kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
 
-Lokálny build checkpointu `854fac66` je viazaný na nemenný [buildový dôkaz](LOCAL-BUILD-EVIDENCE-854fac66.json): 99/99 trás, 32 statických SEO URL, BUILD_ID `PVkdCOXtpKXF5z8I1gSKO`, `productionAccess:false`, odstránená jednorazová databáza a presný rollback test PASS.
+Lokálny build checkpointu `d6fd3268` je viazaný na nemenný [buildový dôkaz](LOCAL-BUILD-EVIDENCE-d6fd3268.json): 99/99 trás, 32 statických SEO URL, BUILD_ID `Ln09kj6_3dgzCiW5Ny2pa`, `productionAccess:false`, odstránená jednorazová databáza a presný rollback test PASS.
 
 ## Oddelené účtové zosúladenie
 

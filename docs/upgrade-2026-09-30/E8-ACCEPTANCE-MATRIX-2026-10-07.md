@@ -2,13 +2,13 @@
 
 ## Najnovší lokálny checkpoint
 
-Presný aplikačný checkpoint `854fac66` po doplnení spätne kompatibilného súkromného uploadu, overenia skutočnej Blob veľkosti a typu, presného migračného/rollback testu, súhlasovo viazaného Meta CAPI outboxu, kontrolovaného Vercel promote mechanizmu, aktuálnej politiky dopravy a bezpečného testovania dopytov prešiel: **351/351 MJS + 24/24 TypeScript PASS**, lead-form **66/66**, analytika **35/35**, DB integrácie **8/8**, presný produkčný rollback test, TypeScript a diff kontrolu. Úplný izolovaný produkčný build: **99/99** trás, SEO **32 statických URL**, dynamické realizácie/recenzie a route izolácia PASS; BUILD_ID `PVkdCOXtpKXF5z8I1gSKO`, `productionAccess:false` a jednorazová DB odstránená. Predchádzajúci plný verejný responzívny audit je **220/220**; posledný aplikačný rez nemení viditeľný dizajn. Nezávislé read-only kontroly uploadu aj finálnej bezpečnostnej brány nenašli konkrétnu P1–P3 chybu. Produkčný deploy, alias, formulár, email, Blob a reklamný účet zostali bez zmeny.
+Presný aplikačný checkpoint `d6fd3268` dopĺňa bezpečné responzívne varianty schválených fotografií realizácií, okamžitú revokáciu verejného prístupu, obmedzenie frekvencie a súbehu spracovania obrázkov a zmysluplné SSR prepojenie každého prípadu na službu a pôsobnosť. Prešiel: **356/356 MJS + 24/24 TypeScript PASS**, DB integrácie **8/8**, presný produkčný rollback test, TypeScript a diff kontrolu. Úplný izolovaný produkčný build: **99/99** trás, SEO **32 statických URL**, dynamické realizácie/recenzie a route izolácia PASS; BUILD_ID `Ln09kj6_3dgzCiW5Ny2pa`, `productionAccess:false` a jednorazová DB odstránená. Fokusovaný vizuálny audit realizácií prešiel na 320, 390 a 1440 px bez externých požiadaviek alebo odoslania formulára. Nezávislá read-only kontrola po oprave limitu aj pre originálnu fotografiu vrátila PASS. Produkčný deploy, alias, formulár, email, Blob a reklamný účet zostali bez zmeny.
 
 Lokálny technický stav tohto rezu je **PASS**. Celkový release zostáva **WAITING** na externú Vercel IAM kontrolu, produkčné tajomstvá, staged kandidáta/rollback a výslovne schválený produkčný smoke vrátane dopytu bez fotky a s fotkou, oboch schránok, Chrome/Opera a fyzického mobilu. Tieto externé brány sa nesmú nahradiť lokálnym skóre.
 
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
-Kontrolovaný aplikačný a QA checkpoint: commit `854fac66` na vetve `codex/astana-upgrade-rc1`. Obsahuje právny/GEO rez, bezpečný dopytový, kariérny a foto tok, cenové ponuky, PDF/email, admin, verejný vizuál, súhlasovo viazaný Meta CAPI outbox, kontrolovaný Vercel promote mechanizmus, úplný vzorový konfiguračný kontrakt, pravdivé texty, regresné testy, výkonové úpravy, aktuálnu politiku dopravy ako voliteľnej samostatnej položky cenovej ponuky a spevnenú ochranu proti obídeniu produkčnej brány. Nasledujúce dôkazové zmeny nesmú meniť tento aplikačný obsah.
+Kontrolovaný aplikačný a QA checkpoint: commit `d6fd3268` na vetve `codex/astana-upgrade-rc1`. Obsahuje právny/GEO rez, bezpečný dopytový, kariérny a foto tok, cenové ponuky, PDF/email, admin, verejný vizuál, súhlasovo viazaný Meta CAPI outbox, kontrolovaný Vercel promote mechanizmus, úplný vzorový konfiguračný kontrakt, pravdivé texty, regresné testy, výkonové úpravy, aktuálnu politiku dopravy ako voliteľnej samostatnej položky cenovej ponuky, bezpečné responzívne fotografie realizácií a spevnenú ochranu proti obídeniu produkčnej brány. Nasledujúce dôkazové zmeny nesmú meniť tento aplikačný obsah.
 
 Legenda:
 
@@ -19,14 +19,14 @@ Legenda:
 
 Aktuálne dôkazy:
 
-- `npm.cmd run test:unit`: **351/351 MJS + 24/24 TypeScript PASS**.
+- `npm.cmd run test:unit`: **356/356 MJS + 24/24 TypeScript PASS**.
 - databázové integrácie: **8/8 PASS**, vrátane PostgreSQL/PGlite, lokálneho úložiska, cenových ponúk, outboxu a TOTP; bez produkčnej DB, SMTP alebo Blob zásahu.
-- izolovaný PostgreSQL 17 + produkčný build checkpointu `854fac66`: **99/99 trás, TypeScript a obe SEO kontroly PASS**, BUILD_ID `PVkdCOXtpKXF5z8I1gSKO`; produkčný prístup bol vypnutý a jednorazová databáza odstránená. Údaje viaže [nemenný buildový dôkaz](LOCAL-BUILD-EVIDENCE-854fac66.json) na plný zdrojový commit a strom.
+- izolovaný PostgreSQL 17 + produkčný build checkpointu `d6fd3268`: **99/99 trás, TypeScript a obe SEO kontroly PASS**, BUILD_ID `Ln09kj6_3dgzCiW5Ny2pa`; produkčný prístup bol vypnutý a jednorazová databáza odstránená. Údaje viaže [nemenný buildový dôkaz](LOCAL-BUILD-EVIDENCE-d6fd3268.json) na plný zdrojový commit a strom.
 - vizuálny browser audit aktuálneho pracovného stromu: **20 trás, 220 viewport stavov, 25 snímok, 0 hydration chýb, 0 odoslaných formulárov a 0 externých originov**; pokryté reduced-motion, 200 % zoom a landscape. Fokusovaný audit `/`, `/postup/`, `/o-firme/` navyše prešiel na 1440 a 375 px bez horizontálneho pretečenia.
 - dopytový browser/Blob emulátor: 1 lead, 1 zákazka, 2 súkromné prílohy, 2 autorizované a 0 anonymných stiahnutí, 2 čakajúce outbox položky, **0 odoslaných emailov**.
 - Lighthouse S08 nad bezprostredne predchádzajúcim buildom `y1TYexOpsKdspjTfymDsp`: 5 trás × 3 behy, všetky PASS; medián Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 284–2 451 ms**, CLS **0**. Následné zúženie iba serverového rozpoznávania starých CMS otázok nemení aktuálne renderovaný obsah; jeho vlastný build a regresné testy prešli, Lighthouse sa mu nepripisuje ako nový beh.
 
-Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–100. Nie sú dôkazom pre túto maticu; hodnoty Accessibility 100 patria historickému Lighthouse buildu `y1TYexOpsKdspjTfymDsp` a build `PbffkjJF2blfWHCZP2t5Z` je tiež starší. Najnovší samostatný zdrojový build checkpointu `854fac66` je `PVkdCOXtpKXF5z8I1gSKO`.
+Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–100. Nie sú dôkazom pre túto maticu; hodnoty Accessibility 100 patria historickému Lighthouse buildu `y1TYexOpsKdspjTfymDsp` a build `PbffkjJF2blfWHCZP2t5Z` je tiež starší. Najnovší samostatný zdrojový build checkpointu `d6fd3268` je `Ln09kj6_3dgzCiW5Ny2pa`.
 
 ## SEO — S01–S10
 
@@ -38,10 +38,10 @@ Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–
 | S04 | PASS local | JSON-LD používa bezpečný serializer, jednu firemnú entitu a route-vlastnené breadcrumbs; testy prešli. |
 | S05 | PASS local | Sitemap, robots a pravdivé/nevynútené `lastmod` prešli kontraktmi; produkčné odoslanie patrí S09. |
 | S06 | PASS local | Služby, cena, regióny a poradňa majú odlišné routy a regionálne texty nepredstierajú pobočky ani realizácie. |
-| S07 | PASS local | SSR obsah, interné odkazy a obchodné navigačné cesty prešli renderovanou a browser kontrolou. |
+| S07 | PASS local | SSR obsah, interné odkazy a obchodné navigačné cesty prešli renderovanou a browser kontrolou; každý schválený prípad aj staršia publikovaná realizácia odkazujú na službu a celoslovenskú pôsobnosť. |
 | S08 | PASS local | Všetkých 15 Lighthouse behov splnilo Performance ≥90, LCP ≤2,5 s, CLS ≤0,1, Accessibility ≥90 a SEO ≥90. |
 | S09 | PARTIAL | [Read-only GSC baseline 7. 10. 2026](SEARCH-CONSOLE-BASELINE-2026-10-07.md) potvrdil vlastníctvo, úspešnú sitemap, indexáciu a 28-dňové/3-mesačné agregované výsledky. Chýba Bing a post-release GSC kontrola nového deploymentu. |
-| S10 | PASS local | Vlastné médiá, hero preload, responzívne varianty, fonty a neverejné uploady sú chránené kontraktmi; nové reálne fotografie ostávajú samostatným redakčným vstupom. |
+| S10 | PASS local | Statické realizácie používajú optimalizáciu Next Image a schválené súkromné zdroje presné 360/720/1080 px JPEG varianty s pravdivým 3:2 pomerom, limitom súbehu, byte-LRU/TTL cache a kontrolou publikácie pred cache. Stiahnutie schválenia bolo v izolovanom browser teste okamžite 404 aj pre predtým vytvorený variant. |
 
 **Podľa binárnej metodiky je aktuálne preukázané SEO skóre 80/100.** S01 a S09 zostávajú produkčné brány; lokálny Lighthouse SEO 100 ich nenahrádza.
 
@@ -104,9 +104,9 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
 | O01 | PASS local | Izolovaný produkčný build, TypeScript, generovanie 99/99 a čistenie dočasnej PostgreSQL databázy prešli. |
-| O02 | PASS local | Celá unit/kontraktná sada 351/351 MJS + 24/24 TypeScript a databázové integrácie 8/8 prešli. |
-| O03 | PASS local candidate | Nezávislé read-only kontroly presného aplikačného stromu checkpointu `854fac66` vrátane kompatibility uploadu s produkčným commitom a spevnenej produkčnej brány nenašli konkrétnu P1–P3 chybu. Tento PASS sa týka lokálneho kandidáta; produkčné brány O04–O10 zostávajú samostatné. |
-| O04 | WAITING | Vercel read-only kontrola potvrdila ako Current starý produkčný deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` z 4. 10. 2026, viazaný na plný SHA `c98c630c1af467c51c615980841630a4cabf6c29`. Staged Production deployment checkpointu `854fac66`, jeho test a kontrolované povýšenie ešte neexistujú. Podrobnosti sú v [release readiness snapshote](RELEASE-READINESS-2026-10-07.md). |
+| O02 | PASS local | Celá unit/kontraktná sada 356/356 MJS + 24/24 TypeScript a databázové integrácie 8/8 prešli. |
+| O03 | PASS local candidate | Nezávislé read-only kontroly presného aplikačného stromu checkpointu `d6fd3268` vrátane kompatibility uploadu s produkčným commitom, spevnenej produkčnej brány a verejných fotografií realizácií nenašli konkrétnu P1–P3 chybu. Tento PASS sa týka lokálneho kandidáta; produkčné brány O04–O10 zostávajú samostatné. |
+| O04 | WAITING | Vercel read-only kontrola potvrdila ako Current starý produkčný deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` z 4. 10. 2026, viazaný na plný SHA `c98c630c1af467c51c615980841630a4cabf6c29`. Staged Production deployment checkpointu `d6fd3268`, jeho test a kontrolované povýšenie ešte neexistujú. Podrobnosti sú v [release readiness snapshote](RELEASE-READINESS-2026-10-07.md). |
 | O05 | PASS local / production WAITING | Živá rollback dvojica deployment + plný SHA je identifikovaná. Grafový merge má rovnaký strom ako skontrolovaný aplikačný parent, produkčný SHA je predkom checkpointu a presný izolovaný test potvrdil migráciu aj návrat na skutočné funkcie commitu `c98c630c…`. Reálne prepnutie deploymentu sa vykoná iba pri odchýlke po schválenom release. |
 | O06 | WAITING | Starý Current deployment mal v kontrolovanom 30-minútovom okne 0 warning/error/fatal logov, ale Speed Insights a Web Analytics sú vypnuté a chýba dlhodobý alerting, vlastník retry aj eskalácia `unknown` stavu. |
 | O07 | PASS local | Consent, deduplikácia, HMAC atribúcia a zákaz PII v analytike prešli testami a browser sekvenciou. |
@@ -116,4 +116,4 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 
 ## Rozhodnutie
 
-Aktuálny aplikačný zdroj je uložený ako lokálny QA checkpoint `854fac66`; následný dôkazový commit smie upraviť iba dokumentáciu a test väzby checkpointu. Presný aplikačný checkpoint znovu prešiel kompletnou jednotkovou sadou, TypeScriptom, izolovaným produkčným buildom, rollback kompatibilitou a nezávislou kontrolou spevnenej produkčnej brány. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U03/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04/O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny aplikačný zdroj je uložený ako lokálny QA checkpoint `d6fd3268`; následný dôkazový commit smie upraviť iba dokumentáciu a test väzby checkpointu. Presný aplikačný checkpoint znovu prešiel kompletnou jednotkovou sadou, TypeScriptom, izolovaným produkčným buildom, rollback kompatibilitou a nezávislou kontrolou spevnenej produkčnej brány aj verejných fotografií realizácií. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U03/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04/O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
