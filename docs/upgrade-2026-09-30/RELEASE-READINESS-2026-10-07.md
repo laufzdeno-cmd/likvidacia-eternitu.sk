@@ -37,3 +37,7 @@ Overené boli iba názvy, prostredia a typ premenných, nikdy nie ich hodnoty.
 3. Na presnom staged deploymente zopakovať build/route smoke, admin prihlásenie, súkromný Blob a označený test dopytu bez fotografie aj s fotografiou do oboch schránok.
 4. Až po úspešnom nezávislom re-review a samostatnom súhlase povýšiť presne overený deployment na produkčný alias.
 5. Ihneď po povýšení overiť kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
+
+## Oddelené účtové zosúladenie
+
+[Read-only kontrola verejných profilov](PUBLIC-PROFILE-REVIEW-2026-10-07.md) zaznamenala dve oblasti odchýlok mimo webového deploymentu: Google Business Profile zobrazoval kategóriu „Azbestové testy“ a staršiu webovú adresu `astana.sk/Likvidacia-azbestu`; v zobrazených podkladoch Google Ads boli viditeľné nedoložené označenie „certifikovaný tím“ a starý prísľub bezplatnej dopravy. Kontrola nepotvrdila, či sa konkrétne reklamné texty aktívne doručovali. Kandidát webu tieto tvrdenia nepreberá. Profil ani reklamy sa nesmú meniť ako vedľajší účinok nasadenia webu; potrebujú osobitné schválenie a kontrolu stavu pred a po zmene.
