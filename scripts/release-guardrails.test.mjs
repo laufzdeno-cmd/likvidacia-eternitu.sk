@@ -67,6 +67,7 @@ function createRepository() {
     scripts: {
       deploy: 'node scripts/deploy-reviewed-release.mjs',
       'release:guard': 'node scripts/check-release-guardrails.mjs',
+      'test:map-locality': 'node --test scripts/published-realization-locality-points.behavior.mjs',
     },
   }, null, 2)}\n`);
   write(repo, 'package-lock.json', '{"lockfileVersion":3}\n');

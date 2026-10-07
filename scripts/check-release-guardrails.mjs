@@ -404,7 +404,7 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     const alternateDeployScripts = Object.entries(currentPackage?.scripts ?? {})
       .filter(([name, command]) => !APPROVED_RELEASE_SCRIPT_NAMES.has(name) && typeof command === 'string' && (
         /(?:^|[:_-])(?:deploy|promote|rollback|publish|release)(?:$|[:_-])/i.test(name)
-        || /(?:deploy|promote|rollback|publish|release)/i.test(command)
+        || /\b(?:deploy|promote|rollback|publish|release)\b/i.test(command)
         || /(?:^|\s)(?:npx\s+)?vercel(?:@\S+)?\s+(?:deploy|promote|rollback)\b/i.test(command)
         || /(?:^|\s)vercel(?:@\S+)?\s+--prod\b/i.test(command)
         || command.includes('scripts/deploy-reviewed-release.mjs')
