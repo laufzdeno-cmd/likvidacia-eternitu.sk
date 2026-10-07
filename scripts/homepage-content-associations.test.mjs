@@ -65,7 +65,9 @@ test('homepage replaces legacy free-transport claims with transparent offer pric
 });
 
 test('legacy transport wording from editable content is replaced again before rendering', () => {
-  assert.equal(normalizeHomepageCoverageText('Doprava nad 100 m2 zdarma.'), 'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.');
+  const disclosure = 'Prípadná doprava je samostatne uvedená v cenovej ponuke.';
+  assert.equal(normalizeHomepageCoverageText('Doprava nad 100 m2 zdarma.'), disclosure);
+  assert.equal(normalizeHomepageCoverageText('Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.'), disclosure);
   assert.equal(
     normalizeHomepageCoverageText('Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.'),
     'Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.',

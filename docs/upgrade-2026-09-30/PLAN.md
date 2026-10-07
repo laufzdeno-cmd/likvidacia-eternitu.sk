@@ -181,7 +181,7 @@ Prevádzka po release: týždenne chyby dopytov a doručenia; mesačne stránky/
 | Originálne fotografie a potvrdené obce, prípadne dátumy/výmery | Päť prípadov a mapa | Vybudovať schvaľovanie, šablónu a mapu bez verejných vymyslených bodov |
 | Práva na publikovanie a posúdenie identifikovateľných ľudí/domov | Publikovanie dôkazov | Pripraviť neverejný výber a anonymizáciu |
 | Aktuálne doloženie rozsahu oprávnenia + odborný garant | Presné právne vysvetlenie, profil tímu | Spísať overené historické údaje, odstrániť neodôvodnené tvrdenia v návrhu |
-| DPH a potvrdené cenové predpoklady (doprava je historicky schválená od 100 m²) | Jednotná kalkulačka/cenová stránka | Vyriešiť technické správanie bez zmeny sadzieb; dopravu uvádzať iba presným schváleným znením „Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.“ |
+| DPH a potvrdené cenové predpoklady | Jednotná kalkulačka/cenová stránka | Doprava je v cenovej ponuke voliteľná. Ak sa účtuje, uvádza sa samostatne s editovateľnou trasou, spiatočnými kilometrami a sadzbou; verejný web nesľubuje dopravu zdarma podľa výmery. Finálne sadzby a DPH potvrdí vlastník. |
 | Verejná správna URL GBP a prístup ku GSC/Bing | Identita, indexácia, baseline | Technický crawl a príprava presného kontrolného zoznamu |
 | Reálne recenzie a povolené citácie | Sociálny dôkaz | Pripraviť workflow a návrh oslovenia, nerozosielať |
 

@@ -47,7 +47,7 @@ AA309A729258D16806601CE9B3A259B3F04EA7AD149F4ECE906D3A89BCE5FA93
 
 | Tvrdenie/návrh | Verdikt | Rozhodnutie pre ASTANU |
 |---|---|---|
-| Pravdivé ceny, zahrnuté/nezahrnuté položky, ľahký dopyt | CONDITIONAL | Zjednotiť existujúcu kalkulačku; DPH a cenové predpoklady potvrdiť. Historicky schválené znenie dopravy od 100 m² možno použiť iba v presnom rozsahu: „Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.“ Nepreberať konkurenčné sadzby |
+| Pravdivé ceny, zahrnuté/nezahrnuté položky, ľahký dopyt | CONDITIONAL | Zjednotiť existujúcu kalkulačku; DPH a cenové predpoklady potvrdiť. Doprava je voliteľná a pri účtovaní sa uvádza samostatne v konkrétnej cenovej ponuke; verejný web nesľubuje dopravu zdarma podľa výmery. Nepreberať konkurenčné sadzby |
 | Reálne prípadové štúdie, pôvodné fotografie, konkrétny postup | ACCEPT | Hlavná investícia do dôvery; nie generické SEO odseky |
 | AI musí odporúčať firmu pri každom lokálnom dopyte | REJECT | Nie je ovládateľná garancia; merať pripravenosť, odpovede a skutočné referral dopyty |
 | Všetkých 8 krajov v areaServed je podmienka odporúčania | REJECT | Vhodné na opis pravdivej pôsobnosti, nie algoritmická povinnosť. Slovakia už existuje |
