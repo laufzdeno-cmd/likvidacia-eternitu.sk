@@ -196,6 +196,7 @@ test('detail dopytu zobrazuje novú cenovú ponuku a jej stav', async () => {
 test('server action validuje cenu a Maps ostáva serverové s ručným fallbackom', async () => {
   const actions = await readFile(new URL('../app/admin/(protected)/ponuky/actions.ts', import.meta.url), 'utf8');
   const form = await readFile(new URL('../app/admin/(protected)/ponuky/offer-form.tsx', import.meta.url), 'utf8');
+  const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
   assert.match(actions, /await verifyCsrf\(formData\);\s*await requireAdmin\(\);/);
   assert.match(actions, /process\.env\.GOOGLE_MAPS_API_KEY/);
   assert.match(actions, /input\.includeTransport && \(!input\.transportFrom \|\| !input\.transportTo \|\| input\.transportRoundTripKm <= 0\)/);
@@ -208,6 +209,8 @@ test('server action validuje cenu a Maps ostáva serverové s ručným fallbacko
   assert.match(form, /Cena za km bez DPH/);
   assert.match(form, /Vzdialenosť a sadzbu môžete upraviť ručne/);
   assert.match(form, /name="realizationTerm" maxLength=\{250\}/);
+  assert.match(form, /dohodou – po splnení potrebného postupu pred prácami/);
+  assert.doesNotMatch(form, /po vydaní rozhodnutí z úradov/);
   assert.match(form, /const vatRate = offer\?\.vatRate \?\? settings\.vatRate/);
   assert.match(form, /const requestId = \+\+routeRequestId\.current/);
   assert.match(form, /requestId !== routeRequestId\.current/);
@@ -216,6 +219,9 @@ test('server action validuje cenu a Maps ostáva serverové s ručným fallbacko
   assert.match(form, /routeRequestId\.current \+= 1; setTransportRoundTripKm/);
   assert.match(form, /Uložiť a skontrolovať odoslanie/);
   assert.doesNotMatch(form, /GOOGLE_MAPS_API_KEY|routes\.googleapis\.com/);
+  assert.match(envExample, /^GOOGLE_MAPS_API_KEY=$/m);
+  assert.match(envExample, /Iba serverový kľúč Google Routes API/);
+  assert.match(envExample, /Bez neho ostáva doprava plne funkčná s ručne editovateľnými kilometrami/);
 });
 
 test('detail dopytu ponúka stav Nacenený a odoslaná CP je iba na čítanie', async () => {

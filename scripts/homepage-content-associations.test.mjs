@@ -38,7 +38,8 @@ test('homepage evidence describes the six attached realization cards accurately'
 
 test('homepage ponúka pravdivé obchodné dôkazy bez vymysleného hodnotenia', () => {
   assert.match(homepage, /href="\/realizacie\/">Ukážky reálnych striech ASTANA\.<\/a>/);
-  assert.match(homepage, /href="\/recenzie\/">Prečítajte si overené referencie zákazníkov\.<\/a>/);
+  assert.match(homepage, /href="\/recenzie\/">Prečítajte si, ako overujeme referencie zákazníkov\.<\/a>/);
+  assert.doesNotMatch(homepage, /Prečítajte si overené referencie zákazníkov/);
   assert.doesNotMatch(homepage, /\b[45][.,]\d\s*\/\s*5\b|\b\d+\s+spokojných zákazníkov\b/i);
 });
 

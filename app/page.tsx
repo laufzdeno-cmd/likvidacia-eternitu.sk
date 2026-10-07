@@ -411,7 +411,7 @@ export default async function HomePage() {
               </div>
             </div>
             <a className="hero-real-note" href="/realizacie/">Ukážky reálnych striech ASTANA.</a>
-            <a className="hero-review-note" href="/recenzie/">Prečítajte si overené referencie zákazníkov.</a>
+            <a className="hero-review-note" href="/recenzie/">Prečítajte si, ako overujeme referencie zákazníkov.</a>
           </div>
 
           <div className="hero-photo real-hero-photo" role="group" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">

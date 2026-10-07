@@ -89,6 +89,17 @@ test('photo intake requires a dedicated store token and an exact project/databas
   }
 });
 
+test('sample environment documents the complete fail-closed private photo intake contract', async () => {
+  const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
+  assert.match(envExample, /^PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN=$/m);
+  assert.match(envExample, /^PHOTO_INTAKE_PRIVATE_STORE_VERIFIED=$/m);
+  assert.match(envExample, /^PHOTO_INTAKE_RETENTION_BINDING_SHA256=$/m);
+  assert.match(envExample, /^PHOTO_INTAKE_RETENTION_ENABLED=$/m);
+  assert.match(envExample, /^PHOTO_INTAKE_ENABLED=$/m);
+  assert.match(envExample, /^PHOTO_UPLOAD_SESSION_SECRET=$/m);
+  assert.match(envExample, /Nový foto-intake sa zapne iba vtedy, keď sú obe nasledujúce hodnoty presne true/);
+});
+
 test('photo retention is an explicit opt-in and a prerequisite for new uploads', () => {
   const previous = {
     PHOTO_INTAKE_RETENTION_ENABLED: process.env.PHOTO_INTAKE_RETENTION_ENABLED,
