@@ -7,7 +7,7 @@ Kontrola bola iba na čítanie. Nebol vytvorený deployment, zmenený alias, upr
 ## Živý stav
 
 - Aktuálny produkčný deployment `FYaPKy6tk` je **Ready**, **Current**, vznikol 4. 10. 2026 a Vercel ho viaže na vetvu `codex/private-photo-upload`.
-- Tento deployment neobsahuje lokálny aplikačný checkpoint `3e8011f0` ani dokumentačný checkpoint `0fdd3f8f`.
+- Tento deployment neobsahuje aktuálny lokálny aplikačný checkpoint `5402285b` ani jeho následné dôkazové dokumenty.
 - Za posledných 30 minút Vercel pri tomto deploymente zobrazoval 0 warning, 0 error a 0 fatal záznamov. Krátke okno nenahrádza produkčný monitoring ani post-release smoke.
 - Produkčný HTTPS a `www` používajú trvalé presmerovanie na kanonický host; kontrolované hlavné trasy vracajú 200 a neexistujúca cesta 404.
 
