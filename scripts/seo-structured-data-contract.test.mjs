@@ -74,7 +74,9 @@ test('core company JSON agrees with the typed source and JSON-LD reads that sour
   for (const [key, value] of sourceValues) {
     assert.ok(siteFacts.includes(`${key}: '${value}'`), `src/content/site.ts ${key} must match company.json`);
   }
-  assert.ok(siteFacts.includes(`value: '${company.founded_year}', confirmed: true`));
+  assert.match(siteFacts, new RegExp(`value: '${company.founded_year}',[\\s\\S]{0,120}confirmed: true`));
+  assert.ok(siteFacts.includes(`sourceUrl: '${company.founded_year_source}'`));
+  assert.equal(company.founded_year_verified_as_of, '2026-10-07');
   assert.ok(siteFacts.includes(`sameAs: ['${company.same_as.join("', '")}']`));
   for (const field of [
     'name: site.brandName', 'legalName: site.legalName', 'url: SITE_URL',

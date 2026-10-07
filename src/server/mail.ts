@@ -617,7 +617,7 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
     'Doplňujúce informácie alebo fotografie:',
   ].join('\n'));
   const included = [
-    ...(offer.includeDocumentation ? ['Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Správne poplatky na úradoch'] : []),
+    ...(offer.includeDocumentation ? ['Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Prípadné správne poplatky podľa konkrétneho konania, ak vzniknú'] : []),
     'Vytvorenie ochranného pásma',
     'Stabilizácia materiálu penetračným postrekom',
     'Odborná demontáž vyškoleným personálom',
@@ -734,11 +734,11 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
 
           <div style="margin-bottom:20px;background:#FFFBEB;border-left:3px solid #D4B56A;border-radius:6px;padding:14px 18px;color:#92400E;font-size:13px;line-height:1.6;">Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom. Potrebné doklady Vám odovzdáme po dokončení zákazky.</div>
           <div style="margin:0 0 20px;color:#475569;font-size:13px;line-height:1.65;">
-            <strong style="color:#263451;">Po ukončení prác vám odovzdáme:</strong>
+            <strong style="color:#263451;">Po ukončení prác vám podľa rozsahu zákazky odovzdáme dostupné doklady preukazujúce riadne odovzdanie a zneškodnenie odpadu. Môže ísť najmä o:</strong>
             <ul style="margin:8px 0 0;padding-left:22px;">
-              <li>kópiu rozhodnutia príslušného orgánu životného prostredia,</li>
-              <li>sprievodný list nebezpečného odpadu s potvrdením skládky,</li>
-              <li>kópiu vážneho lístka,</li>
+              <li>kópiu príslušného rozhodnutia orgánu životného prostredia, ak bolo vydané,</li>
+              <li>kópiu dokladu o preprave alebo prevzatí odpadu, ak bol vystavený,</li>
+              <li>doklad o hmotnosti odpadu, ak bol vystavený,</li>
               <li>potvrdenie o zneškodnení azbestu firmou ASTANA, s.r.o.</li>
             </ul>
           </div>
@@ -787,10 +787,10 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
     '5. prípadné doplňujúce fotografie situácie.',
     '',
     'Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom.',
-    'Po ukončení prác vám odovzdáme:',
-    '- kópiu rozhodnutia príslušného orgánu životného prostredia,',
-    '- sprievodný list nebezpečného odpadu s potvrdením skládky,',
-    '- kópiu vážneho lístka,',
+    'Po ukončení prác vám podľa rozsahu zákazky odovzdáme dostupné doklady preukazujúce riadne odovzdanie a zneškodnenie odpadu. Môže ísť najmä o:',
+    '- kópiu príslušného rozhodnutia orgánu životného prostredia, ak bolo vydané,',
+    '- kópiu dokladu o preprave alebo prevzatí odpadu, ak bol vystavený,',
+    '- doklad o hmotnosti odpadu, ak bol vystavený,',
     '- potvrdenie o zneškodnení azbestu firmou ASTANA, s.r.o.',
     '',
     `Pre potvrdenie odpovedzte na tento email alebo volajte 0905 217 946. Vyhotovil: ${settings.preparedByName}, tel.: ${settings.preparedByPhone}.`,

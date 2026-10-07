@@ -9,35 +9,55 @@ function normalizeFaqQuestion(question: string) {
     .trim();
 }
 
-function isLegalFaqQuestion(question: string) {
+type CanonicalLegalFaq = 'notice' | 'authorization-scope';
+
+function legalFaqKind(question: string): CanonicalLegalFaq | undefined {
   const normalized = normalizeFaqQuestion(question);
-  const concernsLegalAction = /povol|rozhod|oznam|suhlas|schval/.test(normalized);
   const mentionsAuthority = normalized.includes('ruvz') || normalized.includes('urad verejneho zdravotnictva');
   const mentionsRelevantWork = /azbest|eternit|prac|demontaz|likvidac/.test(normalized);
-  return concernsLegalAction && (mentionsAuthority || mentionsRelevantWork);
+  const explicitlyAsksAboutPermit = /\bpovolen(?:ie|ia|iu|im|i|iami|iach)\b/.test(normalized);
+  const explicitlyAsksAboutAsbestosNotice = /oznam/.test(normalized)
+    && /odstran/.test(normalized)
+    && /azbest/.test(normalized);
+  const asksAboutAuthorityDecision = /rozhod|suhlas|schval/.test(normalized) && mentionsAuthority;
+  if ((explicitlyAsksAboutPermit && (mentionsAuthority || mentionsRelevantWork))
+    || explicitlyAsksAboutAsbestosNotice
+    || asksAboutAuthorityDecision) {
+    return 'notice';
+  }
+  const asksAboutCompanyAuthorization = /opravnen/.test(normalized)
+    && /firma|spolocnost|drzitel|rozsah|odstran/.test(normalized)
+    && /azbest|eternit/.test(normalized);
+  if (asksAboutCompanyAuthorization) return 'authorization-scope';
+  return undefined;
 }
 
 function keepLegalFaqCurrent(savedFaq: string, defaultFaq: string) {
-  const required = defaultFaq
+  const required = new Map<CanonicalLegalFaq, string>();
+  defaultFaq
     .split('\n')
-    .filter((line) => {
-      return isLegalFaqQuestion(line.split('|', 1)[0] ?? '');
+    .forEach((line) => {
+      const kind = legalFaqKind(line.split('|', 1)[0] ?? '');
+      if (kind && !required.has(kind)) required.set(kind, line);
     });
 
-  if (required.length === 0) return savedFaq;
+  if (required.size === 0) return savedFaq;
 
-  const canonicalLine = required[0];
   const lines = savedFaq.split('\n');
-  const matchingIndexes = lines.flatMap((line, index) =>
-    isLegalFaqQuestion(line.split('|', 1)[0] ?? '') ? [index] : []);
+  const emitted = new Set<CanonicalLegalFaq>();
+  const current = lines.flatMap((line) => {
+    const kind = legalFaqKind(line.split('|', 1)[0] ?? '');
+    if (!kind || !required.has(kind)) return [line];
+    if (emitted.has(kind)) return [];
+    emitted.add(kind);
+    return [required.get(kind)!];
+  });
 
-  if (matchingIndexes.length === 0) return [...lines, canonicalLine].join('\n');
+  for (const [kind, canonicalLine] of required) {
+    if (!emitted.has(kind)) current.push(canonicalLine);
+  }
 
-  const firstMatchingIndex = matchingIndexes[0];
-  return lines
-    .filter((line, index) => !isLegalFaqQuestion(line.split('|', 1)[0] ?? '') || index === firstMatchingIndex)
-    .map((line, index) => index === firstMatchingIndex ? canonicalLine : line)
-    .join('\n');
+  return current.join('\n');
 }
 
 /** Defaults fill missing keys; a statutory FAQ answer stays canonical without writing to the database. */

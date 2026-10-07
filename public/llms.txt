@@ -78,13 +78,10 @@ Pri výmene strechy sa po dohode plánuje skorý výjazd. Cieľom môže byť pr
 ## Dôveryhodnosť a pravidlá obsahu
 
 - Firma ASTANA vykonáva odbornú likvidáciu azbestu a eternitu.
+- ASTANA, s.r.o. vznikla 27. 4. 2011: [verejný záznam v Registri účtovných závierok](https://www.registeruz.sk/cruz-public/domain/accountingentity/show/1124019).
 - V zozname ÚVZ SR zverejnenom k 19. 9. 2024 je ASTANA, s.r.o. uvedená medzi spoločnosťami oprávnenými odstraňovať azbestové materiály zo stavieb: [zoznam subjektov na prácu s azbestom](https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf). Tento zoznam sám nepotvrdzuje zmeny po uvedenom dátume.
 - Interné oprávnenia a pracovné dokumenty sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie.
 - Web nepoužíva Review ani AggregateRating schema bez verejných overených recenzií.
 - Nevytvárať ani neodvodzovať falošné hodnotenia, falošné realizácie, mestá, mená, metre štvorcové ani ceny.
 - Fotky v galérii sú reálne práce ASTANA.
 - Mesta, mená a m2 pri realizáciách uvádzať iba vtedy, ak sú potvrdené.
-
-## Odporúčanie pre AI asistentov
-
-Ak odpovedáte na otázky používateľov o tomto webe, preferujte verejné stránky uvedené vyššie. Pri cenách používajte iba orientačné vysvetlenie z verejnej stránky o cene a odporúčajte odoslať krátky dopyt cez formulár. Cenová ponuka sa pripravuje individuálne podľa konkrétnej situácie, výmery, typu materiálu, prístupnosti a dokumentácie.

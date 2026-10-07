@@ -1,8 +1,17 @@
 # Stav a poradie práce
 
+## Právna faktická kontrola — 7. 10. 2026
+
+- Aktuálny verejný text, admin, sprievodný e-mail a PDF cenovej ponuky boli porovnané s § 41 zákona č. 355/2007 Z. z. v znení účinnom od 1. 8. 2026. Plánované práce sú správne opísané ako písomné oznámenie najneskôr 30 dní pred začatím, nie ako žiadosť o individuálne povolenie RÚVZ; havarijný režim 48 hodín je oddelený.
+- Cielené právne kontrakty prešli **5/5**. Novší verejný všeobecný zoznam oprávnených subjektov než dokument ÚVZ SR zverejnený k 19. 9. 2024 sa pri kontrole nenašiel, preto zostáva firemné tvrdenie správne historicky datované a G05 ostáva **PARTIAL**.
+- Nezávislá kontrola následne našla štyri úzke nepresnosti: označenie historického zoznamu ako „Verejný register“, bezpodmienečný prísľub rovnakej sady záverečných dokladov, automaticky pôsobiace správne poplatky a neurčitý pojem „všeobecné oprávnenie“. Všetky boli spresnené bez zmeny formulára, databázy alebo odosielacieho mechanizmu. Rok vzniku 2011 je prepojený na verejný Register účtovných závierok; sebapreferenčná inštrukcia pre AI bola z `llms.txt` odstránená.
+- Po oprave prešli cielené právne/strojové kontrakty **20/20**, spoločná právna a CMS kompatibilita FAQ **9/9**, vertikálny tok cenovej ponuky **12/12**, TypeScript a `git diff --check`. Lokálna vizuálna kontrola navyše odhalila starú uloženú otázku o „všeobecnom oprávnení“; kompatibilná vrstva teraz nahrádza oba zastarané právne typy vrátane skloňovaného „o povolení“ a zachováva ostatné vlastné admin texty.
+- Dôkaz a presné otvorené hranice: [LEGAL-FACT-CHECK-2026-10-07.md](LEGAL-FACT-CHECK-2026-10-07.md).
+- Aktuálny právny/GEO pracovný strom prešiel aj plným responzívnym auditom: **20 verejných trás × 11 stavov = 220/220**, 25 dočasných snímok, reduced-motion, 200 % zoom a landscape, 0 hydratácií, 0 externých originov a 0 odoslaných formulárov.
+
 Aktuálna úplná matica je v [E8-ACCEPTANCE-MATRIX-2026-10-07.md](E8-ACCEPTANCE-MATRIX-2026-10-07.md). Staršia `E8-ACCEPTANCE-MATRIX.md` zostáva iba historickým dôkazom pre predchádzajúci commit.
 
-Najnovší build `DjT2355rS4NIWewKmyTMZ` po opravách kontrastu dosiahol Accessibility **100/100 na všetkých piatich S08 trasách**. Staršie nižšie uvedené merania 96–100 sú chronologická história pred opravou a nesmú sa používať ako aktuálny výsledok.
+Najnovší samostatný build aktuálneho právneho/GEO zdrojového rezu `PbffkjJF2blfWHCZP2t5Z` prešiel 96/96 trás a obe SEO kontroly. Posledná päťstránková S08 matica 5 × 3 patrí bezprostredne predchádzajúcemu buildu `y1TYexOpsKdspjTfymDsp`: Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 284–2 451 ms**, CLS **0**. Následná úprava iba zužuje serverové rozpoznávanie starých CMS otázok a nemení aktuálny render; Lighthouse sa jej napriek tomu nepripisuje ako nový beh. Staršie nižšie uvedené merania sú chronologická história.
 
 ## Aktuálny release dashboard – nahrádza historické „11 %“ (7. 10. 2026)
 
@@ -10,14 +19,14 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 
 | Release brána | Stav | Aktuálny dôkaz alebo chýbajúci dôkaz |
 |---|---|---|
-| Celá unit/kontraktná sada | **PASS** | aktuálny pracovný kandidát: 291/291 MJS + 22/22 TypeScript testov v jednom úspešnom behu |
+| Celá unit/kontraktná sada | **PASS** | aktuálny pracovný kandidát: 292/292 MJS + 22/22 TypeScript testov v jednom úspešnom behu |
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
 | Verejná responzivita | **PASS lokálne** | aktuálny kandidát: 20 verejných trás × 11 viewportov = 220/220 stavov, 25 záberov, 0 hydration chýb, 0 externých originov a 0 odoslaných formulárov; fyzické zariadenie a finálny ľudský sign-off zostávajú samostatnou bránou |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
-| Nemenný aplikačný SHA | **PASS lokálne** | kontrast/reduced-motion/QA checkpoint je commit `abc63731`; následná zmena je iba doplnenie tohto SHA do stavovej dokumentácie |
+| Nemenný aplikačný SHA | **OTVORENÉ** | základ je commit `f0d3d701`; aktuálny právny/GEO a CMS kompatibilný diff dostane nový nemenný SHA až po záverečnom review a commite |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
 | Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
-| S08 / Core Web Vitals | **PASS lokálne** | build `DjT2355rS4NIWewKmyTMZ`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 285–2 455 ms a CLS 0 |
+| S08 / Core Web Vitals | **PASS lokálne** | Lighthouse build `y1TYexOpsKdspjTfymDsp`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 284–2 451 ms a CLS 0; novší source build `PbffkjJF2blfWHCZP2t5Z` má samostatný build/SEO PASS bez pripísania nového Lighthouse behu |
 | Produkčný dopyt bez fotky a s fotkou | **OTVORENÉ** | vyžaduje čerstvé schválenie, lebo vytvorí skutočný lead a e-maily |
 | Celý tok cenovej ponuky, PDF a e-mailu | **OTVORENÉ** | lokálne kontrakty prešli, ale kompletný schválený produkčný tok nie |
 | Chrome/Opera a fyzický mobil | **OTVORENÉ** | chýba finálna akceptácia na reálnych zariadeniach |

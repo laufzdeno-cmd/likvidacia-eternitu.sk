@@ -23,7 +23,9 @@ test('both offer templates separate booking terms from the statutory notice rule
   }
   assert.match(offerPdf, /Potvrdenie cenovej ponuky objednávkou žiadame najmenej 30 dní pred začiatkom/i, 'PDF preserves the booking notice');
   assert.match(offerPdf, /pre mimoriadne havarijné alebo živelné udalosti platí osobitný režim/i, 'PDF acknowledges the statutory emergency exception');
-  assert.match(offerEmail, /kópiu rozhodnutia príslušného orgánu životného prostredia[\s\S]*sprievodný list nebezpečného odpadu s potvrdením skládky[\s\S]*kópiu vážneho lístka[\s\S]*potvrdenie o zneškodnení azbestu firmou ASTANA, s\.r\.o\./i);
+  assert.match(offerEmail, /podľa rozsahu zákazky[\s\S]*kópiu príslušného rozhodnutia orgánu životného prostredia, ak bolo vydané[\s\S]*dokladu o preprave alebo prevzatí odpadu, ak bol vystavený[\s\S]*doklad o hmotnosti odpadu, ak bol vystavený[\s\S]*potvrdenie o zneškodnení azbestu firmou ASTANA, s\.r\.o\./i);
+  assert.match(offerEmail, /Prípadné správne poplatky podľa konkrétneho konania, ak vzniknú/i);
+  assert.doesNotMatch(offerEmail, /Správne poplatky na úradoch/);
   assert.doesNotMatch(offerEmail, /Dokumentácia RÚVZ \+ OÚ|Áno — RÚVZ a OÚ ŽP/);
   assert.doesNotMatch(offerPdf, /Dokumentácia RÚVZ a OÚ ŽP/);
   assert.match(offerPdf, /V prípade zrušenia objednávky si spoločnosť ASTANA, s\.r\.o\. vyhradzuje právo účtovať dohodnutú dokumentáciu/i, 'PDF discloses the agreed documentation fee when documentation is charged');
@@ -71,4 +73,10 @@ test('homepage and process FAQ distinguish RÚVZ notification from a permit', ()
     assert.match(copy, /nie o žiadosť o povolenie/i, `${name} does not imply that the notification is a permit request`);
     assert.doesNotMatch(copy, /posúdenie RÚVZ/i, `${name} must not describe the work notice as an approval`);
   }
+  assert.match(homepage, /Stačí, že firma má oprávnenie na odstraňovanie azbestu/);
+  assert.match(homepage, /rozsah oprávnenia zodpovedá konkrétnemu typu prác/i);
+  assert.doesNotMatch(`${homepage}\n${cmsDefaults}`, /všeobecné oprávnenie/i);
+  assert.match(homepage, /zoznam k 19\. 9\. 2024/i);
+  assert.match(processPage, /Zoznam k 19\. 9\. 2024/);
+  assert.doesNotMatch(`${homepage}\n${processPage}`, /Verejný register/i);
 });

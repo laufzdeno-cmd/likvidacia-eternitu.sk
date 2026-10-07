@@ -23,6 +23,17 @@ export default function AboutPage() {
           dokumentácie, bezpečnej demontáže, balenia, odvozu a potvrdenia o legálnej likvidácii.
         </QuickAnswer>
         <TrustBox />
+        <section className="seo-section">
+          <h2>Firemné údaje</h2>
+          <p>
+            ASTANA, s.r.o. vznikla 27. apríla 2011. Verejný údaj o dátume vzniku je možné overiť v Registri účtovných závierok.
+          </p>
+          <p>
+            <a href={site.claimedStats.foundedOrActiveSince.sourceUrl} target="_blank" rel="noopener noreferrer">
+              Overiť firemný záznam ASTANA, s.r.o.
+            </a>
+          </p>
+        </section>
         <TrustComplianceSection />
         <section className="seo-section">
           <h2>Čo firma robí</h2>

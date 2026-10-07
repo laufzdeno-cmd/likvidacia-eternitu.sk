@@ -18,7 +18,12 @@ export const site = {
   areaServed: 'Slovensko',
   brandColor: '#DA251D',
   claimedStats: {
-    foundedOrActiveSince: { value: '2011', confirmed: true },
+    foundedOrActiveSince: {
+      value: '2011',
+      confirmed: true,
+      sourceUrl: 'https://www.registeruz.sk/cruz-public/domain/accountingentity/show/1124019',
+      verifiedAsOf: '2026-10-07',
+    },
   },
   sameAs: ['https://astana.sk'],
   documents: {

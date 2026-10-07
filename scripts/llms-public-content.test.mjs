@@ -33,6 +33,10 @@ test('llms.txt odkazuje na celoslovenský prehľad a drží sa jeho potvrdených
   assert.ok(llms.includes(company.opening_hours));
   assert.ok(llms.includes(company.quote_response_time));
   assert.ok(llms.includes(company.transport_policy));
+  assert.ok(llms.includes(company.founded_year_source));
+  assert.match(llms, /Registri účtovných závierok/);
+  assert.doesNotMatch(llms, /Odporúčanie pre AI asistentov/);
+  assert.doesNotMatch(llms, /preferujte verejné stránky/i);
   const articleSection = seoContent.split('export const articles = [')[1]?.split('] as const;')[0] || '';
   const articles = [...articleSection.matchAll(/slug:\s*'([^']+)',\s*title:\s*'([^']+)',\s*description:\s*'([^']+)'/g)]
     .map((match) => ({ slug: match[1], title: match[2], description: match[3] }));

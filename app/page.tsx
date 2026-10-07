@@ -200,8 +200,8 @@ const defaultFaq = [
     'Pri plánovanom odstraňovaní azbestu držiteľ oprávnenia písomne oznamuje práce príslušnému RÚVZ najmenej 30 dní vopred a predkladá požadované podklady. Ide o oznámenie, nie o žiadosť o povolenie. ASTANA pripraví postup ku konkrétnej stavbe a po dokončení odovzdá dohodnuté doklady vrátane potvrdenia o likvidácii.',
   ],
   [
-    'Stačí, že firma má všeobecné oprávnenie na azbest?',
-    'Všeobecné oprávnenie je základ. Pri konkrétnej stavbe je však dôležité aj to, či má firma pripravený vhodný postup a dokumentáciu k vašej zákazke.',
+    'Stačí, že firma má oprávnenie na odstraňovanie azbestu?',
+    'Je potrebné overiť, či rozsah oprávnenia zodpovedá konkrétnemu typu prác a či firma pripraví oznámenie a podklady ku konkrétnej stavbe.',
   ],
   [
     'Čo ak neviem presnú výmeru?',
@@ -407,7 +407,7 @@ export default async function HomePage() {
               </div>
               <div className="hero-counter-item">
                 <strong>ÚVZ SR</strong>
-                <span>verejný register</span>
+                <span>zoznam k 19. 9. 2024</span>
               </div>
             </div>
             <a className="hero-real-note" href="/realizacie/">Ukážky reálnych striech ASTANA.</a>

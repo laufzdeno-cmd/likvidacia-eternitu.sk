@@ -2,7 +2,7 @@
 
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
-Kontrolovaný aplikačný a QA checkpoint: commit `abc63731` na vetve `codex/astana-upgrade-rc1`. Izolovaný produkčný build má ID `DjT2355rS4NIWewKmyTMZ`. Nezávislý kontrolór posudzoval presný diff, ktorý tvorí tento commit; následná zmena je iba toto doplnenie identifikátora do dokumentácie.
+Základ aktuálnej kontroly: commit `f0d3d701` na vetve `codex/astana-upgrade-rc1`. Nad ním je úzky necommitnutý pracovný diff verejných právnych/GEO textov, emailu, PDF, CMS kompatibility, regresných testov a tejto auditnej dokumentácie. Každý dôkaz nižšie uvádza, či patrí aktuálnemu diffu alebo základnému checkpointu; nový nemenný SHA sa doplní až po uzavretí diffu.
 
 Legenda:
 
@@ -13,19 +13,19 @@ Legenda:
 
 Aktuálne dôkazy:
 
-- `npm.cmd run test:unit`: **291/291 MJS + 22/22 TypeScript PASS**.
-- izolovaný PostgreSQL 17 + produkčný build: **96/96 stránok, TypeScript a obe SEO kontroly PASS**; produkčný prístup bol vypnutý.
-- vizuálny browser audit: **20 trás, 220 viewport stavov, 25 snímok, 0 hydration chýb, 0 odoslaných formulárov**; pokryté reduced-motion, 200 % zoom a landscape.
+- `npm.cmd run test:unit`: **292/292 MJS + 22/22 TypeScript PASS**.
+- izolovaný PostgreSQL 17 + najnovší produkčný build zdrojového rezu `PbffkjJF2blfWHCZP2t5Z`: **96/96 stránok, TypeScript a obe SEO kontroly PASS**; produkčný prístup bol vypnutý.
+- vizuálny browser audit aktuálneho pracovného stromu: **20 trás, 220 viewport stavov, 25 snímok, 0 hydration chýb, 0 odoslaných formulárov a 0 externých originov**; pokryté reduced-motion, 200 % zoom a landscape. Fokusovaný audit `/`, `/postup/`, `/o-firme/` navyše prešiel na 1440 a 375 px bez horizontálneho pretečenia.
 - dopytový browser/Blob emulátor: 1 lead, 1 zákazka, 2 súkromné prílohy, 2 autorizované a 0 anonymných stiahnutí, 2 čakajúce outbox položky, **0 odoslaných emailov**.
-- Lighthouse S08: 5 trás × 3 behy, všetky PASS; medián Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 285–2 455 ms**, CLS **0**.
+- Lighthouse S08 nad bezprostredne predchádzajúcim buildom `y1TYexOpsKdspjTfymDsp`: 5 trás × 3 behy, všetky PASS; medián Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 284–2 451 ms**, CLS **0**. Následné zúženie iba serverového rozpoznávania starých CMS otázok nemení aktuálne renderovaný obsah; jeho vlastný build a regresné testy prešli, Lighthouse sa mu nepripisuje ako nový beh.
 
-Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–100. Nie sú dôkazom pre túto maticu; aktuálne hodnoty 100 patria výhradne buildu `DjT2355rS4NIWewKmyTMZ` po opravách kontrastu.
+Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–100. Nie sú dôkazom pre túto maticu; hodnoty Accessibility 100 patria Lighthouse buildu `y1TYexOpsKdspjTfymDsp`, kým najnovší samostatný zdrojový build je `PbffkjJF2blfWHCZP2t5Z`.
 
 ## SEO — S01–S10
 
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
-| S01 | PASS local | Renderovaný crawl kontroluje 32 statických URL, obe dynamické obsahové URL, chybové stavy, odkazy a kotvy na rovnakom builde. Produkčný host ešte nebol po novom release prelezený. |
+| S01 | PARTIAL | Renderovaný lokálny crawl kontroluje 32 statických URL, obe dynamické obsahové URL, chybové stavy, odkazy a kotvy na rovnakom builde. Jednotný HTTPS/host, presmerovania a celý nový produkčný host sa potvrdia až po release. |
 | S02 | PASS local | Canonical, index/noindex, 404 a súkromné trasy prešli lokálnym build/browser kontraktom. |
 | S03 | PASS local | Title, description, jeden H1 a obsahové odkazy prešli renderovanou kontrolou. |
 | S04 | PASS local | JSON-LD používa bezpečný serializer, jednu firemnú entitu a route-vlastnené breadcrumbs; testy prešli. |
@@ -36,18 +36,18 @@ Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–
 | S09 | WAITING | Chýba aktuálny post-release GSC/Bing stav, odoslaná sitemap a 28/90-dňový produkčný baseline. |
 | S10 | PASS local | Vlastné médiá, hero preload, responzívne varianty, fonty a neverejné uploady sú chránené kontraktmi; nové reálne fotografie ostávajú samostatným redakčným vstupom. |
 
-**Lokálne preukázané SEO skóre: 90/100.** S09 ostáva produkčná prevádzková brána.
+**Podľa binárnej metodiky je aktuálne preukázané SEO skóre 80/100.** S01 a S09 zostávajú produkčné brány; lokálny Lighthouse SEO 100 ich nenahrádza.
 
 ## GEO — G01–G11
 
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
-| G01 | PASS local | Firemná identita ASTANA, s.r.o., kontakt, sídlo a história majú jeden typovaný zdroj a zhodujú sa s emailovými a JSON-LD výstupmi. |
+| G01 | PASS local | Firemná identita ASTANA, s.r.o., kontakt a sídlo majú jeden typovaný zdroj; vznik 27. 4. 2011 je prepojený na verejný Register účtovných závierok a údaje sa zhodujú s emailovými a JSON-LD výstupmi. |
 | G02 | PASS local | Hlavné služby odpovedajú komu, čo a kde firma poskytuje; rozsah a výnimky sú viditeľné. |
 | G03 | PARTIAL | Kalkulačka a ponuka odlišujú orientačný odhad od schválenej CP; finálne obchodné predpoklady a všetky zahrnuté/vylúčené položky potrebuje potvrdiť vlastník. |
 | G04 | WAITING | Verejné realizácie nesmú byť dopočítané ani vymyslené. Potrebný je finálny súbor minimálne piatich doložených prípadov s právami k fotkám. |
-| G05 | PARTIAL | Historický rozsah oprávnenia je datovaný a právne texty boli opravené; aktuálny odborný garant a dátum vecnej revízie ešte nie sú uzavreté. |
-| G06 | PASS local | Celoslovenská pôsobnosť a osem krajov sú vysvetlené bez predstierania pobočiek. |
+| G05 | PARTIAL | [Právna faktická kontrola 7. 10. 2026](LEGAL-FACT-CHECK-2026-10-07.md) potvrdila aktuálny oznamovací režim a bezpečne datovaný historický rozsah oprávnenia; aktuálne firemné potvrdenie oprávnenia, odborný garant a vlastníkom schválený dátum vecnej revízie ešte nie sú uzavreté. |
+| G06 | PARTIAL | Celoslovenská pôsobnosť a osem krajov sú vysvetlené bez predstierania pobočiek, ale regionálne stránky ešte nemajú dostatok vlastnej doloženej miestnej hodnoty; bez schválených prípadov nesmú dostať vymyslené realizácie. |
 | G07 | PASS local | FAQ je konzistentné, prelinkované a neobsahuje svojpomocné rizikové návody. |
 | G08 | WAITING | Treba potvrdiť aktuálne verejné profily a súhlasy k autentickým recenziám. |
 | G09 | PARTIAL | Robots a lokálny crawl sú pripravené; chýba aktuálny produkčný firewall/log dôkaz pre AI a vyhľadávacie boty. |
@@ -60,7 +60,7 @@ GEO ešte **nie je na cieľových 90/100**, pretože chýbajú reálne dôkazy, 
 
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
-| F01 | PASS local | Obe kalkulačky, všetky materiály, hranice a aktívne stavy prešli testami. |
+| F01 | PARTIAL | Obe kalkulačky, všetky materiály, hranice a aktívne stavy prešli technickými testami; sadzby, DPH a obchodné predpoklady ešte musia byť vlastníkom výslovne potvrdené ako schválený cenový model. |
 | F02 | PASS local | Cena → dopyt zachováva iba obec, výmeru a materiál; kontakt ani súhlas neprepisuje. |
 | F03 | PASS local / production WAITING | Browser bez fotografie vytvára presne jeden trvalý lokálny lead a zákazku. Ostrý označený lead vyžaduje nové schválenie. |
 | F04 | PASS local / production WAITING | Dve súkromné viacmegabajtové prílohy majú správnu väzbu a autorizáciu v emulátore. Skutočný produkčný private Blob ostáva release test. |
@@ -75,7 +75,7 @@ GEO ešte **nie je na cieľových 90/100**, pretože chýbajú reálne dôkazy, 
 | F13 | PASS local | Galéria prešla filtrami, lightboxom, Escape, fokusom, scrollom a responzívnou maticou. |
 | F14 | PASS local | CTA, kotvy, menu, realizácie, cookie voľby a atribúcia prešli bez odoslania formulára. |
 
-Lokálne je preukázaných **13/14 funkčných kritérií**. F08 je finálny release hardgate.
+Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa úplnej produkčnej definície je uzavretých **9/14**: F03, F04 a F12 ešte vyžadujú živé release overenie, F01 čaká na obchodné potvrdenie modelu a F08 je finálny produkčný inbox hardgate.
 
 ## UX — U01–U10
 
@@ -89,7 +89,7 @@ Lokálne je preukázaných **13/14 funkčných kritérií**. F08 je finálny rel
 | U06 | PASS local | Menu, kotvy, galéria, Escape, fokus a klávesnicové cesty sú pokryté browser testami. |
 | U07 | PASS local | Sticky CTA, WhatsApp a cookie panel neprekryli kontrolované akcie v celej matici. |
 | U08 | PASS local | Reduced-motion, 200 % zoom a landscape sú výslovne spustené a započítané v browser reporte. |
-| U09 | PASS local | Chyba/loading/success a upload stav majú čitateľné texty a semantické live/status kontrakty; reálna čítačka obrazovky ostáva vhodný doplnkový test. |
+| U09 | PARTIAL | Chyba/loading/success a upload stav majú čitateľné texty a semantické live/status kontrakty; povinný test skutočnou čítačkou obrazovky ešte neprebehol. |
 | U10 | WAITING | Vyžaduje 5 skutočných testerov; najmenej 4 musia nájsť cenu alebo odoslať kontakt do 60 sekúnd bez pomoci. |
 
 ## Prevádzka — O01–O10
@@ -97,7 +97,7 @@ Lokálne je preukázaných **13/14 funkčných kritérií**. F08 je finálny rel
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
 | O01 | PASS local | Izolovaný produkčný build, TypeScript, generovanie 96/96 a čistenie dočasnej PostgreSQL databázy prešli. |
-| O02 | PASS local | Celá sada 313/313 testov prešla v jednom povolenom lokálnom behu. |
+| O02 | PASS local | Celá sada 314/314 testov prešla v jednom povolenom lokálnom behu. |
 | O03 | PASS current slice | Nezávislý read-only kontrolór najprv vrátil tri konkrétne vady; po oprave kontrastu, odstránení voľných diagnostických textov a zosúladení aktuálneho dôkazu vydal **PASS**. Celý release review sa zopakuje nad uzamknutým SHA. |
 | O04 | WAITING | Aktuálny staged Production deployment, alias a post-release smoke ešte neexistujú. |
 | O05 | NOT TESTED | Rollback postup je zdokumentovaný, ale nebol vykonaný nad týmto release kandidátom. |
@@ -109,4 +109,4 @@ Lokálne je preukázaných **13/14 funkčných kritérií**. F08 je finálny rel
 
 ## Rozhodnutie
 
-Aktuálny zdroj je **uzamknutý ako lokálny technický checkpoint `abc63731`**, ale projekt ešte nie je hotový ani schválený na produkciu. Blokujú ho najmä G04/G05/G08/G09/G10/G11, F08, U10 a zostávajúce O04–O06/O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny zdroj vychádza z lokálneho technického checkpointu `f0d3d701`, ale po tejto faktickej korekcii vznikol nový pracovný diff, ktorý ešte musí dostať nemenný SHA a finálne nezávislé review. Projekt nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.

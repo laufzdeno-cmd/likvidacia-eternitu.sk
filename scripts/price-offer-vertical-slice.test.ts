@@ -117,9 +117,9 @@ test('zákaznícky email používa dynamický opis a nezahŕňa nekúpenú dokum
   assert.match(html, /vlastníka objektu typu Hospodárska budova/);
   assert.match(text, /1\. číslo cenovej ponuky 20260001/);
   assert.match(text, /2\. presnú adresu objektu typu Hospodárska budova/);
-  assert.match(text, /Po ukončení prác vám odovzdáme/);
-  assert.match(text, /sprievodný list nebezpečného odpadu s potvrdením skládky/);
-  assert.match(text, /kópiu vážneho lístka/);
+  assert.match(text, /Po ukončení prác vám podľa rozsahu zákazky odovzdáme dostupné doklady/);
+  assert.match(text, /dokladu o preprave alebo prevzatí odpadu, ak bol vystavený/);
+  assert.match(text, /doklad o hmotnosti odpadu, ak bol vystavený/);
   assert.match(text, /potvrdenie o zneškodnení azbestu firmou ASTANA, s\.r\.o\./);
   assert.doesNotMatch(text, /Potvrdenie RÚVZ medzi záverečnými dokladmi/);
   assert.doesNotMatch(`${html}\n${text}`, /Dokumentácia a súvisiace podklady|Správne poplatky na úradoch/);

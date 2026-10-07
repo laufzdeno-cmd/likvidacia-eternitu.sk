@@ -44,7 +44,7 @@ function materialLabel(offer: PriceOffer) {
 
 function includedItems(offer: PriceOffer) {
   return [
-    ...(offer.includeDocumentation ? [offer.documentationPromotion ? 'Oznámenie plánovaných prác RÚVZ a súvisiace podklady (AKCIA 0,00 €)' : 'Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Správne poplatky na úradoch'] : []),
+    ...(offer.includeDocumentation ? [offer.documentationPromotion ? 'Oznámenie plánovaných prác RÚVZ a súvisiace podklady (AKCIA 0,00 €)' : 'Písomné oznámenie plánovaných prác príslušnému RÚVZ a súvisiace podklady', 'Prípadné správne poplatky podľa konkrétneho konania, ak vzniknú'] : []),
     'Vytvorenie ochranného pásma',
     'Stabilizácia penetračným postrekom',
     'Odborná demontáž',
