@@ -1,9 +1,10 @@
 {
-  "sourceCommit": "0ed98252e3b2c0783df51b4c9f6e6d2ed277d6c0",
+  "sourceCommit": "f4f1eb31db5e8c924eb3f436b6f7236ff68ead17",
+  "sourceTree": "600837ce9762ce9280436e5225170c65b8ae924d",
   "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-isolated-postgres.ps1 -ProductionBuild",
   "result": "PASS",
   "nextVersion": "16.4.0",
-  "buildId": "4ey56w9UMb8HOU0p4vWan",
+  "buildId": "vsB5ZB3zmEVcyjWtZx5R2",
   "generatedRouteCount": 99,
   "staticSeoUrlCount": 32,
   "dynamicRouteChecks": [
@@ -12,5 +13,8 @@
   ],
   "productionAccess": false,
   "temporaryDatabaseStopped": true,
-  "temporaryDatabaseRemoved": true
+  "temporaryDatabaseRemoved": true,
+  "rollbackSourceCommit": "c98c630c1af467c51c615980841630a4cabf6c29",
+  "rollbackCompatibility": "PASS",
+  "independentReview": "PASS x2"
 }
