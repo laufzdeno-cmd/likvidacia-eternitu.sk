@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { getCareerApplicationBySubmissionId, markCareerCvUploadUploaded, reserveCareerCvUpload } from '@/src/server/db';
 import { careerCvUploadContentTypes, maxCareerCvBytes, validateCareerCvReservation, isCareerCvUploadPath } from '@/src/server/career-cv-policy';
 import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
+import { isTrustedLocalDevelopmentOrigin, isTrustedVercelDeploymentOrigin } from '@/src/server/public-request-origin';
 
 export const runtime = 'nodejs';
 
@@ -26,13 +27,8 @@ function tokenOriginAllowed(request: NextRequest) {
   const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk')
     .split(',').map((value) => value.trim()).filter(Boolean);
   if (allowed.includes(origin)) return true;
-  if (process.env.VERCEL_ENV === 'preview') {
-    const previewOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
-      .filter(Boolean).map((host) => `https://${host}`);
-    if (previewOrigins.includes(origin)) return true;
-  }
-  if (process.env.NODE_ENV === 'production') return false;
-  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) && origin === request.nextUrl.origin;
+  if (isTrustedVercelDeploymentOrigin(origin)) return true;
+  return isTrustedLocalDevelopmentOrigin(origin, request.nextUrl.origin);
 }
 
 function privateBlobMatches(url: string, pathname: string) {

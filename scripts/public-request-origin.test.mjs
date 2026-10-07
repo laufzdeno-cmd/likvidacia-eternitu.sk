@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isTrustedVercelDeploymentOrigin } from '../src/server/public-request-origin.ts';
+import { isTrustedLocalDevelopmentOrigin, isTrustedVercelDeploymentOrigin } from '../src/server/public-request-origin.ts';
 
 const keys = ['VERCEL', 'VERCEL_ENV', 'VERCEL_URL', 'VERCEL_BRANCH_URL'];
 
@@ -49,4 +49,13 @@ test('preview may use the exact deployment or branch URL, but local env spoofing
   }, () => {
     assert.equal(isTrustedVercelDeploymentOrigin('https://likvidacia-eternitu-sk-abc123.vercel.app'), false);
   });
+});
+
+test('local development accepts only an exact localhost or loopback request origin', () => {
+  assert.equal(isTrustedLocalDevelopmentOrigin('http://localhost:3100', 'http://localhost:3100', 'development'), true);
+  assert.equal(isTrustedLocalDevelopmentOrigin('http://127.0.0.1:3100', 'http://127.0.0.1:3100', 'test'), true);
+  assert.equal(isTrustedLocalDevelopmentOrigin('http://localhost:3100', 'http://localhost:3200', 'development'), false);
+  assert.equal(isTrustedLocalDevelopmentOrigin('https://localhost:3100', 'https://localhost:3100', 'development'), false);
+  assert.equal(isTrustedLocalDevelopmentOrigin('http://example.test', 'http://example.test', 'development'), false);
+  assert.equal(isTrustedLocalDevelopmentOrigin('http://localhost:3100', 'http://localhost:3100', 'production'), false);
 });

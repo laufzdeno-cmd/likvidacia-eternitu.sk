@@ -8,6 +8,7 @@ import { processCareerApplicationNotificationBatch } from '@/src/server/applicat
 import { publicNotificationSummary } from '@/src/server/application-notification-policy';
 import { storeCareerApplicationCv, storeCareerApplicationCvAtReservedPath } from '@/src/server/storage';
 import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
+import { isTrustedLocalDevelopmentOrigin, isTrustedVercelDeploymentOrigin } from '@/src/server/public-request-origin';
 
 export const runtime = 'nodejs';
 
@@ -38,7 +39,8 @@ function originAllowed(request: NextRequest) {
   if (!origin) return process.env.NODE_ENV !== 'production';
   const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk')
     .split(',').map((item) => item.trim()).filter(Boolean);
-  return allowed.includes(origin);
+  if (allowed.includes(origin) || isTrustedVercelDeploymentOrigin(origin)) return true;
+  return isTrustedLocalDevelopmentOrigin(origin, request.nextUrl.origin);
 }
 
 function sameApplicationPayload(application: Awaited<ReturnType<typeof createCareerApplication>>['application'], input: {

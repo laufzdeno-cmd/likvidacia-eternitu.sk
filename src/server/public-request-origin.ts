@@ -18,3 +18,12 @@ export function isTrustedVercelDeploymentOrigin(origin: string) {
   if (environment !== 'preview') return false;
   return vercelOrigin(process.env.VERCEL_BRANCH_URL) === origin;
 }
+
+export function isTrustedLocalDevelopmentOrigin(
+  origin: string,
+  requestOrigin: string,
+  nodeEnvironment = process.env.NODE_ENV,
+) {
+  if (nodeEnvironment === 'production') return false;
+  return /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) && origin === requestOrigin;
+}
