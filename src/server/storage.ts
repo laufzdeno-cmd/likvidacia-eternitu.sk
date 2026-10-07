@@ -75,7 +75,15 @@ export async function storeLeadFile(leadId: string, file: File, retryPosition = 
     const secret = process.env.AUTH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-auth-secret-change-me');
     if (!secret) throw new Error('AUTH_SECRET is required to fingerprint private lead attachments.');
     const fileFingerprint = createHmac('sha256', secret).update(`multipart:${retryPosition}:`).update(bytes).digest('hex');
-    await reserveLeadUploadDraft(leadId, key, undefined, storageDriver, fileFingerprint);
+    await reserveLeadUploadDraft(
+      leadId,
+      key,
+      undefined,
+      storageDriver,
+      fileFingerprint,
+      file.type || 'application/octet-stream',
+      file.size,
+    );
   }
 
   if (process.env.BLOB_READ_WRITE_TOKEN) {
@@ -83,7 +91,11 @@ export async function storeLeadFile(leadId: string, file: File, retryPosition = 
       access: 'private',
       contentType: file.type || 'application/octet-stream',
     });
-    await markLeadUploadDraftUploaded(leadId, blob.pathname);
+    await markLeadUploadDraftUploaded(leadId, blob.pathname, {
+      contentType: blob.contentType,
+      sizeBytes: file.size,
+      blobEtag: blob.etag,
+    });
     return {
       leadId,
       originalName,
@@ -95,7 +107,7 @@ export async function storeLeadFile(leadId: string, file: File, retryPosition = 
   }
 
   if (s3) {
-    await s3.client.send(
+    const uploaded = await s3.client.send(
       new PutObjectCommand({
         Bucket: s3.bucket,
         Key: key,
@@ -107,7 +119,11 @@ export async function storeLeadFile(leadId: string, file: File, retryPosition = 
         },
       }),
     );
-    await markLeadUploadDraftUploaded(leadId, key);
+    await markLeadUploadDraftUploaded(leadId, key, {
+      contentType: file.type || 'application/octet-stream',
+      sizeBytes: file.size,
+      blobEtag: uploaded.ETag?.replace(/^"|"$/g, '') || '',
+    });
     return {
       leadId,
       originalName,

@@ -8,6 +8,7 @@ param(
   [switch]$CronRoutes,
   [switch]$LegacyMigration,
   [switch]$LegacyMixed,
+  [switch]$LiveUploadCompatibility,
   [string]$LegacyRoot
 )
 
@@ -15,8 +16,8 @@ $ErrorActionPreference = 'Stop'
 if ($HistoricalClient -and -not $TenPhotoBrowser) { throw 'Historický klient vyžaduje -TenPhotoBrowser.' }
 if ($Lighthouse -and -not $ProductionBuild) { throw 'Lighthouse vyžaduje izolovaný -ProductionBuild.' }
 if (($TenPhotoBrowser -and $SchemaConcurrency) -or ($CareerWorkflow -and ($TenPhotoBrowser -or $SchemaConcurrency))) { throw 'Testy prehliadača, súbehu schémy a kariérneho workflow musia bežať oddelene.' }
-if (($ProductionBuild -or $CronRoutes) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or $LegacyMigration -or $LegacyMixed -or ($ProductionBuild -and $CronRoutes))) { throw 'Produkčný build a cron kontroly sa spúšťajú samostatne.' }
-if (($LegacyMigration -or $LegacyMixed) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or ($LegacyMigration -and $LegacyMixed))) { throw 'Staré a nové migračné testy sa spúšťajú samostatne.' }
+if (($ProductionBuild -or $CronRoutes) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or $LegacyMigration -or $LegacyMixed -or $LiveUploadCompatibility -or ($ProductionBuild -and $CronRoutes))) { throw 'Produkčný build a cron kontroly sa spúšťajú samostatne.' }
+if (($LegacyMigration -or $LegacyMixed -or $LiveUploadCompatibility) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or ($LegacyMigration -and $LegacyMixed) -or ($LiveUploadCompatibility -and ($LegacyMigration -or $LegacyMixed)))) { throw 'Staré a nové migračné testy sa spúšťajú samostatne.' }
 
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 if ($LegacyMigration -or $LegacyMixed) {
@@ -70,10 +71,23 @@ $previousLegacyRoot = [Environment]::GetEnvironmentVariable('ASTANA_LEGACY_MIGRA
 $previousFullBuild = [Environment]::GetEnvironmentVariable('ASTANA_HARNESS_FULL_BUILD', 'Process')
 $previousLighthouse = [Environment]::GetEnvironmentVariable('ASTANA_HARNESS_LIGHTHOUSE', 'Process')
 $previousCronOnly = [Environment]::GetEnvironmentVariable('ASTANA_HARNESS_CRON_ONLY', 'Process')
+$previousLiveRollbackRoot = [Environment]::GetEnvironmentVariable('ASTANA_LIVE_ROLLBACK_ROOT', 'Process')
 $runFailed = $false
 $safeToRemove = $true
 
 try {
+  if ($LiveUploadCompatibility) {
+    $rollbackRoot = Join-Path $runRoot 'rollback-c98'
+    & git clone --shared --no-checkout $projectRoot $rollbackRoot
+    if ($LASTEXITCODE -ne 0) { throw 'Dočasný rollback checkout nevznikol.' }
+    & git -C $rollbackRoot switch --detach c98c630c1af467c51c615980841630a4cabf6c29
+    if ($LASTEXITCODE -ne 0) { throw 'Dočasný rollback checkout nemá presný produkčný commit.' }
+    $rollbackHead = & git -C $rollbackRoot rev-parse HEAD
+    if ($LASTEXITCODE -ne 0 -or $rollbackHead -ne 'c98c630c1af467c51c615980841630a4cabf6c29') { throw 'Rollback checkout nemá presný produkčný SHA.' }
+    & git -C $rollbackRoot diff --quiet HEAD -- src/server/db.ts src/server/types.ts src/server/lead-upload-schema.ts src/server/lead-upload-policy.ts src/server/slovak-text.ts
+    if ($LASTEXITCODE -ne 0) { throw 'Rollback DB a upload zdroje nie sú čisté.' }
+    $env:ASTANA_LIVE_ROLLBACK_ROOT = $rollbackRoot
+  }
   & $initdb -D $dataRoot -U astana_test -E UTF8 --auth-local=trust --auth-host=trust --no-instructions
   if ($LASTEXITCODE -ne 0) { throw 'initdb zlyhalo.' }
 
@@ -109,6 +123,9 @@ try {
     } elseif ($LegacyMigration) {
       & node --import tsx (Join-Path $projectRoot 'scripts/legacy-migration-postgres.integration.mjs')
       if ($LASTEXITCODE -ne 0) { throw 'Migrácia starej schémy na jednorazovom PostgreSQL zlyhala.' }
+    } elseif ($LiveUploadCompatibility) {
+      & node --import tsx (Join-Path $projectRoot 'scripts/live-upload-schema-compatibility.postgres.mjs')
+      if ($LASTEXITCODE -ne 0) { throw 'Kompatibilita produkčnej schémy fotiek pri nasadení a návrate zlyhala.' }
     } elseif ($SchemaConcurrency) {
       & node --import tsx (Join-Path $projectRoot 'scripts/schema-concurrency-postgres.integration.mjs')
       if ($LASTEXITCODE -ne 0) { throw 'Súbežný štart schémy na jednorazovom PostgreSQL zlyhal.' }
@@ -141,6 +158,7 @@ try {
   [Environment]::SetEnvironmentVariable('ASTANA_HARNESS_FULL_BUILD', $previousFullBuild, 'Process')
   [Environment]::SetEnvironmentVariable('ASTANA_HARNESS_LIGHTHOUSE', $previousLighthouse, 'Process')
   [Environment]::SetEnvironmentVariable('ASTANA_HARNESS_CRON_ONLY', $previousCronOnly, 'Process')
+  [Environment]::SetEnvironmentVariable('ASTANA_LIVE_ROLLBACK_ROOT', $previousLiveRollbackRoot, 'Process')
   if ($startAttempted) {
     try {
       & $pgCtl -D $dataRoot status

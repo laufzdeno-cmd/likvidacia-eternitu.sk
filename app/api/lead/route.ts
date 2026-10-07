@@ -210,7 +210,11 @@ async function verifyDirectLeadPhotos(photos: DirectLeadPhoto[]): Promise<Verifi
     const imageError = await validateLeadImageBytes(file, bytes);
     if (imageError) throw new LeadPhotoInputError(imageError);
     try {
-      await markLeadUploadDraftUploaded(photo.submissionId, metadata.pathname);
+      await markLeadUploadDraftUploaded(photo.submissionId, metadata.pathname, {
+        contentType: metadata.contentType,
+        sizeBytes: metadata.size,
+        blobEtag: metadata.etag,
+      });
     } catch (error) {
       if (error instanceof Error && error.message.includes('Rezervácia prílohy sa nenašla')) {
         // Pre-reservation clients could finish a private upload before this release.

@@ -416,7 +416,14 @@ export default function initializeHomepageCriticalClient({
           access: 'private',
           contentType,
           handleUploadUrl: '/api/lead-upload/',
-          clientPayload: JSON.stringify({ submissionId, replacesPathname: state.replacedPathname, replacesPathnames: state.previousPathnames, fileFingerprint: uploadGroup }),
+          clientPayload: JSON.stringify({
+            submissionId,
+            replacesPathname: state.replacedPathname,
+            replacesPathnames: state.previousPathnames,
+            fileFingerprint: uploadGroup,
+            contentType,
+            sizeBytes: file.size,
+          }),
           multipart: file.size > 5 * 1024 * 1024,
           abortSignal: controller.signal,
         }).then((blob) => ({ pathname: blob.pathname, originalName: file.name, submissionId }));

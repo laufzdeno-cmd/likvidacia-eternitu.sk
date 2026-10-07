@@ -550,6 +550,20 @@ async function initializeSchema() {
     );
     ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS storage_driver text NOT NULL DEFAULT 'vercel_blob';
     ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS file_fingerprint text NOT NULL DEFAULT '';
+    -- The currently deployed uploader stores these three fields. Keep them
+    -- during the staged rollout/rollback window even though the new uploader
+    -- no longer consumes them. A fresh deployment of the old schema made all
+    -- three NOT NULL without defaults, which would reject new reservations.
+    ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS client_file_id uuid;
+    ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS content_type text NOT NULL DEFAULT '';
+    ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS size_bytes integer NOT NULL DEFAULT 0;
+    ALTER TABLE lead_upload_drafts ALTER COLUMN client_file_id DROP NOT NULL;
+    ALTER TABLE lead_upload_drafts ALTER COLUMN content_type SET DEFAULT '';
+    ALTER TABLE lead_upload_drafts ALTER COLUMN size_bytes SET DEFAULT 0;
+    ALTER TABLE lead_upload_drafts DROP CONSTRAINT IF EXISTS lead_upload_drafts_size_bytes_check;
+    ALTER TABLE lead_upload_drafts ADD CONSTRAINT lead_upload_drafts_size_bytes_check
+      CHECK (size_bytes >= 0 AND size_bytes <= 10485760) NOT VALID;
+    ALTER TABLE lead_upload_drafts VALIDATE CONSTRAINT lead_upload_drafts_size_bytes_check;
     ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS blob_etag text NOT NULL DEFAULT '';
     ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS deletion_claim_id uuid;
     ALTER TABLE lead_upload_drafts ADD COLUMN IF NOT EXISTS deletion_claimed_until timestamptz;
@@ -557,6 +571,8 @@ async function initializeSchema() {
     ALTER TABLE lead_upload_drafts ADD CONSTRAINT lead_upload_drafts_status_check
       CHECK (status IN ('uploading', 'uploaded', 'attached', 'superseded', 'deleting', 'deleted'));
     CREATE INDEX IF NOT EXISTS lead_upload_drafts_status_created_idx ON lead_upload_drafts (status, created_at);
+    CREATE UNIQUE INDEX IF NOT EXISTS lead_upload_drafts_client_file_uq
+      ON lead_upload_drafts (submission_id, client_file_id) WHERE client_file_id IS NOT NULL;
 
     -- The previous backend did not inspect upload-draft state when attaching a
     -- lead file. Serialize that attachment with retention claims in the DB so
@@ -2158,6 +2174,8 @@ export async function reserveLeadUploadDraft(
   replacesStorageKey?: string | string[],
   storageDriver: 'vercel_blob' | 's3' = 'vercel_blob',
   fileFingerprint = '',
+  contentType = '',
+  sizeBytes = 0,
 ) {
   await ensureSchema();
   const db = requireLeadUploadDraftDatabase();
@@ -2240,10 +2258,14 @@ export async function reserveLeadUploadDraft(
         [legacy.rows[0].storage_key, submissionId],
       );
     }
+    const legacyClientFileId = storageKey.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\.[a-z0-9]+$/i)?.[1] ?? null;
     const { rows } = await client.query(
-      `INSERT INTO lead_upload_drafts (storage_key, submission_id, storage_driver, file_fingerprint, status)
-       VALUES ($1, $2, $3, $4, 'uploading') RETURNING storage_key, submission_id, storage_driver, status`,
-      [storageKey, submissionId, storageDriver, fileFingerprint],
+      `INSERT INTO lead_upload_drafts (
+         storage_key, submission_id, storage_driver, file_fingerprint,
+         client_file_id, content_type, size_bytes, status
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'uploading')
+       RETURNING storage_key, submission_id, storage_driver, status`,
+      [storageKey, submissionId, storageDriver, fileFingerprint, legacyClientFileId, contentType, sizeBytes],
     );
     await client.query('COMMIT');
     return { storageKey: String(rows[0].storage_key), submissionId: String(rows[0].submission_id), status: String(rows[0].status) };
@@ -2439,16 +2461,29 @@ export async function releaseLeadBlobReconciliation(claimId: string) {
   return (rowCount ?? 0) === 1;
 }
 
-export async function markLeadUploadDraftUploaded(submissionId: string, storageKey: string) {
+export async function markLeadUploadDraftUploaded(
+  submissionId: string,
+  storageKey: string,
+  metadata: { contentType?: string; sizeBytes?: number; blobEtag?: string } = {},
+) {
   await ensureSchema();
   const db = requireLeadUploadDraftDatabase();
+  const contentType = metadata.contentType?.trim() || '';
+  const sizeBytes = Number(metadata.sizeBytes ?? 0);
+  const blobEtag = metadata.blobEtag?.trim() || '';
+  if (!Number.isInteger(sizeBytes) || sizeBytes < 0 || sizeBytes > 10 * 1024 * 1024) {
+    throw new Error('Neplatná veľkosť nahranej prílohy.');
+  }
   const { rows } = await db.query(
     `UPDATE lead_upload_drafts SET
        status = 'uploaded',
+       content_type = CASE WHEN $3 <> '' THEN $3 ELSE content_type END,
+       size_bytes = CASE WHEN $4 > 0 THEN $4 ELSE size_bytes END,
+       blob_etag = CASE WHEN $5 <> '' THEN $5 ELSE blob_etag END,
        uploaded_at = COALESCE(uploaded_at, now()), updated_at = now()
      WHERE submission_id = $1 AND storage_key = $2 AND status IN ('uploading', 'uploaded')
      RETURNING storage_key`,
-    [submissionId, storageKey],
+    [submissionId, storageKey, contentType, sizeBytes, blobEtag],
   );
   if (!rows[0]) {
     const attached = await db.query(

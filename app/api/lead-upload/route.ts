@@ -1,4 +1,5 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { head } from '@vercel/blob';
 import { createHmac } from 'node:crypto';
 import { isIP } from 'node:net';
 import { NextRequest, NextResponse } from 'next/server';
@@ -15,6 +16,8 @@ const uploadPayloadSchema = z.object({
   replacesPathname: z.string().trim().max(512).optional(),
   replacesPathnames: z.array(z.string().trim().max(512)).max(128).optional(),
   fileFingerprint: z.string().regex(/^[0-9a-f]{64}$/).optional(),
+  contentType: z.string().refine((value) => allowedFileTypes.has(value)),
+  sizeBytes: z.number().int().min(1).max(maxLeadFileSize),
 });
 const uploadTokenWindowMs = 10 * 60_000;
 const maxTokensPerWindow = 40;
@@ -52,6 +55,15 @@ function isExpectedPath(pathname: string, submissionId: string) {
   if (!pathname.startsWith(prefix)) return false;
   const filename = pathname.slice(prefix.length);
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|jpeg|png|webp|heic|heif)$/i.test(filename);
+}
+
+function immutableDeploymentCallbackUrl() {
+  const hostname = process.env.VERCEL_URL?.trim().toLowerCase() || '';
+  if (/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)*\.vercel\.app$/u.test(hostname)) {
+    return `https://${hostname}/api/lead-upload/`;
+  }
+  if (process.env.VERCEL === '1') throw new Error('Chýba nemenná adresa nasadenia pre dokončenie fotky.');
+  return undefined;
 }
 
 export async function POST(request: NextRequest) {
@@ -98,7 +110,15 @@ export async function POST(request: NextRequest) {
         for (const predecessor of predecessors) {
           if (!isExpectedPath(predecessor, payload.submissionId)) throw new Error('Neplatná cesta predchádzajúcej fotky.');
         }
-        await reserveLeadUploadDraft(payload.submissionId, pathname, predecessors, 'vercel_blob', payload.fileFingerprint);
+        await reserveLeadUploadDraft(
+          payload.submissionId,
+          pathname,
+          predecessors,
+          'vercel_blob',
+          payload.fileFingerprint,
+          payload.contentType,
+          payload.sizeBytes,
+        );
         return {
           allowedContentTypes: [...allowedFileTypes],
           maximumSizeInBytes: maxLeadFileSize,
@@ -106,13 +126,22 @@ export async function POST(request: NextRequest) {
           addRandomSuffix: false,
           // Every upload attempt gets a unique path. Signed upload URLs can never overwrite an accepted attachment.
           allowOverwrite: false,
-          tokenPayload: JSON.stringify({ submissionId: payload.submissionId }),
+          callbackUrl: immutableDeploymentCallbackUrl(),
+          tokenPayload: JSON.stringify({ submissionId: payload.submissionId, contentType: payload.contentType, sizeBytes: payload.sizeBytes }),
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
         const payload = uploadPayloadSchema.parse(JSON.parse(tokenPayload || '{}'));
         if (!isExpectedPath(blob.pathname, payload.submissionId)) throw new Error('Dokončená fotografia sa nezhoduje s rezerváciou.');
-        await markLeadUploadDraftUploaded(payload.submissionId, blob.pathname);
+        const metadata = await head(blob.pathname);
+        if (metadata.pathname !== blob.pathname || metadata.contentType !== payload.contentType || metadata.size !== payload.sizeBytes) {
+          throw new Error('Dokončená fotografia sa nezhoduje s vybraným súborom.');
+        }
+        await markLeadUploadDraftUploaded(payload.submissionId, blob.pathname, {
+          contentType: metadata.contentType,
+          sizeBytes: metadata.size,
+          blobEtag: metadata.etag,
+        });
       },
     });
     return NextResponse.json(response);
