@@ -45,4 +45,6 @@ test('homepage loads below-fold CSS after first paint and keeps direct anchors s
   assert.match(critical, /@media \(max-width:900px\)[\s\S]*main \.quote-section-inner>\.quote-info-panel\{max-height:none;padding:40px 28px;overflow-y:visible\}/,
     'tablet direct-hash paint must not inherit the desktop sticky-panel scroll container');
   assert.match(critical, /@media \(max-width:760px\)[\s\S]*main \.quote-section-inner\{display:flex;flex-direction:column/);
+  assert.match(deferred, /@media \(min-width:\s*1024px\)\s*\{\s*main \.quote-section \.quote-card h2#quote-title\s*\{[^}]*white-space:\s*normal\s*!important[^}]*\}\s*\}/,
+    'desktop quote heading must wrap inside the form card instead of fading beyond its content width');
 });

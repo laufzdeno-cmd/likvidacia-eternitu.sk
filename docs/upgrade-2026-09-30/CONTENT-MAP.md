@@ -35,7 +35,6 @@ Doména pri relatívnych cestách: `https://likvidacia-eternitu.sk`. Každá str
 | 11 | `/poradna/` | Rozhodovací rozcestník podľa problému, nie chronologická továreň článkov |
 | 12 | `/strechari/` | Zákazník potrebuje nadviazať výmenu krytiny; vysvetlenie úlohy partnera |
 | 13 | `/kariera/` | Živnostník/partia, skúsenosti s azbestom, ranný odchod z Popradu, školenia/prehliadky podľa zadania firmy; CV voliteľné |
-| 14 | `/pre-strecharov/` | B2B ponuka spolupráce a registrácia, nie zákaznícky dopyt |
 | 15 | `/spolupracujuci-strechari/` | Adresár skutočných schválených partnerov; zobraziť len súhlasené aktuálne kontakty |
 | 16 | `/likvidacia-azbestu-poprad/` | Reálna východisková lokalita; výjazd, konkrétne potvrdené prípady, kontakt |
 | 17 | `/likvidacia-azbestu-kosice/` | Organizácia prác v oblasti, potvrdený miestny prípad po dodaní, bez fiktívnej pobočky |
@@ -57,7 +56,7 @@ Doména pri relatívnych cestách: `https://likvidacia-eternitu.sk`. Každá str
 | 33 | `/cookies/` | Presný zoznam používaných nástrojov a správa súhlasu |
 | 34 | `/podmienky-pouzivania/` | Nezáväznosť orientačnej ceny/dopytu a podmienky webu bez skrytých obchodných sľubov |
 
-Tieto stránky sú v aktuálnej sitemap; tabuľka nie je potvrdením ich indexácie v Google. Privátne admin/API stránky do verejnej sitemap nepatria.
+Tieto stránky sú v aktuálnej sitemap; tabuľka nie je potvrdením ich indexácie v Google. Privátne admin/API stránky do verejnej sitemap nepatria. Historická URL `/pre-strecharov/` nie je samostatný obsahový cieľ a trvalo sa presmerúva na kanonickú stránku `/strechari/`.
 
 ### Nové URL iba s dôvodom
 
@@ -127,7 +126,7 @@ Zámer: T transakčný, K komerčné porovnanie, I informačný, N navigačný. 
 | L26 | likvidácia eternitu na západnom Slovensku | T | posobnost → BA/TT/NR |
 | L27 | likvidácia eternitu na strednom Slovensku | T | posobnost → ZA/BB |
 | L28 | práca demontáž azbestu živnostník Poprad | T | kariera |
-| L29 | spolupráca strechári odstránenie azbestu | T | pre-strecharov |
+| L29 | spolupráca strechári odstránenie azbestu | T | strechari |
 | L30 | nezáväzná ponuka likvidácie eternitu z fotografií | T | dopyt; fotky voliteľné, nie diagnostická garancia |
 
 ## Redakčný a dátový kontrakt

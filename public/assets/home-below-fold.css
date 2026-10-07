@@ -2528,6 +2528,14 @@ main .quote-card .contact-preference label:has(input:focus-visible) {
   outline-offset: 3px !important;
   box-shadow: 0 0 0 5px rgba(11, 111, 184, 0.18) !important;
 }
+
+@media (min-width: 1024px) {
+  main .quote-section .quote-card h2#quote-title {
+    max-width: 100% !important;
+    white-space: normal !important;
+    text-wrap: balance;
+  }
+}
 main .quote-card .file-drop {
   min-height: 104px !important;
   padding: 14px 16px !important;

@@ -9,6 +9,7 @@ const admin = readFileSync(new URL('../app/admin/(protected)/obsah/page.tsx', im
 const seo = readFileSync(new URL('../app/seo-components.tsx', import.meta.url), 'utf8');
 const company = JSON.parse(readFileSync(new URL('../public/data/company.json', import.meta.url), 'utf8'));
 const llms = readFileSync(new URL('../public/llms.txt', import.meta.url), 'utf8');
+const photoReferences = readFileSync(new URL('../src/data/azbestReferences.ts', import.meta.url), 'utf8');
 
 test('homepage trust cards bind editable descriptions to stable card keys', () => {
   const cardBlock = homepage.match(/const whyCardMeta = \[([\s\S]*?)\] as const;/)?.[1];
@@ -118,4 +119,10 @@ test('regional prompt copy avoids unsupported claims about what is typical in a 
 
 test('regional service pages offer an internal path to verified work examples', () => {
   assert.match(seo, /\['\/realizacie\/', 'Ukážky realizácií'\]/);
+});
+
+test('realization photos keep their individual factual alt text', () => {
+  assert.doesNotMatch(photoReferences, /neutralAltByCategory/);
+  assert.match(photoReferences, /asset\(7, 'Strešná konštrukcia po demontáži',[\s\S]*'Strešná konštrukcia po odstránení azbestocementovej krytiny'/);
+  assert.match(photoReferences, /\n\s*alt,\n\s*title,/);
 });

@@ -17,6 +17,7 @@ import { createAcceptedLeadConversion } from '@/src/server/lead-conversion';
 import type { PendingMetaLead } from '@/src/lib/marketing-consent';
 import { isValidLeadSubmissionId } from '@/src/lib/lead-submission-id.mjs';
 import type { LeadFile } from '@/src/server/types';
+import { isTrustedVercelDeploymentOrigin } from '@/src/server/public-request-origin';
 
 export const runtime = 'nodejs';
 
@@ -91,7 +92,7 @@ function originAllowed(request: NextRequest) {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean);
-  return allowed.includes(origin);
+  return allowed.includes(origin) || isTrustedVercelDeploymentOrigin(origin);
 }
 
 function wantsHtml(request: NextRequest) {

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { consumeApiRateLimit, markLeadUploadDraftUploaded, reserveLeadUploadDraft } from '@/src/server/db';
 import { allowedFileTypes, maxLeadFileSize } from '@/src/server/validation';
 import { isValidLeadSubmissionId } from '@/src/lib/lead-submission-id.mjs';
+import { isTrustedVercelDeploymentOrigin } from '@/src/server/public-request-origin';
 
 export const runtime = 'nodejs';
 
@@ -43,11 +44,7 @@ function originAllowed(request: NextRequest) {
     .map((item) => item.trim())
     .filter(Boolean);
   if (allowed.includes(origin)) return true;
-  if (process.env.VERCEL_ENV !== 'preview') return false;
-  const previewOrigins = [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
-    .filter(Boolean)
-    .map((host) => `https://${host}`);
-  return previewOrigins.includes(origin);
+  return isTrustedVercelDeploymentOrigin(origin);
 }
 
 function isExpectedPath(pathname: string, submissionId: string) {
