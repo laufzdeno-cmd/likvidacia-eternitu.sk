@@ -2,13 +2,13 @@
 
 ## Najnovší lokálny checkpoint
 
-Aktuálny pracovný rez po doplnení súhlasovo viazaného Meta CAPI outboxu a kontrolovaného Vercel promote mechanizmu prešiel: **344/344 MJS + 24/24 TypeScript unit testov**, lead-form **65/65**, analytika **35/35**, DB integrácie **8/8** plus oba Meta race/outbox scenáre, release guard **12/12**, release API klient **8/8**, TypeScript a diff kontrolu. Úplný izolovaný produkčný build: **99/99** trás, SEO **32 statických URL**, dynamické realizácie/recenzie a route izolácia PASS; `productionAccess:false` a jednorazová DB odstránená. Predchádzajúci plný verejný responzívny audit je **220/220**. Oba nezávislé úzke re-review verdikty sú po opravách **PASS**. Produkčný deploy, alias, formulár, email, Blob a reklamný účet zostali bez zmeny.
+Aktuálny pracovný rez po doplnení súhlasovo viazaného Meta CAPI outboxu, kontrolovaného Vercel promote mechanizmu a konfiguračno-textových regresií prešiel: **346/346 MJS + 24/24 TypeScript unit testov**, lead-form **65/65**, analytika **35/35**, DB integrácie **8/8** plus oba Meta race/outbox scenáre, release guard **12/12**, release API klient **8/8**, TypeScript a diff kontrolu. Úplný izolovaný produkčný build: **99/99** trás, SEO **32 statických URL**, dynamické realizácie/recenzie a route izolácia PASS; `productionAccess:false` a jednorazová DB odstránená. Predchádzajúci plný verejný responzívny audit je **220/220**. Oba nezávislé úzke re-review verdikty sú po opravách **PASS**. Produkčný deploy, alias, formulár, email, Blob a reklamný účet zostali bez zmeny.
 
 Lokálny technický stav tohto rezu je **PASS**. Celkový release zostáva **WAITING** na externú Vercel IAM kontrolu, produkčné tajomstvá, staged kandidáta/rollback a výslovne schválený produkčný smoke vrátane dopytu bez fotky a s fotkou, oboch schránok, Chrome/Opera a fyzického mobilu. Tieto externé brány sa nesmú nahradiť lokálnym skóre.
 
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
-Kontrolovaný aplikačný a QA checkpoint: commit `918477e5` na vetve `codex/astana-upgrade-rc1`. Obsahuje právny/GEO rez, bezpečný dopytový a foto tok, cenové ponuky, PDF/email, admin, verejný vizuál, regresné testy a výkonové úpravy. Nasledujúci dokumentačný commit nemení aplikačný kód.
+Kontrolovaný aplikačný a QA checkpoint: commit `3e8011f0` na vetve `codex/astana-upgrade-rc1`. Obsahuje právny/GEO rez, bezpečný dopytový a foto tok, cenové ponuky, PDF/email, admin, verejný vizuál, súhlasovo viazaný Meta CAPI outbox, kontrolovaný Vercel promote mechanizmus, úplný vzorový konfiguračný kontrakt, pravdivé texty, regresné testy a výkonové úpravy. Následný dokumentačný commit nemení aplikačný kód, produkčné dáta ani externé služby.
 
 Legenda:
 
@@ -19,9 +19,9 @@ Legenda:
 
 Aktuálne dôkazy:
 
-- `npm.cmd run test:unit`: **302/302 MJS + 24/24 TypeScript PASS**.
+- `npm.cmd run test:unit`: **346/346 MJS + 24/24 TypeScript PASS**.
 - databázové integrácie: **8/8 PASS**, vrátane PostgreSQL/PGlite, lokálneho úložiska, cenových ponúk, outboxu a TOTP; bez produkčnej DB, SMTP alebo Blob zásahu.
-- izolovaný PostgreSQL 17 + produkčný build checkpointu `918477e5`: **96/96 stránok, TypeScript a obe SEO kontroly PASS**; produkčný prístup bol vypnutý a jednorazová databáza odstránená.
+- izolovaný PostgreSQL 17 + produkčný build checkpointu `3e8011f0`: **99/99 trás, TypeScript a obe SEO kontroly PASS**; produkčný prístup bol vypnutý a jednorazová databáza odstránená.
 - vizuálny browser audit aktuálneho pracovného stromu: **20 trás, 220 viewport stavov, 25 snímok, 0 hydration chýb, 0 odoslaných formulárov a 0 externých originov**; pokryté reduced-motion, 200 % zoom a landscape. Fokusovaný audit `/`, `/postup/`, `/o-firme/` navyše prešiel na 1440 a 375 px bez horizontálneho pretečenia.
 - dopytový browser/Blob emulátor: 1 lead, 1 zákazka, 2 súkromné prílohy, 2 autorizované a 0 anonymných stiahnutí, 2 čakajúce outbox položky, **0 odoslaných emailov**.
 - Lighthouse S08 nad bezprostredne predchádzajúcim buildom `y1TYexOpsKdspjTfymDsp`: 5 trás × 3 behy, všetky PASS; medián Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 284–2 451 ms**, CLS **0**. Následné zúženie iba serverového rozpoznávania starých CMS otázok nemení aktuálne renderovaný obsah; jeho vlastný build a regresné testy prešli, Lighthouse sa mu nepripisuje ako nový beh.
@@ -103,9 +103,9 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
-| O01 | PASS local | Izolovaný produkčný build, TypeScript, generovanie 96/96 a čistenie dočasnej PostgreSQL databázy prešli. |
-| O02 | PASS local | Celá unit/kontraktná sada 326/326 a databázové integrácie 8/8 prešli. |
-| O03 | PASS current slice | Tri nezávislé read-only kontroly po opravách vydali **PASS** pre cenové ponuky, retenčný/foto tok a domovskú stránku s prístupnosťou. Finálny celý release review sa zopakuje nad uzamknutým SHA. |
+| O01 | PASS local | Izolovaný produkčný build, TypeScript, generovanie 99/99 a čistenie dočasnej PostgreSQL databázy prešli. |
+| O02 | PASS local | Celá unit/kontraktná sada 346/346 MJS + 24/24 TypeScript a databázové integrácie 8/8 prešli. |
+| O03 | PASS current slice | Nezávislé read-only kontroly po opravách vydali **PASS** pre cenové ponuky, retenčný/foto tok, Meta CAPI a kontrolované Vercel povýšenie. Finálny celý release review sa zopakuje nad uzamknutým SHA. |
 | O04 | WAITING | Aktuálny staged Production deployment, alias a post-release smoke ešte neexistujú. |
 | O05 | NOT TESTED | Rollback postup je zdokumentovaný, ale nebol vykonaný nad týmto release kandidátom. |
 | O06 | WAITING | Produkčné alerty, vlastníctvo retry a eskalácia `unknown` stavu treba potvrdiť v prevádzke. |
@@ -116,4 +116,4 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 
 ## Rozhodnutie
 
-Aktuálny aplikačný zdroj je uložený ako lokálny QA checkpoint `918477e5` a všetky tri posledné kontrolované rezy dostali nezávislé PASS. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny aplikačný zdroj je uložený ako lokálny QA checkpoint `3e8011f0` a jeho úzke konfiguračné aj textové re-review po opravách prešli. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
