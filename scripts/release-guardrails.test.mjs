@@ -28,6 +28,7 @@ const mandatoryProtectedFiles = [
   'src/server/validation.ts',
   'scripts/check-release-guardrails.mjs',
   'scripts/deploy-reviewed-release.mjs',
+  'scripts/published-realization-locality-points.behavior.mjs',
   'next.config.mjs',
   'vercel.json',
   'package-lock.json',
@@ -67,7 +68,7 @@ function createRepository() {
     scripts: {
       deploy: 'node scripts/deploy-reviewed-release.mjs',
       'release:guard': 'node scripts/check-release-guardrails.mjs',
-      'test:map-locality': 'node --test scripts/published-realization-locality-points.behavior.mjs',
+      'test:map-locality': 'node --import tsx --test scripts/published-realization-locality-points.behavior.mjs',
     },
   }, null, 2)}\n`);
   write(repo, 'package-lock.json', '{"lockfileVersion":3}\n');
@@ -256,6 +257,17 @@ test('rejects changed or missing protected runtime files', () => {
       /Chránené runtime súbory sa zmenili alebo chýbajú/,
     );
   });
+  withRepository((fixture) => {
+    write(fixture.repo, 'scripts/published-realization-locality-points.behavior.mjs', 'throw new Error("deploy bypass");\n');
+    const changedHead = commitAll(fixture.repo, 'alter approved non-deployment script');
+    assertFails(
+      runGuard(fixture.repo, [
+        ...approvedArguments(fixture, { expectedHead: changedHead }),
+        '--allow', 'scripts/published-realization-locality-points.behavior.mjs',
+      ]),
+      /Chránené runtime súbory sa zmenili alebo chýbajú/,
+    );
+  });
 });
 
 test('allows only reviewed package script changes and rejects dependency and runtime configuration changes', () => {
@@ -326,6 +338,18 @@ test('rejects an altered release command and enabled Vercel Git deployments', ()
       /ďalšie obchádzateľné deploy vstupy/,
     );
   });
+  for (const operation of ['deploy', 'promote', 'rollback', 'publish', 'release']) {
+    withRepository((fixture) => {
+      const packageJson = JSON.parse(readFileSync(join(fixture.repo, 'package.json'), 'utf8'));
+      packageJson.scripts.ship = `node scripts/${operation}_prod.mjs`;
+      write(fixture.repo, 'package.json', `${JSON.stringify(packageJson, null, 2)}\n`);
+      const changedHead = commitAll(fixture.repo, `add ${operation} underscore bypass`);
+      assertFails(
+        runGuard(fixture.repo, [...approvedArguments(fixture, { expectedHead: changedHead }), '--allow', 'package.json']),
+        /ďalšie obchádzateľné deploy vstupy/,
+      );
+    });
+  }
   withRepository((fixture) => {
     const packageJson = JSON.parse(readFileSync(join(fixture.repo, 'package.json'), 'utf8'));
     packageJson.scripts.ship = 'node scripts/cloud.mjs';

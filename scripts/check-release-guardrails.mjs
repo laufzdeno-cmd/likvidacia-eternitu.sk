@@ -8,6 +8,9 @@ const RELEASE_GUARD_COMMAND = 'node scripts/check-release-guardrails.mjs';
 const REVIEWED_DEPLOY_COMMAND = 'node scripts/deploy-reviewed-release.mjs';
 const VERCEL_IAM_ACKNOWLEDGEMENT = '--acknowledge-vercel-iam-boundary';
 const APPROVED_RELEASE_SCRIPT_NAMES = new Set(['deploy', 'release:guard', 'test:release-guard', 'test:release-deploy']);
+const APPROVED_NON_DEPLOYMENT_COMMANDS = new Set([
+  'node --import tsx --test scripts/published-realization-locality-points.behavior.mjs',
+]);
 const APPROVED_CHANGED_SCRIPT_NAMES = new Set([
   'deploy',
   'release:guard',
@@ -49,6 +52,7 @@ const DEFAULT_PROTECTED_FILES = [
   'src/server/validation.ts',
   'scripts/check-release-guardrails.mjs',
   'scripts/deploy-reviewed-release.mjs',
+  'scripts/published-realization-locality-points.behavior.mjs',
   'next.config.mjs',
   'vercel.json',
   'package-lock.json',
@@ -404,7 +408,7 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     const alternateDeployScripts = Object.entries(currentPackage?.scripts ?? {})
       .filter(([name, command]) => !APPROVED_RELEASE_SCRIPT_NAMES.has(name) && typeof command === 'string' && (
         /(?:^|[:_-])(?:deploy|promote|rollback|publish|release)(?:$|[:_-])/i.test(name)
-        || /\b(?:deploy|promote|rollback|publish|release)\b/i.test(command)
+        || (!APPROVED_NON_DEPLOYMENT_COMMANDS.has(command) && /(?:deploy|promote|rollback|publish|release)/i.test(command))
         || /(?:^|\s)(?:npx\s+)?vercel(?:@\S+)?\s+(?:deploy|promote|rollback)\b/i.test(command)
         || /(?:^|\s)vercel(?:@\S+)?\s+--prod\b/i.test(command)
         || command.includes('scripts/deploy-reviewed-release.mjs')
