@@ -2,7 +2,7 @@
 
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
-Základ aktuálnej kontroly: commit `f0d3d701` na vetve `codex/astana-upgrade-rc1`. Nad ním je úzky necommitnutý pracovný diff verejných právnych/GEO textov, emailu, PDF, CMS kompatibility, regresných testov a tejto auditnej dokumentácie. Každý dôkaz nižšie uvádza, či patrí aktuálnemu diffu alebo základnému checkpointu; nový nemenný SHA sa doplní až po uzavretí diffu.
+Kontrolovaný aplikačný a QA checkpoint: commit `86b169f8` na vetve `codex/astana-upgrade-rc1`. Obsahuje úzky rez verejných právnych/GEO textov, emailu, PDF, CMS kompatibility, regresných testov a auditnej dokumentácie. Následná zmena je iba doplnenie tohto identifikátora do dokumentácie.
 
 Legenda:
 
@@ -109,4 +109,4 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 
 ## Rozhodnutie
 
-Aktuálny zdroj vychádza z lokálneho technického checkpointu `f0d3d701`, ale po tejto faktickej korekcii vznikol nový pracovný diff, ktorý ešte musí dostať nemenný SHA a finálne nezávislé review. Projekt nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny zdroj je uložený ako lokálny aplikačný a QA checkpoint `86b169f8` a kontrolovaný rez dostal nezávislé PASS. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
