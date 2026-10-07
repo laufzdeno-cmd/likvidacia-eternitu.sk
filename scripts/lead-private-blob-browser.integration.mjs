@@ -1751,7 +1751,10 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
 async function runPublicNavigationChecks(page, appOrigin) {
   const postRequests = [];
   const onRequest = (request) => {
-    if (request.method() === 'POST') postRequests.push(request.url());
+    if (request.method() !== 'POST') return;
+    let payload = {};
+    try { payload = request.postDataJSON() || {}; } catch { /* Non-JSON writes stay visible with an empty payload. */ }
+    postRequests.push({ url: request.url(), eventType: payload.eventType || '', path: payload.path || '' });
   };
   page.on('request', onRequest);
   await page.addInitScript(() => {
@@ -1803,14 +1806,26 @@ async function runPublicNavigationChecks(page, appOrigin) {
   await page.locator('.price-hero-actions a[href="/#dopyt"]').click();
   await page.waitForURL(`${appOrigin}/#dopyt`);
   assert.equal(new URL(page.url()).search, '', 'campaign parameters are not forwarded without analytics consent');
-  assert.deepEqual(postRequests, [], `navigation must not send requests: ${postRequests.join(', ')}`);
+  assert.deepEqual(postRequests, [], `navigation must not send requests: ${JSON.stringify(postRequests)}`);
 
   await page.context().addCookies([
     { name: 'astana_analytics_consent', value: 'granted', url: appOrigin },
     { name: 'astana_marketing_consent', value: 'granted', url: appOrigin },
   ]);
   const campaignPostStart = postRequests.length;
+  const waitForAnalyticsRequest = (eventType, path) => page.waitForRequest((request) => {
+    if (request.method() !== 'POST' || new URL(request.url()).pathname !== '/api/analytics/') return false;
+    try {
+      const payload = request.postDataJSON();
+      return payload?.eventType === eventType && payload?.path === path;
+    } catch { return false; }
+  }, { timeout: 10_000 });
+  const pricePageView = waitForAnalyticsRequest('page_view', '/cena-likvidacie-azbestu/');
   await page.goto(`${appOrigin}/cena-likvidacie-azbestu/?utm_source=google&utm_medium=cpc&utm_campaign=Browser-QA&gclid=isolated-click-id`, { waitUntil: 'networkidle' });
+  await pricePageView;
+  const ctaClick = waitForAnalyticsRequest('cta_click', '/cena-likvidacie-azbestu/');
+  const homepageView = waitForAnalyticsRequest('page_view', '/#dopyt');
+  const quoteSectionView = waitForAnalyticsRequest('quote_section_view', '/#dopyt');
   await page.locator('.price-hero-actions a[href="/#dopyt"]').click();
   await page.waitForURL((url) => url.origin === new URL(appOrigin).origin
     && url.pathname === '/'
@@ -1821,10 +1836,17 @@ async function runPublicNavigationChecks(page, appOrigin) {
   assert.equal(attributedFormUrl.searchParams.get('utm_source'), 'google', 'consented source survives the real page-to-form click');
   assert.equal(attributedFormUrl.searchParams.get('utm_medium'), 'cpc', 'consented medium survives the real page-to-form click');
   assert.equal(attributedFormUrl.searchParams.get('astana_landing'), '/cena-likvidacie-azbestu/', 'the original campaign landing page is preserved');
-  await page.waitForFunction(() => Number(sessionStorage.getItem('asta:nav-submit-events') || '0') === 0);
+  await Promise.all([ctaClick, homepageView, quoteSectionView]);
+  await page.waitForFunction(() => Number(sessionStorage.getItem('astana:nav-submit-events') || '0') === 0);
   const campaignPosts = postRequests.slice(campaignPostStart);
-  const unexpectedCampaignPosts = campaignPosts.filter((url) => !new URL(url).pathname.startsWith('/api/analytics/'));
-  assert.deepEqual(unexpectedCampaignPosts, [], `campaign navigation must not submit the lead form: ${unexpectedCampaignPosts.join(', ')}`);
+  const unexpectedCampaignPosts = campaignPosts.filter(({ url }) => !new URL(url).pathname.startsWith('/api/analytics/'));
+  assert.deepEqual(unexpectedCampaignPosts, [], `campaign navigation must not submit the lead form: ${JSON.stringify(unexpectedCampaignPosts)}`);
+  assert.deepEqual(campaignPosts.map(({ eventType, path }) => ({ eventType, path })), [
+    { eventType: 'page_view', path: '/cena-likvidacie-azbestu/' },
+    { eventType: 'cta_click', path: '/cena-likvidacie-azbestu/' },
+    { eventType: 'page_view', path: '/#dopyt' },
+    { eventType: 'quote_section_view', path: '/#dopyt' },
+  ], 'campaign navigation records each expected funnel event exactly once and in order');
   assert.equal(await page.evaluate(() => Number(sessionStorage.getItem('astana:nav-submit-events') || '0')), 0,
     'navigation must not submit a form');
   page.off('request', onRequest);
@@ -2020,7 +2042,10 @@ async function runHarness() {
         await route.abort('blockedbyclient'); return;
       }
       if (visualOnly && request.method() !== 'GET') {
-        browserNonGetBlocked.push({ method: request.method(), url: requested.pathname });
+        const body = request.postData();
+        let eventType = '';
+        try { eventType = body ? JSON.parse(body).eventType || '' : ''; } catch { /* Invalid JSON remains an unexpected request. */ }
+        browserNonGetBlocked.push({ method: request.method(), url: requested.pathname, eventType });
         await route.abort('blockedbyclient'); return;
       }
       await route.continue();
@@ -2061,9 +2086,11 @@ async function runHarness() {
       const navigation = await runPublicNavigationChecks(page, appOrigin);
       assert.equal(browserDenied.length, 0, `visual audit tried an external origin: ${browserDenied.join(', ')}`);
       assert.deepEqual(browserNonGetBlocked, [
-        { method: 'POST', url: '/api/analytics/' },
-        { method: 'POST', url: '/api/analytics/' },
-      ], `visual audit must block exactly the two expected local analytics POST requests: ${JSON.stringify(browserNonGetBlocked)}`);
+        { method: 'POST', url: '/api/analytics/', eventType: 'page_view' },
+        { method: 'POST', url: '/api/analytics/', eventType: 'cta_click' },
+        { method: 'POST', url: '/api/analytics/', eventType: 'page_view' },
+        { method: 'POST', url: '/api/analytics/', eventType: 'quote_section_view' },
+      ], `visual audit must block exactly the four expected local funnel events: ${JSON.stringify(browserNonGetBlocked)}`);
       resultSummary = {
         result: 'PASS', ...visual, navigation,
         blockedNonGetRequests: browserNonGetBlocked.length,

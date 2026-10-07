@@ -38,6 +38,9 @@ test('public visual audit covers every customer-facing template family and break
   assert.match(harness, /assert\.deepEqual\(hydrationErrors, \[\]/);
   assert.match(harness, /requested\.origin !== appOrigin && requested\.origin !== blobOrigin/);
   assert.match(harness, /assert\.deepEqual\(browserNonGetBlocked, \[/);
-  assert.match(harness, /\{ method: 'POST', url: '\/api\/analytics\/' \}/);
+  assert.match(harness, /\{ method: 'POST', url: '\/api\/analytics\/', eventType: 'page_view' \}/);
+  assert.match(harness, /\{ method: 'POST', url: '\/api\/analytics\/', eventType: 'cta_click' \}/);
+  assert.match(harness, /\{ method: 'POST', url: '\/api\/analytics\/', eventType: 'quote_section_view' \}/);
+  assert.match(harness, /campaign navigation records each expected funnel event exactly once and in order/);
   assert.match(harness, /assert\.equal\(formsSubmitted, 0, 'visual audit must not submit any form'\)/);
 });

@@ -1,23 +1,33 @@
 # Stav a poradie práce
 
-## Aktuálny release dashboard – nahrádza historické „11 %“ (6. 10. 2026)
+## Aktuálny release dashboard – nahrádza historické „11 %“ (7. 10. 2026)
 
 Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešnom rozsahu je zavádzajúce. Od tohto bodu sa postup vykazuje cez konkrétne brány. Web sa označí za hotový až pri **100 % obchodnej a vizuálnej kvalite** a bez známej chyby vo formulári, ponuke, administrácii, responzivite, prístupnosti alebo podporovaných prehliadačoch.
 
 | Release brána | Stav | Aktuálny dôkaz alebo chýbajúci dôkaz |
 |---|---|---|
-| Celá unit/kontraktná sada | **PASS** | 265 MJS + 22 TypeScript testov; dva testy závislé od lokálneho portu/Edge prešli po bezpečnom opakovaní mimo obmedzeného procesu |
+| Celá unit/kontraktná sada | **PASS** | 267 MJS + 22 TypeScript testov; dva testy závislé od lokálneho portu/Edge prešli po bezpečnom opakovaní mimo obmedzeného procesu |
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
 | Verejná responzivita | **ČIASTOČNE PASS** | 20 typov verejných stránok × 9 viewportov = 180 stavov, 21 záberov, 0 hydration chýb a 0 odoslaných formulárov; ešte nejde o fyzické zariadenie ani finálny ľudský sign-off |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
 | Nemenný release SHA a čistý kandidát | **ČIASTOČNE PASS** | overené zmeny sa ukladajú v samostatných lokálnych checkpointoch; finálny release SHA sa zmrazí až po uzavretí otvorených obchodných, vizuálnych a S08 brán |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
-| S08 / Core Web Vitals | **FAIL** | čerstvá 5 × 3 matica: domov 2 793 ms, cena 2 589 ms, realizácie 3 508 ms, článok 2 583 ms, kariéra 2 723 ms; cieľ LCP je najviac 2 500 ms |
+| Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
+| S08 / Core Web Vitals | **FAIL** | posledná úplná 5 × 3 matica: domov 2 793 ms, cena 2 589 ms, realizácie po riadenom načítaní 3 169 ms, článok 2 583 ms, kariéra 2 723 ms; cieľ LCP je najviac 2 500 ms |
 | Produkčný dopyt bez fotky a s fotkou | **OTVORENÉ** | vyžaduje čerstvé schválenie, lebo vytvorí skutočný lead a e-maily |
 | Celý tok cenovej ponuky, PDF a e-mailu | **OTVORENÉ** | lokálne kontrakty prešli, ale kompletný schválený produkčný tok nie |
 | Chrome/Opera a fyzický mobil | **OTVORENÉ** | chýba finálna akceptácia na reálnych zariadeniach |
 | Obchodná a používateľská akceptácia | **OTVORENÉ** | treba prejsť dôveru, zrozumiteľnosť, konverziu, cenovú ponuku a admin pracovný tok |
 | Nezávislý finálny review + produkčný smoke/rollback | **OTVORENÉ** | vykoná sa až nad nemenným kandidátom; úzke PASS-y nenahrádzajú finálne prijatie |
+
+### Bezpečnostná aktualizácia runtime a presné meranie lievika (7. 10. 2026)
+
+- Závislosti boli aktualizované bez zmeny databázovej schémy, formulárového kontraktu, SMTP rozhodovania alebo pravidiel súkromných fotografií: Next.js **16.4.0**, Sharp **0.35.5**, Nodemailer **10.0.15**, `tsx` **4.23.15** a opravené transitívne verzie. Blob klient zostáva zámerne na kompatibilnej verzii **2.3.3** bez novej OIDC/CLI credential vetvy; jeho sieťová závislosť `undici` je samostatne opravená na **6.29.0**. `npm audit --json` hlási **0** zraniteľností vo všetkých závažnostiach.
+- Po aktualizácii odhalil development browser audit duplicitný `page_view` pri opakovanom React effecte. Centrálna analytická fasáda teraz deduplikuje iba rovnaké zobrazenie rovnakej URL v tom istom období súhlasu; kliky ani ďalšie funnel udalosti nededuplikuje a odobratie/nové udelenie súhlasu začne nové obdobie.
+- Browser harness už nekontroluje iba počet rovnakých POST URL. Číta bezpečný typ a cestu udalosti a čaká na presnú sekvenciu: cenová stránka `page_view`, CTA `cta_click`, domov `page_view`, formulár `quote_section_view`. Bez súhlasu ostáva počet analytických POSTov **0**. Izolovaný audit prešiel **180/180** stavov a presne 4 očakávané udalosti; formuláre **0**, externé originy **0**, hydration chyby **0**.
+- Kompletný admin audit prešiel **182/182** stavov. Izolovaný produkčný build prešiel s Next.js 16.4.0: TypeScript, **96/96 stránok**, SEO metadata/obsah **32/32** statických URL, dynamické realizácie/recenzie a route CSS/JS izolácia; `productionAccess:false`.
+- Izolovaný dopyt s dvoma viacmegabajtovými fotografiami po aktualizácii vytvoril 1 lead, 1 zákazku a 2 súkromné prílohy, povolil 2 admin stiahnutia a 0 anonymných, pripravil 2 čakajúce outbox správy a odoslal **0** skutočných emailov. Externé browser originy **0** a vlastné dočasné prostredie bolo odstránené.
+- Celá logická sada je **267/267 PASS** (265 v obmedzenom procese + 2 prostredím blokované kontroly bezpečne zopakované) a TypeScript vertikálna sada **22/22 PASS**. Tento checkpoint je lokálny kandidát; produkcia, skutočné schránky, Vercel premenné ani alias sa nemenili. S08 a finálna 100 % obchodná/vizuálna brána zostávajú otvorené.
 
 ### Aktuálny technický checkpoint: route CSS, odložená analytika a verejná matica
 

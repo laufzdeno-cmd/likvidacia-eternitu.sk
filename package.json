@@ -26,9 +26,9 @@
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
     "@sparticuz/chromium": "^148.0.0",
-    "@vercel/blob": "^2.3.3",
-    "next": "^16.2.6",
-    "nodemailer": "^8.0.7",
+    "@vercel/blob": "2.3.3",
+    "next": "^16.4.0",
+    "nodemailer": "^10.0.15",
     "otplib": "^13.4.0",
     "pdfkit": "^0.18.0",
     "pg": "^8.20.0",
@@ -37,25 +37,25 @@
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "recharts": "^3.8.1",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.5",
     "zod": "^4.4.3"
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.29",
+    "undici": "^6.29.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-socket": "^0.2.11",
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.7.0",
-    "@types/nodemailer": "^8.0.0",
     "@types/pdfkit": "^0.17.6",
     "@types/pg": "^8.20.0",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "ts-node": "^10.9.2",
-    "tsx": "^4.21.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }

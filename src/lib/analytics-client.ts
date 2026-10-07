@@ -9,12 +9,18 @@ type AnalyticsEvent = (eventType: string, metadata?: Record<string, unknown>) =>
 type AnalyticsEngine = { trackAnalyticsEvent: AnalyticsEvent };
 type DeferredAnalyticsOptions = {
   hasConsent?: () => boolean;
+  getPageViewKey?: () => string;
   loadEngine?: () => Promise<AnalyticsEngine>;
   maximumQueuedEvents?: number;
   subscribeConsentChanges?: (listener: () => void) => () => void;
 };
 
 const defaultMaximumQueuedEvents = 100;
+
+function getBrowserPageViewKey() {
+  if (typeof window === 'undefined') return '';
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
 
 function subscribeToBrowserConsentChanges(listener: () => void) {
   if (typeof window === 'undefined') return () => {};
@@ -24,6 +30,7 @@ function subscribeToBrowserConsentChanges(listener: () => void) {
 
 export function createDeferredAnalyticsDispatcher({
   hasConsent = hasAnalyticsConsent,
+  getPageViewKey = getBrowserPageViewKey,
   loadEngine = () => import('./analytics-event-engine'),
   maximumQueuedEvents = defaultMaximumQueuedEvents,
   subscribeConsentChanges = subscribeToBrowserConsentChanges,
@@ -32,19 +39,24 @@ export function createDeferredAnalyticsDispatcher({
     eventType: string;
     metadata: Record<string, unknown>;
     consentRevision: number;
+    pageViewKey?: string;
   }> = [];
   const queueLimit = Math.max(1, Math.floor(maximumQueuedEvents));
   let engine: AnalyticsEngine | null = null;
   let enginePromise: Promise<AnalyticsEngine | null> | null = null;
   let consentRevision = 0;
   let consentGranted = hasConsent();
+  let lastPageViewKey: string | null = null;
 
   const unsubscribeConsentChanges = subscribeConsentChanges(() => {
     const nextConsent = hasConsent();
     if (nextConsent === consentGranted) return;
     consentGranted = nextConsent;
     consentRevision += 1;
-    if (!nextConsent) queuedEvents.length = 0;
+    if (!nextConsent) {
+      queuedEvents.length = 0;
+      lastPageViewKey = null;
+    }
   });
 
   const ensureEngine = () => {
@@ -71,13 +83,25 @@ export function createDeferredAnalyticsDispatcher({
 
   const trackAnalyticsEvent: AnalyticsEvent = (eventType, metadata = {}) => {
     if (!hasConsent()) return;
+    let pageViewKey = '';
+    if (eventType === 'page_view') {
+      pageViewKey = getPageViewKey();
+      if (pageViewKey && pageViewKey === lastPageViewKey) {
+        if (!engine && !enginePromise) void ensureEngine();
+        return;
+      }
+      if (pageViewKey) lastPageViewKey = pageViewKey;
+    }
     if (engine) {
       engine.trackAnalyticsEvent(eventType, metadata);
       return;
     }
 
-    queuedEvents.push({ eventType, metadata: { ...metadata }, consentRevision });
-    while (queuedEvents.length > queueLimit) queuedEvents.shift();
+    queuedEvents.push({ eventType, metadata: { ...metadata }, consentRevision, ...(pageViewKey ? { pageViewKey } : {}) });
+    while (queuedEvents.length > queueLimit) {
+      const dropped = queuedEvents.shift();
+      if (dropped?.pageViewKey && dropped.pageViewKey === lastPageViewKey) lastPageViewKey = null;
+    }
     void ensureEngine();
   };
 

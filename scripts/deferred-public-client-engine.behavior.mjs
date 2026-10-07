@@ -81,6 +81,97 @@ test('analytics drops an event from an earlier consent period while its engine i
   dispatcher.dispose();
 });
 
+test('analytics records one page view per route and allows the same route after renewed consent', async () => {
+  let consent = true;
+  let consentListener = () => {};
+  let pageViewKey = '/cena-likvidacie-azbestu/';
+  const delivered = [];
+  const dispatcher = createDeferredAnalyticsDispatcher({
+    hasConsent: () => consent,
+    getPageViewKey: () => pageViewKey,
+    subscribeConsentChanges: (listener) => {
+      consentListener = listener;
+      return () => { consentListener = () => {}; };
+    },
+    loadEngine: async () => ({
+      trackAnalyticsEvent: (eventType, metadata) => delivered.push({ eventType, metadata }),
+    }),
+  });
+
+  dispatcher.trackAnalyticsEvent('page_view');
+  dispatcher.trackAnalyticsEvent('page_view');
+  dispatcher.trackAnalyticsEvent('cta_click', { label: 'Ponuka' });
+  await dispatcher.waitForEngine();
+  assert.deepEqual(delivered, [
+    { eventType: 'page_view', metadata: {} },
+    { eventType: 'cta_click', metadata: { label: 'Ponuka' } },
+  ], 'a development remount cannot duplicate the same route page view');
+
+  pageViewKey = '/';
+  dispatcher.trackAnalyticsEvent('page_view');
+  dispatcher.trackAnalyticsEvent('page_view');
+  assert.equal(delivered.filter(({ eventType }) => eventType === 'page_view').length, 2,
+    'a different route records exactly one additional page view');
+
+  consent = false;
+  consentListener();
+  consent = true;
+  consentListener();
+  dispatcher.trackAnalyticsEvent('page_view');
+  assert.equal(delivered.filter(({ eventType }) => eventType === 'page_view').length, 3,
+    'renewed consent starts a fresh page-view period on the current route');
+  dispatcher.dispose();
+});
+
+test('a duplicate page-view call retries a failed engine import without queueing a duplicate event', async () => {
+  let loadCalls = 0;
+  const delivered = [];
+  const dispatcher = createDeferredAnalyticsDispatcher({
+    hasConsent: () => true,
+    getPageViewKey: () => '/kontakt/',
+    loadEngine: async () => {
+      loadCalls += 1;
+      if (loadCalls === 1) throw new Error('synthetic import failure');
+      return { trackAnalyticsEvent: (eventType) => delivered.push(eventType) };
+    },
+  });
+
+  dispatcher.trackAnalyticsEvent('page_view');
+  await dispatcher.waitForEngine();
+  dispatcher.trackAnalyticsEvent('page_view');
+  await dispatcher.waitForEngine();
+
+  assert.equal(loadCalls, 2, 'the same page-view call can restart a failed lazy import');
+  assert.deepEqual(delivered, ['page_view'], 'the retained queue still delivers the page view only once');
+  dispatcher.dispose();
+});
+
+test('a page view dropped by the bounded queue can be recorded again', async () => {
+  let resolveEngine;
+  const delivered = [];
+  const dispatcher = createDeferredAnalyticsDispatcher({
+    hasConsent: () => true,
+    getPageViewKey: () => '/faq/',
+    maximumQueuedEvents: 2,
+    loadEngine: () => new Promise((resolve) => { resolveEngine = resolve; }),
+  });
+
+  dispatcher.trackAnalyticsEvent('page_view');
+  dispatcher.trackAnalyticsEvent('cta_click', { order: 1 });
+  dispatcher.trackAnalyticsEvent('cta_click', { order: 2 });
+  dispatcher.trackAnalyticsEvent('page_view');
+  resolveEngine({
+    trackAnalyticsEvent: (eventType, metadata) => delivered.push({ eventType, metadata }),
+  });
+  await dispatcher.waitForEngine();
+
+  assert.deepEqual(delivered, [
+    { eventType: 'cta_click', metadata: { order: 2 } },
+    { eventType: 'page_view', metadata: {} },
+  ], 'queue overflow releases only the dropped page-view key and permits one retry');
+  dispatcher.dispose();
+});
+
 test('accepted lead conversion is dropped without consent and survives an in-flight engine import with event IDs intact', async () => {
   let consent = false;
   let loadCalls = 0;
