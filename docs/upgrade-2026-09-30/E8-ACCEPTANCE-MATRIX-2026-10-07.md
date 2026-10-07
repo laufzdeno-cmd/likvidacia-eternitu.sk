@@ -32,7 +32,7 @@ Staršie časti `STATUS.md` zachovávajú historické behy s Accessibility 96–
 
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
-| S01 | PARTIAL | Renderovaný lokálny crawl kontroluje 32 statických URL, obe dynamické obsahové URL, chybové stavy, odkazy a kotvy na rovnakom builde. Jednotný HTTPS/host, presmerovania a celý nový produkčný host sa potvrdia až po release. |
+| S01 | PARTIAL | Renderovaný lokálny crawl kontroluje 32 statických URL, obe dynamické obsahové URL, chybové stavy, odkazy a kotvy na rovnakom builde. Read-only produkčný snapshot potvrdil HTTPS a kanonický host, ale živá verzia je starší deployment: `/kde-posobime/` je 404 a `/pre-strecharov/` ešte vracia duplicitnú 200 stránku. Nový host sa potvrdí až po release. |
 | S02 | PASS local | Canonical, index/noindex, 404 a súkromné trasy prešli lokálnym build/browser kontraktom. |
 | S03 | PASS local | Title, description, jeden H1 a obsahové odkazy prešli renderovanou kontrolou. |
 | S04 | PASS local | JSON-LD používa bezpečný serializer, jednu firemnú entitu a route-vlastnené breadcrumbs; testy prešli. |
@@ -106,12 +106,12 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 | O01 | PASS local | Izolovaný produkčný build, TypeScript, generovanie 99/99 a čistenie dočasnej PostgreSQL databázy prešli. |
 | O02 | PASS local | Celá unit/kontraktná sada 346/346 MJS + 24/24 TypeScript a databázové integrácie 8/8 prešli. |
 | O03 | PASS current slice | Nezávislé read-only kontroly po opravách vydali **PASS** pre cenové ponuky, retenčný/foto tok, Meta CAPI a kontrolované Vercel povýšenie. Finálny celý release review sa zopakuje nad uzamknutým SHA. |
-| O04 | WAITING | Aktuálny staged Production deployment, alias a post-release smoke ešte neexistujú. |
+| O04 | WAITING | Vercel read-only kontrola potvrdila ako Current starý produkčný deployment `FYaPKy6tk` z 4. 10. 2026. Staged Production deployment checkpointu `3e8011f0`, jeho test a kontrolované povýšenie ešte neexistujú. Podrobnosti sú v [release readiness snapshote](RELEASE-READINESS-2026-10-07.md). |
 | O05 | NOT TESTED | Rollback postup je zdokumentovaný, ale nebol vykonaný nad týmto release kandidátom. |
-| O06 | WAITING | Produkčné alerty, vlastníctvo retry a eskalácia `unknown` stavu treba potvrdiť v prevádzke. |
+| O06 | WAITING | Starý Current deployment mal v kontrolovanom 30-minútovom okne 0 warning/error/fatal logov, ale Speed Insights a Web Analytics sú vypnuté a chýba dlhodobý alerting, vlastník retry aj eskalácia `unknown` stavu. |
 | O07 | PASS local | Consent, deduplikácia, HMAC atribúcia a zákaz PII v analytike prešli testami a browser sekvenciou. |
 | O08 | PASS local / production WAITING | Dashboard odlišuje leady, ponuky, zákazky a testy; produkčné obchodné dáta sa nemenili ani nerevidovali. |
-| O09 | PASS local / production WAITING | Publikačné, CV a foto retenčné workflowy sú fail-closed; produkčné crony a store sa overia po release. |
+| O09 | PASS local / production WAITING | Store príloh je Private a pripojený k projektu, ale jeho firewall je Not Protected a produkčné retenčné bindingy/prepínače ani samostatný foto-intake store nie sú nastavené. Workflowy ostávajú fail-closed; produkčná konfigurácia a crony sa musia overiť pred release. |
 | O10 | PARTIAL | Tento dokument uvádza otvorené brány a vlastníctvo; finálny handover vznikne až po deployi, produkčných testoch a owner sign-offe. |
 
 ## Rozhodnutie
