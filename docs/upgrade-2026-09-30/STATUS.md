@@ -19,11 +19,11 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 
 | Release brána | Stav | Aktuálny dôkaz alebo chýbajúci dôkaz |
 |---|---|---|
-| Celá unit/kontraktná sada | **PASS** | aktuálny pracovný kandidát: 292/292 MJS + 22/22 TypeScript testov v jednom úspešnom behu |
+| Celá unit/kontraktná sada | **PASS** | aplikačný checkpoint `918477e5`: 302/302 MJS + 24/24 TypeScript testov; databázové integrácie 8/8 PASS |
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
 | Verejná responzivita | **PASS lokálne** | aktuálny kandidát: 20 verejných trás × 11 viewportov = 220/220 stavov, 25 záberov, 0 hydration chýb, 0 externých originov a 0 odoslaných formulárov; fyzické zariadenie a finálny ľudský sign-off zostávajú samostatnou bránou |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
-| Nemenný aplikačný SHA | **PASS lokálne** | kontrolovaný právny/GEO a CMS kompatibilný aplikačný checkpoint je commit `86b169f8`; následná zmena iba dopĺňa tento identifikátor do dokumentácie |
+| Nemenný aplikačný SHA | **PASS lokálne** | kontrolovaný aplikačný checkpoint je commit `918477e5`; následná zmena iba aktualizuje auditnú dokumentáciu |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
 | Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
 | S08 / Core Web Vitals | **PASS lokálne** | Lighthouse build `y1TYexOpsKdspjTfymDsp`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 284–2 451 ms a CLS 0; novší source build `PbffkjJF2blfWHCZP2t5Z` má samostatný build/SEO PASS bez pripísania nového Lighthouse behu |
@@ -33,6 +33,13 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 | Obchodná a používateľská akceptácia | **OTVORENÉ** | treba prejsť dôveru, zrozumiteľnosť, konverziu, cenovú ponuku a admin pracovný tok |
 | Nezávislý finálny review | **PASS PRE AKTUÁLNY REZ** | read-only kontrolór vrátil tri vady; po oprave kontrastu, ochrany diagnostiky a zosúladenia dôkazov vydal PASS. Celý release review nasleduje nad uzamknutým SHA |
 | Produkčný deploy + smoke/rollback | **OTVORENÉ** | vyžaduje samostatný schválený release; produkčný alias ani dáta sa pri lokálnej akceptácii nemenili |
+
+### Release kandidát po uzavretí ponúk, fotiek a homepage (7. 10. 2026)
+
+- Aplikačný checkpoint `918477e5` uzatvára tri konkrétne hraničné chyby: rok čísla cenovej ponuky sa určuje v časovej zóne Europe/Bratislava, neplatné JSON potvrdenie súkromnej fotografie vracia generickú chybu 400 a mobilné menu sa zatvára Escape s návratom fokusu a kontrastným fokusovým rámikom.
+- Celá unit/kontraktná sada prešla **302/302 MJS + 24/24 TypeScript**, databázové integrácie **8/8**. Izolovaný PostgreSQL 17 produkčný build prešiel kompiláciou, TypeScriptom, **96/96 stránkami**, renderovanými SEO kontrolami a oddelením route CSS/JS; `productionAccess:false` a dočasná databáza bola odstránená.
+- Opakovaný vizuálny browser audit prešiel na **20 trasách × 11 viewportoch = 220/220 stavov**, 25 dočasných snímok, 0 hydration chýb, 0 odoslaných formulárov a 0 externých originov. Pokryl reduced-motion, 200 % zoom, landscape, Escape/fokus aj vnorenie dôkazového panelu v hero.
+- Tri nezávislé read-only kontroly vydali **PASS bez zostávajúcich P1–P3 nálezov** pre cenové ponuky, retenčný/foto tok a homepage/prístupnosť. Produkcia, ostrý formulár, email, ponuka, Blob ani Vercel alias neboli použité alebo zmenené.
 
 ### Aktuálny kandidát po vizuálnej a CSS optimalizácii (7. 10. 2026)
 

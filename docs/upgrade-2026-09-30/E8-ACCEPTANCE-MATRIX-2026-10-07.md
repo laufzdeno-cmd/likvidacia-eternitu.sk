@@ -2,7 +2,7 @@
 
 Táto matica nahrádza historickú maticu `E8-ACCEPTANCE-MATRIX.md` pre aktuálne rozhodovanie. Historický dokument zostáva zachovaný ako auditná stopa.
 
-Kontrolovaný aplikačný a QA checkpoint: commit `86b169f8` na vetve `codex/astana-upgrade-rc1`. Obsahuje úzky rez verejných právnych/GEO textov, emailu, PDF, CMS kompatibility, regresných testov a auditnej dokumentácie. Následná zmena je iba doplnenie tohto identifikátora do dokumentácie.
+Kontrolovaný aplikačný a QA checkpoint: commit `918477e5` na vetve `codex/astana-upgrade-rc1`. Obsahuje právny/GEO rez, bezpečný dopytový a foto tok, cenové ponuky, PDF/email, admin, verejný vizuál, regresné testy a výkonové úpravy. Nasledujúci dokumentačný commit nemení aplikačný kód.
 
 Legenda:
 
@@ -13,8 +13,9 @@ Legenda:
 
 Aktuálne dôkazy:
 
-- `npm.cmd run test:unit`: **292/292 MJS + 22/22 TypeScript PASS**.
-- izolovaný PostgreSQL 17 + najnovší produkčný build zdrojového rezu `PbffkjJF2blfWHCZP2t5Z`: **96/96 stránok, TypeScript a obe SEO kontroly PASS**; produkčný prístup bol vypnutý.
+- `npm.cmd run test:unit`: **302/302 MJS + 24/24 TypeScript PASS**.
+- databázové integrácie: **8/8 PASS**, vrátane PostgreSQL/PGlite, lokálneho úložiska, cenových ponúk, outboxu a TOTP; bez produkčnej DB, SMTP alebo Blob zásahu.
+- izolovaný PostgreSQL 17 + produkčný build checkpointu `918477e5`: **96/96 stránok, TypeScript a obe SEO kontroly PASS**; produkčný prístup bol vypnutý a jednorazová databáza odstránená.
 - vizuálny browser audit aktuálneho pracovného stromu: **20 trás, 220 viewport stavov, 25 snímok, 0 hydration chýb, 0 odoslaných formulárov a 0 externých originov**; pokryté reduced-motion, 200 % zoom a landscape. Fokusovaný audit `/`, `/postup/`, `/o-firme/` navyše prešiel na 1440 a 375 px bez horizontálneho pretečenia.
 - dopytový browser/Blob emulátor: 1 lead, 1 zákazka, 2 súkromné prílohy, 2 autorizované a 0 anonymných stiahnutí, 2 čakajúce outbox položky, **0 odoslaných emailov**.
 - Lighthouse S08 nad bezprostredne predchádzajúcim buildom `y1TYexOpsKdspjTfymDsp`: 5 trás × 3 behy, všetky PASS; medián Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 284–2 451 ms**, CLS **0**. Následné zúženie iba serverového rozpoznávania starých CMS otázok nemení aktuálne renderovaný obsah; jeho vlastný build a regresné testy prešli, Lighthouse sa mu nepripisuje ako nový beh.
@@ -97,8 +98,8 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
 | O01 | PASS local | Izolovaný produkčný build, TypeScript, generovanie 96/96 a čistenie dočasnej PostgreSQL databázy prešli. |
-| O02 | PASS local | Celá sada 314/314 testov prešla v jednom povolenom lokálnom behu. |
-| O03 | PASS current slice | Nezávislý read-only kontrolór najprv vrátil tri konkrétne vady; po oprave kontrastu, odstránení voľných diagnostických textov a zosúladení aktuálneho dôkazu vydal **PASS**. Celý release review sa zopakuje nad uzamknutým SHA. |
+| O02 | PASS local | Celá unit/kontraktná sada 326/326 a databázové integrácie 8/8 prešli. |
+| O03 | PASS current slice | Tri nezávislé read-only kontroly po opravách vydali **PASS** pre cenové ponuky, retenčný/foto tok a domovskú stránku s prístupnosťou. Finálny celý release review sa zopakuje nad uzamknutým SHA. |
 | O04 | WAITING | Aktuálny staged Production deployment, alias a post-release smoke ešte neexistujú. |
 | O05 | NOT TESTED | Rollback postup je zdokumentovaný, ale nebol vykonaný nad týmto release kandidátom. |
 | O06 | WAITING | Produkčné alerty, vlastníctvo retry a eskalácia `unknown` stavu treba potvrdiť v prevádzke. |
@@ -109,4 +110,4 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 
 ## Rozhodnutie
 
-Aktuálny zdroj je uložený ako lokálny aplikačný a QA checkpoint `86b169f8` a kontrolovaný rez dostal nezávislé PASS. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny aplikačný zdroj je uložený ako lokálny QA checkpoint `918477e5` a všetky tri posledné kontrolované rezy dostali nezávislé PASS. Projekt napriek tomu nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U04/U09/U10, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04–O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
