@@ -1607,6 +1607,103 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     }
   }
 
+  const reducedMotionRoutes = ['/', '/strechari/'];
+  const reducedMotionContext = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'reduce',
+    serviceWorkers: 'block',
+  });
+  await reducedMotionContext.route('**/*', async (route) => {
+    const request = route.request();
+    const requestUrl = new URL(request.url());
+    if (requestUrl.origin !== appOrigin || request.method() !== 'GET') {
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    const reducedMotionPage = await reducedMotionContext.newPage();
+    for (const route of reducedMotionRoutes) {
+      const response = await reducedMotionPage.goto(`${appOrigin}${route === '/' ? '' : route}`, {
+        waitUntil: 'networkidle', timeout: 45_000,
+      });
+      assert.equal(response?.status(), 200, `${route} reduced-motion route should render`);
+      if (route === '/') {
+        const deferredTrigger = reducedMotionPage.locator('#realizacie-astana, #recenzie, #faq').first();
+        assert.equal(await deferredTrigger.count(), 1, 'homepage reduced-motion test needs a deferred-client trigger');
+        await deferredTrigger.scrollIntoViewIfNeeded();
+        await reducedMotionPage.waitForFunction(() => document.documentElement.dataset.homepageBelowFoldClient === 'loaded');
+      }
+      const motionState = await reducedMotionPage.evaluate(() => ({
+        preference: matchMedia('(prefers-reduced-motion: reduce)').matches,
+        enhancedClass: document.documentElement.classList.contains('has-enhanced-motion'),
+        revealClasses: document.querySelectorAll('.reveal-on-scroll').length,
+        hiddenRelevantContent: [...document.querySelectorAll('.section, .transport-banner, .final-cta, .site-footer, .roofer-hero, .roofer-final')]
+          .filter((element) => {
+            const style = getComputedStyle(element);
+            const rect = element.getBoundingClientRect();
+            return style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0 || rect.width === 0 || rect.height === 0;
+          }).length,
+        runningAnimations: document.getAnimations().filter((animation) => animation.playState === 'running').length,
+      }));
+      assert.deepEqual(motionState, {
+        preference: true,
+        enhancedClass: false,
+        revealClasses: 0,
+        hiddenRelevantContent: 0,
+        runningAnimations: 0,
+      }, `${route} must not initialize decorative motion when reduced motion is requested`);
+    }
+  } finally {
+    await reducedMotionContext.close();
+  }
+
+  const zoomRoutes = ['/', '/cena-likvidacie-azbestu/', '/realizacie/', '/kariera/', '/strechari/'];
+  const zoomContext = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+  await zoomContext.route('**/*', async (route) => {
+    const request = route.request();
+    const requestUrl = new URL(request.url());
+    if (requestUrl.origin !== appOrigin || request.method() !== 'GET') {
+      await route.abort('blockedbyclient');
+      return;
+    }
+    await route.continue();
+  });
+  try {
+    const zoomPage = await zoomContext.newPage();
+    const cdp = await zoomContext.newCDPSession(zoomPage);
+    for (const route of zoomRoutes) {
+      const response = await zoomPage.goto(`${appOrigin}${route === '/' ? '' : route}`, {
+        waitUntil: 'networkidle', timeout: 45_000,
+      });
+      assert.equal(response?.status(), 200, `${route} 200% zoom route should render`);
+      await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 2 });
+      await zoomPage.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      const zoomState = await zoomPage.evaluate(() => {
+        const heading = document.querySelector('h1')?.getBoundingClientRect();
+        const primaryAction = document.querySelector('.hero .button-primary, .career-application-form button[type="submit"], main a.button-primary')?.getBoundingClientRect();
+        return {
+          scale: visualViewport?.scale || 1,
+          visualWidth: visualViewport?.width || innerWidth,
+          visualHeight: visualViewport?.height || innerHeight,
+          heading: heading ? { left: heading.left, right: heading.right, top: heading.top, bottom: heading.bottom } : null,
+          primaryAction: primaryAction ? {
+            left: primaryAction.left, right: primaryAction.right, top: primaryAction.top, bottom: primaryAction.bottom,
+          } : null,
+        };
+      });
+      assert.ok(zoomState.scale >= 1.99, `${route} must be evaluated at 200% browser zoom: ${JSON.stringify(zoomState)}`);
+      assert.ok(zoomState.heading && zoomState.heading.right > zoomState.heading.left && zoomState.heading.bottom > zoomState.heading.top,
+        `${route} H1 must remain rendered at 200% zoom: ${JSON.stringify(zoomState)}`);
+      assert.ok(zoomState.primaryAction && zoomState.primaryAction.right > zoomState.primaryAction.left
+        && zoomState.primaryAction.bottom > zoomState.primaryAction.top,
+      `${route} primary action must remain rendered at 200% zoom: ${JSON.stringify(zoomState)}`);
+    }
+  } finally {
+    await zoomContext.close();
+  }
+
   const viewports = [
     { width: 320, height: 568 }, { width: 360, height: 800 }, { width: 390, height: 844 },
     { width: 568, height: 320 }, { width: 760, height: 900 }, { width: 761, height: 900 },
@@ -1921,6 +2018,11 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
   return {
     routes: routes.length,
     viewportStates: measured.length,
+    environmentChecks: {
+      reducedMotionRoutes: reducedMotionRoutes.length,
+      zoom200Routes: zoomRoutes.length,
+      landscapeRoutes: routes.length,
+    },
     screenshots: screenshotCount,
     evidence: visualEvidenceLabel ? `tmp/visual-evidence-exports/${visualEvidenceLabel}` : 'owned temporary root; removed after test',
     formsSubmitted,

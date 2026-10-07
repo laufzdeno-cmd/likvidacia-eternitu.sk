@@ -899,12 +899,15 @@ export default function LandingClient() {
     ];
     const onHashChange = () => window.setTimeout(scrollToCurrentHash, 20);
 
-    document.documentElement.classList.add('has-enhanced-motion');
+    const motionAllowed = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealTargets = Array.from(document.querySelectorAll<HTMLElement>(
       '.hero, .trust-bar, .section, .transport-banner, .final-cta, .site-footer, .roofer-hero, .roofer-final',
     ));
-    revealTargets.forEach((item) => item.classList.add('reveal-on-scroll'));
-    if ('IntersectionObserver' in window && revealTargets.length) {
+    if (motionAllowed) {
+      document.documentElement.classList.add('has-enhanced-motion');
+      revealTargets.forEach((item) => item.classList.add('reveal-on-scroll'));
+    }
+    if (motionAllowed && 'IntersectionObserver' in window && revealTargets.length) {
       revealObserver = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
@@ -948,6 +951,8 @@ export default function LandingClient() {
       observer?.disconnect();
       sectionObserver?.disconnect();
       revealObserver?.disconnect();
+      document.documentElement.classList.remove('has-enhanced-motion');
+      revealTargets.forEach((item) => item.classList.remove('reveal-on-scroll', 'is-visible'));
       counterObserver?.disconnect();
       quoteSectionObserver?.disconnect();
       hashScrollTimers.forEach((timer) => window.clearTimeout(timer));

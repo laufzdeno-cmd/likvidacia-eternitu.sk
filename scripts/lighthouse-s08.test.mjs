@@ -42,6 +42,20 @@ assert.match(lighthouseSource, /\['VeryHigh', 'High', 'Medium', 'Low', 'VeryLow'
 assert.match(lighthouseSource, /details\?\.debugData\?\.initiators/,
   'initiator diagnostics must use the current Lighthouse debugData collection');
 assert.match(lighthouseSource, /initiatorTypeCounts/);
+assert.match(lighthouseSource, /const accessibilityFailures = diagnosticMode/,
+  'diagnostic mode must expose failing accessibility audit IDs instead of only an aggregate score');
+assert.match(lighthouseSource, /summary\.medianAccessibility >= 90/,
+  'S08 acceptance must fail when the median accessibility score falls below 90');
+assert.match(lighthouseSource, /summary\.medianSeo >= 90/,
+  'S08 acceptance must fail when the median SEO score falls below 90');
+assert.match(lighthouseSource, /medianAccessibility: 90/,
+  'the emitted S08 threshold contract must disclose the accessibility minimum');
+assert.match(lighthouseSource, /medianSeo: 90/,
+  'the emitted S08 threshold contract must disclose the SEO minimum');
+assert.match(lighthouseSource, /summarizeLighthouseNode\(item\?\.node \|\| item\)/,
+  'accessibility diagnostics must use the bounded node summarizer');
+assert.doesNotMatch(lighthouseSource, /title:\s*audit\.title|displayValue:\s*audit\.displayValue/,
+  'accessibility diagnostics must not persist free-form Lighthouse strings');
 assert.doesNotMatch(lighthouseSource, /item\.initiatorType/,
   'network request rows do not carry initiatorType and must not pretend to do so');
 assert.match(lighthouseSource, /renderBlocking/);

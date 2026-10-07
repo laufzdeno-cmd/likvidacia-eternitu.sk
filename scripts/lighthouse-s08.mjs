@@ -156,6 +156,16 @@ for (const page of pages) {
     const diagnosticAudits = diagnosticMode ? Object.fromEntries(diagnosticAuditIds
       .filter((id) => report.audits[id])
       .map((id) => [id, summarizeLighthouseAudit(report.audits[id], origin.origin)])) : null;
+    const accessibilityFailures = diagnosticMode
+      ? (report.categories.accessibility?.auditRefs || [])
+        .map(({ id }) => ({ id, audit: report.audits[id] }))
+        .filter(({ audit }) => typeof audit?.score === 'number' && audit.score < 1)
+        .map(({ id, audit }) => ({
+          id,
+          score: audit.score,
+          nodes: (audit.details?.items || []).slice(0, 8).map((item) => summarizeLighthouseNode(item?.node || item)),
+        }))
+      : null;
     const networkItems = report.audits['network-requests']?.details?.items || [];
     const diagnosticMetrics = diagnosticMode ? Object.fromEntries([
       'first-contentful-paint',
@@ -224,6 +234,7 @@ for (const page of pages) {
         diagnosticMetrics,
         transferSummary,
         diagnosticAudits,
+        accessibilityFailures,
         criticalAssets,
       } : {}),
       report: `${page.key}-${index}.json`,
@@ -240,7 +251,11 @@ for (const page of pages) {
     medianLcpMs: median('lcpMs'),
     medianCls: median('cls'),
   };
-  summary.pass = summary.medianPerformance >= 90 && summary.medianLcpMs <= 2500 && summary.medianCls <= 0.1;
+  summary.pass = summary.medianPerformance >= 90
+    && summary.medianAccessibility >= 90
+    && summary.medianSeo >= 90
+    && summary.medianLcpMs <= 2500
+    && summary.medianCls <= 0.1;
   results.push(summary);
 }
 
@@ -249,7 +264,13 @@ const result = {
   lighthouseVersion,
   originKind: 'isolated-loopback',
   runsPerPage,
-  thresholds: { medianPerformance: 90, medianLcpMs: 2500, medianCls: 0.1 },
+  thresholds: {
+    medianPerformance: 90,
+    medianAccessibility: 90,
+    medianSeo: 90,
+    medianLcpMs: 2500,
+    medianCls: 0.1,
+  },
   results,
 };
 const output = diagnosticMode ? {
@@ -258,7 +279,7 @@ const output = diagnosticMode ? {
   runsPerPage,
   pages: result.results.map(({ key, path: pagePath, runs }) => ({
     key, path: pagePath,
-    runs: runs.map(({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticMetrics, transferSummary, diagnosticAudits, criticalAssets }) => ({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticMetrics, transferSummary, diagnosticAudits, criticalAssets })),
+    runs: runs.map(({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticMetrics, transferSummary, diagnosticAudits, accessibilityFailures, criticalAssets }) => ({ lcpMs, observedLcpMs, lcpElementFound, lcpElement, lcpBreakdown, lcpDiscovery, diagnosticMetrics, transferSummary, diagnosticAudits, accessibilityFailures, criticalAssets })),
   })),
 } : result;
 console.log(JSON.stringify(output));

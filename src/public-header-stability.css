@@ -45,3 +45,17 @@
   border-radius: 6px !important;
   filter: none !important;
 }
+
+@media (max-width: 820px) {
+  main.seo-page .seo-calculator .price-materials button.is-active {
+    border-color: #b33118 !important;
+    background: #b33118 !important;
+    color: #ffffff !important;
+  }
+
+  main.seo-page .seo-calculator .price-materials button.is-active:hover {
+    border-color: #84200e !important;
+    background: #84200e !important;
+    color: #ffffff !important;
+  }
+}

@@ -3125,3 +3125,8 @@ main .price-calculator-card a.button.button-primary[data-price-quote] {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* Muted step descriptions still need WCAG AA contrast on white cards. */
+.process-list.process-stepper p {
+  color: #52657b !important;
+}

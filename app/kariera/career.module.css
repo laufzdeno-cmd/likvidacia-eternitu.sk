@@ -49,7 +49,7 @@
 .checks input { width: 18px; height: 18px; margin: 1px 0 0; accent-color: #cc4128; flex: 0 0 auto; }
 .submit { width: 100%; justify-content: center; }
 .submit:disabled { opacity: .7; cursor: wait; }
-.formHelp { margin: 12px 0 0; color: #68798c; font-size: .84rem; text-align: center; }
+.formHelp { margin: 12px 0 0; color: #52657b; font-size: .84rem; text-align: center; }
 .formMessage { margin: 18px 0 0; padding: 13px 15px; border-radius: 8px; font-weight: 650; line-height: 1.45; }
 .formMessage.success { border: 1px solid #a9d9ad; background: #edf9ee; color: #23612a; }
 .formMessage.error { border: 1px solid #edb4a9; background: #fff5f2; color: #9b3221; }

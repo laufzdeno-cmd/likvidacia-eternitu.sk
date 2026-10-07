@@ -34,9 +34,21 @@ test('S08 Lighthouse report summaries retain diagnostics without private text or
   ]);
   assert.equal(safeLighthousePath('https://outside.invalid/private?token=secret', 'http://localhost:3000'), '[blocked-origin]');
   assert.deepEqual(summarizeLighthouseNode({
-    snippet: '<h1 class="private@example.com">Private customer text</h1>',
+    snippet: '<h1 class="private@example.com public-heading is-visible">Private customer text</h1>',
+    selector: '#private-contact > h1.public-heading',
     boundingRect: { width: 320.4, height: 87.7 },
-  }), { tag: 'h1', width: 320, height: 88 });
+  }), { tag: 'h1', classTokens: ['public-heading', 'is-visible'], selector: null, width: 320, height: 88 });
+  assert.deepEqual(summarizeLighthouseNode({
+    snippet: '<p>Public supporting copy</p>',
+    selector: 'main > section.trust-bar > div.trust-item > p:nth-child(3)',
+    boundingRect: { width: 257, height: 38 },
+  }), {
+    tag: 'p',
+    classTokens: [],
+    selector: 'main > section.trust-bar > div.trust-item > p:nth-child(3)',
+    width: 257,
+    height: 38,
+  });
 });
 
 test('S08 report string lengths are bounded and artifact capture rejects the first byte past its budget', async () => {

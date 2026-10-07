@@ -1,24 +1,28 @@
 # Stav a poradie práce
 
+Aktuálna úplná matica je v [E8-ACCEPTANCE-MATRIX-2026-10-07.md](E8-ACCEPTANCE-MATRIX-2026-10-07.md). Staršia `E8-ACCEPTANCE-MATRIX.md` zostáva iba historickým dôkazom pre predchádzajúci commit.
+
+Najnovší build `DjT2355rS4NIWewKmyTMZ` po opravách kontrastu dosiahol Accessibility **100/100 na všetkých piatich S08 trasách**. Staršie nižšie uvedené merania 96–100 sú chronologická história pred opravou a nesmú sa používať ako aktuálny výsledok.
+
 ## Aktuálny release dashboard – nahrádza historické „11 %“ (7. 10. 2026)
 
 Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešnom rozsahu je zavádzajúce. Od tohto bodu sa postup vykazuje cez konkrétne brány. Web sa označí za hotový až pri **100 % obchodnej a vizuálnej kvalite** a bez známej chyby vo formulári, ponuke, administrácii, responzivite, prístupnosti alebo podporovaných prehliadačoch.
 
 | Release brána | Stav | Aktuálny dôkaz alebo chýbajúci dôkaz |
 |---|---|---|
-| Celá unit/kontraktná sada | **PASS** | aktuálny kandidát: 287/287 MJS + 22/22 TypeScript testov; formulárová sada 65/65 a databázové integrácie 8/8 |
+| Celá unit/kontraktná sada | **PASS** | aktuálny pracovný kandidát: 291/291 MJS + 22/22 TypeScript testov v jednom úspešnom behu |
 | Izolovaný produkčný build | **PASS** | Next.js kompilácia, TypeScript a 96/96 statických stránok; SEO kontrola 32 statických URL a dynamické realizácie/recenzie |
 | Verejná responzivita | **PASS lokálne** | aktuálny kandidát: 20 verejných trás × 11 viewportov = 220/220 stavov, 25 záberov, 0 hydration chýb, 0 externých originov a 0 odoslaných formulárov; fyzické zariadenie a finálny ľudský sign-off zostávajú samostatnou bránou |
 | CSS výkon a trasová izolácia | **PASS pre aktuálny rez** | Domovská stránka, kariéra, strechári, realizácie, recenzie, postup a admin majú vlastné route CSS; produkčný build potvrdil, že ich marker sa nenačítava na nesúvisiacej trase |
-| Nemenný aplikačný SHA | **PASS lokálne** | zmrazený a overený aplikačný kandidát `2d8ed4e4` na vetve `codex/astana-upgrade-rc1`; následná zmena je iba táto stavová dokumentácia |
+| Nemenný aplikačný SHA | **ROZPRACOVANÉ** | základný HEAD je `5cf9831b`; aktuálny kontrast/reduced-motion/QA diff ešte čaká na nezávislú kontrolu a checkpoint commit |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
 | Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
-| S08 / Core Web Vitals | **PASS lokálne** | povinná matica 5 trás × 3 mobilné behy: mediány LCP 2 285–2 450 ms, Performance 97–98, CLS 0 a SEO 100 na všetkých piatich trasách |
+| S08 / Core Web Vitals | **PASS lokálne** | build `DjT2355rS4NIWewKmyTMZ`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 285–2 455 ms a CLS 0 |
 | Produkčný dopyt bez fotky a s fotkou | **OTVORENÉ** | vyžaduje čerstvé schválenie, lebo vytvorí skutočný lead a e-maily |
 | Celý tok cenovej ponuky, PDF a e-mailu | **OTVORENÉ** | lokálne kontrakty prešli, ale kompletný schválený produkčný tok nie |
 | Chrome/Opera a fyzický mobil | **OTVORENÉ** | chýba finálna akceptácia na reálnych zariadeniach |
 | Obchodná a používateľská akceptácia | **OTVORENÉ** | treba prejsť dôveru, zrozumiteľnosť, konverziu, cenovú ponuku a admin pracovný tok |
-| Nezávislý finálny review | **PASS lokálne** | kontrolór po oprave retry importu a čistenia hash časovačov vydal pre aktuálny kandidát PASS bez zostávajúcich P1–P3 nálezov |
+| Nezávislý finálny review | **PASS PRE AKTUÁLNY REZ** | read-only kontrolór vrátil tri vady; po oprave kontrastu, ochrany diagnostiky a zosúladenia dôkazov vydal PASS. Celý release review nasleduje nad uzamknutým SHA |
 | Produkčný deploy + smoke/rollback | **OTVORENÉ** | vyžaduje samostatný schválený release; produkčný alias ani dáta sa pri lokálnej akceptácii nemenili |
 
 ### Aktuálny kandidát po vizuálnej a CSS optimalizácii (7. 10. 2026)

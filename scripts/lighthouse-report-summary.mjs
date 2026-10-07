@@ -63,9 +63,23 @@ export function summarizeLighthouseLcpBreakdown(items) {
 export function summarizeLighthouseNode(node) {
   const snippet = typeof node?.snippet === 'string' ? node.snippet : '';
   const tagMatch = snippet.match(/^\s*<([a-zA-Z][a-zA-Z0-9-]*)\b/);
+  const classMatch = snippet.match(/\bclass=(?:"([^"]*)"|'([^']*)')/i);
+  const classTokens = (classMatch?.[1] || classMatch?.[2] || '')
+    .split(/\s+/)
+    .filter((token) => /^[a-z][a-z0-9_-]{0,49}$/.test(token))
+    .slice(0, 6);
+  const rawSelector = typeof node?.selector === 'string' ? node.selector.trim() : '';
+  const safeSelector = rawSelector.length <= 180
+    && !rawSelector.includes('#')
+    && !rawSelector.includes('[')
+    && /^[a-zA-Z0-9_. >:+()-]+$/.test(rawSelector)
+    ? rawSelector
+    : null;
   const rect = node?.boundingRect && typeof node.boundingRect === 'object' ? node.boundingRect : null;
   return {
     tag: tagMatch ? tagMatch[1].toLowerCase() : null,
+    classTokens,
+    selector: safeSelector,
     width: Number.isFinite(rect?.width) ? Math.round(rect.width) : null,
     height: Number.isFinite(rect?.height) ? Math.round(rect.height) : null,
   };

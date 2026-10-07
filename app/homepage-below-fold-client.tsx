@@ -31,13 +31,16 @@ export default function HomepageBelowFoldClient() {
     });
 
     let revealObserver: IntersectionObserver | undefined;
-    document.documentElement.classList.add('has-enhanced-motion');
+    const motionAllowed = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const revealTargets = Array.from(
       document.querySelectorAll<HTMLElement>('.section, .transport-banner, .final-cta, .site-footer'),
     ).filter((item) => !item.closest('#dopyt') && !item.closest('.hero') && !item.closest('.trust-bar'));
 
-    revealTargets.forEach((item) => item.classList.add('reveal-on-scroll'));
-    if ('IntersectionObserver' in window && revealTargets.length) {
+    if (motionAllowed) {
+      document.documentElement.classList.add('has-enhanced-motion');
+      revealTargets.forEach((item) => item.classList.add('reveal-on-scroll'));
+    }
+    if (motionAllowed && 'IntersectionObserver' in window && revealTargets.length) {
       revealObserver = new IntersectionObserver(
         (entries) => {
           entries.forEach((entry) => {
@@ -57,6 +60,8 @@ export default function HomepageBelowFoldClient() {
       delete document.documentElement.dataset.homepageBelowFoldClient;
       homeGalleryFilters.forEach((button) => button.removeEventListener('click', onHomeGalleryFilter));
       revealObserver?.disconnect();
+      document.documentElement.classList.remove('has-enhanced-motion');
+      revealTargets.forEach((item) => item.classList.remove('reveal-on-scroll', 'is-visible'));
     };
   }, []);
 
