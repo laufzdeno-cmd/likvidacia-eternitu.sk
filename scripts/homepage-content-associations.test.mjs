@@ -36,6 +36,12 @@ test('homepage evidence describes the six attached realization cards accurately'
   assert.match(defaults, /whyExperienceText: 'Firma ASTANA pôsobí na trhu od roku 2011\.'/);
 });
 
+test('homepage ponúka pravdivé obchodné dôkazy bez vymysleného hodnotenia', () => {
+  assert.match(homepage, /href="\/realizacie\/">Ukážky reálnych striech ASTANA\.<\/a>/);
+  assert.match(homepage, /href="\/recenzie\/">Prečítajte si overené referencie zákazníkov\.<\/a>/);
+  assert.doesNotMatch(homepage, /\b[45][.,]\d\s*\/\s*5\b|\b\d+\s+spokojných zákazníkov\b/i);
+});
+
 test('2011 refers only to company activity, including the legacy trust-bar row', () => {
   assert.doesNotMatch(homepage, /Skúsenosti s azbestom a eternitom/);
   assert.doesNotMatch(defaults, /Skúsenosti s azbestom a eternitom/);

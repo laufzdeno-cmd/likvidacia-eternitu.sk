@@ -411,6 +411,7 @@ export default async function HomePage() {
               </div>
             </div>
             <a className="hero-real-note" href="/realizacie/">Ukážky reálnych striech ASTANA.</a>
+            <a className="hero-review-note" href="/recenzie/">Prečítajte si overené referencie zákazníkov.</a>
           </div>
 
           <div className="hero-photo real-hero-photo" role="group" aria-label="Reálna realizácia ASTANA pri stabilizácii eternitovej strechy">
@@ -435,16 +436,16 @@ export default async function HomePage() {
               <p className="mobile-hero-eyebrow">{content.heroEyebrow}</p>
               <p className="mobile-hero-title">{content.heroTitle}</p>
             </div>
-            <div className="hero-trust-card">
-              <div>
-                <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                  <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 2.714Z" />
-                </svg>
-                <strong>Legálna likvidácia</strong>
-              </div>
-              <span>RÚVZ · OÚŽP · Doklady</span>
-            </div>
             <div className="hero-real-caption">
+              <div className="hero-trust-card">
+                <div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75A11.959 11.959 0 0 1 12 2.714Z" />
+                  </svg>
+                  <strong>Legálna likvidácia</strong>
+                </div>
+                <span>RÚVZ informujeme · OÚŽP · Doklady</span>
+              </div>
               <strong>Reálne realizácie ASTANA</strong>
               <span>Stabilizácia, demontáž, balenie a odvoz.</span>
             </div>

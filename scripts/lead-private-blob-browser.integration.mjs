@@ -1917,6 +1917,21 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
         assert.ok(counter.lines.every((line) => counter.neighbors.every((neighbor) =>
           line.right <= neighbor.left || neighbor.right <= line.left || line.bottom <= neighbor.top || neighbor.bottom <= line.top)),
         `homepage nationwide label overlaps another fact at ${viewport.width}px: ${JSON.stringify(counter)}`);
+        if (viewport.width === 1024 || viewport.width === 1440) {
+          const evidencePanel = await page.locator('.hero-real-caption').evaluate((caption) => {
+            const trust = caption.querySelector('.hero-trust-card');
+            if (!(trust instanceof HTMLElement)) return { nested: false };
+            const parent = caption.getBoundingClientRect();
+            const child = trust.getBoundingClientRect();
+            return {
+              nested: trust.parentElement === caption,
+              contained: child.left >= parent.left - 1 && child.right <= parent.right + 1
+                && child.top >= parent.top - 1 && child.bottom <= parent.bottom + 1,
+            };
+          });
+          assert.deepEqual(evidencePanel, { nested: true, contained: true },
+            `hero evidence panel must remain inside its caption at ${viewport.width}px`);
+        }
         if (viewport.width === 390) {
           for (const [sectionName, selector] of [
             ['why', '.why-section'],
@@ -2066,6 +2081,11 @@ async function runPublicNavigationChecks(page, appOrigin) {
   await menu.click();
   assert.equal(await menu.getAttribute('aria-expanded'), 'true', 'mobile menu opens accessibly');
   assert.equal(await page.locator('#site-nav').evaluate((nav) => nav.classList.contains('is-open')), true);
+  await page.keyboard.press('Escape');
+  assert.equal(await menu.getAttribute('aria-expanded'), 'false', 'Escape closes the mobile menu');
+  assert.equal(await page.locator('#site-nav').evaluate((nav) => nav.classList.contains('is-open')), false);
+  assert.equal(await menu.evaluate((element) => document.activeElement === element), true, 'Escape restores focus to the menu toggle');
+  await menu.click();
   await page.locator('#site-nav a[href="/kariera/"]').click();
   await page.waitForURL(`${appOrigin}/kariera/`);
   await page.locator('a[href="#prihlasit-sa"]').first().click();

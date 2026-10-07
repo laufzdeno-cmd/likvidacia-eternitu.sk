@@ -46,6 +46,11 @@
   filter: none !important;
 }
 
+.menu-toggle:focus-visible {
+  outline: 3px solid #0f5f91 !important;
+  outline-offset: 3px !important;
+}
+
 @media (max-width: 820px) {
   main.seo-page .seo-calculator .price-materials button.is-active {
     border-color: #b33118 !important;

@@ -51,10 +51,14 @@
 @media (max-width:767px){.hero-counter-item:not(:last-child):after{right:8px}}
 .hero-claim{margin:20px 0 0!important;border-left:3px solid #e8541a!important;font-style:italic!important}
 .hero-real-note{margin-top:14px!important;font-size:13px!important}
+.hero-review-note{margin-top:8px!important;color:var(--secondary)!important;font-size:13px!important;font-weight:850!important;text-decoration:underline!important;text-underline-offset:3px!important}
 .hero-trust-card{position:absolute!important;left:-24px!important;bottom:24px!important;z-index:4!important;max-width:220px!important;padding:14px 18px!important;border:1px solid rgba(0,0,0,.06)!important;border-radius:12px!important;background:#ffffff!important;box-shadow:0 8px 32px rgba(0,0,0,.12)!important}
 .hero-trust-card div{display:flex;align-items:center;gap:8px;color:#2d7a3a}
 .hero-trust-card strong{color:#242321!important;font-size:14px!important;font-weight:600!important}
 .hero-trust-card span{display:block;margin-top:4px;color:#8a8880!important;font-size:12px!important}
+.hero-real-caption .hero-trust-card{position:static!important;left:auto!important;bottom:auto!important;z-index:auto!important;width:100%!important;max-width:none!important;margin:0 0 8px!important;padding:0 0 9px!important;border:0!important;border-bottom:1px solid rgba(255,255,255,.28)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important}
+.hero-real-caption .hero-trust-card strong{color:#ffffff!important}
+.hero-real-caption .hero-trust-card span{color:rgba(255,255,255,.86)!important}
 .quote-info-panel .eyebrow{color:rgba(255,255,255,.72)!important}
 @media (max-width:767px){.hero-trust-card{display:none!important}}
 main .hero-copy{z-index:1!important;grid-column:auto!important;grid-row:auto!important;grid-area:auto!important;padding:0!important}
@@ -576,6 +580,15 @@ main .hero-counter-item span {
 main .hero-real-note,
   main .hero-trust-card {
     display: none !important;
+  }
+}
+@media (max-width: 760px) {
+main .hero-review-note {
+    width: 100% !important;
+    max-width: 320px !important;
+    margin: 2px auto 0 !important;
+    font-size: 12px !important;
+    text-align: center !important;
   }
 }
 main .hero-counter-item span,

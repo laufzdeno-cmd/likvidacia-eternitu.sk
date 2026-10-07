@@ -34,6 +34,16 @@ test('the lightweight homepage client preserves phone and lead CTA analytics sem
   assert.match(critical, /if \(!clickAnalyticsAlreadyTracked\) document\.addEventListener\('click', onAnalyticsClick\)/);
 });
 
+test('the lightweight public menu closes with Escape and restores keyboard focus', () => {
+  assert.match(base, /event\.key !== 'Escape'/);
+  assert.match(base, /menuToggle\?\.getAttribute\('aria-expanded'\) !== 'true'/);
+  assert.match(base, /closeMenu\(\);\s*menuToggle\?\.focus\(\);/);
+  assert.match(base, /document\.addEventListener\('keydown', onMenuKeyDown\)/);
+  assert.match(base, /document\.removeEventListener\('keydown', onMenuKeyDown\)/);
+  const headerStyles = read('../src/public-header-stability.css');
+  assert.match(headerStyles, /\.menu-toggle:focus-visible\s*\{[\s\S]*?outline: 3px solid #0f5f91/);
+});
+
 test('lead enhancements activate for direct results and explicit form or calculator intent without viewport preloading', () => {
   assert.match(boundary, /url\.searchParams\.has\('odoslane'\)/);
   assert.match(boundary, /url\.searchParams\.has\('dopyt_receipt'\)/);

@@ -30,6 +30,12 @@ export default function PublicBaseClient({ analyticsScope = 'all' }: { analytics
       nav.classList.remove('is-open');
     };
 
+    const onMenuKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || menuToggle?.getAttribute('aria-expanded') !== 'true') return;
+      closeMenu();
+      menuToggle?.focus();
+    };
+
     const isVisibleInViewport = (element: HTMLElement | null) => {
       if (!element) return false;
       const rect = element.getBoundingClientRect();
@@ -135,6 +141,7 @@ export default function PublicBaseClient({ analyticsScope = 'all' }: { analytics
     const onHashChange = () => scheduleHashScroll(20);
 
     menuToggle?.addEventListener('click', onMenuClick);
+    document.addEventListener('keydown', onMenuKeyDown);
     navLinks.forEach((link) => link.addEventListener('click', closeMenu));
     if (analyticsScope !== 'none') document.addEventListener('click', onAnalyticsClick);
     document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
@@ -146,6 +153,7 @@ export default function PublicBaseClient({ analyticsScope = 'all' }: { analytics
 
     return () => {
       menuToggle?.removeEventListener('click', onMenuClick);
+      document.removeEventListener('keydown', onMenuKeyDown);
       navLinks.forEach((link) => link.removeEventListener('click', closeMenu));
       if (analyticsScope !== 'none') document.removeEventListener('click', onAnalyticsClick);
       document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
