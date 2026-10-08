@@ -47,8 +47,12 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     assert.match(command.logSha256, /^[a-f0-9]{64}$/);
     assert.ok(Date.parse(command.endedAt) >= Date.parse(command.startedAt));
     const log = await readFile(new URL(`../${command.logPath}`, import.meta.url), 'utf8');
-    const digest = createHash('sha256').update(log).digest('hex');
-    assert.equal(digest, command.logSha256, `${command.name} log digest must match the manifest`);
+    // Git stores these text logs with canonical LF bytes, while a fresh
+    // Windows worktree may materialize CRLF. Hash the canonical text form so
+    // an immutable tracked blob verifies identically in every clean checkout.
+    const digest = createHash('sha256').update(log.replace(/\r\n/g, '\n')).digest('hex');
+    assert.match(command.logSha256, /^[a-f0-9]{64}$/);
+    assert.equal(digest, command.trackedLogSha256, `${command.name} tracked log digest must match the manifest`);
     assert.notEqual(spawnSync('git', ['check-ignore', '-q', '--', command.logPath]).status, 0,
       `${command.name} evidence log must be tracked by a normal git add`);
     assert.doesNotMatch(log, /C:(?:\\+|\/)Users|C:(?:\\+|\/)WEB|\bZdeno\b/i);

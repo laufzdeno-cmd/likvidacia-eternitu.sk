@@ -26,7 +26,8 @@
       "endedAt": "2026-10-08T13:50:57.451Z",
       "exitCode": 0,
       "logPath": "docs/upgrade-2026-09-30/evidence/0dbf77a1/unit.txt",
-      "logSha256": "594e05444d61d6450e1515517ae7a736701bc6fbd070ab6cea22ccd9e8aff23f"
+      "logSha256": "594e05444d61d6450e1515517ae7a736701bc6fbd070ab6cea22ccd9e8aff23f",
+      "trackedLogSha256": "594e05444d61d6450e1515517ae7a736701bc6fbd070ab6cea22ccd9e8aff23f"
     },
     {
       "name": "typecheck",
@@ -39,7 +40,8 @@
       "endedAt": "2026-10-08T13:50:59.797Z",
       "exitCode": 0,
       "logPath": "docs/upgrade-2026-09-30/evidence/0dbf77a1/typecheck.txt",
-      "logSha256": "a4b4245f4ff22df95fef9f81b7515c9bc1afc4e76a09da4d9201c9d662873a36"
+      "logSha256": "a4b4245f4ff22df95fef9f81b7515c9bc1afc4e76a09da4d9201c9d662873a36",
+      "trackedLogSha256": "a4b4245f4ff22df95fef9f81b7515c9bc1afc4e76a09da4d9201c9d662873a36"
     },
     {
       "name": "productionBuild",
@@ -56,7 +58,8 @@
       "endedAt": "2026-10-08T13:51:44.809Z",
       "exitCode": 0,
       "logPath": "docs/upgrade-2026-09-30/evidence/0dbf77a1/productionBuild.txt",
-      "logSha256": "d811bbf08ddf6fbb846b297a865b22c2369725cae719a9b73c72fae222bc7654"
+      "logSha256": "d811bbf08ddf6fbb846b297a865b22c2369725cae719a9b73c72fae222bc7654",
+      "trackedLogSha256": "aebd60631308eeaf09a8d126f9765a3b5486b314c1b5ce649c4c302d798c2f5b"
     }
   ],
   "releaseStatus": {

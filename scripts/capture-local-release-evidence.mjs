@@ -196,10 +196,11 @@ async function main() {
   for (const [name, commandName, args] of commandSpecs) {
     const command = await run(candidateRoot, name, commandName, args);
     const logPath = path.join(outputDirectory, `${command.name}.txt`);
-    const sanitizedLog = sanitizeLog(command.log, candidateRoot);
+    const sanitizedLog = sanitizeLog(command.log, candidateRoot).replace(/\r\n/g, '\n');
     await writeFile(logPath, sanitizedLog, 'utf8');
     command.logPath = path.relative(projectRoot, logPath).replaceAll('\\', '/');
     command.logSha256 = sha256(sanitizedLog);
+    command.trackedLogSha256 = command.logSha256;
     command.args = command.args.map((value) => sanitizeLog(value, candidateRoot));
     delete command.log;
     commands.push(command);
@@ -209,7 +210,7 @@ async function main() {
   const unitLog = await readFile(path.join(outputDirectory, 'unit.txt'), 'utf8');
   const buildLog = await readFile(path.join(outputDirectory, 'productionBuild.txt'), 'utf8');
   const testCounts = [...unitLog.matchAll(/ℹ tests (\d+)/g)].map((match) => Number(match[1]));
-  if (!testCounts.includes(397) || !testCounts.includes(34)) throw new Error('Log nepotvrdzuje 397 MJS a 34 TypeScript testov.');
+  if (!testCounts.includes(401) || !testCounts.includes(35)) throw new Error('Log nepotvrdzuje 401 MJS a 35 TypeScript testov.');
   requireMatch(buildLog, /"result":"PASS"/, 'Build log nepotvrdzuje PASS.');
   requireMatch(buildLog, /Generating static pages using 7 workers \(99\/99\)/, 'Build log nepotvrdzuje 99/99 trás.');
   const buildId = requireMatch(buildLog, /PASS: build ([^;\r\n]+);/, 'Build log neobsahuje BUILD_ID.')[1];
@@ -218,7 +219,7 @@ async function main() {
   requireMatch(buildLog, /PASS: jednorazov.*PostgreSQL bol zastaven/i, 'Build log nepotvrdzuje úspešné čistenie testovacej DB.');
 
   const evidence = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     recordedAt: new Date().toISOString(),
     testedSourceCommit: expectedCommit,
     testedSourceTree: candidateTree,
@@ -226,14 +227,14 @@ async function main() {
     buildId,
     generatedRouteCount: 99,
     staticSeoUrlCount: 32,
-    unitMjsCount: 397,
-    unitTypeScriptCount: 34,
+    unitMjsCount: 401,
+    unitTypeScriptCount: 35,
     typecheck: 'PASS',
     productionAccess: false,
     temporaryDatabaseStopped: true,
     temporaryDatabaseRemoved: true,
     temporaryRootRemoved: true,
-    commands: commands.map(({ name, command, args, startedAt, endedAt, exitCode, logPath, logSha256 }) => ({
+    commands: commands.map(({ name, command, args, startedAt, endedAt, exitCode, logPath, logSha256, trackedLogSha256 }) => ({
       name,
       command,
       args,
@@ -242,6 +243,7 @@ async function main() {
       exitCode,
       logPath,
       logSha256,
+      trackedLogSha256,
     })),
     releaseStatus: {
       candidateDeployment: 'NOT_VERIFIED',
