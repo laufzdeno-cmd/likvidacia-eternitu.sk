@@ -2153,6 +2153,106 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
   };
 }
 
+async function runConsentTimeoutChecks(page, context, appOrigin) {
+  const staleSubject = '019a4321-5e89-4aa9-9b09-775123456789';
+  await context.addCookies([
+    { name: 'astana_analytics_consent', value: 'denied', url: appOrigin, sameSite: 'Lax' },
+    { name: 'astana_marketing_consent', value: 'denied', url: appOrigin, sameSite: 'Lax' },
+    { name: 'astana_marketing_consent_subject', value: staleSubject, url: appOrigin, sameSite: 'Lax' },
+  ]);
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.__astanaConsentRevokeHarness = { mode: 'hang', calls: 0, aborts: 0 };
+    window.fetch = (input, init = {}) => {
+      const requestUrl = new URL(typeof input === 'string' ? input : input.url, window.location.href);
+      if (requestUrl.pathname !== '/api/marketing-consent/revoke/') return originalFetch(input, init);
+      const harness = window.__astanaConsentRevokeHarness;
+      harness.calls += 1;
+      if (harness.mode === 'success') {
+        return Promise.resolve(new Response(JSON.stringify({ ok: true, revoked: 1 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      }
+      return new Promise((_resolve, reject) => {
+        const abort = () => {
+          harness.aborts += 1;
+          reject(new DOMException('Isolated hanging request aborted.', 'AbortError'));
+        };
+        if (init.signal?.aborted) abort();
+        else init.signal?.addEventListener('abort', abort, { once: true });
+      });
+    };
+  });
+
+  await page.setViewportSize({ width: 320, height: 568 });
+  const response = await page.goto(`${appOrigin}/cookies/`, { waitUntil: 'networkidle', timeout: 45_000 });
+  assert.equal(response?.status(), 200, 'isolated consent timeout page must render');
+  await page.getByRole('button', { name: 'Upraviť nastavenia cookies' }).click();
+  const banner = page.locator('.cookie-banner');
+  await banner.waitFor({ state: 'visible' });
+  const consentCookies = await page.evaluate(() => document.cookie);
+  assert.match(consentCookies, /astana_marketing_consent=denied/, `isolated denied consent cookie missing: ${consentCookies}`);
+  assert.match(consentCookies, new RegExp(`astana_marketing_consent_subject=${staleSubject}`),
+    `isolated stale consent subject missing: ${consentCookies}`);
+  const accept = page.getByRole('button', { name: 'Prijať všetky' });
+  await accept.click();
+  await page.waitForFunction(() => window.__astanaConsentRevokeHarness?.calls === 1, null, { timeout: 5_000 });
+  await page.waitForFunction(() => window.__astanaConsentRevokeHarness?.aborts === 1, null, { timeout: 12_000 });
+  await page.locator('.cookie-consent-error').waitFor({ state: 'visible', timeout: 2_000 });
+
+  const timeoutState = await page.evaluate((expectedSubject) => {
+    const bannerRect = document.querySelector('.cookie-banner')?.getBoundingClientRect();
+    const error = document.querySelector('.cookie-consent-error');
+    const acceptButton = [...document.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Prijať všetky');
+    return {
+      analytics: document.cookie.includes('astana_analytics_consent=denied'),
+      marketing: document.cookie.includes('astana_marketing_consent=denied'),
+      subjectPreserved: document.cookie.includes(`astana_marketing_consent_subject=${expectedSubject}`),
+      pending: localStorage.getItem('astana_marketing_revocation_pending'),
+      errorText: error?.textContent?.trim() || '',
+      buttonEnabled: acceptButton instanceof HTMLButtonElement && !acceptButton.disabled,
+      noHorizontalOverflow: document.documentElement.scrollWidth <= innerWidth + 1,
+      bannerVisible: Boolean(bannerRect && bannerRect.width > 0 && bannerRect.height > 0),
+      fetchHarness: window.__astanaConsentRevokeHarness,
+    };
+  }, staleSubject);
+  assert.deepEqual(timeoutState, {
+    analytics: false,
+    marketing: true,
+    subjectPreserved: true,
+    pending: staleSubject,
+    errorText: 'Marketingové meranie sa zatiaľ nepodarilo bezpečne znovu povoliť. Skúste to ešte raz.',
+    buttonEnabled: true,
+    noHorizontalOverflow: true,
+    bannerVisible: true,
+    fetchHarness: { mode: 'hang', calls: 1, aborts: 1 },
+  }, 'timeout must stay fail-closed, visible and retryable on the smallest supported viewport');
+
+  await page.evaluate(() => { window.__astanaConsentRevokeHarness.mode = 'success'; });
+  await accept.focus();
+  await page.keyboard.press('Enter');
+  await banner.waitFor({ state: 'hidden' });
+  const retryState = await page.evaluate((oldSubject) => {
+    const subject = document.cookie.match(/(?:^|;\s*)astana_marketing_consent_subject=([^;]+)/)?.[1] || '';
+    return {
+      analyticsGranted: document.cookie.includes('astana_analytics_consent=granted'),
+      marketingGranted: document.cookie.includes('astana_marketing_consent=granted'),
+      subjectRotated: Boolean(subject && subject !== oldSubject),
+      pending: localStorage.getItem('astana_marketing_revocation_pending'),
+      fetchHarness: window.__astanaConsentRevokeHarness,
+    };
+  }, staleSubject);
+  assert.deepEqual(retryState, {
+    analyticsGranted: true,
+    marketingGranted: true,
+    subjectRotated: true,
+    pending: null,
+    fetchHarness: { mode: 'success', calls: 2, aborts: 1 },
+  }, 'keyboard retry must complete a fresh revocation and save the explicit grant');
+  return { viewport: '320x568', timeoutFailClosed: true, keyboardRetry: true, realPosts: 0 };
+}
+
 async function runPublicNavigationChecks(page, appOrigin) {
   const postRequests = [];
   const onRequest = (request) => {
@@ -2338,10 +2438,12 @@ async function runHarness() {
   const visualOnly = process.env.ASTANA_HARNESS_VISUAL_ONLY === '1';
   const navigationOnly = process.env.ASTANA_HARNESS_NAVIGATION_ONLY === '1';
   const conversionOnly = process.env.ASTANA_HARNESS_CONVERSION_ONLY === '1';
+  const consentTimeoutOnly = process.env.ASTANA_HARNESS_CONSENT_TIMEOUT_ONLY === '1';
   const activeOnlyModes = [
     'ASTANA_HARNESS_INVENTORY_ONLY', 'ASTANA_HARNESS_GALLERY_ONLY', 'ASTANA_HARNESS_CAREER_ONLY',
     'ASTANA_HARNESS_CAREER_DIRECT_ONLY', 'ASTANA_HARNESS_PRICE_QUOTE_ONLY', 'ASTANA_HARNESS_TESTIMONIAL_ONLY',
     'ASTANA_HARNESS_SEO_ONLY', 'ASTANA_HARNESS_VISUAL_ONLY', 'ASTANA_HARNESS_NAVIGATION_ONLY', 'ASTANA_HARNESS_CONVERSION_ONLY',
+    'ASTANA_HARNESS_CONSENT_TIMEOUT_ONLY',
     'ASTANA_HARNESS_TEN_PHOTO_ONLY',
     'ASTANA_HARNESS_NO_PHOTO_UI_ONLY',
   ].filter((key) => process.env[key] === '1');
@@ -2547,6 +2649,12 @@ async function runHarness() {
         blockedNonGetRequests: browserNonGetBlocked.length,
         blockedBrowserOrigins: browserDenied.length,
       };
+      passed = true;
+    } else if (consentTimeoutOnly) {
+      const consentTimeout = await runConsentTimeoutChecks(page, context, appOrigin);
+      assert.equal(browserDenied.length, 0, `consent timeout flow tried an external origin: ${browserDenied.join(', ')}`);
+      assert.deepEqual(browserNonGetBlocked, [], 'consent timeout flow must not make a real non-GET request');
+      resultSummary = { result: 'PASS', ...consentTimeout, blockedBrowserOrigins: browserDenied.length };
       passed = true;
     } else if (navigationOnly) {
       const navigation = await runPublicNavigationChecks(page, appOrigin);
