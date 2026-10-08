@@ -8,11 +8,11 @@ Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel
 
 ## Aktuálny živý stav
 
-- Produkčný alias `likvidacia-eternitu.sk` smeruje na deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` v stave **READY**, target **production**, vytvorený 4. 10. 2026 o 20:49 SELČ.
-- Deployment má aj aliasy `www.likvidacia-eternitu.sk` a projektové Vercel aliasy.
+- Produkčný alias `likvidacia-eternitu.sk` smeruje na deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` v stave **READY / Current**, prostredie **Production**, vytvorený 4. 10. 2026 o 20:50:19 SELČ.
+- Doména `www.likvidacia-eternitu.sk` má stav **Valid Configuration** a robí HTTP **308** presmerovanie na `likvidacia-eternitu.sk`. Apex aj projektová doména `likvidacia-eternitu-sk.vercel.app` majú stav **Valid Configuration / Production**.
 - Vercel CLI pri tejto kontrole neposkytlo Git SHA. Predchádzajúci snapshot ho viazal na `c98c630c…`; dnešná kontrola potvrdzuje deployment a alias, nie zdrojovú zhodu.
 - Čerstvá kontrola dashboardu 8. 10. 2026 znovu potvrdila deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` ako **READY**, prostredie **Production**, doménu `likvidacia-eternitu.sk` a čas 4. 10. 2026 o 20:50 SELČ.
-- Aktuálny lokálny checkpoint `12feadfd` ani súvisiaci aplikačný reťazec na vetve `codex/astana-upgrade-rc1` nie sú nasadené a produkcia zostáva **NOT VERIFIED** voči kandidátovi.
+- Aktuálny otestovaný zdrojový kandidát `bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a` ani novšie evidenčné commity na vetve `codex/astana-upgrade-rc1` nie sú nasadené a produkcia zostáva **NOT VERIFIED** voči kandidátovi.
 
 ## Preview nie je staging
 
@@ -60,7 +60,7 @@ Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel
 
 ## Čerstvý browser checkpoint 8. 10. 2026
 
-- **Potvrdené:** projekt `likvidacia-eternitu-sk`, Production `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` READY s verejným aliasom, nastavenie projektu sledovať pre Production vetvu `main`, najnovší Preview `dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn` READY, absencia vytvoreného vlastného Stagingu, vyššie uvedené názvy/scopy projektových premenných a zapnutie troch aktuálnych cron úloh. Zdrojová vetva konkrétneho produkčného deploymentu tým nie je potvrdená.
+- **Potvrdené:** projekt `likvidacia-eternitu-sk`, Production `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` **READY / Current** s apex aliasom, `www` 308 presmerovaním a platnou projektovou doménou, nastavenie projektu sledovať pre Production vetvu `main`, najnovší Preview `dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn` READY, vyššie uvedené názvy/scopy projektových premenných a zapnutie troch aktuálnych cron úloh. Detail aktuálneho deploymentu označuje Source ako manuálne `vercel deploy`; neposkytuje Git SHA ani vetvu, preto zdrojová zhoda zostáva nepreukázaná.
 - **Neoverené:** hodnoty tajomstiev, zhodnosť nasadeného zdroja s lokálnym checkpointom, izolované staging väzby, funkčnosť nových cron/retention workerov v produkcii a produkčné doručenie formulára kandidáta.
 - **Bez zmeny externého stavu:** žiadny klik na pridanie/upravenie premennej, redeploy, promote, alias, integráciu ani formulár.
 
@@ -75,5 +75,5 @@ Najnovší lokálny release kandidát je zdrojový commit `bd61a709677f9a24a04fd
 ## Lokálna validácia snapshotu
 
 - Nový kontrakt kontroluje oddelenie pojmov Production, Preview a Staging, presné deployment ID, otvorené konfiguračné medzery, URL s vloženými prihlasovacími údajmi a priame priradenie známych citlivých premenných. Nie je všeobecným skenerom všetkých možných tajomstiev; celý štvor-súborový diff bol preto navyše skontrolovaný read-only kontrolórom, ktorý v ňom žiadne tajomstvo nenašiel.
-- Nadväzujúca plná lokálna sada na checkpointoch po runtime-health doplnení prešla **397/397 MJS + 34/34 TypeScript testov**; izolovaný produkčný build vytvoril **99/99 trás** a admin vizuálna matica prešla **234/234** kombinácií bez formulárov a bez externých originov. Tieto výsledky sú lokálne dôkazy, nie produkčná akceptácia.
+- Najnovší nemenný zdrojový kandidát `bd61a709…` prešiel **425/425 MJS + 35/35 TypeScript testov**, samostatnou typovou kontrolou a izolovaným produkčným buildom **100/100 trás**; SEO metadata a obsah prešli na **33/33 statických URL**. Skoršia admin vizuálna matica prešla **234/234** kombinácií bez formulárov a bez externých originov. Tieto výsledky sú lokálne dôkazy, nie stagingová ani produkčná akceptácia.
 - Nezávislý kontrolór najprv vrátil dve vady dôkazovej presnosti: neprípustné prisúdenie lokálnej ochrany živému Preview a nadhodnotený opis skenera tajomstiev. Opravný commit `6fe9087e` obe tvrdenia zúžil; opakovaný read-only review vydal **PASS bez zostávajúceho P1–P3 nálezu**.

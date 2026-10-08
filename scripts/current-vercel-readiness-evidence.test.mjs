@@ -8,8 +8,19 @@ test('current Vercel evidence keeps production, Preview and Staging claims separ
     readFile(new URL('../docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md', import.meta.url), 'utf8'),
   ]);
 
-  assert.match(snapshot, /dpl_FYaPKy6tkko75rkam3RUAbXFSdcT/);
+  assert.match(
+    snapshot,
+    /Produkčný alias `likvidacia-eternitu\.sk` smeruje na deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` v stave \*\*READY \/ Current\*\*, prostredie \*\*Production\*\*/,
+  );
   assert.match(snapshot, /dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn/);
+  assert.match(
+    snapshot,
+    /Doména `www\.likvidacia-eternitu\.sk` má stav \*\*Valid Configuration\*\* a robí HTTP \*\*308\*\* presmerovanie na `likvidacia-eternitu\.sk`\..*Apex aj projektová doména `likvidacia-eternitu-sk\.vercel\.app` majú stav \*\*Valid Configuration \/ Production\*\*/,
+  );
+  assert.match(
+    snapshot,
+    /Production `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` \*\*READY \/ Current\*\*.*Detail aktuálneho deploymentu označuje Source ako manuálne `vercel deploy`; neposkytuje Git SHA ani vetvu/,
+  );
   assert.match(snapshot, /Preview nie je staging/);
   assert.match(snapshot, /produkcia zostáva \*\*NOT VERIFIED\*\*/);
   assert.match(snapshot, /IAM preto zostáva \*\*NOT VERIFIED\*\*/);
@@ -36,6 +47,8 @@ test('current Vercel evidence keeps production, Preview and Staging claims separ
 
   assert.match(matrix, /VERCEL-READONLY-SNAPSHOT-2026-10-08\.md/);
   assert.match(matrix, /\| O04 \| WAITING \|[^\n]*dpl_FYaPKy6tkko75rkam3RUAbXFSdcT/);
+  assert.match(matrix, /\| O04 \| WAITING \|[^\n]*\*\*READY \/ Current\*\*[^\n]*308 presmerovanie/);
+  assert.match(matrix, /\| O05 \| PARTIAL \|[^\n]*produkčný návratový bod[^\n]*Git SHA/);
   assert.match(matrix, /\| O07 \| PASS local \/ production WAITING \|/);
   assert.match(matrix, /\| O09 \| PASS local \/ production WAITING \|[^\n]*foto-intake/i);
   assert.match(matrix, /\| O10 \| PARTIAL \|[^\n]*Vercel/i);
