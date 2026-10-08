@@ -1,0 +1,12 @@
+command: ["npm.cmd","run","typecheck"]
+startedAt: 2026-10-08T20:25:36.593Z
+endedAt: 2026-10-08T20:25:38.919Z
+exitCode: 0
+
+[stdout]
+
+> likvidacia-eternitu-sk@1.0.0 typecheck
+> tsc --noEmit
+
+
+[stderr]

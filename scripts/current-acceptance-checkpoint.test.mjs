@@ -4,15 +4,17 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const candidateCommit = 'bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a';
+const candidateCommit = '981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1';
 const candidateShortSha = candidateCommit.slice(0, 8);
 
 test('acceptance evidence binds the tested source candidate to immutable local logs', async () => {
-  const [matrix, rawEvidence, rawBaselineVisual, generator] = await Promise.all([
+  const [matrix, rawEvidence, rawBaselineVisual, generator, runbook, releaseCheckpoint] = await Promise.all([
     readFile(new URL('../docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md', import.meta.url), 'utf8'),
     readFile(new URL(`../docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-${candidateShortSha}.json`, import.meta.url), 'utf8'),
     readFile(new URL('../docs/upgrade-2026-09-30/VISUAL-EVIDENCE-SUMMARY-452c4f75.json', import.meta.url), 'utf8'),
     readFile(new URL('./capture-local-release-evidence.mjs', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/upgrade-2026-09-30/STAGING-EXECUTION-RUNBOOK-2026-10-08.md', import.meta.url), 'utf8'),
+    readFile(new URL(`../docs/upgrade-2026-09-30/LOCAL-RELEASE-CHECKPOINT-${candidateShortSha}.md`, import.meta.url), 'utf8'),
   ]);
   const evidence = JSON.parse(rawEvidence);
   const baselineVisual = JSON.parse(rawBaselineVisual);
@@ -25,12 +27,12 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.equal(evidence.schemaVersion, 3);
   assert.equal(evidence.testedSourceCommit, candidateCommit);
   assert.equal(evidence.testedSourceTree, candidateTree);
-  assert.equal(evidence.testedSourceTree, '7156f6b731bd684c8481a7a6ac8503c16bfba73b');
+  assert.equal(evidence.testedSourceTree, '3198f4d10255700c61a409ace6a7e3295a53ca8b');
   assert.equal(evidence.result, 'PASS');
-  assert.equal(evidence.buildId, '2eQuczFB0EwJ0JvxiE64j');
+  assert.equal(evidence.buildId, 'lWI95S1bOK2o9OCwQhuvJ');
   assert.equal(evidence.generatedRouteCount, 100);
   assert.equal(evidence.staticSeoUrlCount, 33);
-  assert.equal(evidence.unitMjsCount, 425);
+  assert.equal(evidence.unitMjsCount, 428);
   assert.equal(evidence.unitTypeScriptCount, 35);
   assert.equal(evidence.typecheck, 'PASS');
   assert.equal(evidence.productionAccess, false);
@@ -107,7 +109,7 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(generator, /`\$\{command\.name\}\.txt`/);
   assert.match(generator, /candidateDeployment: 'NOT_VERIFIED'/);
 
-  assert.match(logs.get('unit'), /ℹ tests 425[\s\S]*ℹ pass 425[\s\S]*ℹ tests 35[\s\S]*ℹ pass 35/);
+  assert.match(logs.get('unit'), /ℹ tests 428[\s\S]*ℹ pass 428[\s\S]*ℹ tests 35[\s\S]*ℹ pass 35/);
   assert.match(logs.get('typecheck'), /> tsc --noEmit/);
   assert.doesNotMatch(logs.get('typecheck'), /error TS\d+/);
   assert.match(logs.get('productionBuild'), /"result":"PASS"/);
@@ -117,8 +119,8 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(logs.get('productionBuild'), /server stopped/);
   assert.match(logs.get('productionBuild'), /PASS: jednorazov.*PostgreSQL bol zastaven/i);
   assert.deepEqual(releaseEvidenceMetrics(logs.get('unit'), logs.get('productionBuild')), {
-    buildId: '2eQuczFB0EwJ0JvxiE64j',
-    unitMjsCount: 425,
+    buildId: 'lWI95S1bOK2o9OCwQhuvJ',
+    unitMjsCount: 428,
     unitTypeScriptCount: 35,
     generatedRouteCount: 100,
     staticSeoUrlCount: 33,
@@ -134,8 +136,8 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     productionAccess: false,
   };
   const completeUnitLog = [
-    'ℹ tests 425',
-    'ℹ pass 425',
+    'ℹ tests 428',
+    'ℹ pass 428',
     'ℹ fail 0',
     'ℹ cancelled 0',
     'ℹ skipped 0',
@@ -152,7 +154,7 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     `historický šum: PASS: build OLD_BUILD; Generating static pages using 7 workers (99/99)\n${JSON.stringify(currentBuildResult)}`,
   ), {
     buildId: 'CURRENT_BUILD',
-    unitMjsCount: 425,
+    unitMjsCount: 428,
     unitTypeScriptCount: 35,
     generatedRouteCount: 100,
     staticSeoUrlCount: 33,
@@ -192,7 +194,7 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   );
   assert.throws(
     () => releaseEvidenceMetrics(
-      completeUnitLog.replace('ℹ pass 425', 'ℹ pass 424').replace('ℹ skipped 0', 'ℹ skipped 1'),
+      completeUnitLog.replace('ℹ pass 428', 'ℹ pass 427').replace('ℹ skipped 0', 'ℹ skipped 1'),
       JSON.stringify(currentBuildResult),
     ),
     /všetky testy prešli/,
@@ -212,19 +214,56 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     production: 'NOT_VERIFIED',
   });
 
-  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `bd61a709`/);
+  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `981cd9e2`/);
   assert.match(matrix, /runtime aplikačný checkpoint je `eb56a40b`/);
   assert.match(matrix, /stagingový bezpečnostný checkpoint je `f8bb7849`/i);
-  assert.match(matrix, /\*\*425\/425 MJS \+ 35\/35 TypeScript PASS\*\*/);
+  assert.match(matrix, /\*\*428\/428 MJS \+ 35\/35 TypeScript PASS\*\*/);
   assert.match(matrix, /\*\*100\/100\*\* trás/);
   assert.match(matrix, new RegExp(evidence.buildId));
   assert.match(matrix, /manifest s hashmi úplných logov/i);
   assert.match(matrix, /čistom dôkazovom commite `088ac8f3`/);
   assert.match(matrix, /220\/220 stavov/);
-  assert.match(matrix, /čistom commite `c882d5eb`/);
+  assert.match(matrix, /zdrojovom kandidáte `981cd9e2`/);
   assert.match(matrix, /produkci(?:a|u)[^\n]*\*\*NOT VERIFIED\*\*/iu);
   assert.doesNotMatch(matrix, /Aktuálny čistý release checkpoint/);
   assert.doesNotMatch(matrix, /release checkpoint je commit `5590c07e`/);
+
+  assert.match(runbook, new RegExp(candidateCommit));
+  assert.match(runbook, new RegExp(evidence.testedSourceTree));
+  assert.match(runbook, new RegExp(`LOCAL-BUILD-EVIDENCE-${candidateShortSha}\\.json`));
+  assert.match(runbook, new RegExp(`codex/astana-staging-${candidateShortSha}`));
+  const allowlistBlock = runbook.match(/Explicitný allowlist medzi baseline a kandidátom je presne:\s*```text\s*([\s\S]*?)\s*```/);
+  assert.ok(allowlistBlock, 'runbook must contain the exact release allowlist');
+  const documentedAllowlist = allowlistBlock[1].split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const actualAllowlist = execFileSync('git', [
+    'diff', '--name-only', `8b8775d05ca638d6a602829e7527b573be3321c9..${candidateCommit}`,
+  ], { encoding: 'utf8', windowsHide: true }).trim().split(/\r?\n/).filter(Boolean);
+  assert.deepEqual(documentedAllowlist, actualAllowlist);
+  assert.match(runbook, /dva platné JPG\/PNG\/WebP súbory, každý \*\*väčší ako 6 MB\*\*/);
+  assert.match(runbook, /SHA-256[\s\S]*anonymné otvorenie musí byť odmietnuté/);
+  assert.match(runbook, /`failed`, `unknown`, expirovaný claim, zákaz automatického resend/);
+  assert.match(runbook, /kariérny formulár so súkromným CV/);
+  for (const cronPath of [
+    '/api/cron/backup/',
+    '/api/cron/notifications/',
+    '/api/cron/application-notifications/',
+    '/api/cron/lead-email-delivery/',
+    '/api/cron/meta-capi/',
+    '/api/cron/photo-intake-retention/',
+    '/api/cron/lead-upload-retention/',
+    '/api/cron/lead-file-deletions/',
+    '/api/cron/career-cv-retention/',
+  ]) assert.match(runbook, new RegExp(cronPath.replaceAll('/', '\\/')));
+  assert.equal((runbook.match(/\*\/5 \* \* \* \*/g) ?? []).length, 4);
+  assert.match(runbook, /pri štyroch päťminútových worker endpointoch/);
+  assert.match(runbook, /Po prípadnom rollbacku[\s\S]*prvý prirodzený päťminútový beh/);
+
+  assert.match(releaseCheckpoint, new RegExp(candidateCommit));
+  assert.match(releaseCheckpoint, new RegExp(evidence.testedSourceTree));
+  assert.match(releaseCheckpoint, /428\/428 PASS/);
+  assert.match(releaseCheckpoint, /12\/12/);
+  assert.match(releaseCheckpoint, /15\/15 PASS/);
+  assert.match(releaseCheckpoint, /stagingového ani produkčného nasadenia/);
 
   assert.equal(baselineVisual.result, 'PASS');
   assert.equal(baselineVisual.matrix.stateCount, 220);

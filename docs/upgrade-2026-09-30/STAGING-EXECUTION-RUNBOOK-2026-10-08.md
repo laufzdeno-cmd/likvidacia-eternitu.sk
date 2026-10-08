@@ -4,13 +4,14 @@ Tento dokument je vykonávací checklist pre poslednú bezpečnú bránu pred pr
 
 ## Nemenný kandidát
 
-- Zdroj určený na staging deploy: `bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a`.
-- Otestovaný tree: `7156f6b731bd684c8481a7a6ac8503c16bfba73b`.
+- Zdroj určený na staging deploy: `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1`.
+- Otestovaný tree: `3198f4d10255700c61a409ace6a7e3295a53ca8b`.
 - Chránený baseline: `8b8775d05ca638d6a602829e7527b573be3321c9`.
-- Manifest: [LOCAL-BUILD-EVIDENCE-bd61a709.json](LOCAL-BUILD-EVIDENCE-bd61a709.json).
-- Commit `9fb623e5` a novšie commity sú iba dôkazové/dokumentačné. Nesmú nahradiť presne otestovaný zdroj pri staging deploymente.
+- Manifest: [LOCAL-BUILD-EVIDENCE-981cd9e2.json](LOCAL-BUILD-EVIDENCE-981cd9e2.json).
+- Súhrn aktuálneho lokálneho release dôkazu: [LOCAL-RELEASE-CHECKPOINT-981cd9e2.md](LOCAL-RELEASE-CHECKPOINT-981cd9e2.md).
+- Novšie commity sú iba dôkazové alebo dokumentačné. Nesmú nahradiť presne otestovaný zdroj bez nového nemenného manifestu pre ich vlastný commit a tree.
 
-Pred deployom sa vytvorí izolovaný Git worktree na novej vetve `codex/astana-staging-bd61a709`. Pokračovať možno iba pri presnom SHA, prázdnom pracovnom stave a správnom `.vercel/project.json` pre projekt `likvidacia-eternitu-sk`.
+Pred deployom sa vytvorí izolovaný Git worktree na novej vetve `codex/astana-staging-981cd9e2`. Pokračovať možno iba pri presnom SHA, prázdnom pracovnom stave a správnom `.vercel/project.json` pre projekt `likvidacia-eternitu-sk`.
 
 ## Povinné potvrdenie pred externou zmenou
 
@@ -90,14 +91,37 @@ Release guard sa spustí v izolovanom worktree s čerstvo overeným rollback pá
 
 ```text
 app/admin/(protected)/zakazky/export-financie/route.ts
+app/seo-components.tsx
+docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md
+docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-bd61a709.json
+docs/upgrade-2026-09-30/LOCAL-RESPONSIVE-INTERACTION-PREFLIGHT-2026-10-08.md
+docs/upgrade-2026-09-30/OWNER-SIGNOFF-CHECKLIST-2026-10-08.md
+docs/upgrade-2026-09-30/REALIZATION-EVIDENCE-INVENTORY-2026-10-08.md
+docs/upgrade-2026-09-30/STAGING-BOOTSTRAP-2026-10-08.md
+docs/upgrade-2026-09-30/STAGING-EXECUTION-RUNBOOK-2026-10-08.md
+docs/upgrade-2026-09-30/STATUS.md
 docs/upgrade-2026-09-30/U02-PRIMARY-CTA-AUDIT-2026-10-08.md
+docs/upgrade-2026-09-30/VERCEL-READONLY-SNAPSHOT-2026-10-08.md
+docs/upgrade-2026-09-30/evidence/bd61a709/productionBuild.txt
+docs/upgrade-2026-09-30/evidence/bd61a709/typecheck.txt
+docs/upgrade-2026-09-30/evidence/bd61a709/unit.txt
+public/data/company.json
+public/llms.txt
+scripts/article-faq-content.test.ts
 scripts/business-billing-actions.contract.test.mjs
 scripts/capture-local-release-evidence.mjs
 scripts/csv.test.mjs
 scripts/current-acceptance-checkpoint.test.mjs
+scripts/current-vercel-readiness-evidence.test.mjs
+scripts/llms-public-content.test.mjs
+scripts/meta-capi-consent-race.local.integration.mjs
+scripts/owner-signoff-checklist.test.mjs
+scripts/realization-evidence-inventory.test.mjs
+scripts/seo-structured-data-contract.test.mjs
+src/content/seo-content.ts
 ```
 
-Guard musí potvrdiť expected head `bd61a709…`, release vetvu, baseline `8b8775d0…`, rollback SHA/deployment a čerstvo skontrolovanú IAM hranicu.
+Guard musí potvrdiť expected head `981cd9e2…`, release vetvu, baseline `8b8775d0…`, rollback SHA/deployment a čerstvo skontrolovanú IAM hranicu.
 
 ## 6. Deploy iba do custom stagingu
 
@@ -108,7 +132,7 @@ Po stave READY sa deployment overí cez `scripts/deploy-reviewed-release.mjs --s
 - správny Vercel projekt,
 - target `staging`,
 - stav READY,
-- presný Git SHA `bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a`.
+- presný Git SHA `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1`.
 
 ## 7. Akceptácia stagingu
 
@@ -119,17 +143,37 @@ Najprv iba read-only smoke:
 - `sitemap.xml`,
 - cron endpoint musí zostať zablokovaný.
 
-Po samostatnom čerstvom súhlase nasledujú presne označené testovacie toky:
+Po samostatnom čerstvom súhlase nasledujú iba presne označené testovacie toky. Každý názov, poznámka aj predmet musí obsahovať `TEST – NEKONTAKTOVAŤ, NEPOSIELAŤ PONUKU` a všetky e-maily musia smerovať do jediného stagingového inboxu.
 
-1. dopyt bez fotografie,
-2. dopyt s platnou fotografiou,
-3. interný e-mail a zákaznícke potvrdenie v jedinom testovacom inboxe,
-4. správne väzby v adminovi a súkromný prístup k prílohám,
-5. cenová ponuka/PDF bez jej odoslania zákazníkovi,
-6. mobilná a desktopová browser matica.
+1. **F03 — dopyt bez fotografie:** jedno kliknutie, jeden POST, jeden `submissionId`, práve jeden dopyt a jedna zákazka. Overiť admin záznam, zákaznícke potvrdenie a internú notifikáciu podľa zvoleného spôsobu kontaktu; opakovanie s rovnakým ID nesmie vytvoriť duplicitu.
+2. **F04 — dve veľké fotografie:** použiť dva platné JPG/PNG/WebP súbory, každý **väčší ako 6 MB**. Pred uploadom zaznamenať názov, MIME, rozmery, počet bajtov a SHA-256. Browser musí vykonať dva priame uploady do Private Blob a finálny lead request smie niesť iba referencie. DB musí obsahovať jeden dopyt, dve prílohy a rovnaký `submissionId`; anonymné otvorenie musí byť odmietnuté a autorizovaný admin musí stiahnuť oba súbory s rovnakou veľkosťou a SHA-256. Verejné HTML, verejné API, analytika ani logy nesmú obsahovať Blob URL alebo storage key.
+3. **F08 — doručenie:** v jedinom stagingovom inboxe preukázať internú správu aj zákaznícke potvrdenie, správny `From`/`Reply-To`, predmet, HTML/text verziu a väzbu na jeden dopyt. Iný príjemca je stop podmienka.
+4. **F09 — stav doručenia:** v izolovanom DB/mock scenári overiť `failed`, `unknown`, expirovaný claim, zákaz automatického resend pri neistom stave, manuálne potvrdenie bez nového e-mailu a per-recipient retry iba po overení poskytovateľa. Admin akcia musí vyžadovať autorizáciu a CSRF; audit a dôkazy nesmú obsahovať heslá ani osobné údaje navyše.
+5. **F12 — kariéra a strechári:** kariérny formulár so súkromným CV overiť pre idempotentné opakovanie rovnakého ID, bezpečný nový pokus s novým ID a párový retry iba vtedy, ak nebola doručená ani jedna z dvojice správ. Strechársky formulár overiť rovnako pre idempotenciu, DB/outbox a retry každého príjemcu samostatne.
+6. **Zdieľaný rate limit:** dva súbežné aplikačné procesy alebo rovnocenný integračný dôkaz nad jednou stagingovou DB musia preukázať spoločný limit; lokálna pamäť jedného procesu nestačí.
+7. **Cenová ponuka/PDF:** vytvoriť iba administrátorom schválený testovací draft, overiť PDF, dopravu, dokumentáciu a typ objektu. Tlačidlo odoslania zákazníkovi sa nesmie použiť.
+8. **Browser matica:** Chrome, Opera a fyzický mobil; dopyt bez fotografie, dopyt s dvoma fotografiami, kariéra/CV, klávesnica, fokus, chybový a úspešný stav. Zachytiť konzolu, sieť a výsledné počty bez ďalších externých originov.
+
+## 8. Crony po promote a po rollbacku
+
+Pred produkčným promote sa vo Vercel Cron Jobs read-only inventári overí, že existuje práve jedna aktívna definícia každého plánovaného endpointu a žiadny starý duplikát:
+
+```text
+/api/cron/backup/                    0 3 * * 0
+/api/cron/notifications/             0 7 * * *
+/api/cron/application-notifications/ */5 * * * *
+/api/cron/lead-email-delivery/       */5 * * * *
+/api/cron/meta-capi/                 */5 * * * *
+/api/cron/photo-intake-retention/    20 4 * * *
+/api/cron/lead-upload-retention/     40 4 * * *
+/api/cron/lead-file-deletions/       */5 * * * *
+/api/cron/career-cv-retention/       10 5 * * *
+```
+
+Každý endpoint musí bez autorizácie vrátiť `401`. Po promote sa pri štyroch päťminútových worker endpointoch čaká na prvý prirodzený beh a overí sa deployment, HTTP stav, claimy a backlog bez ručného opakovania. Denné a týždenné úlohy ostávajú **WAITING** až do prvého prirodzeného behu; zelený deploy ich nenahrádza. Po prípadnom rollbacku sa inventár, `401` a prvý prirodzený päťminútový beh overia znova, pretože správanie Vercel cronov pri rollbacku sa nesmie predpokladať.
 
 ## Stop podmienky
 
-Okamžite zastaviť pri nesprávnom projekte, targete, SHA, ne-READY stave, prekrytí environment scope produkčných a stagingových zdrojov, zhode stagingovej a produkčnej identity, konflikte markerov, viacnásobnom inboxe, aktívnom relayi, povolenom crone alebo neznámom výsledku deploymentu.
+Okamžite zastaviť pri nesprávnom projekte, targete, SHA, ne-READY stave, prekrytí environment scope produkčných a stagingových zdrojov, zhode stagingovej a produkčnej identity, konflikte markerov, viacnásobnom inboxe, aktívnom relayi, stagingovom crone, produkčnom cron duplikáte alebo neznámom výsledku deploymentu.
 
 Pri neznámom výsledku deployment neopakovať. Najprv ho dohľadať read-only. Produkčný promote je samostatná brána s novým súhlasom, novou kontrolou rollbacku a následným ostrým smoke testom.
