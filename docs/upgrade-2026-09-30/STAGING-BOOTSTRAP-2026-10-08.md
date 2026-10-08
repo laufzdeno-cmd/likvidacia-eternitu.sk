@@ -45,4 +45,6 @@ Normalizácia databázového endpointu odstraňuje Neon `-pooler`, koncovú DNS 
 
 Ďalší krok zapisuje nové prístupové údaje do Vercelu, preto sa vykoná až po výslovnom potvrdení používateľa: pripojiť `astana-staging-db` iba k prostrediu `staging`, vytvoriť a pripojiť dva samostatné Private Blob stores iba k tomuto prostrediu a následne nakonfigurovať marker, resource ID, bezpečné odtlačky a jediný testovací inbox. Produkcia sa tým nemení.
 
+Presné poradie, nemenný kandidát, allowlist, stop podmienky a akceptačné kroky sú v [staging execution runbooku](STAGING-EXECUTION-RUNBOOK-2026-10-08.md).
+
 Po úplnom nastavení stagingových premenných sa databázový marker vytvorí jednorazovým skriptom `scripts/bootstrap-staging-database.ts`. Skript vyžaduje výslovné potvrdenie project ID aj database resource ID, znovu overí celý staging binding, používa parameterizovaný zápis v transakcii a nikdy neprepíše už existujúci odlišný marker. Nevytvára aplikačnú schému ani žiadne obchodné údaje.

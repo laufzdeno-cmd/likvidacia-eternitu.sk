@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const candidateCommit = '11683a6202fa7a18d8182e87e67bef7d5d5a8589';
+const candidateCommit = 'bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a';
 const candidateShortSha = candidateCommit.slice(0, 8);
 
 test('acceptance evidence binds the tested source candidate to immutable local logs', async () => {
@@ -25,12 +25,12 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.equal(evidence.schemaVersion, 3);
   assert.equal(evidence.testedSourceCommit, candidateCommit);
   assert.equal(evidence.testedSourceTree, candidateTree);
-  assert.equal(evidence.testedSourceTree, '5b4506bae4e2a9f0b9fe12e2f6a110ebb44597da');
+  assert.equal(evidence.testedSourceTree, '7156f6b731bd684c8481a7a6ac8503c16bfba73b');
   assert.equal(evidence.result, 'PASS');
-  assert.equal(evidence.buildId, 'yRQZD1h0REteI_nOw5QZW');
-  assert.equal(evidence.generatedRouteCount, 99);
-  assert.equal(evidence.staticSeoUrlCount, 32);
-  assert.equal(evidence.unitMjsCount, 401);
+  assert.equal(evidence.buildId, '2eQuczFB0EwJ0JvxiE64j');
+  assert.equal(evidence.generatedRouteCount, 100);
+  assert.equal(evidence.staticSeoUrlCount, 33);
+  assert.equal(evidence.unitMjsCount, 425);
   assert.equal(evidence.unitTypeScriptCount, 35);
   assert.equal(evidence.typecheck, 'PASS');
   assert.equal(evidence.productionAccess, false);
@@ -107,21 +107,21 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(generator, /`\$\{command\.name\}\.txt`/);
   assert.match(generator, /candidateDeployment: 'NOT_VERIFIED'/);
 
-  assert.match(logs.get('unit'), /ℹ tests 401[\s\S]*ℹ pass 401[\s\S]*ℹ tests 35[\s\S]*ℹ pass 35/);
+  assert.match(logs.get('unit'), /ℹ tests 425[\s\S]*ℹ pass 425[\s\S]*ℹ tests 35[\s\S]*ℹ pass 35/);
   assert.match(logs.get('typecheck'), /> tsc --noEmit/);
   assert.doesNotMatch(logs.get('typecheck'), /error TS\d+/);
   assert.match(logs.get('productionBuild'), /"result":"PASS"/);
-  assert.match(logs.get('productionBuild'), /Generating static pages using 7 workers \(99\/99\)/);
+  assert.match(logs.get('productionBuild'), /Generating static pages using \d+ workers \(100\/100\)/);
   assert.match(logs.get('productionBuild'), new RegExp(`PASS: build ${evidence.buildId};`));
   assert.match(logs.get('productionBuild'), /"productionAccess":false/);
   assert.match(logs.get('productionBuild'), /server stopped/);
   assert.match(logs.get('productionBuild'), /PASS: jednorazov.*PostgreSQL bol zastaven/i);
   assert.deepEqual(releaseEvidenceMetrics(logs.get('unit'), logs.get('productionBuild')), {
-    buildId: 'yRQZD1h0REteI_nOw5QZW',
-    unitMjsCount: 401,
+    buildId: '2eQuczFB0EwJ0JvxiE64j',
+    unitMjsCount: 425,
     unitTypeScriptCount: 35,
-    generatedRouteCount: 99,
-    staticSeoUrlCount: 32,
+    generatedRouteCount: 100,
+    staticSeoUrlCount: 33,
   });
   const currentBuildResult = {
     result: 'PASS',
@@ -212,11 +212,11 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     production: 'NOT_VERIFIED',
   });
 
-  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `11683a62`/);
+  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `bd61a709`/);
   assert.match(matrix, /runtime aplikačný checkpoint je `eb56a40b`/);
   assert.match(matrix, /stagingový bezpečnostný checkpoint je `f8bb7849`/i);
-  assert.match(matrix, /\*\*401\/401 MJS \+ 35\/35 TypeScript PASS\*\*/);
-  assert.match(matrix, /\*\*99\/99\*\* trás/);
+  assert.match(matrix, /\*\*425\/425 MJS \+ 35\/35 TypeScript PASS\*\*/);
+  assert.match(matrix, /\*\*100\/100\*\* trás/);
   assert.match(matrix, new RegExp(evidence.buildId));
   assert.match(matrix, /manifest s hashmi úplných logov/i);
   assert.match(matrix, /čistom dôkazovom commite `088ac8f3`/);
