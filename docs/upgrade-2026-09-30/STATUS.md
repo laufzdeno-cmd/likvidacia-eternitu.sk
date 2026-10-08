@@ -1,5 +1,14 @@
 # Stav a poradie práce
 
+## Aktuálny lokálny checkpoint — interná evidencia faktúr a úhrad (8. 10. 2026)
+
+- Commity `f8829fb0` a `332dc0e3` pridávajú do detailu zákazky auditovateľnú evidenciu faktúr, prijatých úhrad, reverzných opráv a stornovaní a uzatvárajú dátumovú integritu. Dashboard, ročný prehľad a exporty už odlišujú obchodný odhad od fakturovaných, prijatých, zostávajúcich, omeškaných a stornovaných súm.
+- Opravené boli aj hraničné dátumové chyby z nezávislej kontroly: budúca faktúra ani budúca platobná/storno udalosť nemôžu ovplyvniť dnešné saldo a PostgreSQL zachová kalendárny dátum bez posunu pri `Europe/Bratislava`.
+- Celá sada po oprave: **379/379 MJS + 34/34 TypeScript PASS**, databázové integrácie **12/12 PASS**, TypeScript PASS. Izolovaný browser finančného panelu: desktop overflow 0, mobil overflow 0, externé originy 0 a browser chyby 0.
+- Úplný izolovaný Next.js 16.4.0 produkčný build prešiel **99/99** trás, obe SEO kontroly na 32 statických URL, dynamické realizácie/recenzie a route CSS/JS izoláciu. Runner potvrdil `productionAccess:false`; jednorazový PostgreSQL 17 bol zastavený a odstránený.
+- Technický aj obchodno-vizuálny read-only kontrolór vydali po finálnej oprave **PASS**. Bezpečnostný diff scan `e8f97bc2-4b8e-4162-a96d-3a989d48fb7a` uzavrel pôvodný 20-súborový rez bez reportovateľného nálezu a scan `f5fe731d-0918-4009-a525-67b1369b01ed` uzavrel finálny úzky 6-súborový rez s úplným pokrytím a nulou nálezov.
+- Presný rozsah a hranice dôkazu sú v [E9-BUSINESS-FINANCE-EVIDENCE-2026-10-08.md](E9-BUSINESS-FINANCE-EVIDENCE-2026-10-08.md). Produkcia, formulár, email, Blob, Vercel alias ani reklamné účty sa nemenili; existujúce externé release brány zostávajú otvorené.
+
 ## Aktuálny lokálny release checkpoint — meranie konverzií a fail-closed nasadenie (7. 10. 2026)
 
 - Marketingové meranie je viazané na prijatý dopyt a platný marketingový súhlas. Odvolanie súhlasu vytvára trvalú internú blokáciu, odstráni reklamné identifikátory aj vtedy, keď pre chýbajúce produkčné tajomstvo nevznikol outbox, a súbeh prijatia dopytu s odvolaním nemôže ponechať odosielateľnú Meta udalosť. Meta odpoveď HTTP 2xx sa považuje za potvrdenú iba pri kladnom `events_received`; nejednoznačný stav zostáva bezpečne viditeľný ako neoverený.
