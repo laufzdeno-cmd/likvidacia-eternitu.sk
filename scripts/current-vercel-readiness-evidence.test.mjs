@@ -25,6 +25,18 @@ test('current Vercel evidence keeps production, Preview and Staging claims separ
   );
   assert.match(snapshot, /Preview nie je staging/);
   assert.match(snapshot, /produkcia zostáva \*\*NOT VERIFIED\*\*/);
+  assert.match(snapshot, /Aktuálny otestovaný zdrojový kandidát `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1`/);
+  assert.match(snapshot, /Najnovší lokálny release kandidát je zdrojový commit `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1` \(tree `3198f4d10255700c61a409ace6a7e3295a53ca8b`\)/);
+  assert.match(snapshot, /presným filtrom custom prostredia `staging` vrátil \*\*0 deploymentov\*\*/);
+  assert.match(snapshot, /naďalej nemá projektové environment variables/);
+  assert.match(snapshot, /nepotvrdil dve samostatné Private Blob úložiská/);
+  assert.match(snapshot, /\*\*428\/428 MJS \+ 35\/35 TypeScript testov\*\*/);
+  assert.match(snapshot, /\*\*12\/12 databázovými integráciami\*\*/);
+  assert.match(snapshot, /\*\*15\/15 PASS\*\*/);
+  assert.match(snapshot, /Najnovší nemenný zdrojový kandidát `981cd9e2…`/);
+  assert.doesNotMatch(snapshot, /Aktuálny otestovaný zdrojový kandidát `bd61a709/);
+  assert.doesNotMatch(snapshot, /Najnovší lokálny release kandidát je zdrojový commit `bd61a709/);
+  assert.doesNotMatch(snapshot, /Najnovší nemenný zdrojový kandidát `bd61a709/);
   assert.match(snapshot, /IAM preto zostáva \*\*NOT VERIFIED\*\*/);
   assert.match(snapshot, /`CONVERSION_EVENT_SECRET` \| chýba/);
   assert.match(snapshot, /`GOOGLE_MAPS_API_KEY` \| chýba/);
@@ -49,6 +61,7 @@ test('current Vercel evidence keeps production, Preview and Staging claims separ
 
   assert.match(matrix, /VERCEL-READONLY-SNAPSHOT-2026-10-08\.md/);
   assert.match(matrix, /\| O04 \| WAITING \|[^\n]*dpl_FYaPKy6tkko75rkam3RUAbXFSdcT/);
+  assert.match(matrix, /\| O04 \| WAITING \|[^\n]*\*\*0 staging deploymentov\*\*/);
   assert.match(matrix, /\| O04 \| WAITING \|[^\n]*\*\*READY \/ Current\*\*[^\n]*308 presmerovanie/);
   assert.match(matrix, /\| O05 \| PARTIAL \|[^\n]*produkčný návratový bod[^\n]*Git SHA/);
   assert.match(matrix, /\| O07 \| PASS local \/ production WAITING \|/);
