@@ -109,6 +109,39 @@ test('failed revocation remains pending and a later retry clears the durable mar
   }
 });
 
+test('a hanging revocation times out, keeps marketing denied and allows a clean retry', async () => {
+  const harness = browserHarness();
+  harness.cookies.set('astana_marketing_consent', 'denied');
+  const previousWindow = globalThis.window;
+  const previousDocument = globalThis.document;
+  const previousFetch = globalThis.fetch;
+  try {
+    globalThis.window = harness.window;
+    globalThis.document = harness.document;
+    const consent = await import('../src/lib/marketing-consent.ts');
+    globalThis.fetch = async () => new Promise(() => {});
+
+    assert.equal(await consent.revokePendingMetaCapiOutbox(25), false);
+    assert.equal(consent.hasMarketingConsent(), false);
+    assert.equal(consent.hasPendingMarketingRevocation(), true);
+    assert.equal(consent.marketingConsentSubject(), subject);
+
+    let retryCalls = 0;
+    globalThis.fetch = async () => {
+      retryCalls += 1;
+      return { ok: true, json: async () => ({ ok: true, revoked: 1 }) };
+    };
+    assert.equal(await consent.revokePendingMetaCapiOutbox(100), true);
+    assert.equal(retryCalls, 1);
+    assert.equal(consent.hasPendingMarketingRevocation(), false);
+    assert.equal(consent.marketingConsentSubject(), '');
+  } finally {
+    if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument;
+    if (previousFetch === undefined) delete globalThis.fetch; else globalThis.fetch = previousFetch;
+  }
+});
+
 test('a delayed successful revocation cannot erase a newly granted consent subject', async () => {
   const harness = browserHarness();
   const previousWindow = globalThis.window;

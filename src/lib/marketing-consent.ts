@@ -13,6 +13,7 @@ const analyticsLastActivityStorageKey = 'astana_analytics_last_activity';
 const marketingRevocationPendingStorageKey = 'astana_marketing_revocation_pending';
 const consentChoiceRevisionStorageKey = 'astana_consent_choice_revision';
 const marketingRevocationRequests = new Map<string, Promise<boolean>>();
+const marketingRevocationTimeoutMs = 8_000;
 
 function removeSessionItem(key: string) {
   try {
@@ -107,7 +108,7 @@ export function isCurrentConsentPreferenceChange(revision: string) {
   }
 }
 
-export function revokePendingMetaCapiOutbox() {
+export function revokePendingMetaCapiOutbox(timeoutMs = marketingRevocationTimeoutMs) {
   if (typeof window === 'undefined') return Promise.resolve(false);
   const subject = marketingConsentSubject();
   if (!isMarketingConsentSubject(subject)) {
@@ -119,16 +120,34 @@ export function revokePendingMetaCapiOutbox() {
   if (existingRequest) return existingRequest;
   const request = (async () => {
     setMarketingRevocationPending(subject);
+    const controller = new AbortController();
+    const safeTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0
+      ? timeoutMs
+      : marketingRevocationTimeoutMs;
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutHandle = setTimeout(() => {
+        controller.abort();
+        reject(new Error('Marketing consent revocation timed out.'));
+      }, safeTimeoutMs);
+    });
     try {
-      const response = await fetch('/api/marketing-consent/revoke/', {
-        method: 'POST',
-        headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
-        cache: 'no-store',
-        keepalive: true,
-      });
+      const response = await Promise.race([
+        fetch('/api/marketing-consent/revoke/', {
+          method: 'POST',
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin',
+          cache: 'no-store',
+          keepalive: true,
+          signal: controller.signal,
+        }),
+        timeout,
+      ]);
       if (!response.ok) return false;
-      const body = await response.json().catch(() => null) as { ok?: unknown } | null;
+      const body = await Promise.race([
+        response.json(),
+        timeout,
+      ]).catch(() => null) as { ok?: unknown } | null;
       if (body?.ok !== true) return false;
       clearMarketingRevocationPending(subject);
       clearMarketingConsentSubject(subject);
@@ -136,6 +155,8 @@ export function revokePendingMetaCapiOutbox() {
       return true;
     } catch {
       return false;
+    } finally {
+      if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
     }
   })().finally(() => {
     marketingRevocationRequests.delete(subject);

@@ -25,6 +25,9 @@ test('turning marketing off invokes same-origin revocation and clears future del
   assert.match(consent, /const existingRequest = marketingRevocationRequests\.get\(subject\)/);
   assert.match(consent, /marketingRevocationRequests\.set\(subject, request\)/);
   assert.match(consent, /fetch\('\/api\/marketing-consent\/revoke\/'/);
+  assert.match(consent, /marketingRevocationTimeoutMs\s*=\s*8_000/);
+  assert.match(consent, /controller\.abort\(\)/);
+  assert.match(consent, /signal:\s*controller\.signal/);
   assert.match(consent, /marketingRevocationPendingStorageKey/);
   assert.match(consent, /if \(!response\.ok\) return false/);
   assert.match(consent, /clearMarketingConsentSubject\(subject\)/);
