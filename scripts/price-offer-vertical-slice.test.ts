@@ -174,6 +174,19 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(db, /client\.query\('BEGIN'\)[\s\S]*?price_offer_status_changed[\s\S]*?client\.query\('COMMIT'\)/);
 });
 
+test('detail zákazky vedie iba do schváleného PDF toku cenovej ponuky', async () => {
+  const detail = await readFile(new URL('../app/admin/(protected)/zakazky/[id]/page.tsx', import.meta.url), 'utf8');
+  const jobActions = await readFile(new URL('../app/admin/(protected)/zakazky/actions.ts', import.meta.url), 'utf8');
+  const mail = await readFile(new URL('../src/server/mail.ts', import.meta.url), 'utf8');
+  const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
+
+  assert.match(detail, /href=\{`\/admin\/ponuky\/nova\?zakazka=\$\{job\.id\}`\}>\+ Vytvoriť cenovú ponuku<\/a>/);
+  assert.doesNotMatch(detail, /sendBusinessQuoteAction|Odoslať cenovú ponuku zákazníkovi/);
+  assert.doesNotMatch(jobActions, /sendBusinessQuoteAction|sendBusinessQuoteEmail|markBusinessJobQuoteSent/);
+  assert.doesNotMatch(mail, /sendBusinessQuoteEmail/);
+  assert.doesNotMatch(db, /export async function markBusinessJobQuoteSent/);
+});
+
 test('dopyty zobrazujú poslednú ponuku cez jeden dávkový, archivované ponuky ignorujúci lookup', async () => {
   const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
   const page = await readFile(new URL('../app/admin/(protected)/dopyty/page.tsx', import.meta.url), 'utf8');

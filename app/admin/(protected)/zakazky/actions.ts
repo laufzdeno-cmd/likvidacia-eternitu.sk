@@ -3,8 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { addBusinessJobNote, deleteBusinessJob, destroyBusinessJob, getBusinessJob, markBusinessJobQuoteSent, saveBusinessJob, setBusinessJobTestData } from '@/src/server/db';
-import { sendBusinessQuoteEmail } from '@/src/server/mail';
+import { addBusinessJobNote, deleteBusinessJob, destroyBusinessJob, saveBusinessJob, setBusinessJobTestData } from '@/src/server/db';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
@@ -115,28 +114,4 @@ export async function addBusinessJobNoteAction(formData: FormData) {
     await addBusinessJobNote(id, note, actor);
     revalidatePath(`/admin/zakazky/${id}`);
   }
-}
-
-export async function sendBusinessQuoteAction(formData: FormData) {
-  await verifyCsrf(formData);
-  const actor = await requireAdmin();
-  const id = String(formData.get('id') || '');
-  const job = id ? await getBusinessJob(id) : null;
-  if (!job) redirect('/admin/zakazky');
-  const pricePerM2 = num(formData.get('quotePricePerM2')) || job.pricePerM2;
-  const totalPrice = Math.round(job.m2 * pricePerM2 * 100) / 100;
-  const validUntil = String(formData.get('validUntil') || '');
-  const note = String(formData.get('quoteNote') || '').trim();
-
-  const result = await sendBusinessQuoteEmail(job, { validUntil, pricePerM2, totalPrice, note });
-  if (result.sent) {
-    await markBusinessJobQuoteSent(id, actor, { validUntil, pricePerM2, totalPrice, note });
-  } else {
-    await addBusinessJobNote(id, `Cenovú ponuku sa nepodarilo odoslať: ${result.reason || 'neznáma chyba'}`, actor);
-  }
-  revalidatePath('/admin/zakazky');
-  revalidatePath('/admin/dashboard');
-  revalidatePath('/admin/rok');
-  revalidatePath(`/admin/zakazky/${id}`);
-  redirect(`/admin/zakazky/${id}`);
 }

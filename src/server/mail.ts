@@ -3,7 +3,7 @@ import { canSafelyFallbackToLocalRelay, isAstanaLocalRelayConfigured, leadDelive
 import { cleanSlovakText } from './slovak-text';
 import { classifyRequiredSmtpRecipient, classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } from './email-delivery-policy';
 import type { ApplicationNotificationRecipient } from './types';
-import type { BusinessJob, CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
+import type { CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { isCustomStagingTarget, stagingMailOverride } from './preview-safety';
@@ -535,40 +535,6 @@ export async function sendLeadEmailToRecipient(
       reason: mailErrorMessage(error),
     };
   }
-}
-
-export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUntil: string; pricePerM2: number; totalPrice: number; note?: string }) {
-  const client = transporter();
-  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
-  if (!job.customerEmail) return { sent: false, reason: 'Zákazka nemá email zákazníka.' };
-
-  await client.sendMail({
-    from: namedFromHeader('ASTANA likvidácia azbestu'),
-    to: resolveOutboundEmailRecipient(job.customerEmail),
-    replyTo: leadRecipient(),
-    subject: `ASTANA — cenová ponuka pre ${plainText(job.location)}`,
-    text: [
-      `Dobrý deň ${plainText(job.customerName)},`,
-      '',
-      'na základe vášho dopytu sme pripravili cenovú ponuku:',
-      '',
-      `Lokalita: ${plainText(job.location)}`,
-      `Výmera: ${plainText(job.m2)} m2`,
-      `Cena za m2: ${euro(input.pricePerM2)}`,
-      `Celková cena: ${euro(input.totalPrice)}`,
-      `Platnosť ponuky do: ${dateSk(input.validUntil)}`,
-      '',
-      input.note ? plainText(input.note) : '',
-      input.note ? '' : '',
-      'Pre potvrdenie zavolajte: 0905 217 946',
-      'alebo odpovedzte na tento email.',
-      '',
-      'S pozdravom, tím ASTANA',
-      'likvidacia-eternitu.sk',
-    ].join('\n'),
-  });
-
-  return { sent: true };
 }
 
 export async function sendPlannerNotificationEmail(input: { to: string; subject: string; html: string; text: string; replyTo?: string }) {

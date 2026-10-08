@@ -6329,37 +6329,6 @@ export async function addBusinessJobNote(id: string, note: string, actorEmail: s
   return addAuditLog('business_job', id, 'business_job_note_added', actorEmail, { note: text });
 }
 
-export async function markBusinessJobQuoteSent(
-  id: string,
-  actorEmail: string,
-  quote: { validUntil: string; pricePerM2: number; totalPrice: number; note?: string },
-) {
-  await ensureSchema();
-  const timestamp = now();
-  const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    const job = local.businessJobs.find((item) => item.id === id);
-    if (!job) return null;
-    const previous = job.status;
-    job.status = 'PONUKA_ODOSLANA';
-    job.updatedAt = timestamp;
-    await writeLocalDb(local);
-    await addAuditLog('business_job', id, 'business_job_status_changed', actorEmail, { previous, next: job.status });
-    await addAuditLog('business_job', id, 'business_job_quote_sent', actorEmail, quote);
-    return job;
-  }
-  const previous = await getBusinessJob(id);
-  const { rows } = await db.query('UPDATE business_jobs SET status = $1, updated_at = now() WHERE id = $2 RETURNING *', ['PONUKA_ODOSLANA', id]);
-  if (!rows[0]) return null;
-  if (previous?.status !== 'PONUKA_ODOSLANA') {
-    await addAuditLog('business_job', id, 'business_job_status_changed', actorEmail, { previous: previous?.status, next: 'PONUKA_ODOSLANA' });
-  }
-  await addAuditLog('business_job', id, 'business_job_quote_sent', actorEmail, quote);
-  const saved = await getBusinessJob(id);
-  return saved;
-}
-
 export async function saveBusinessJob(input: BusinessJobInput, actorEmail: string, id?: string): Promise<BusinessJob> {
   await ensureSchema();
   if (id && (await getBusinessJob(id, true))?.deletedAt) throw new Error('Archivovanú zákazku nemožno upravovať.');

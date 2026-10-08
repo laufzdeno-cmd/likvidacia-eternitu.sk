@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { getBusinessJobWithActivity, getBusinessSettings, isLeadTestData, listLandfillPrices, listWorkers } from '@/src/server/db';
-import { addBusinessJobNoteAction, saveBusinessJobAction, sendBusinessQuoteAction, setBusinessJobTestDataAction } from '../actions';
+import { addBusinessJobNoteAction, saveBusinessJobAction, setBusinessJobTestDataAction } from '../actions';
 import JobForm from '../job-form';
 import { euro, jobStatusLabels, normalizeWorkflowStatus, workflowStatuses } from '../constants';
 
@@ -33,8 +33,6 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
   const linkedLeadIsTestData = job.leadId ? await isLeadTestData(job.leadId) : false;
   const isEffectivelyTestData = Boolean(job.isTestData || linkedLeadIsTestData);
 
-  const defaultValidUntil = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const quoteTotal = job.m2 * job.pricePerM2;
   const activeStatus = normalizeWorkflowStatus(job.status);
   const activeIndex = workflowStatuses.indexOf(activeStatus);
   const phoneForWhatsApp = job.customerPhone.replace(/\D/g, '').replace(/^0/, '421');
@@ -122,19 +120,6 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
           </div>
         </section>
       ) : null}
-
-      {!job.deletedAt ? <section className="admin-card no-print">
-        <h2>Cenová ponuka</h2>
-        <form className="admin-quote-form admin-pending-form admin-send-offer-form" action={sendBusinessQuoteAction}>
-          <input type="hidden" name="id" value={job.id} />
-          <label>Platná do<input name="validUntil" type="date" defaultValue={defaultValidUntil} required /></label>
-          <label>Cena za m2<input name="quotePricePerM2" type="number" step="0.01" defaultValue={job.pricePerM2} required /></label>
-          <label>Celková cena<input readOnly value={euro(quoteTotal)} /></label>
-          <label className="admin-form-wide">Poznámka k ponuke<textarea name="quoteNote" rows={4} /></label>
-          {!job.customerEmail ? <p className="admin-alert">Zákazka nemá email zákazníka. Doplňte ho v základných údajoch.</p> : null}
-          <button className="admin-primary-button admin-form-wide" type="submit" disabled={!job.customerEmail}>Odoslať cenovú ponuku zákazníkovi</button>
-        </form>
-      </section> : null}
 
       <section className="admin-card">
         <h2>História aktivít</h2>
