@@ -5,7 +5,7 @@ import test from 'node:test';
 test('acceptance evidence distinguishes the current application and QA checkpoints from the historical visual baseline', async () => {
   const [matrix, rawCurrentEvidence, rawBaselineBuild, rawBaselineVisual] = await Promise.all([
     readFile(new URL('../docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md', import.meta.url), 'utf8'),
-    readFile(new URL('../docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-5587258c.json', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-d0b1730a.json', import.meta.url), 'utf8'),
     readFile(new URL('../docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-452c4f75.json', import.meta.url), 'utf8'),
     readFile(new URL('../docs/upgrade-2026-09-30/VISUAL-EVIDENCE-SUMMARY-452c4f75.json', import.meta.url), 'utf8'),
   ]);
@@ -13,8 +13,8 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   const baselineBuild = JSON.parse(rawBaselineBuild);
   const baselineVisual = JSON.parse(rawBaselineVisual);
 
-  assert.equal(current.applicationCommit, '5587258cc20c740d54bd57cb7cce5badd4166c03');
-  assert.equal(current.applicationTree, 'c391dfe3ea8022a15ee019daf9e1be7073fc6bb4');
+  assert.equal(current.applicationCommit, 'd0b1730a2aeba569d62be597259f834db7336ec2');
+  assert.equal(current.applicationTree, 'c3f12d8844c775ac3de1aa44406d08e515e47710');
   assert.equal(current.qaCommit, '439f75dcae5b6f536cfcd6ca04204903eccdf4ee');
   assert.equal(current.qaTree, 'f3933874879d7ed0bdd0c1b4706f48eee071f148');
   assert.equal(current.visualEvidenceCommit, '088ac8f3a0f83211a9337a7cdbb8565620e531fe');
@@ -22,18 +22,18 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.performanceEvidenceCommit, 'c882d5eb563940fc88caeef96a071c465a2b4626');
   assert.equal(current.performanceEvidenceTree, '499fea32ab0e72754ce8f26b24be845221e9e7a9');
   assert.equal(current.result, 'PASS');
-  assert.equal(current.buildId, 'MCh2KF31jp2mdDfBbZhIH');
+  assert.equal(current.buildId, 'JTcGAZ_fhpwrtFnTthxHg');
   assert.equal(current.generatedRouteCount, 99);
   assert.equal(current.staticSeoUrlCount, 32);
-  assert.equal(current.unitMjsCount, 389);
+  assert.equal(current.unitMjsCount, 393);
   assert.equal(current.unitTypeScriptCount, 34);
   assert.equal(current.productionAccess, false);
   assert.equal(current.temporaryDatabaseStopped, true);
   assert.equal(current.temporaryDatabaseRemoved, true);
   assert.equal(current.originMainAncestor, true);
   assert.equal(current.originMainRevision, 'd314826537c6b94cb019164fc19140d10a014669');
-  assert.equal(current.divergenceMeasuredAtCommit, current.performanceEvidenceCommit);
-  assert.deepEqual(current.originMainDivergence, { candidateOnlyCommits: 89, originMainOnlyCommits: 0 });
+  assert.equal(current.divergenceMeasuredAtCommit, current.applicationCommit);
+  assert.deepEqual(current.originMainDivergence, { candidateOnlyCommits: 93, originMainOnlyCommits: 0 });
   assert.ok(Date.parse(current.recordedAt) > Date.parse('2026-10-08T11:03:26+02:00'),
     'evidence record must be created after the security scan completed');
   assert.equal(current.browserReview.consentTimeoutRecovery, 'PASS');
@@ -51,6 +51,14 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.browserReview.fullMatrixBlockedBrowserOrigins, 0);
   assert.equal(current.browserReview.temporaryRootRemoved, true);
   assert.equal(current.browserReview.production, 'NOT_VERIFIED');
+  assert.equal(current.formUsabilityReview.targetedContracts, 44);
+  assert.equal(current.formUsabilityReview.rooferGroupedErrors, 'PASS');
+  assert.equal(current.formUsabilityReview.adminStates, 39);
+  assert.equal(current.formUsabilityReview.adminFormsSubmitted, 0);
+  assert.equal(current.formUsabilityReview.adminExternalOrigins, 0);
+  assert.equal(current.formUsabilityReview.productController, 'PASS');
+  assert.equal(current.formUsabilityReview.technicalController, 'PASS');
+  assert.equal(current.formUsabilityReview.physicalScreenReader, 'NOT_VERIFIED');
   assert.equal(current.lighthouseS08.result, 'PASS');
   assert.equal(current.lighthouseS08.buildId, 'Wyp6vsSNT67wymqcXaMyB');
   assert.equal(current.lighthouseS08.routes, 5);
@@ -75,9 +83,9 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.staging, 'NOT_VERIFIED');
   assert.equal(current.production, 'NOT_VERIFIED');
 
-  assert.match(matrix, /aplikačný checkpoint je commit `5587258c`/);
+  assert.match(matrix, /aplikačný checkpoint je commit `d0b1730a`/);
   assert.match(matrix, /consent QA checkpoint je `439f75dc`/);
-  assert.match(matrix, /\*\*389\/389 MJS \+ 34\/34 TypeScript PASS\*\*/);
+  assert.match(matrix, /\*\*393\/393 MJS \+ 34\/34 TypeScript PASS\*\*/);
   assert.match(matrix, /\*\*99\/99\*\* trás/);
   assert.match(matrix, new RegExp(current.buildId));
   assert.match(matrix, new RegExp(current.securityDiffScan.scanId));
@@ -89,6 +97,7 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.match(matrix, /\| U05 \| PASS local current \|/);
   assert.match(matrix, /\| U01 \| PASS local current \|/);
   assert.match(matrix, /\| U02 \| PASS local current \|/);
+  assert.match(matrix, /\| U03 \| PASS local current \|/);
   assert.match(matrix, /\| U04 \| PASS local current \|/);
   assert.match(matrix, /\| U07 \| PASS local current \|/);
   assert.match(matrix, /\| U08 \| PASS local current \|/);

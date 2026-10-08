@@ -1752,3 +1752,10 @@ K staršiemu checkpointu samostatného pracovníka notifikácií: finálna read-
 - Audit ôsmich verejných šablón našiel jednu konkrétnu odchýlku: Kariéra v hlavičke preberala zákaznícke CTA na cenovú ponuku. Desktopová aj mobilná hlavička teraz vedú uchádzača na `#prihlasit-sa` textom „Chcem sa prihlásiť“ a rovnaké hero CTA má primárny vizuálny štýl. Ostatné stránky si zachovali ponukové CTA.
 - Cielený kontraktný test **2/2 PASS**, typová kontrola **PASS** a celá verejná matica **20 trás × 11 viewportov = 220/220 PASS**; 25 snímok, 0 formulárov, 0 hydration chýb a 0 externých browser originov. Nezávislý produktový kontrolór vrátil **PASS**.
 - Kontrolovaný checkpoint je `59149a474ae7061b85281a7a2e17c65a518d0680`, strom `6d4d8025bab9720b8746f130087b1d8056036028`. U02 je lokálne uzatvorené; staging, produkcia, U10 a celková obchodno-vizuálna akceptácia zostávajú samostatné brány.
+
+### U03/U09 — formulárová použiteľnosť a spätná väzba (8. 10. 2026)
+
+- Checkpoint `d0b1730a2aeba569d62be597259f834db7336ec2` uzamyká kariérny snapshot počas odosielania, otvára chybný mobilný krok dopytu, nahrádza interné „gdpr“ ľudskou hláškou a drží chyby strechárskych skupín pri opravnom prvku aj na 320 px.
+- Admin žiadosť o recenziu sa označí ako odoslaná iba po výslovnom potvrdení, má lokálny pending stav, spoľahlivý fokus výsledku aj pri opakovanom rovnakom výsledku a ručný fallback pri odmietnutí schránky.
+- Dôkazy: **44/44 cielených kontraktov**, **393/393 MJS + 34/34 TypeScript**, izolovaný build **99/99** s BUILD_ID `JTcGAZ_fhpwrtFnTthxHg`, verejná matica **220/220**, admin matica **39/39**, produktový kontrolór **PASS** a technický kontrolór **PASS**. Formuláre ani emaily sa reálne neodosielali.
+- U03 je lokálne **PASS**. U09 zostáva **PARTIAL** iba pre chýbajúci fyzický test so skutočnou čítačkou obrazovky; U10 zostáva samostatná skúška s piatimi reálnymi ľuďmi. Podrobnosti sú v `U03-U09-FORM-USABILITY-AUDIT-2026-10-08.md`.
