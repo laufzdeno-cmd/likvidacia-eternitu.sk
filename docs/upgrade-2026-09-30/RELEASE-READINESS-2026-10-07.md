@@ -9,7 +9,7 @@ Produkčná kontrola bola iba na čítanie. Lokálne sa 8. 10. uzavrela kompatib
 - Aktuálny produkčný deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` je **Ready**, **Current**, vznikol 4. 10. 2026 a Vercel ho viaže na vetvu `codex/private-photo-upload` a Git SHA `c98c630c1af467c51c615980841630a4cabf6c29`.
 - Táto dvojica deployment + plný Git SHA identifikuje skutočný živý návratový bod. Checkpoint `f4f1eb31` ho transparentne zaznamenáva ako druhého rodiča grafového merge bez zmeny aplikačného stromu; strom sa zhoduje s prvým rodičom `0efdcbb6` a produkčný SHA je jeho predkom.
 - Presný izolovaný test nad plnou schémou a skutočnými DB funkciami commitu `c98c630c…` potvrdil migráciu, nový tok, dokončenie uploadu po návrate starej aplikácie, pripojenie aj retenciu. Samotný živý rollback deploymentu sa nevykonal.
-- Tento historicky pozorovaný deployment neobsahuje aktuálny lokálny aplikačný checkpoint `293bf313` ani jeho následné dôkazové dokumenty. Aktuálnosť externého Vercel stavu sa po tomto snapshote znovu neoverovala.
+- Tento historicky pozorovaný deployment neobsahuje aktuálny lokálny aplikačný checkpoint `35f93fa6` ani jeho následné dôkazové dokumenty. Aktuálnosť externého Vercel stavu sa po tomto snapshote znovu neoverovala.
 - Za posledných 30 minút Vercel pri tomto deploymente zobrazoval 0 warning, 0 error a 0 fatal záznamov. Krátke okno nenahrádza produkčný monitoring ani post-release smoke.
 - Produkčný HTTPS a `www` používajú trvalé presmerovanie na kanonický host; kontrolované hlavné trasy vracajú 200 a neexistujúca cesta 404.
 
@@ -43,7 +43,7 @@ Overené boli iba názvy, prostredia a typ premenných, nikdy nie ich hodnoty.
 4. Až potom vytvoriť presný staged **Production** deployment s `--skip-domain` a vykonať na ňom iba read-only kontroly. Proxy zablokuje jeho zápisy na `*.vercel.app` a bežný produkčný runtime už nespúšťa DDL/DML migrácie pri čítaní. Schéma sa pripraví osobitným schváleným krokom pred povýšením. Po nezávislom re-review a samostatnom súhlase možno povýšiť presne overený deployment na produkčný alias.
 5. Ihneď po povýšení a po čerstvom výslovnom súhlase vykonať minimálny označený ostrý smoke: kanonický host, sitemap, robots, právny a dopravný text, formulár, inboxy, Chrome/Opera a fyzický mobil. Pri odchýlke použiť vopred overený rollback deployment.
 
-Lokálny build checkpointu `293bf313` je viazaný na nemenný [buildový dôkaz](LOCAL-BUILD-EVIDENCE-293bf313.json): 99/99 trás, 32 statických SEO URL, BUILD_ID `D0Ikz1z3st4RBFzGf51_5`, `productionAccess:false`, odstránená jednorazová databáza a samostatne zopakovaný presný rollback test PASS. Fokusovaný 320 px browser test prešiel; kompletná browser matica tohto presného checkpointu je NOT RERUN a produkcia NOT VERIFIED.
+Lokálny build checkpointu `35f93fa6` je viazaný na nemenný [buildový dôkaz](LOCAL-BUILD-EVIDENCE-35f93fa6.json): 99/99 trás, 32 statických SEO URL, BUILD_ID `QuVESZOyO9sfXqeBddNws`, `productionAccess:false`, odstránená jednorazová databáza a samostatne zopakovaný presný rollback test PASS. Kompletná browser matica prešla na 20 trasách a 220 viewport stavoch bez odoslania formulára alebo externého browser originu; produkcia zostáva NOT VERIFIED.
 
 ## Oddelené účtové zosúladenie
 
