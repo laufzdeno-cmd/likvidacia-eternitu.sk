@@ -45,27 +45,20 @@ try {
   assert.equal(storedLead.rawData.marketingConsentSubjectAtSubmit, undefined);
   assert.equal(local.metaCapiOutbox.some((row) => row.leadId === afterTombstone.lead.id), false);
 
-  const missingSecretSubject = randomUUID();
-  delete process.env.CONVERSION_EVENT_SECRET;
-  process.env.NODE_ENV = 'production';
-  process.env.VERCEL = '1';
-  process.env.VERCEL_ENV = 'production';
-  process.env.VERCEL_TARGET_ENV = 'production';
-  const withoutOutbox = await db.createLeadSubmission(makeLead(randomUUID(), missingSecretSubject), []);
+  const revokedAfterCreateSubject = randomUUID();
+  const revokedAfterCreate = await db.createLeadSubmission(makeLead(randomUUID(), revokedAfterCreateSubject), []);
   local = JSON.parse(await readFile(localDbPath, 'utf8'));
-  assert.equal(local.metaCapiOutbox.some((row) => row.leadId === withoutOutbox.lead.id), false);
-  assert.equal(await db.revokeMetaCapiOutboxForConsentSubject(missingSecretSubject), 1);
+  assert.equal(local.metaCapiOutbox.some((row) => row.leadId === revokedAfterCreate.lead.id), true);
+  assert.equal(await db.revokeMetaCapiOutboxForConsentSubject(revokedAfterCreateSubject), 1);
   local = JSON.parse(await readFile(localDbPath, 'utf8'));
-  storedLead = local.leads.find((lead) => lead.id === withoutOutbox.lead.id);
+  storedLead = local.leads.find((lead) => lead.id === revokedAfterCreate.lead.id);
   assert.equal(storedLead.rawData.marketingConsentAtSubmit, undefined);
   assert.equal(storedLead.rawData.marketingConsentSubjectAtSubmit, undefined);
   assert.equal(storedLead.rawData.attribution.fbclid, undefined);
+  const revokedOutbox = local.metaCapiOutbox.find((row) => row.leadId === revokedAfterCreate.lead.id);
+  assert.equal(revokedOutbox.status, 'cancelled');
+  assert.equal(revokedOutbox.retryable, false);
 
-  process.env.CONVERSION_EVENT_SECRET = 'isolated-local-conversion-secret';
-  process.env.NODE_ENV = 'test';
-  delete process.env.VERCEL;
-  delete process.env.VERCEL_ENV;
-  delete process.env.VERCEL_TARGET_ENV;
   const concurrentSubject = randomUUID();
   const [concurrentLead] = await Promise.all([
     db.createLeadSubmission(makeLead(randomUUID(), concurrentSubject), []),
