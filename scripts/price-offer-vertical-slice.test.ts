@@ -160,7 +160,8 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(detail, /offer\.status === 'PRIPRAVENA'.*Odoslať zákazníkovi/);
   assert.match(detail, /skontrolovali odoslanú poštu/);
   assert.match(mail, /status === 'failed' \? 'not_sent' as const : 'unknown' as const/);
-  assert.match(mail, /classifyRequiredSmtpRecipient\(info, offer\.email\)/);
+  assert.match(mail, /const requiredRecipient = resolveOutboundEmailRecipient\(offer\.email\)/);
+  assert.match(mail, /classifyRequiredSmtpRecipient\(info, requiredRecipient\)/);
   assert.match(mail, /Interná kópia nemení stav ponuky na odoslanú/);
   assert.match(list, /offer\.status === 'ODOSLANA'.*updatePriceOfferStatusAction/);
   assert.match(actions, /if \(!updated\) throw new Error\('Ako prijatú možno označiť iba odoslanú/);

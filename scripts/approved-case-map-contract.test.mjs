@@ -23,6 +23,9 @@ test('approved case map is server-rendered only from the public allow-list and s
     'the main realizations URL must not wait for a database count before rendering metadata');
   assert.match(route, /canonical: canonicalPage > 1 \? `\/realizacie\/\?casesPage=\$\{canonicalPage\}` : '\/realizacie\/'/);
   assert.match(route, /Promise\.all\(\[[\s\S]*?loadPublishedRealizations\(\),[\s\S]*?loadApprovedCaseStudies\(safeRequestedPage\),[\s\S]*?\]\)/);
+  assert.match(route, /Published realizations unavailable; serving the reviewed photo gallery/);
+  assert.match(route, /Approved case studies unavailable; keeping the reviewed gallery available/);
+  assert.doesNotMatch(route, /NEXT_PHASE !== 'phase-production-build'\) throw error/);
   assert.match(route, /async function PublishedRealizationsContent\(\{ searchParams \}: PageProps\)/);
   assert.match(route, /export default function RealizationsPage\(\{ searchParams \}: PageProps\)/,
     'the static page shell must remain synchronous so it can stream before database content');

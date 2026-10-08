@@ -51,8 +51,8 @@ export async function generateMetadata({ searchParams }: PageProps): Promise<Met
   try {
     const totalPages = Math.ceil(await countPublishedRealizationCases() / 12);
     canonicalPage = totalPages > 0 ? Math.min(requestedPage, totalPages) : 1;
-  } catch (error) {
-    if (process.env.NEXT_PHASE !== 'phase-production-build') throw error;
+  } catch {
+    console.warn('Approved case pagination unavailable; using the requested canonical page.');
   }
   return {
     ...pageMetadata,
@@ -119,9 +119,8 @@ const realizationsJsonLd = {
 async function loadPublishedRealizations(): Promise<PublishedRealization[]> {
   try {
     return await listPublishedRealizations(24);
-  } catch (error) {
-    if (process.env.NEXT_PHASE !== 'phase-production-build') throw error;
-    console.warn('Published realizations unavailable during build; serving the reviewed photo gallery.');
+  } catch {
+    console.warn('Published realizations unavailable; serving the reviewed photo gallery.');
     return [];
   }
 }
@@ -135,9 +134,8 @@ async function loadApprovedCaseStudies(page: number): Promise<{ cases: Published
       listPublishedRealizationCases(caseStudiesPerPage, (page - 1) * caseStudiesPerPage),
     ]);
     return { cases, total };
-  } catch (error) {
-    if (process.env.NEXT_PHASE !== 'phase-production-build') throw error;
-    console.warn('Approved case studies unavailable during build; keeping the reviewed gallery available.');
+  } catch {
+    console.warn('Approved case studies unavailable; keeping the reviewed gallery available.');
     return { cases: [], total: 0 };
   }
 }
@@ -153,7 +151,7 @@ async function PublishedRealizationsContent({ searchParams }: PageProps) {
   const currentCasePage = totalCasePages > 0 ? Math.min(safeRequestedPage, totalCasePages) : 1;
   const approvedCaseStudies = currentCasePage === safeRequestedPage
     ? caseStudiesPage.cases
-    : await listPublishedRealizationCases(caseStudiesPerPage, (currentCasePage - 1) * caseStudiesPerPage);
+    : (await loadApprovedCaseStudies(currentCasePage)).cases;
   return (
     <>
       {publishedRealizations.length > 0 ? (

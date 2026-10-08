@@ -41,7 +41,10 @@ test('public realization section reads only records returned by published query'
   assert.doesNotMatch(page, /listRealizations\(/);
   assert.match(page, /normalizePublicRealizationImageUrl/);
   assert.match(page, /export const revalidate = 300/);
-  assert.match(page, /NEXT_PHASE !== 'phase-production-build'\) throw error/);
+  assert.match(page, /async function loadPublishedRealizations\(\)[\s\S]*?catch[\s\S]*?return \[\]/,
+    'the reviewed gallery must remain available when the approved-record database is temporarily unavailable');
+  assert.match(page, /async function loadApprovedCaseStudies\(page: number\)[\s\S]*?catch[\s\S]*?return \{ cases: \[\], total: 0 \}/,
+    'approved case studies must fail closed without taking the public gallery offline');
   assert.doesNotMatch(page, /realization\.location|realization\.areaEstimate/);
   assert.match(page, /import PublicBaseClient from '..\/public-base-client'/);
   assert.match(page, /import RealizationsClientBoundary from '..\/realizations-client-boundary'/);

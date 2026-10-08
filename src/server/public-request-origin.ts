@@ -1,3 +1,5 @@
+import { isCustomStagingTarget, isVerifiedIsolatedStaging } from './preview-safety';
+
 function vercelOrigin(host: string | undefined) {
   const normalized = host?.trim().toLowerCase();
   if (!normalized || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.vercel\.app$/.test(normalized)) {
@@ -12,10 +14,12 @@ export function isTrustedVercelDeploymentOrigin(origin: string) {
   const environment = process.env.VERCEL_ENV;
   if (environment !== 'preview' && environment !== 'production') return false;
 
+  if (isCustomStagingTarget() && !isVerifiedIsolatedStaging()) return false;
+
   const deploymentOrigin = vercelOrigin(process.env.VERCEL_URL);
   if (deploymentOrigin === origin) return true;
 
-  if (environment !== 'preview') return false;
+  if (environment !== 'preview' || isCustomStagingTarget()) return false;
   return vercelOrigin(process.env.VERCEL_BRANCH_URL) === origin;
 }
 

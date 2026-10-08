@@ -10,12 +10,18 @@ function parseArguments(argv) {
   let candidateDeployment = '';
   let confirmProduction = '';
   let promote = false;
+  let staging = false;
   const guardArguments = [];
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === '--promote') {
       if (promote) throw new Error('--promote bol zadaný viackrát.');
       promote = true;
+      continue;
+    }
+    if (argument === '--staging') {
+      if (staging) throw new Error('--staging bol zadaný viackrát.');
+      staging = true;
       continue;
     }
     if (argument === '--candidate-deployment' || argument === '--confirm-production') {
@@ -34,9 +40,10 @@ function parseArguments(argv) {
     guardArguments.push(argument);
   }
   if (!deploymentPattern.test(candidateDeployment)) throw new Error('--candidate-deployment musí mať formát dpl_<alphanumeric>.');
+  if (staging && promote) throw new Error('--staging sa nesmie kombinovať s --promote.');
   if (promote && !fullShaPattern.test(confirmProduction)) throw new Error('Produkčné povýšenie vyžaduje --confirm-production s plným schváleným Git SHA.');
   if (!promote && confirmProduction) throw new Error('--confirm-production je povolené iba spolu s --promote.');
-  return { candidateDeployment, confirmProduction: confirmProduction.toLowerCase(), guardArguments, promote };
+  return { candidateDeployment, confirmProduction: confirmProduction.toLowerCase(), guardArguments, promote, staging };
 }
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
@@ -84,11 +91,11 @@ async function promoteDeployment({ deploymentId, env, fetchImpl, signal }) {
   if (!response.ok) throw new Error(`Vercel promote ${deploymentId} zlyhal so stavom ${response.status}.`);
 }
 
-async function inspectDeployment({ deploymentId, env, fetchImpl, signal }) {
+async function inspectDeployment({ deploymentId, env, expectedTarget = 'production', fetchImpl, signal }) {
   const deployment = await vercelJson({ pathname: `/v13/deployments/${deploymentId}`, env, fetchImpl, signal });
   if (deployment?.id !== deploymentId) throw new Error(`Vercel vrátil iné deployment ID pre ${deploymentId}.`);
   if ((deployment?.projectId || deployment?.project?.id) !== env.VERCEL_PROJECT_ID) throw new Error(`${deploymentId} nepatrí schválenému Vercel projektu.`);
-  if (deployment?.target !== 'production') throw new Error(`${deploymentId} nie je produkčný staged deployment.`);
+  if (deployment?.target !== expectedTarget) throw new Error(`${deploymentId} nie je deployment prostredia ${expectedTarget}.`);
   if (deployment?.readyState !== 'READY') throw new Error(`${deploymentId} nie je v stave READY.`);
   return deployment;
 }
@@ -156,6 +163,17 @@ export async function runReviewedDeployment({
   if (parsed.promote && parsed.confirmProduction !== guarded.sha) throw new Error('--confirm-production sa nezhoduje s HEAD schváleným release guardom.');
   const rollbackId = manifest?.rollback?.deployment;
   const rollbackSha = manifest?.rollback?.sourceSha;
+  if (parsed.staging) {
+    const stagingDeployment = await inspectDeployment({
+      deploymentId: parsed.candidateDeployment,
+      env,
+      expectedTarget: 'staging',
+      fetchImpl,
+      signal: abortSignalFactory(apiRequestTimeoutMs),
+    });
+    requireDeploymentCommit(stagingDeployment, guarded.sha, 'Staging');
+    return { action: 'verified-staging', candidate: parsed.candidateDeployment, sha: guarded.sha };
+  }
   if (!deploymentPattern.test(rollbackId || '') || !fullShaPattern.test(rollbackSha || '')) throw new Error('Release manifest neobsahuje platnú rollback väzbu.');
   if (rollbackId === parsed.candidateDeployment) throw new Error('Candidate a rollback deployment musia byť rozdielne.');
 

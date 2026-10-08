@@ -147,10 +147,14 @@ try {
   const missingSecretSubject = randomUUID();
   const previousConversionSecret = process.env.CONVERSION_EVENT_SECRET;
   const previousNodeEnvironment = process.env.NODE_ENV;
+  const previousVercelIdentity = process.env.VERCEL;
   const previousVercelEnvironment = process.env.VERCEL_ENV;
+  const previousVercelTargetEnvironment = process.env.VERCEL_TARGET_ENV;
   delete process.env.CONVERSION_EVENT_SECRET;
   process.env.NODE_ENV = 'production';
+  process.env.VERCEL = '1';
   process.env.VERCEL_ENV = 'production';
+  process.env.VERCEL_TARGET_ENV = 'production';
   const missingSecretId = randomUUID();
   const missingSecretLead = await db.createLeadSubmission(makeLead(missingSecretId, true, missingSecretSubject), []);
   assert.equal(
@@ -165,8 +169,12 @@ try {
   assert.equal(missingSecretRaw.attribution.fbclid, undefined);
   process.env.CONVERSION_EVENT_SECRET = previousConversionSecret;
   process.env.NODE_ENV = previousNodeEnvironment;
+  if (previousVercelIdentity === undefined) delete process.env.VERCEL;
+  else process.env.VERCEL = previousVercelIdentity;
   if (previousVercelEnvironment === undefined) delete process.env.VERCEL_ENV;
   else process.env.VERCEL_ENV = previousVercelEnvironment;
+  if (previousVercelTargetEnvironment === undefined) delete process.env.VERCEL_TARGET_ENV;
+  else process.env.VERCEL_TARGET_ENV = previousVercelTargetEnvironment;
 
   const afterRevocationId = randomUUID();
   const afterRevocationLead = await db.createLeadSubmission(makeLead(afterRevocationId, true, missingSecretSubject), []);

@@ -56,6 +56,10 @@ export default function initializeHomepageCriticalClient({
     let isQuoteSectionVisible = false;
     let formStarted = false;
     let quoteSectionTracked = false;
+    const formStages = Array.from(form?.querySelectorAll<HTMLElement>(':scope > .form-stage') || []);
+    const mobileStepMedia = window.matchMedia('(max-width: 760px)');
+    let activeFormStep = 0;
+    let validationSummary: HTMLElement | null = null;
     const maxLeadFileSize = 10 * 1024 * 1024;
     const escapeHtml = (value: string) =>
       value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char] || char);
@@ -339,6 +343,136 @@ export default function initializeHomepageCriticalClient({
       status.textContent = '';
     };
 
+    const fieldLabel = (control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) => {
+      const label = control.id ? form?.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(control.id)}"]`) : null;
+      return label?.textContent?.replace(/\s*\*\s*$/, '').trim() || control.name || 'Povinný údaj';
+    };
+
+    const clearFieldError = (control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement) => {
+      control.removeAttribute('aria-invalid');
+      const errorId = control.dataset.errorId;
+      if (errorId) document.getElementById(errorId)?.remove();
+      delete control.dataset.errorId;
+      const describedBy = (control.getAttribute('aria-describedby') || '').split(/\s+/).filter((id) => id && id !== errorId);
+      if (describedBy.length) control.setAttribute('aria-describedby', describedBy.join(' '));
+      else control.removeAttribute('aria-describedby');
+    };
+
+    const showFieldError = (control: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement, index: number) => {
+      clearFieldError(control);
+      control.setAttribute('aria-invalid', 'true');
+      const error = document.createElement('p');
+      const errorId = `lead-field-error-${control.id || control.name || index}-${index}`;
+      error.id = errorId;
+      error.className = 'field-error';
+      error.textContent = control.validity.valueMissing
+        ? `Doplňte pole „${fieldLabel(control)}“.`
+        : control.validationMessage || `Skontrolujte pole „${fieldLabel(control)}“.`;
+      const container = control.closest('.field, .consent') || control.parentElement;
+      container?.insertAdjacentElement('afterend', error);
+      control.dataset.errorId = errorId;
+      control.setAttribute('aria-describedby', [control.getAttribute('aria-describedby'), errorId].filter(Boolean).join(' '));
+    };
+
+    const invalidControls = (container: ParentNode = form || document) => Array.from(
+      container.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled])'),
+    ).filter((control) => !control.checkValidity());
+
+    const showValidationSummary = (controls: Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+      if (!form || !controls.length) return;
+      validationSummary ||= document.createElement('div');
+      validationSummary.className = 'form-error-summary';
+      validationSummary.setAttribute('role', 'alert');
+      validationSummary.setAttribute('tabindex', '-1');
+      validationSummary.textContent = `Skontrolujte ${controls.length === 1 ? 'označený údaj' : `${controls.length} označené údaje`}.`;
+      form.insertBefore(validationSummary, formStages[0] || form.firstChild);
+      controls.forEach(showFieldError);
+    };
+
+    const clearValidationSummary = () => {
+      if (validationSummary && !form?.querySelector('[aria-invalid="true"]')) {
+        validationSummary.remove();
+        validationSummary = null;
+      }
+    };
+
+    const clearStepValidation = (stage: HTMLElement | undefined) => {
+      stage?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[aria-invalid="true"]')
+        .forEach(clearFieldError);
+      validationSummary?.remove();
+      validationSummary = null;
+    };
+
+    const renderFormStep = () => {
+      const mobile = mobileStepMedia.matches;
+      form?.classList.toggle('is-mobile-steps', mobile);
+      form?.setAttribute('data-active-step', String(activeFormStep + 1));
+      formStages.forEach((stage, index) => { stage.hidden = mobile && index !== activeFormStep; });
+      form?.querySelectorAll<HTMLElement>('.mobile-final-control').forEach((element) => { element.hidden = mobile && activeFormStep !== formStages.length - 1; });
+      form?.querySelectorAll<HTMLButtonElement>('[data-form-step-next], [data-form-step-back]').forEach((button) => {
+        const step = Number(button.dataset.formStepNext || button.dataset.formStepBack || 0);
+        button.closest<HTMLElement>('.form-step-controls')!.hidden = !mobile || step !== activeFormStep + 1;
+      });
+      document.querySelectorAll<HTMLElement>('.quote-form-progress span').forEach((dot, index) => {
+        dot.classList.toggle('is-active', index === activeFormStep);
+        dot.classList.toggle('is-complete', index < activeFormStep);
+      });
+    };
+
+    const goToFormStep = (nextStep: number, validateCurrent = false) => {
+      if (!formStages.length) return;
+      if (validateCurrent) {
+        const invalid = invalidControls(formStages[activeFormStep]);
+        if (invalid.length) {
+          showValidationSummary(invalid);
+          invalid[0].focus();
+          return;
+        }
+      }
+      clearStepValidation(formStages[activeFormStep]);
+      activeFormStep = Math.max(0, Math.min(formStages.length - 1, nextStep));
+      renderFormStep();
+      const activeStage = formStages[activeFormStep];
+      activeStage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      activeStage?.querySelector<HTMLElement>('[data-form-step-title]')?.focus({ preventScroll: true });
+    };
+
+    const initializeMobileFormSteps = () => {
+      if (!form || formStages.length < 2 || form.querySelector('[data-form-step-next]')) return;
+      formStages.forEach((stage, index) => {
+        const controls = document.createElement('div');
+        controls.className = 'form-step-controls';
+        if (index > 0) {
+          const back = document.createElement('button');
+          back.type = 'button';
+          back.className = 'form-step-back';
+          back.dataset.formStepBack = String(index + 1);
+          back.textContent = 'Späť';
+          back.addEventListener('click', () => goToFormStep(index - 1));
+          controls.append(back);
+        }
+        if (index < formStages.length - 1) {
+          const next = document.createElement('button');
+          next.type = 'button';
+          next.className = 'button button-primary form-step-next';
+          next.dataset.formStepNext = String(index + 1);
+          next.textContent = index === 0 ? 'Pokračovať k materiálu' : 'Pokračovať';
+          next.addEventListener('click', () => goToFormStep(index + 1, true));
+          controls.append(next);
+        }
+        stage.insertAdjacentElement('afterend', controls);
+      });
+      form.querySelectorAll<HTMLElement>(':scope > .consent, :scope > .form-submit, :scope > .form-security').forEach((element) => element.classList.add('mobile-final-control'));
+      renderFormStep();
+    };
+
+    const onValidationInput = (event: Event) => {
+      const control = event.target;
+      if (!(control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)) return;
+      if (control.checkValidity()) clearFieldError(control);
+      clearValidationSummary();
+    };
+
     const submitLeadForm = async (payload: FormData) => {
       const endpoints = ['/api/dopyt/'];
       let lastError: Error | null = null;
@@ -462,7 +596,15 @@ export default function initializeHomepageCriticalClient({
       }
       if (!form.checkValidity()) {
         event.preventDefault();
-        form.reportValidity();
+        const invalid = invalidControls();
+        if (mobileStepMedia.matches && invalid[0]) {
+          const invalidStage = formStages.findIndex((stage) => stage.contains(invalid[0]));
+          if (invalidStage >= 0) activeFormStep = invalidStage;
+          else activeFormStep = formStages.length - 1;
+          renderFormStep();
+        }
+        showValidationSummary(invalid);
+        invalid[0]?.focus();
         return;
       }
       ensureSubmissionId();
@@ -496,6 +638,11 @@ export default function initializeHomepageCriticalClient({
         }
         const result = await submitLeadForm(payload);
         form.reset();
+        activeFormStep = 0;
+        form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[aria-invalid="true"]').forEach(clearFieldError);
+        validationSummary?.remove();
+        validationSummary = null;
+        renderFormStep();
         selectedFiles = [];
         uploadedFilesByFingerprint.clear();
         lastLeadSnapshot = '';
@@ -581,6 +728,7 @@ export default function initializeHomepageCriticalClient({
       } catch { /* Browser storage may be unavailable; leave the form untouched. */ }
     }
     applyRooferSelectionFromUrl();
+    initializeMobileFormSteps();
     void applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
@@ -599,6 +747,9 @@ export default function initializeHomepageCriticalClient({
     form?.addEventListener('submit', onSubmit);
     form?.addEventListener('focusin', onFormStart);
     form?.addEventListener('input', onFormStart);
+    form?.addEventListener('input', onValidationInput);
+    form?.addEventListener('change', onValidationInput);
+    mobileStepMedia.addEventListener('change', renderFormStep);
     if (!clickAnalyticsAlreadyTracked) document.addEventListener('click', onAnalyticsClick);
     document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     if (!pageViewAlreadyTracked) trackAnalytics('page_view');
@@ -718,6 +869,9 @@ export default function initializeHomepageCriticalClient({
       form?.removeEventListener('submit', onSubmit);
       form?.removeEventListener('focusin', onFormStart);
       form?.removeEventListener('input', onFormStart);
+      form?.removeEventListener('input', onValidationInput);
+      form?.removeEventListener('change', onValidationInput);
+      mobileStepMedia.removeEventListener('change', renderFormStep);
       if (!clickAnalyticsAlreadyTracked) document.removeEventListener('click', onAnalyticsClick);
       document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       heroSectionObserver?.disconnect();

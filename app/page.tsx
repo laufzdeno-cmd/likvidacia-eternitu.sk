@@ -406,8 +406,8 @@ export default async function HomePage() {
                 <span>pôsobnosť</span>
               </div>
               <div className="hero-counter-item">
-                <strong>ÚVZ SR</strong>
-                <span>zoznam k 19. 9. 2024</span>
+                <strong>Doklady</strong>
+                <span>po likvidácii</span>
               </div>
             </div>
             <a className="hero-real-note" href="/realizacie/">Ukážky reálnych striech ASTANA.</a>
@@ -484,6 +484,7 @@ export default async function HomePage() {
               <span></span>
               <span></span>
               <span></span>
+              <span></span>
             </div>
             <form className="lead-form" action="/api/dopyt/" method="post" encType="multipart/form-data">
               <input
@@ -498,8 +499,9 @@ export default async function HomePage() {
               />
               <input id="submissionId" type="hidden" name="submissionId" value="" />
               <input id="selectedRooferId" type="hidden" name="selectedRooferId" value="" />
-              <div className="form-stage form-stage-priority">
-                <p className="form-stage-title">1. Výmera a lokalita</p>
+              <div className="form-stage form-stage-priority" aria-labelledby="lead-step-1-title">
+                <h3 id="lead-step-1-title" className="form-stage-title" data-form-step-title tabIndex={-1}>1. Výmera a lokalita</h3>
+                <p className="form-step-assurance">Nezáväzne · Fotografie sú voliteľné · Odpoveď najneskôr do 24 hodín</p>
                 <div className="field area-field">
                   <label htmlFor="areaEstimate">Približná výmera v m2 *</label>
                   <input id="areaEstimate" name="areaEstimate" type="number" inputMode="numeric" min="1" placeholder="napr. 120" required />
@@ -515,8 +517,8 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <div className="form-stage">
-                <p className="form-stage-title">2. Typ materiálu a termín</p>
+              <div className="form-stage" aria-labelledby="lead-step-2-title">
+                <h3 id="lead-step-2-title" className="form-stage-title" data-form-step-title tabIndex={-1}>2. Typ materiálu a termín</h3>
                 <div className="field">
                   <label htmlFor="materialType">Typ azbestového materiálu *</label>
                   <select id="materialType" name="materialType" required defaultValue="">
@@ -565,8 +567,8 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <div className="form-stage">
-                <p className="form-stage-title">3. Kontakt</p>
+              <div className="form-stage" aria-labelledby="lead-step-3-title">
+                <h3 id="lead-step-3-title" className="form-stage-title" data-form-step-title tabIndex={-1}>3. Kontakt</h3>
                 <fieldset className="field field-full contact-preference">
                   <legend>Ako vás máme prednostne kontaktovať?</legend>
                   <label><input type="radio" name="preferredContact" value="Zavolajte mi" defaultChecked /><span>Zavolať mi</span></label>
@@ -587,8 +589,8 @@ export default async function HomePage() {
                 </div>
               </div>
 
-              <div className="form-stage form-stage-files">
-                <p className="form-stage-title">4. Fotky voliteľne</p>
+              <div className="form-stage form-stage-files" aria-labelledby="lead-step-4-title">
+                <h3 id="lead-step-4-title" className="form-stage-title" data-form-step-title tabIndex={-1}>4. Fotky voliteľne</h3>
                 <div className="field file-field field-full">
                   <label htmlFor="photos">Fotky (voliteľné)</label>
                   <label className="file-drop" htmlFor="photos">

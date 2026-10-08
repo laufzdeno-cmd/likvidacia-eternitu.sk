@@ -76,7 +76,7 @@ test('homepage and process FAQ distinguish RÚVZ notification from a permit', ()
   assert.match(homepage, /Stačí, že firma má oprávnenie na odstraňovanie azbestu/);
   assert.match(homepage, /rozsah oprávnenia zodpovedá konkrétnemu typu prác/i);
   assert.doesNotMatch(`${homepage}\n${cmsDefaults}`, /všeobecné oprávnenie/i);
-  assert.match(homepage, /zoznam k 19\. 9\. 2024/i);
+  assert.match(homepage, /<strong>Doklady<\/strong>\s*<span>po likvidácii<\/span>/i);
   assert.match(processPage, /Zoznam k 19\. 9\. 2024/);
   assert.doesNotMatch(`${homepage}\n${processPage}`, /Verejný register/i);
 });

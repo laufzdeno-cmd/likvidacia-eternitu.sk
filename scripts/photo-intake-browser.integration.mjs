@@ -656,7 +656,12 @@ async function runHarness() {
       PHOTO_INTAKE_RETENTION_ENABLED: 'true',
       PHOTO_UPLOAD_SESSION_SECRET: secret,
       ...(productionMode ? { VERCEL_ENV: 'production', ASTANA_HARNESS_PRODUCTION: '1' } : {}),
-      ...(productionFullBuildOnly ? { ASTANA_HARNESS_LIGHTHOUSE: lighthouseS08 ? '1' : '0' } : {}),
+      ...(productionFullBuildOnly ? {
+        ASTANA_HARNESS_LIGHTHOUSE: lighthouseS08 ? '1' : '0',
+        ASTANA_HARNESS_FULL_BUILD: '1',
+        ASTANA_ISOLATED_PG_RUN_TOKEN: process.env.ASTANA_ISOLATED_PG_RUN_TOKEN,
+        ASTANA_ISOLATED_PG_URL: databaseUrl,
+      } : {}),
       ASTANA_HARNESS_CHILD: '1', ASTANA_HARNESS_BLOB_ORIGIN: blobOrigin,
       ASTANA_HARNESS_APP_ORIGIN: appOrigin, ASTANA_HARNESS_APP_PORT: String(appPort),
       TEMP: tempRoot, TMP: tempRoot,

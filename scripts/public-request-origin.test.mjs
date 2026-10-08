@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { isTrustedLocalDevelopmentOrigin, isTrustedVercelDeploymentOrigin } from '../src/server/public-request-origin.ts';
+import { deploymentResourceFingerprint, stagingResourceBinding } from '../src/server/preview-safety.ts';
 
-const keys = ['VERCEL', 'VERCEL_ENV', 'VERCEL_URL', 'VERCEL_BRANCH_URL'];
+const keys = ['VERCEL', 'VERCEL_ENV', 'VERCEL_TARGET_ENV', 'VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_ID', 'DATABASE_URL', 'DATABASE_RESOURCE_ID', 'BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN', 'STAGING_WRITE_ENABLED', 'STAGING_MAIL_OVERRIDE_TO', 'STAGING_DATABASE_MARKER', 'STAGING_RESOURCE_BINDING_SHA256', 'PRODUCTION_DATABASE_FINGERPRINT_SHA256', 'PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256', 'PRODUCTION_BLOB_FINGERPRINT_SHA256', 'PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256'];
 
 function withVercelEnvironment(values, callback) {
   const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
@@ -48,6 +49,31 @@ test('preview may use the exact deployment or branch URL, but local env spoofing
     VERCEL_URL: 'likvidacia-eternitu-sk-abc123.vercel.app',
   }, () => {
     assert.equal(isTrustedVercelDeploymentOrigin('https://likvidacia-eternitu-sk-abc123.vercel.app'), false);
+  });
+});
+
+test('custom Staging trusts only its exact deployment origin after resource verification', () => {
+  const environment = {
+    VERCEL: '1', VERCEL_ENV: 'preview', VERCEL_TARGET_ENV: 'staging',
+    VERCEL_URL: 'likvidacia-eternitu-sk-staging-abc.vercel.app',
+    VERCEL_BRANCH_URL: 'likvidacia-eternitu-sk-git-feature.vercel.app',
+    VERCEL_PROJECT_ID: 'prj_astana', DATABASE_URL: 'postgresql://staging.invalid/astana',
+    DATABASE_RESOURCE_ID: 'provider-project-staging/branch-staging/astana',
+    BLOB_READ_WRITE_TOKEN: 'staging-blob', PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'staging-photo-blob', STAGING_WRITE_ENABLED: 'true',
+    STAGING_MAIL_OVERRIDE_TO: 'qa@example.test',
+    STAGING_DATABASE_MARKER: 'b'.repeat(64),
+    PRODUCTION_DATABASE_FINGERPRINT_SHA256: deploymentResourceFingerprint('postgresql://production.invalid/astana'),
+    PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint('provider-project-production/branch-production/astana'),
+    PRODUCTION_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint('production-blob'),
+    PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint('production-photo-blob'),
+  };
+  environment.STAGING_RESOURCE_BINDING_SHA256 = stagingResourceBinding(environment);
+  withVercelEnvironment(environment, () => {
+    assert.equal(isTrustedVercelDeploymentOrigin('https://likvidacia-eternitu-sk-staging-abc.vercel.app'), true);
+    assert.equal(isTrustedVercelDeploymentOrigin('https://likvidacia-eternitu-sk-git-feature.vercel.app'), false);
+  });
+  withVercelEnvironment({ ...environment, STAGING_RESOURCE_BINDING_SHA256: '0'.repeat(64) }, () => {
+    assert.equal(isTrustedVercelDeploymentOrigin('https://likvidacia-eternitu-sk-staging-abc.vercel.app'), false);
   });
 });
 

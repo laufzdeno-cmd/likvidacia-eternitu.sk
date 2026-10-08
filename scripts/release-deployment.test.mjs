@@ -86,6 +86,26 @@ test('verify-only binds candidate, rollback and current production without POST'
   assert.ok(f.calls.every((call) => Object.keys(call.headers).length === 1), 'requests expose only Authorization');
 });
 
+test('custom Staging verification requires READY staging target bound to the guarded SHA', async () => {
+  const stagingId = 'dpl_Staging123';
+  const f = fixture({ deployments: {
+    [stagingId]: { id: stagingId, projectId: env.VERCEL_PROJECT_ID, target: 'staging', readyState: 'READY', gitSource: { sha: candidateSha } },
+  } });
+  const result = await runReviewedDeployment({
+    argv: ['--staging', '--candidate-deployment', stagingId], env, fetchImpl: f.fetchImpl, guardRunner: async () => guarded(),
+  });
+  assert.equal(result.action, 'verified-staging');
+  assert.equal(f.calls.some((call) => call.method === 'POST'), false);
+
+  const wrongTarget = fixture({ deployments: {
+    [stagingId]: { id: stagingId, projectId: env.VERCEL_PROJECT_ID, target: 'preview', readyState: 'READY', gitSource: { sha: candidateSha } },
+  } });
+  await assert.rejects(
+    () => runReviewedDeployment({ argv: ['--staging', '--candidate-deployment', stagingId], env, fetchImpl: wrongTarget.fetchImpl, guardRunner: async () => guarded() }),
+    /prostredia staging/,
+  );
+});
+
 test('promote uses official API and verifies the candidate is Current afterwards', async () => {
   const f = fixture({ afterPromoteChecks: [rollbackId, rollbackId] });
   let guardCalls = 0;

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { deploymentRequestBlocked } from './src/server/preview-safety';
 
 export function proxy(request: NextRequest) {
-  if (deploymentRequestBlocked(process.env.VERCEL_ENV, process.env.NODE_ENV, request.method, request.nextUrl.pathname)) {
+  if (deploymentRequestBlocked(process.env, request.method, request.nextUrl.pathname, request.nextUrl.hostname)) {
     return NextResponse.json(
       { error: 'Testovacia verzia neprijíma odoslania, kým nemá oddelené úložisko.' },
       {
@@ -25,5 +25,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*', '/admin/:path*', '/spolupraca/fotky/:path*'],
+  matcher: ['/api/:path*', '/admin/:path*', '/spolupraca/fotky/:path*', '/dopyt-prijaty/:path*'],
 };

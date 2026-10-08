@@ -1,6 +1,6 @@
 import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import { ANALYTICS_EVENTS_LIMIT, bratislavaMidnightUtc, dateInBratislava, getAnalyticsPeriod, getMeasuredSessionSets, getSequentialMeasuredFunnel, getSessionEntryDevice, getSessionEntryEvents, limitAnalyticsEventRows, summarizeCrmCohort, type AnalyticsPeriod } from './analytics-metrics';
 import { isApproximateLocality, isPhotoCategory, isPublishableRealizationLocality } from './photo-intake-policy';
@@ -14,7 +14,6 @@ import { isValidIsoCalendarDate } from '../lib/date-only';
 import { priceOfferNumberYear } from '../lib/price-offer-number-year';
 import {
   shouldFallbackToDefaultSiteContent,
-  shouldInitializeSiteContentSchema,
   shouldUseDefaultSiteContent,
 } from './site-content-build-policy';
 import type {
@@ -104,7 +103,7 @@ import { summarizeLeadAttribution } from './lead-attribution-report';
 import { persistAcceptedLeadAnalyticsBatch } from './analytics-recovery';
 import { careerCvUploadContentTypes, isCareerCvUploadPath, validateCareerCvReservation } from './career-cv-policy';
 import type { ApplicationRecipientResult } from './application-notification-policy';
-import { deploymentDatabaseAccessBlocked } from './preview-safety';
+import { deploymentDatabaseAccessBlocked, isVerifiedIsolatedStaging, isVerifiedLocalBuildHarness, runtimeSchemaInitializationAllowed, stagingDatabaseMarkerMatches } from './preview-safety';
 import { mergeLatestTestClassifications } from './local-lead-test-classification';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
@@ -367,6 +366,10 @@ async function cleanupLegacyData(db: Pool | PoolClient) {
 
 async function ensureSchema() {
   if (schemaReady) return;
+  if (!runtimeSchemaInitializationAllowed()) {
+    schemaReady = true;
+    return;
+  }
   schemaInitialization ??= initializeSchema().catch((error) => {
     schemaInitialization = undefined;
     throw error;
@@ -1427,6 +1430,26 @@ async function initializeSchema() {
     .digest('hex');
   const client = await db.connect();
   try {
+    if (isVerifiedLocalBuildHarness()) {
+      const expectedToken = process.env.ASTANA_ISOLATED_PG_RUN_TOKEN?.trim().toLowerCase() ?? '';
+      const marker = await client.query(
+        'SELECT run_token FROM astana_isolated_runner_guard WHERE run_token = $1 LIMIT 1',
+        [expectedToken],
+      );
+      const actualToken = typeof marker.rows[0]?.run_token === 'string' ? marker.rows[0].run_token.trim().toLowerCase() : '';
+      if (marker.rowCount !== 1 || actualToken.length !== expectedToken.length
+        || !timingSafeEqual(Buffer.from(actualToken), Buffer.from(expectedToken))) {
+        throw new Error('Isolated build database marker does not match the owned test run.');
+      }
+    }
+    if (isVerifiedIsolatedStaging()) {
+      const marker = await client.query(
+        "SELECT marker FROM astana_environment_guard WHERE environment = 'staging' LIMIT 1",
+      );
+      if (marker.rowCount !== 1 || !stagingDatabaseMarkerMatches(marker.rows[0]?.marker)) {
+        throw new Error('Staging database identity marker does not match the configured isolated environment.');
+      }
+    }
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock($1, $2)', [1377690931, 1]);
     const workersTableExisted = (await client.query("SELECT to_regclass('workers') AS relation")).rows[0]?.relation !== null;
@@ -10564,8 +10587,8 @@ export async function recordRooferEvent(
 export async function listSiteContent(): Promise<SiteContentItem[]> {
   const phase = process.env.NEXT_PHASE;
   if (shouldUseDefaultSiteContent(phase, Boolean(databaseUrl))) return [];
+  await ensureSchema();
   const db = getPool();
-  if (shouldInitializeSiteContentSchema(phase)) await ensureSchema();
   if (!db) {
     const local = await readLocalDb();
     return [...local.siteContent].sort((a, b) => a.key.localeCompare(b.key));
@@ -11293,6 +11316,7 @@ export async function listAnalyticsEvents(days = 30): Promise<AnalyticsEvent[]> 
 }
 
 async function getAnalyticsCrmCohort(since: string) {
+  await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();

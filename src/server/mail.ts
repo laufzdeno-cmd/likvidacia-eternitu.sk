@@ -6,6 +6,7 @@ import type { ApplicationNotificationRecipient } from './types';
 import type { BusinessJob, CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
+import { isCustomStagingTarget, stagingMailOverride } from './preview-safety';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
@@ -21,6 +22,23 @@ function namedFromHeader(name: string) {
 
 function mailConfigured() {
   return Boolean(process.env.SMTP_HOST && fromEmail() && process.env.LEAD_TO_EMAIL);
+}
+
+export function resolveOutboundEmailRecipient(recipient: string) {
+  const override = stagingMailOverride();
+  if (override) return override;
+  if (isCustomStagingTarget()) {
+    throw new Error('Staging email is blocked without a verified single-recipient override.');
+  }
+  return recipient;
+}
+
+function resolveOutboundEmailCc(recipient: string | undefined) {
+  if (stagingMailOverride()) return undefined;
+  if (isCustomStagingTarget()) {
+    throw new Error('Staging email is blocked without a verified single-recipient override.');
+  }
+  return recipient;
 }
 
 export function isLeadSmtpConfigured() {
@@ -56,6 +74,7 @@ function assertAstanaSender() {
 
 function transporter(options: { applicationNotification?: boolean } = {}) {
   if (!mailConfigured()) return null;
+  resolveOutboundEmailRecipient(leadRecipient());
   if (/[;,]/.test(leadRecipient())) {
     throw new Error('LEAD_TO_EMAIL musí obsahovať iba jednu internú adresu; viac adries vyžaduje samostatné sledovanie doručenia.');
   }
@@ -331,7 +350,7 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
     : await client
     .sendMail({
       from: namedFromHeader('ASTANA likvidácia azbestu'),
-      to: lead.email,
+      to: resolveOutboundEmailRecipient(lead.email),
       replyTo: leadRecipient(),
       subject: customerLeadEmailSubject,
       text: customerLeadEmailText(lead),
@@ -356,7 +375,7 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
     : await client
     .sendMail({
       from: namedFromHeader('ASTANA systém'),
-      to: leadRecipient(),
+      to: resolveOutboundEmailRecipient(leadRecipient()),
       replyTo: leadRecipient(),
       subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
       text: adminLeadEmailText(lead, businessJobId, fileCount),
@@ -488,7 +507,7 @@ export async function sendLeadEmailToRecipient(
     const info = await client.sendMail(isCustomer
       ? {
           from: namedFromHeader('ASTANA likvidácia azbestu'),
-          to: lead.email,
+          to: resolveOutboundEmailRecipient(lead.email),
           replyTo: leadRecipient(),
           subject: customerLeadEmailSubject,
           text: customerLeadEmailText(lead),
@@ -496,7 +515,7 @@ export async function sendLeadEmailToRecipient(
         }
       : {
           from: namedFromHeader('ASTANA systém'),
-          to: leadRecipient(),
+          to: resolveOutboundEmailRecipient(leadRecipient()),
           replyTo: leadRecipient(),
           subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
           text: adminLeadEmailText(lead, businessJobId, fileCount),
@@ -525,7 +544,7 @@ export async function sendBusinessQuoteEmail(job: BusinessJob, input: { validUnt
 
   await client.sendMail({
     from: namedFromHeader('ASTANA likvidácia azbestu'),
-    to: job.customerEmail,
+    to: resolveOutboundEmailRecipient(job.customerEmail),
     replyTo: leadRecipient(),
     subject: `ASTANA — cenová ponuka pre ${plainText(job.location)}`,
     text: [
@@ -559,7 +578,7 @@ export async function sendPlannerNotificationEmail(input: { to: string; subject:
   try {
     const info = await client.sendMail({
       from: namedFromHeader('ASTANA plánovač'),
-      to: input.to,
+      to: resolveOutboundEmailRecipient(input.to),
       replyTo: input.replyTo || leadRecipient(),
       subject: input.subject,
       text: input.text,
@@ -808,17 +827,18 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
   const location = offer.municipality || offer.objectAddress || offer.district;
 
   try {
+    const requiredRecipient = resolveOutboundEmailRecipient(offer.email);
     const info = await client.sendMail({
       from: namedFromHeader('ASTANA s.r.o. - likvidácia azbestu'),
-      to: offer.email,
-      cc: c.email,
+      to: requiredRecipient,
+      cc: resolveOutboundEmailCc(c.email),
       replyTo: c.email,
       subject: `Cenová ponuka č. ${offer.number} — ASTANA likvidácia azbestu | ${location}`,
       text: priceOfferEmailText(offer, settings),
       html: priceOfferEmailHtml(offer, settings),
       attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],
     });
-    const status = classifyRequiredSmtpRecipient(info, offer.email);
+    const status = classifyRequiredSmtpRecipient(info, requiredRecipient);
     if (status !== 'sent') {
       return {
         status: status === 'failed' ? 'not_sent' as const : 'unknown' as const,
@@ -994,7 +1014,7 @@ export async function sendRooferRegistrationNotification(
 
       const info = await client.sendMail({
     from: namedFromHeader('ASTANA systém'),
-    to: leadRecipient(),
+    to: resolveOutboundEmailRecipient(leadRecipient()),
     replyTo: input.email,
     subject: `[STRECHÁR] Nová registrácia — ${input.companyName}`,
     text: adminText,
@@ -1006,7 +1026,7 @@ export async function sendRooferRegistrationNotification(
 
     const info = await client.sendMail({
     from: namedFromHeader('ASTANA likvidácia azbestu'),
-    to: input.email,
+    to: resolveOutboundEmailRecipient(input.email),
     replyTo: leadRecipient(),
     subject: 'Prijali sme vašu registráciu — ASTANA',
     text: [

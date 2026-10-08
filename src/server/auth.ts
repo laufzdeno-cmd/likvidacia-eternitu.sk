@@ -162,7 +162,9 @@ export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'nam
   const temporaryEmail = process.env.TEMP_ADMIN_EMAIL || '';
   const fallbackEmail = temporaryEmail || configuredEmail;
   const hasConfiguredCredential = Boolean(
-    (temporaryEmail && process.env.TEMP_ADMIN_PASSWORD_HASH) || process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD,
+    (temporaryEmail && process.env.TEMP_ADMIN_PASSWORD_HASH)
+      || process.env.ADMIN_PASSWORD_HASH
+      || (process.env.NODE_ENV !== 'production' && process.env.ADMIN_PASSWORD),
   );
   if (!lookupFailed && process.env.NODE_ENV !== 'production' && fallbackEmail && email.toLowerCase() === fallbackEmail.toLowerCase()) {
     return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true };
@@ -257,7 +259,7 @@ export async function verifyAdminCredentials(email: string, password: string) {
     return verifyHash(password, process.env.ADMIN_PASSWORD_HASH);
   }
 
-  if (process.env.ADMIN_PASSWORD) {
+  if (process.env.NODE_ENV !== 'production' && process.env.ADMIN_PASSWORD) {
     return password === process.env.ADMIN_PASSWORD;
   }
 

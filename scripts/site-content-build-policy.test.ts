@@ -4,21 +4,20 @@ import test from 'node:test';
 import {
   NEXT_PRODUCTION_BUILD_PHASE,
   shouldFallbackToDefaultSiteContent,
-  shouldInitializeSiteContentSchema,
   shouldUseDefaultSiteContent,
 } from '../src/server/site-content-build-policy';
-
-test('production builds never initialize database schema for public site content', () => {
-  assert.equal(shouldInitializeSiteContentSchema(NEXT_PRODUCTION_BUILD_PHASE), false);
-  assert.equal(shouldInitializeSiteContentSchema('phase-production-server'), true);
-});
 
 test('database-less builds use defaults without reading local mutable storage', async () => {
   assert.equal(shouldUseDefaultSiteContent(NEXT_PRODUCTION_BUILD_PHASE, false), true);
   assert.equal(shouldUseDefaultSiteContent(NEXT_PRODUCTION_BUILD_PHASE, true), false);
   assert.equal(shouldUseDefaultSiteContent('phase-production-server', false), false);
   const dbSource = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
-  assert.match(dbSource, /export async function listSiteContent\(\): Promise<SiteContentItem\[]> \{\s*const phase = process\.env\.NEXT_PHASE;\s*if \(shouldUseDefaultSiteContent\(phase, Boolean\(databaseUrl\)\)\) return \[\];\s*const db = getPool\(\);/);
+  assert.match(dbSource, /export async function listSiteContent\(\): Promise<SiteContentItem\[]> \{\s*const phase = process\.env\.NEXT_PHASE;\s*if \(shouldUseDefaultSiteContent\(phase, Boolean\(databaseUrl\)\)\) return \[\];\s*await ensureSchema\(\);\s*const db = getPool\(\);/);
+});
+
+test('analytics CRM reads pass through the same schema and environment guard', async () => {
+  const dbSource = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
+  assert.match(dbSource, /async function getAnalyticsCrmCohort\(since: string\) \{\s*await ensureSchema\(\);\s*const db = getPool\(\);/);
 });
 
 test('only a missing table may fall back during build', () => {

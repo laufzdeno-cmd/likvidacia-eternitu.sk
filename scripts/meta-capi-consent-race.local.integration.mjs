@@ -48,7 +48,9 @@ try {
   const missingSecretSubject = randomUUID();
   delete process.env.CONVERSION_EVENT_SECRET;
   process.env.NODE_ENV = 'production';
+  process.env.VERCEL = '1';
   process.env.VERCEL_ENV = 'production';
+  process.env.VERCEL_TARGET_ENV = 'production';
   const withoutOutbox = await db.createLeadSubmission(makeLead(randomUUID(), missingSecretSubject), []);
   local = JSON.parse(await readFile(localDbPath, 'utf8'));
   assert.equal(local.metaCapiOutbox.some((row) => row.leadId === withoutOutbox.lead.id), false);
@@ -61,7 +63,9 @@ try {
 
   process.env.CONVERSION_EVENT_SECRET = 'isolated-local-conversion-secret';
   process.env.NODE_ENV = 'test';
+  delete process.env.VERCEL;
   delete process.env.VERCEL_ENV;
+  delete process.env.VERCEL_TARGET_ENV;
   const concurrentSubject = randomUUID();
   const [concurrentLead] = await Promise.all([
     db.createLeadSubmission(makeLead(randomUUID(), concurrentSubject), []),

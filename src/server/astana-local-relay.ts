@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { CareerApplication, Lead } from './types';
+import { isCustomStagingTarget } from './preview-safety';
 
 export type LeadDeliveryResult = {
   sent: boolean;
@@ -23,6 +24,7 @@ export type LeadRecipientDeliveryRecorder = {
 };
 
 export function leadDeliveryMode(): LeadDeliveryMode {
+  if (isCustomStagingTarget()) return 'smtp';
   const value = process.env.LEAD_EMAIL_DELIVERY_MODE?.trim().toLowerCase();
   if (value === 'local_relay' || value === 'smtp_then_local_relay') return value;
   return 'smtp';
@@ -45,6 +47,7 @@ function relayResult(reason: string, definitelyNotSent = false): LeadDeliveryRes
 }
 
 function relayConfiguration(): { endpoint: URL; secret: string } | { reason: string } {
+  if (isCustomStagingTarget()) return { reason: 'Lokálny relay je v testovacom prostredí vypnutý.' };
   const url = process.env.ASTANA_RELAY_URL?.trim();
   const secret = process.env.ASTANA_RELAY_SECRET;
   if (!url || !secret || secret.length < 32) return { reason: 'Lokálny relay nie je nastavený.' };
