@@ -18,6 +18,7 @@ test('current Vercel evidence keeps production, Preview and Staging claims separ
   assert.match(snapshot, /`PHOTO_INTAKE_\*` a `PHOTO_UPLOAD_SESSION_SECRET` \| chýbajú/);
   assert.match(snapshot, /hodnoty sa pri tejto kontrole neotvárali/i);
   assert.match(snapshot, /živého Preview[^\n]+\*\*NOT VERIFIED\*\*/);
+  assert.match(snapshot, /opakovaný read-only review vydal \*\*PASS bez zostávajúceho P1–P3 nálezu\*\*/);
   assert.doesNotMatch(snapshot, /(?:postgres(?:ql)?|https?):\/\/[^\s`]+:[^\s`]+@/i);
   assert.doesNotMatch(snapshot, /(?:value|hodnota)\s*[:=]\s*["'][^"']+["']/i);
   for (const name of [
