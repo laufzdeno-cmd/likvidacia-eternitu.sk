@@ -144,6 +144,12 @@ export default function initializeHomepageCriticalClient({
       status.textContent = message;
     };
 
+    const focusSubmitConfirmation = () => {
+      if (!status) return;
+      status.tabIndex = -1;
+      status.focus({ preventScroll: true });
+    };
+
     const applyNativeSubmitResult = async () => {
       if (!form) return;
       const url = new URL(window.location.href);
@@ -187,6 +193,7 @@ export default function initializeHomepageCriticalClient({
           setStatus(verifiedReceipt.emailSent === true
             ? 'Dopyt sme prijali a potvrdenie sme odoslali.'
             : 'Dopyt sme prijali. Potvrdenie emailom ešte overujeme; nemusíte ho odosielať znova.', 'success');
+          focusSubmitConfirmation();
         } else {
           setStatus('Výsledok odoslania sa nepodarilo bezpečne overiť. Dopyt zatiaľ neposielajte znova; zavolajte nám na 0905 217 946.', 'error');
         }
@@ -340,6 +347,7 @@ export default function initializeHomepageCriticalClient({
     const clearStatus = () => {
       if (!status) return;
       status.classList.remove('is-submit-success', 'is-success', 'is-error', 'is-loading');
+      status.removeAttribute('tabindex');
       status.textContent = '';
     };
 
@@ -417,6 +425,22 @@ export default function initializeHomepageCriticalClient({
         dot.classList.toggle('is-active', index === activeFormStep);
         dot.classList.toggle('is-complete', index < activeFormStep);
       });
+    };
+
+    const onMobileStepMediaChange = (event: MediaQueryListEvent) => {
+      if (event.matches && formStages.length) {
+        const focusedElement = document.activeElement;
+        const focusedStageIndex = focusedElement instanceof Element
+          ? formStages.findIndex((stage) => stage.contains(focusedElement))
+          : -1;
+        if (focusedStageIndex >= 0) {
+          activeFormStep = focusedStageIndex;
+        } else if (focusedElement instanceof Element && form?.contains(focusedElement)
+          && focusedElement.closest('.mobile-final-control')) {
+          activeFormStep = formStages.length - 1;
+        }
+      }
+      renderFormStep();
     };
 
     const goToFormStep = (nextStep: number, validateCurrent = false) => {
@@ -652,6 +676,7 @@ export default function initializeHomepageCriticalClient({
         if (result.metaLead) dispatchMetaLead(result.metaLead);
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail, result.emailSent === true);
+        focusSubmitConfirmation();
       } catch (error) {
         if (error instanceof Error && 'retryPhotoPathname' in error && typeof error.retryPhotoPathname === 'string') {
           resetMissingLeadPhotoUpload(uploadedFilesByFingerprint, error.retryPhotoPathname);
@@ -749,7 +774,7 @@ export default function initializeHomepageCriticalClient({
     form?.addEventListener('input', onFormStart);
     form?.addEventListener('input', onValidationInput);
     form?.addEventListener('change', onValidationInput);
-    mobileStepMedia.addEventListener('change', renderFormStep);
+    mobileStepMedia.addEventListener('change', onMobileStepMediaChange);
     if (!clickAnalyticsAlreadyTracked) document.addEventListener('click', onAnalyticsClick);
     document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     if (!pageViewAlreadyTracked) trackAnalytics('page_view');
@@ -871,7 +896,7 @@ export default function initializeHomepageCriticalClient({
       form?.removeEventListener('input', onFormStart);
       form?.removeEventListener('input', onValidationInput);
       form?.removeEventListener('change', onValidationInput);
-      mobileStepMedia.removeEventListener('change', renderFormStep);
+      mobileStepMedia.removeEventListener('change', onMobileStepMediaChange);
       if (!clickAnalyticsAlreadyTracked) document.removeEventListener('click', onAnalyticsClick);
       document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       heroSectionObserver?.disconnect();

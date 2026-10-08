@@ -33,6 +33,7 @@ function newSubmissionId() {
 
 export default function CareerFormClient() {
   const formRef = useRef<HTMLFormElement>(null);
+  const messageRef = useRef<HTMLParagraphElement>(null);
   const pendingCvUpload = useRef<{ submissionId: string; sha256: string; pathname: string } | null>(null);
   const submissionIdRef = useRef('');
   const lastAttempt = useRef<{ fingerprint: string; submissionId: string } | null>(null);
@@ -55,6 +56,10 @@ export default function CareerFormClient() {
     submissionIdRef.current = initialId;
     setSubmissionIdState(initialId);
   }, []);
+
+  useEffect(() => {
+    if (isSuccess) messageRef.current?.focus({ preventScroll: true });
+  }, [isSuccess]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -180,8 +185,18 @@ export default function CareerFormClient() {
     }
   }
 
+  const messageIsError = Boolean(message && !isAccepted && !isSuccess && !isSubmitting);
+  const messageStateClass = !message ? '' : isAccepted ? ' is-warning' : isSuccess ? ' is-success' : isSubmitting ? '' : ' is-error';
+  const messageStyleClass = !message || isSubmitting
+    ? ''
+    : isAccepted
+      ? styles.warning
+      : isSuccess
+        ? styles.success
+        : styles.error;
+
   return (
-    <form ref={formRef} className={`career-application-form ${styles.applicationForm}`} onSubmit={submit} noValidate>
+    <form ref={formRef} className={`career-application-form ${styles.applicationForm}`} onSubmit={submit} noValidate aria-busy={isSubmitting}>
       <input type="hidden" name="submissionId" value={submissionId} />
       <div className={`career-honeypot ${styles.honeypot}`} aria-hidden="true">
         <label>Webová stránka<input name="companyWebsite" tabIndex={-1} autoComplete="new-password" disabled data-submit-disabled /></label>
@@ -219,7 +234,16 @@ export default function CareerFormClient() {
       </div>
       <button className={`button button-primary career-submit ${styles.submit}`} type="submit" disabled={isSubmitting || !submissionId}>{isSubmitting ? 'Odosielame…' : 'Poslať krátku žiadosť'}</button>
       <p className={`career-form-help ${styles.formHelp}`}>Bez životopisu je to v poriadku. Ozveme sa vám telefonicky alebo e-mailom.</p>
-      {message ? <p className={`career-form-message${isAccepted ? ' is-warning' : isSuccess ? ' is-success' : ' is-error'} ${styles.formMessage} ${isAccepted ? styles.warning : isSuccess ? styles.success : styles.error}`} role="status">{message}</p> : null}
+      <p
+        ref={messageRef}
+        className={`career-form-message ${styles.formMessage}${messageStateClass}${messageStyleClass ? ` ${messageStyleClass}` : ''}`}
+        role={messageIsError ? 'alert' : 'status'}
+        aria-live={messageIsError ? 'assertive' : 'polite'}
+        aria-atomic="true"
+        tabIndex={isSuccess ? -1 : undefined}
+      >
+        {message}
+      </p>
     </form>
   );
 }

@@ -21,6 +21,11 @@ test('process-page presentation is owned by the /postup route', () => {
   const buildHarness = readFileSync('scripts/photo-intake-browser.integration.mjs', 'utf8');
 
   assert.match(page, /<main className="seo-page postup-process-page"/);
+  assert.match(
+    page,
+    /<PublicPageShell[^>]*breadcrumb=\{\{ name: 'Postup likvidácie', path: '\/postup\/' \}\}[^>]*hideWhatsappOnMobile>/,
+    '/postup/ must hide the floating WhatsApp on mobile through PublicPageShell',
+  );
   assert.match(layout, /import '\.\/postup-route\.css'/);
   assert.match(routeCss, /--postup-route-css:\s*1/);
   assert.match(routeCss, /body:has\(\.postup-process-page\) \.whatsapp-btn/);

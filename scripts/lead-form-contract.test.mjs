@@ -184,6 +184,11 @@ test('quote retry reuses unchanged uploaded blobs and rotates the ID when custom
   assert.match(homepageClient, /fileFingerprint: uploadGroup/);
   assert.match(homepageClient, /settleLeadPhotoUploadBatch\(uploads/);
   assert.match(leadUploadRoute, /fileFingerprint: z\.string\(\)\.regex\(\/\^\[0-9a-f\]\{64\}\$\/\)\.optional\(\)/);
+  assert.match(leadUploadRoute, /contentType: z\.string\(\)\.refine\([\s\S]*?\)\.optional\(\)/,
+    'older open tabs may omit pre-upload metadata while the Blob callback still verifies it');
+  assert.match(leadUploadRoute, /sizeBytes: z\.number\(\)\.int\(\)\.min\(1\)\.max\(maxLeadFileSize\)\.optional\(\)/);
+  assert.match(leadUploadRoute, /\(payload\.contentType === undefined\) !== \(payload\.sizeBytes === undefined\)/,
+    'new clients must provide content type and size together');
   assert.match(leadUploadRoute, /reserveLeadUploadDraft\([\s\S]*?payload\.submissionId,[\s\S]*?pathname,[\s\S]*?predecessors,[\s\S]*?'vercel_blob',[\s\S]*?payload\.fileFingerprint,[\s\S]*?payload\.contentType,[\s\S]*?payload\.sizeBytes/);
   assert.match(leadUploadRoute, /if \(!isExpectedPath\(predecessor, payload\.submissionId\)\)/);
   assert.match(leadUploadRoute, /allowOverwrite: false/);
@@ -347,7 +352,10 @@ test('lead, linked job, files, audits, and email outbox are committed in one res
   assert.match(leadUploadRoute, /payload\.contentType,[\s\S]*?payload\.sizeBytes/);
   assert.match(leadUploadRoute, /callbackUrl: immutableDeploymentCallbackUrl\(\)/);
   assert.match(leadUploadRoute, /const metadata = await head\(blob\.pathname\)/);
-  assert.match(leadUploadRoute, /metadata\.contentType !== payload\.contentType \|\| metadata\.size !== payload\.sizeBytes/);
+  assert.match(leadUploadRoute, /allowedFileTypes\.has\(metadata\.contentType\)[\s\S]*?metadata\.size >= 1[\s\S]*?metadata\.size <= maxLeadFileSize/,
+    'legacy callbacks must validate the actual stored type and size');
+  assert.match(leadUploadRoute, /payload\.contentType === undefined \|\| metadata\.contentType === payload\.contentType/);
+  assert.match(leadUploadRoute, /payload\.sizeBytes === undefined \|\| metadata\.size === payload\.sizeBytes/);
   assert.match(database, /const client = await db\.connect\(\);[\s\S]{0,180}await client\.query\('BEGIN'\)/);
   assert.match(database, /ON CONFLICT \(submission_id\) DO NOTHING RETURNING \*/);
   assert.match(database, /CREATE UNIQUE INDEX IF NOT EXISTS leads_submission_id_uq/);

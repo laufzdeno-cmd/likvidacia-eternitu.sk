@@ -83,6 +83,18 @@ test('mobile steps initialize, validate accessibly, and reset to step one', () =
     'moving away from a step must clear errors that would become hidden');
   assert.match(normalizedClient, /querySelector<HTMLElement>\('\[data-form-step-title\]'\)\?\.focus\(\{ preventScroll: true \}\)/,
     'the new step title must receive focus so assistive technology announces the transition');
+  assert.match(normalizedClient, /const onMobileStepMediaChange = \(event: MediaQueryListEvent\) => \{[\s\S]*?const focusedElement = document\.activeElement;[\s\S]*?formStages\.findIndex\(\(stage\) => stage\.contains\(focusedElement\)\)[\s\S]*?activeFormStep = focusedStageIndex;[\s\S]*?renderFormStep\(\); \};/,
+    'desktop-to-mobile transition must preserve the step that contains the focused control');
+  assert.match(normalizedClient, /mobileStepMedia\.addEventListener\('change', onMobileStepMediaChange\);/);
+  assert.match(normalizedClient, /mobileStepMedia\.removeEventListener\('change', onMobileStepMediaChange\);/);
+  assert.match(normalizedClient, /const focusSubmitConfirmation = \(\) => \{ if \(!status\) return; status\.tabIndex = -1; status\.focus\(\{ preventScroll: true \}\); \};/,
+    'the visible submit confirmation must be programmatically focusable and receive focus');
+  const nativeSuccess = sourceBetween(normalizedClient, 'if (verifiedReceipt?.accepted === true)', '} else {');
+  assert.match(nativeSuccess, /setStatus\([\s\S]*?'success'\); focusSubmitConfirmation\(\);/,
+    'verified native submission must focus its confirmation');
+  const javascriptSuccess = sourceBetween(normalizedClient, 'const result = await submitLeadForm(payload);', '} catch (error) {');
+  assert.match(javascriptSuccess, /setStatus\([\s\S]*?'success', 'submit',[\s\S]*?\); focusSubmitConfirmation\(\);/,
+    'JavaScript submission with or without photos must focus its confirmation');
 });
 
 test('mobile CSS hides inactive steps and stacks hero actions at 360px', () => {

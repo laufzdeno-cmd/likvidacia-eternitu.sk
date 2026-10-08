@@ -16,8 +16,14 @@ const uploadPayloadSchema = z.object({
   replacesPathname: z.string().trim().max(512).optional(),
   replacesPathnames: z.array(z.string().trim().max(512)).max(128).optional(),
   fileFingerprint: z.string().regex(/^[0-9a-f]{64}$/).optional(),
-  contentType: z.string().refine((value) => allowedFileTypes.has(value)),
-  sizeBytes: z.number().int().min(1).max(maxLeadFileSize),
+  // Older already-open tabs do not send these two fields. Their uploads remain
+  // safe because the callback and final lead admission verify the stored Blob.
+  contentType: z.string().refine((value) => allowedFileTypes.has(value)).optional(),
+  sizeBytes: z.number().int().min(1).max(maxLeadFileSize).optional(),
+}).superRefine((payload, context) => {
+  if ((payload.contentType === undefined) !== (payload.sizeBytes === undefined)) {
+    context.addIssue({ code: 'custom', message: 'Neúplné údaje o fotografii.' });
+  }
 });
 const uploadTokenWindowMs = 10 * 60_000;
 const maxTokensPerWindow = 40;
@@ -134,7 +140,13 @@ export async function POST(request: NextRequest) {
         const payload = uploadPayloadSchema.parse(JSON.parse(tokenPayload || '{}'));
         if (!isExpectedPath(blob.pathname, payload.submissionId)) throw new Error('Dokončená fotografia sa nezhoduje s rezerváciou.');
         const metadata = await head(blob.pathname);
-        if (metadata.pathname !== blob.pathname || metadata.contentType !== payload.contentType || metadata.size !== payload.sizeBytes) {
+        const validStoredMetadata = allowedFileTypes.has(metadata.contentType)
+          && Number.isInteger(metadata.size)
+          && metadata.size >= 1
+          && metadata.size <= maxLeadFileSize;
+        const expectedMetadataMatches = (payload.contentType === undefined || metadata.contentType === payload.contentType)
+          && (payload.sizeBytes === undefined || metadata.size === payload.sizeBytes);
+        if (metadata.pathname !== blob.pathname || !validStoredMetadata || !expectedMetadataMatches) {
           throw new Error('Dokončená fotografia sa nezhoduje s vybraným súborom.');
         }
         await markLeadUploadDraftUploaded(payload.submissionId, blob.pathname, {

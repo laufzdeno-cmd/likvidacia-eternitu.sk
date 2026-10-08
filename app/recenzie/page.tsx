@@ -23,6 +23,19 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   return (
     <PublicPageShell breadcrumb={{ name: 'Recenzie', path: '/recenzie/' }}>
       <main className="seo-page">
+        {receipt ? (
+          <p
+            id="referencia-potvrdenie"
+            className="seo-lead"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            tabIndex={-1}
+            autoFocus
+          >
+            Ďakujeme. Referenciu sme prijali na kontrolu a zobrazí sa až po schválení.
+          </p>
+        ) : null}
         <section className="seo-hero">
           <p className="eyebrow">Recenzie</p>
           <h1>Recenzie zákazníkov ASTANA</h1>
@@ -47,7 +60,6 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <p className="seo-lead">
             Referenciu najprv skontrolujeme. Samotné odoslanie neznamená automatické zverejnenie.
           </p>
-          {receipt ? <p role="status">Ďakujeme. Referenciu sme prijali na kontrolu a zobrazí sa až po schválení.</p> : null}
           <TestimonialForm initialSubmissionId={randomUUID()} />
           <div className="seo-included-list">
             <a href="/realizacie/">Pozrieť reálne fotky prác ASTANA</a>

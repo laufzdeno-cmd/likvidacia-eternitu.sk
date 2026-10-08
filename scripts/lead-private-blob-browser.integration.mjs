@@ -633,6 +633,10 @@ async function runTenPhotoUploadChecks(page, pglite, fake, appOrigin, tempRoot, 
   assert.equal(await page.locator('.form-status.is-error').count(), 0,
     `ten-photo form rejected submission: ${await page.locator('.form-status').innerText()}`);
   assert.equal(await page.locator('.lead-form.is-submitted').count(), 1, 'browser must show accepted lead');
+  assert.equal(await page.locator('.form-status').getAttribute('tabindex'), '-1',
+    'the ten-photo success confirmation must be programmatically focusable');
+  assert.equal(await page.locator('.form-status').evaluate((element) => document.activeElement === element), true,
+    'the ten-photo success confirmation must receive focus');
   assert.equal(leadPosts, 1, 'one click must produce exactly one lead POST');
   const leads = await pglite.query('SELECT id FROM leads WHERE submission_id = $1', [submissionId]);
   assert.equal(leads.rowCount, 1, 'ten photos must belong to one accepted lead');
@@ -677,6 +681,14 @@ async function runNoPhotoUiChecks(page, pglite, fake, appOrigin) {
   await page.locator('#dopyt').scrollIntoViewIfNeeded();
   await page.locator('#areaEstimate').focus();
   await page.waitForFunction(() => window.__astanaPhotoHandlerReady === true, null, { timeout: 30_000 });
+  await page.locator('#email').focus();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForFunction(() => document.querySelector('.lead-form')?.getAttribute('data-active-step') === '3');
+  assert.equal(await page.locator('#email').isVisible(), true,
+    'desktop-to-mobile transition must keep the focused contact field visible');
+  assert.equal(await page.locator('#email').evaluate((element) => document.activeElement === element), true,
+    'desktop-to-mobile transition must not lose focus from the active field');
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.locator('#areaEstimate').fill('120');
   await page.locator('#city').fill('Poprad');
   await page.locator('#materialType').selectOption('Vlnitý eternit');
@@ -692,6 +704,10 @@ async function runNoPhotoUiChecks(page, pglite, fake, appOrigin) {
   assert.equal(await page.locator('.form-status.is-error').count(), 0,
     `no-photo form rejected submission: ${await page.locator('.form-status').innerText()}`);
   assert.equal(await page.locator('.lead-form.is-submitted').count(), 1, 'the UI must show an accepted no-photo lead');
+  assert.equal(await page.locator('.form-status').getAttribute('tabindex'), '-1',
+    'the no-photo success confirmation must be programmatically focusable');
+  assert.equal(await page.locator('.form-status').evaluate((element) => document.activeElement === element), true,
+    'the no-photo success confirmation must receive focus');
   const confirmationText = await page.locator('.form-status').innerText();
   assert.match(confirmationText, /Dopyt sme prijali/, 'the UI must acknowledge the stored request');
   assert.match(confirmationText, /Potvrdenie emailom ešte overujeme/, 'pending email must be described honestly');
@@ -1345,6 +1361,14 @@ async function runTestimonialReceiptChecks(page, pglite, appOrigin) {
   assert.equal(response.headers.get('cache-control'), 'no-store');
   await page.goto(destination.href, { waitUntil: 'domcontentloaded' });
   assert.equal(await page.getByText(successText, { exact: true }).count(), 1, 'a saved native submission receives its confirmation');
+  const confirmation = page.locator('#referencia-potvrdenie');
+  await confirmation.waitFor({ state: 'visible' });
+  assert.equal(await confirmation.getAttribute('tabindex'), '-1', 'native confirmation must remain programmatically focusable');
+  assert.equal(await confirmation.evaluate((element) => document.activeElement === element), true,
+    'native confirmation must receive focus immediately after the redirect');
+  const confirmationBox = await confirmation.boundingBox();
+  assert.ok(confirmationBox && confirmationBox.y >= 0 && confirmationBox.y < (page.viewportSize()?.height || 1),
+    'native confirmation must be visible in the first viewport');
 
   const stored = await pglite.query('SELECT status, customer_name, customer_email FROM testimonials WHERE submission_id = $1', [submissionId]);
   assert.deepEqual(stored.rows, [{ status: 'draft', customer_name: 'Izolovaná skúška', customer_email: 'review-test@example.invalid' }]);
@@ -1792,9 +1816,13 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
       }
       assert.ok(Math.max(metrics.document, metrics.body) <= metrics.viewport + 1,
         `${route} overflows horizontally at ${viewport.width}px: ${JSON.stringify(metrics)}`);
-      if (['career', 'realizations'].includes(name) && viewport.width <= 760) {
+      if (['career', 'realizations', 'process'].includes(name) && viewport.width <= 760) {
         assert.equal(await page.locator('.whatsapp-btn').evaluate((button) => getComputedStyle(button).display), 'none',
           `${route} floating WhatsApp must not cover the mobile primary action at ${viewport.width}px`);
+      }
+      if (name === 'process' && viewport.width > 760) {
+        assert.notEqual(await page.locator('.whatsapp-btn').evaluate((button) => getComputedStyle(button).display), 'none',
+          `${route} floating WhatsApp must remain available on desktop at ${viewport.width}px`);
       }
       if (name === 'career' && [320, 390, 760, 761, 1024, 1440].includes(viewport.width)) {
         const firstInput = page.locator('.career-form-grid input').first();

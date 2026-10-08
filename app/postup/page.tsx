@@ -115,7 +115,7 @@ export default function ProcessPage() {
     'Likvidácia azbestu a eternitu začína približnou výmerou, lokalitou a fotkami. ASTANA potom pripraví ponuku, potrebný postup, bezpečnú demontáž, balenie, odvoz a dokumentáciu podľa konkrétnej zákazky.';
 
   return (
-    <PublicPageShell breadcrumb={{ name: 'Postup likvidácie', path: '/postup/' }}>
+    <PublicPageShell breadcrumb={{ name: 'Postup likvidácie', path: '/postup/' }} hideWhatsappOnMobile>
       <main className="seo-page postup-process-page" id="main-content">
         <JsonLd data={[buildServiceJsonLd('Vy pošlete pár údajov. My vybavíme zvyšok.', quickAnswer, '/postup/'), buildFaqJsonLd(processFaqs)]} />
 
