@@ -24,7 +24,8 @@ Strom aplikácie: `c3f12d8844c775ac3de1aa44406d08e515e47710`
 - strechárska lokálna validácia: 320 × 568 px, obe skupinové chyby viditeľné pri zaostrenom prvku, **0 odoslaných formulárov**,
 - admin review-request audit: **3 stavy × 13 viewportov = 39/39 PASS**, 0 odoslaných formulárov a 0 externých originov; chyba aj úspech mali správny aktívny prvok,
 - nezávislý produktový kontrolór: **PASS**,
-- nezávislý technický kontrolór po troch opravných iteráciách: **PASS**.
+- nezávislý technický kontrolór po troch opravných iteráciách: **PASS**,
+- bezpečnostný diff scan `b3026b4f-bc75-4813-8429-d9717b16c1f5`: **13/13 zmenených súborov preskúmaných, 0 nálezov**. Kontrola pokryla admin autentifikáciu a CSRF, pravdivosť stavu, query/redirect správanie, súbehy a idempotenciu, súkromné prílohy, ochranu osobných údajov a DoS hranice. Dvaja nezávislí kontrolóri vrátili `NO CANDIDATES`.
 
 ## Záver
 

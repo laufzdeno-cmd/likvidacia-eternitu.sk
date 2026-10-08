@@ -1759,3 +1759,9 @@ K staršiemu checkpointu samostatného pracovníka notifikácií: finálna read-
 - Admin žiadosť o recenziu sa označí ako odoslaná iba po výslovnom potvrdení, má lokálny pending stav, spoľahlivý fokus výsledku aj pri opakovanom rovnakom výsledku a ručný fallback pri odmietnutí schránky.
 - Dôkazy: **44/44 cielených kontraktov**, **393/393 MJS + 34/34 TypeScript**, izolovaný build **99/99** s BUILD_ID `JTcGAZ_fhpwrtFnTthxHg`, verejná matica **220/220**, admin matica **39/39**, produktový kontrolór **PASS** a technický kontrolór **PASS**. Formuláre ani emaily sa reálne neodosielali.
 - U03 je lokálne **PASS**. U09 zostáva **PARTIAL** iba pre chýbajúci fyzický test so skutočnou čítačkou obrazovky; U10 zostáva samostatná skúška s piatimi reálnymi ľuďmi. Podrobnosti sú v `U03-U09-FORM-USABILITY-AUDIT-2026-10-08.md`.
+
+### U03/U09 — bezpečnostné uzavretie formulárového rezu (8. 10. 2026)
+
+- Bezpečnostný diff scan `b3026b4f-bc75-4813-8429-d9717b16c1f5` skontroloval nemenný rozsah `e46b9ae75a0e4bb018bb001a25e34baef6fe0ab5..d0b1730a2aeba569d62be597259f834db7336ec2` a uzavrel **13/13 zmenených súborov bez nálezu**.
+- Pokrytie zahŕňalo admin reláciu a CSRF, pravdivosť stavu žiadosti o recenziu, query/redirect správanie, opakované odoslania a idempotenciu, súkromné CV/fotoprílohy, ochranu osobných údajov a DoS hranice. Dvaja nezávislí kontrolóri nad neprekrývajúcimi sa časťami vrátili `NO CANDIDATES`.
+- Kontrola bola výhradne lokálna a read-only voči runtime: bez produkcie, externých URL, reálnych formulárov, emailov, DB alebo Blob mutácií. Produkčné a ľudské akceptačné brány preto zostávajú otvorené podľa matice E8.
