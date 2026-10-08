@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { CareerApplication, Lead } from './types';
+import { formatLeadAreaCompact, isLeadAreaUnknown, leadAreaUnknownCode } from './lead-area';
 import { isCustomStagingTarget } from './preview-safety';
 
 export type LeadDeliveryResult = {
@@ -140,6 +141,8 @@ export async function sendLeadThroughAstanaLocalRelay(
     objectType: lead.objectType,
     materialType: lead.materialType,
     areaEstimate: lead.areaEstimate,
+    areaEstimateStatus: isLeadAreaUnknown(lead) ? leadAreaUnknownCode : '',
+    areaEstimateDisplay: formatLeadAreaCompact(lead),
     preferredContact: lead.preferredContact || '',
     term: lead.term || '',
     note: lead.note || '',

@@ -48,6 +48,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
   const [documentation, setDocumentation] = useState(offer?.documentationFeeWithoutVat ?? settings.documentationFee);
   const [validUntil, setValidUntil] = useState(initialValidUntil);
   const vatRate = offer?.vatRate ?? settings.vatRate;
+  const areaIsUnknown = area <= 0;
 
   const totals = useMemo(() => {
     const pricing = calculatePriceOfferPricing({ areaM2: area, pricePerM2WithoutVat: price,
@@ -91,7 +92,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
               Prepojenie na zákazku
               <select name="jobId" defaultValue={offer?.jobId || selectedJobId || ''}>
                 <option value="">Bez prepojenia</option>
-                {jobs.map((job) => <option key={job.id} value={job.id}>{job.customerName} · {job.location} · {job.m2} m2</option>)}
+                {jobs.map((job) => <option key={job.id} value={job.id}>{job.customerName} · {job.location} · {job.m2 > 0 ? `${job.m2} m2` : 'výmera neznáma'}</option>)}
               </select>
             </label>
           </div>
@@ -128,7 +129,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
                 {Object.entries(priceOfferMaterialLabels).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
             </label>
-            <label>Výmera m2<input name="areaM2" type="number" step="0.01" value={area || ''} onChange={(event) => setArea(n(event.target.value))} required /></label>
+            <label>Výmera m2<input name="areaM2" type="number" min="0.01" step="0.01" value={area || ''} onChange={(event) => setArea(n(event.target.value))} required />{areaIsUnknown ? <small>Výmera nie je vyplnená. Pred uložením ponuky ju doplňte.</small> : null}</label>
             <label>Cena za m2 bez DPH<input name="pricePerM2WithoutVat" type="number" step="0.01" value={price || ''} onChange={(event) => setPrice(n(event.target.value))} required /></label>
             <label className="admin-checkbox"><input name="includeDocumentation" type="checkbox" checked={includeDocumentation} onChange={(event) => setIncludeDocumentation(event.target.checked)} /> Zahrnúť dokumentáciu</label>
             <label>Cena dokumentácia bez DPH<input name="documentationFeeWithoutVat" type="number" step="0.01" value={documentation || ''} onChange={(event) => setDocumentation(n(event.target.value))} readOnly={!includeDocumentation || documentationPromotion} /></label>
@@ -172,7 +173,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
         <h2>{offer?.number ? `CP ${offer.number}` : 'Nová ponuka'}</h2>
         <dl>
           <dt>Materiál</dt>
-          <dd>{area} m2 × {euro(price)} = {euro(totals.material)}</dd>
+          <dd>{areaIsUnknown ? 'Výmera neznáma' : <>{area} m2 × {euro(price)} = {euro(totals.material)}</>}</dd>
           <dt>Dokumentácia</dt>
           <dd>{includeDocumentation && documentationPromotion ? <><del>{euro(documentation)}</del> AKCIA 0,00 €</> : euro(totals.docs)}</dd>
           {includeTransport ? <><dt>Doprava ({transportRoundTripKm} km × {euro(transportPricePerKm)}/km)</dt><dd>{euro(totals.transport)}</dd></> : null}

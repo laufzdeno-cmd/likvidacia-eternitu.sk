@@ -27,3 +27,12 @@ test('stará ponuková adresa smeruje do jediného aktuálneho zoznamu', async (
   assert.doesNotMatch(legacyList, /listQuotes|<table/);
   assert.match(legacyDetail, /getQuote\(id\)/);
 });
+
+test('stará verejná adresa overených informácií zachováva SEO hodnotu', async () => {
+  const config = (await import('../next.config.mjs')).default;
+  const redirects = await config.redirects();
+  assert.deepEqual(
+    redirects.find((item) => item.source === '/overene-informacie/'),
+    { source: '/overene-informacie/', destination: '/o-firme/', permanent: true },
+  );
+});

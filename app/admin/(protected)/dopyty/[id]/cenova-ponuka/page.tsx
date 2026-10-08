@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { getLeadWithFiles, getRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { createQuoteAction } from './actions';
 import QuoteLivePreview from './quote-live-preview';
+import { isLeadAreaUnknown } from '@/src/server/lead-area';
 
 function defaultValidUntil() {
   const date = new Date();
@@ -21,7 +22,8 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
   const roofersForSelect = selectedRoofer && !matchingRoofers.some((roofer) => roofer.id === selectedRoofer.id)
     ? [selectedRoofer, ...matchingRoofers]
     : matchingRoofers;
-  const transport = lead.areaEstimate >= 100 ? 0 : 80;
+  const areaUnknown = isLeadAreaUnknown(lead);
+  const transport = !areaUnknown && lead.areaEstimate >= 100 ? 0 : 80;
 
   return (
     <main className="admin-page">
@@ -45,7 +47,8 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
           </label>
           <label>
             Výmera m2
-            <input name="areaEstimate" type="number" step="0.01" defaultValue={lead.areaEstimate} />
+            <input name="areaEstimate" type="number" step="0.01" min="0.01" defaultValue={areaUnknown ? '' : lead.areaEstimate} required />
+            {areaUnknown ? <small>Výmera v pôvodnom dopyte nebola známa. Pred vytvorením ponuky ju doplňte.</small> : null}
           </label>
           <label>
             Cena za m2 bez DPH

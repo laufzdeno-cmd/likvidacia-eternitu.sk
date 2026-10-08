@@ -7,6 +7,7 @@ import type { CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { isCustomStagingTarget, stagingMailOverride } from './preview-safety';
+import { formatLeadAreaCompact } from './lead-area';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
@@ -193,7 +194,7 @@ function customerLeadEmailHtml(lead: Lead) {
               <div style="margin-bottom:12px;font-size:11px;font-weight:700;color:#687284;text-transform:uppercase;letter-spacing:0.08em;">Súhrn vášho dopytu</div>
               <div style="font-size:14px;color:#1C1B19;line-height:1.8;">
                 📍 <strong>Lokalita:</strong> ${escapeHtml(lead.city)}<br />
-                📐 <strong>Výmera:</strong> ${escapeHtml(lead.areaEstimate)} m2<br />
+                📐 <strong>Výmera:</strong> ${escapeHtml(formatLeadAreaCompact(lead))}<br />
                 🏗 <strong>Materiál:</strong> ${escapeHtml(lead.materialType)}<br />
                 🏠 <strong>Objekt:</strong> ${escapeHtml(lead.objectType)}<br />
                 📞 <strong>Kontakt:</strong> ${escapeHtml(lead.preferredContact || 'Zavolajte mi')}
@@ -243,7 +244,7 @@ function customerLeadEmailText(lead: Lead) {
     '',
     'Súhrn vášho dopytu:',
     `Lokalita: ${plainText(lead.city)}`,
-    `Výmera: ${plainText(lead.areaEstimate)} m2`,
+    `Výmera: ${plainText(formatLeadAreaCompact(lead))}`,
     `Materiál: ${plainText(lead.materialType)}`,
     `Typ objektu: ${plainText(lead.objectType)}`,
     `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
@@ -266,7 +267,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0) {
     ['Email', `<a href="mailto:${escapeHtml(lead.email)}" style="color:#185FA5;text-decoration:none;">${escapeHtml(lead.email)}</a>`],
     ['Lokalita', escapeHtml(lead.city)],
     ['Okres', escapeHtml(lead.district || '—')],
-    ['Výmera', `${escapeHtml(lead.areaEstimate)} m2`],
+    ['Výmera', escapeHtml(formatLeadAreaCompact(lead))],
     ['Materiál', escapeHtml(lead.materialType)],
     ['Objekt', escapeHtml(lead.objectType)],
     ['Kontakt', `<span style="display:inline-block;background:${contact.bg};color:${contact.color};border:1px solid ${contact.border};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;">${contact.label}</span>`],
@@ -316,7 +317,7 @@ function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
     `Email: ${plainText(lead.email)}`,
     `Lokalita: ${plainText(lead.city)}`,
     `Okres: ${plainText(lead.district || '—')}`,
-    `Výmera: ${plainText(lead.areaEstimate)} m2`,
+    `Výmera: ${plainText(formatLeadAreaCompact(lead))}`,
     `Materiál: ${plainText(lead.materialType)}`,
     `Objekt: ${plainText(lead.objectType)}`,
     `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
@@ -377,7 +378,7 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
       from: namedFromHeader('ASTANA systém'),
       to: resolveOutboundEmailRecipient(leadRecipient()),
       replyTo: leadRecipient(),
-      subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
+      subject: `🔔 ${plainText(lead.city)} | ${plainText(formatLeadAreaCompact(lead))} | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
       text: adminLeadEmailText(lead, businessJobId, fileCount),
       html: adminHtml,
     })
@@ -517,7 +518,7 @@ export async function sendLeadEmailToRecipient(
           from: namedFromHeader('ASTANA systém'),
           to: resolveOutboundEmailRecipient(leadRecipient()),
           replyTo: leadRecipient(),
-          subject: `🔔 ${plainText(lead.city)} | ${plainText(lead.areaEstimate)}m2 | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
+          subject: `🔔 ${plainText(lead.city)} | ${plainText(formatLeadAreaCompact(lead))} | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
           text: adminLeadEmailText(lead, businessJobId, fileCount),
           html: adminLeadEmailHtml(lead, businessJobId, fileCount),
         });

@@ -11,7 +11,8 @@ const analyticsSessionStorageKey = 'astana_analytics_session';
 const analyticsAttributionStorageKey = 'astana_analytics_attribution';
 const analyticsLastActivityStorageKey = 'astana_analytics_last_activity';
 const marketingRevocationPendingStorageKey = 'astana_marketing_revocation_pending';
-let marketingRevocationRequest: Promise<boolean> | null = null;
+const consentChoiceRevisionStorageKey = 'astana_consent_choice_revision';
+const marketingRevocationRequests = new Map<string, Promise<boolean>>();
 
 function removeSessionItem(key: string) {
   try {
@@ -50,19 +51,57 @@ export function ensureMarketingConsentSubject() {
   return subject;
 }
 
-function setMarketingRevocationPending(pending: boolean) {
+function setMarketingRevocationPending(subject: string) {
   try {
-    if (pending) window.localStorage.setItem(marketingRevocationPendingStorageKey, '1');
+    if (isMarketingConsentSubject(subject)) window.localStorage.setItem(marketingRevocationPendingStorageKey, subject);
     else window.localStorage.removeItem(marketingRevocationPendingStorageKey);
   } catch {
     // Private browsing may disable storage. The immediate request still runs.
   }
 }
 
+function clearMarketingRevocationPending(subject?: string) {
+  try {
+    const pending = window.localStorage.getItem(marketingRevocationPendingStorageKey);
+    if (!subject || pending === '1' || pending === subject) {
+      window.localStorage.removeItem(marketingRevocationPendingStorageKey);
+    }
+  } catch {
+    // Private browsing may disable storage. The immediate request still runs.
+  }
+}
+
+function clearMarketingConsentSubject(subject: string) {
+  if (marketingConsentSubject() !== subject) return;
+  const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${encodeURIComponent(marketingConsentSubjectCookieName)}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
+
 export function hasPendingMarketingRevocation() {
   if (typeof window === 'undefined') return false;
   try {
-    return window.localStorage.getItem(marketingRevocationPendingStorageKey) === '1';
+    const pending = window.localStorage.getItem(marketingRevocationPendingStorageKey) || '';
+    return pending === '1' || isMarketingConsentSubject(pending);
+  } catch {
+    return false;
+  }
+}
+
+export function beginConsentPreferenceChange() {
+  if (typeof window === 'undefined') return '';
+  const revision = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  try {
+    window.localStorage.setItem(consentChoiceRevisionStorageKey, revision);
+  } catch {
+    // A later asynchronous grant must fail closed when tabs cannot share state.
+  }
+  return revision;
+}
+
+export function isCurrentConsentPreferenceChange(revision: string) {
+  if (!revision || typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(consentChoiceRevisionStorageKey) === revision;
   } catch {
     return false;
   }
@@ -70,14 +109,16 @@ export function hasPendingMarketingRevocation() {
 
 export function revokePendingMetaCapiOutbox() {
   if (typeof window === 'undefined') return Promise.resolve(false);
-  if (marketingRevocationRequest) return marketingRevocationRequest;
-  marketingRevocationRequest = (async () => {
-    const subject = marketingConsentSubject();
-    if (!isMarketingConsentSubject(subject)) {
-      setMarketingRevocationPending(false);
-      return true;
-    }
-    setMarketingRevocationPending(true);
+  const subject = marketingConsentSubject();
+  if (!isMarketingConsentSubject(subject)) {
+    clearMarketingRevocationPending();
+    if (subject) clearMarketingConsentSubject(subject);
+    return Promise.resolve(true);
+  }
+  const existingRequest = marketingRevocationRequests.get(subject);
+  if (existingRequest) return existingRequest;
+  const request = (async () => {
+    setMarketingRevocationPending(subject);
     try {
       const response = await fetch('/api/marketing-consent/revoke/', {
         method: 'POST',
@@ -89,15 +130,18 @@ export function revokePendingMetaCapiOutbox() {
       if (!response.ok) return false;
       const body = await response.json().catch(() => null) as { ok?: unknown } | null;
       if (body?.ok !== true) return false;
-      setMarketingRevocationPending(false);
+      clearMarketingRevocationPending(subject);
+      clearMarketingConsentSubject(subject);
+      if (hasMarketingConsent()) ensureMarketingConsentSubject();
       return true;
     } catch {
       return false;
     }
   })().finally(() => {
-    marketingRevocationRequest = null;
+    marketingRevocationRequests.delete(subject);
   });
-  return marketingRevocationRequest;
+  marketingRevocationRequests.set(subject, request);
+  return request;
 }
 
 function readConsentCookie(name: string): boolean | null {

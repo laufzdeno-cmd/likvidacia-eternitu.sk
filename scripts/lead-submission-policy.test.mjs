@@ -141,6 +141,37 @@ test('local relay never reports delivery from a failed or contradictory response
   }
 });
 
+test('local relay preserves the historical unknown-area meaning in its compatible payload', async () => {
+  const previousFetch = globalThis.fetch;
+  const previousUrl = process.env.ASTANA_RELAY_URL;
+  const previousSecret = process.env.ASTANA_RELAY_SECRET;
+  process.env.ASTANA_RELAY_URL = 'https://www.astana.sk/api/local-relay-test';
+  process.env.ASTANA_RELAY_SECRET = 'a'.repeat(32);
+  let payload;
+  try {
+    globalThis.fetch = async (_url, init) => {
+      payload = JSON.parse(String(init?.body || '{}'));
+      return new Response(JSON.stringify({ customerSent: true, adminSent: true }), { status: 200 });
+    };
+    const result = await sendLeadThroughAstanaLocalRelay({
+      id: 'd0ea74b2-3075-4e6d-a848-e17dd848f05d',
+      fullName: 'Historický dopyt', email: 'test@example.invalid', phone: '+421900000001',
+      city: 'Poprad', objectType: 'Rodinný dom', materialType: 'Vlnitý eternit', areaEstimate: 0,
+      rawData: { areaEstimateStatus: 'lead_area_unknown' },
+    }, 0);
+    assert.equal(result.sent, true);
+    assert.equal(payload.areaEstimate, 0, 'legacy numeric field remains backward compatible');
+    assert.equal(payload.areaEstimateStatus, 'lead_area_unknown');
+    assert.equal(payload.areaEstimateDisplay, 'Výmera neznáma');
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousUrl === undefined) delete process.env.ASTANA_RELAY_URL;
+    else process.env.ASTANA_RELAY_URL = previousUrl;
+    if (previousSecret === undefined) delete process.env.ASTANA_RELAY_SECRET;
+    else process.env.ASTANA_RELAY_SECRET = previousSecret;
+  }
+});
+
 test('SMTP response rejection is distinguishable from an ambiguous network timeout', () => {
   assert.equal(classifySmtpError({ responseCode: 451, message: 'Try again later' }), 'failed');
   assert.equal(classifySmtpError({ responseCode: 550, message: 'Mailbox unavailable' }), 'failed');

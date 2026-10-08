@@ -4,6 +4,7 @@ import NotificationStatuses from '../notifications/notification-statuses';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import type { ApplicationNotification } from '@/src/server/types';
 import { getLeadInsight } from '@/src/server/lead-insights';
+import { formatLeadAreaCompact } from '@/src/server/lead-area';
 import { createRooferAction, importRoofersAction, updateRooferFlagsAction } from './actions';
 
 const regions = [
@@ -280,7 +281,7 @@ export default async function RoofersAdminPage() {
                 <tr key={lead.id}>
                   <td>{lead.fullName}<br /><small>{lead.phone}</small></td>
                   <td>{lead.city}{lead.district ? `, ${lead.district}` : ''}</td>
-                  <td>{lead.areaEstimate} m2</td>
+                  <td>{formatLeadAreaCompact(lead)}</td>
                   <td>{lead.status}</td>
                   <td><a href={`/admin/dopyty/${lead.id}`}>Detail</a></td>
                 </tr>

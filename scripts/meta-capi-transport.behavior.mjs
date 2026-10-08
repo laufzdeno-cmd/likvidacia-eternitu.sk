@@ -86,7 +86,7 @@ test('cron route rejects missing or wrong secret and fails closed when transport
   process.env.CONVERSION_EVENT_SECRET = saved.conversionSecret;
 });
 
-test('consent revocation route rejects cross-origin requests and clears an invalid subject safely', async () => {
+test('consent revocation route rejects cross-origin requests without racing client cookie rotation', async () => {
   const { NextRequest } = await import('next/server');
   const { POST } = await import('../app/api/marketing-consent/revoke/route.ts');
   const crossOrigin = await POST(new NextRequest('https://likvidacia-eternitu.sk/api/marketing-consent/revoke/', {
@@ -100,5 +100,5 @@ test('consent revocation route rejects cross-origin requests and clears an inval
   }));
   assert.equal(safeInvalid.status, 200);
   assert.deepEqual(await safeInvalid.json(), { ok: true, revoked: 0 });
-  assert.match(safeInvalid.headers.get('set-cookie') || '', /astana_marketing_consent_subject=;.*Max-Age=0/i);
+  assert.equal(safeInvalid.headers.get('set-cookie'), null);
 });

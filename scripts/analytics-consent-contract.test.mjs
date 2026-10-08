@@ -24,6 +24,7 @@ const adConversion = read('../src/lib/ad-conversion-tracking.mjs');
 const adConversionEngine = read('../src/lib/ad-conversion-engine.mjs');
 const adConversionTests = read('../scripts/ad-conversion-tracking.test.mjs');
 const mobileCookieLayout = read('../src/mobile-cookie-layout.css');
+const marketingRevocationRoute = read('../app/api/marketing-consent/revoke/route.ts');
 
 test('analytics API is gated by the server-readable consent cookie before persistence', () => {
   assert.match(route, /request\.cookies\.get\(analyticsConsentCookieName\)\?\.value !== 'granted'/);
@@ -95,6 +96,15 @@ test('consent stores separate categories and removes analytics identifiers on de
   assert.match(widgets, /if \(initialOpenSettings\) \{\s*setPreferences\(readConsentCategoryPreferences\(\)\)/,
     'deferred manual opening restores each visitor consent category independently');
   assert.match(widgets, /renderWhatsapp \? <PublicWhatsapp/);
+  assert.match(widgets, /if \(next\.marketing && unfinishedRevocation\)/);
+  assert.match(widgets, /if \(!await revokePendingMetaCapiOutbox\(\)\)/);
+  assert.match(widgets, /beginConsentPreferenceChange\(\)/);
+  assert.match(widgets, /if \(!isCurrentConsentPreferenceChange\(choiceRevision\)\) \{/);
+  assert.match(widgets, /Marketingové meranie zostalo vypnuté/);
+  assert.match(widgets, /Marketingové meranie sa zatiaľ nepodarilo bezpečne znovu povoliť/);
+  assert.match(widgets, /role="alert"/);
+  assert.doesNotMatch(marketingRevocationRoute, /response\.cookies\.set/,
+    'oneskorená serverová odpoveď nesmie vymazať novší súhlasový identifikátor');
   assert.match(widgets, /Po úspešnom dopyte môžeme Google Ads poslať konverznú udalosť\. Meta môže dostať aj zahashovaný email a telefón/);
   assert.match(adConversion, /import\('\.\/ad-conversion-engine\.mjs'\)/,
     'provider code stays behind the public dynamic facade');

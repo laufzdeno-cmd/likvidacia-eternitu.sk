@@ -17,12 +17,5 @@ export async function POST(request: NextRequest) {
   const revoked = isMarketingConsentSubject(subject)
     ? await revokeMetaCapiOutboxForConsentSubject(subject)
     : 0;
-  const response = NextResponse.json({ ok: true, revoked }, { headers: { 'Cache-Control': 'no-store' } });
-  response.cookies.set(marketingConsentSubjectCookieName, '', {
-    path: '/',
-    maxAge: 0,
-    sameSite: 'lax',
-    secure: request.nextUrl.protocol === 'https:',
-  });
-  return response;
+  return NextResponse.json({ ok: true, revoked }, { headers: { 'Cache-Control': 'no-store' } });
 }

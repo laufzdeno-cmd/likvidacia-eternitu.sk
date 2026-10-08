@@ -22,12 +22,16 @@ test('turning marketing off invokes same-origin revocation and clears future del
   assert.match(widgets, /hasPendingMarketingRevocation\(\) \|\| marketingConsentSubject\(\)/);
   assert.match(widgets, /addEventListener\('online', retryRevocation\)/);
   assert.match(widgets, /addEventListener\('visibilitychange', retryVisibleRevocation\)/);
-  assert.match(consent, /if \(marketingRevocationRequest\) return marketingRevocationRequest/);
+  assert.match(consent, /const existingRequest = marketingRevocationRequests\.get\(subject\)/);
+  assert.match(consent, /marketingRevocationRequests\.set\(subject, request\)/);
   assert.match(consent, /fetch\('\/api\/marketing-consent\/revoke\/'/);
   assert.match(consent, /marketingRevocationPendingStorageKey/);
   assert.match(consent, /if \(!response\.ok\) return false/);
+  assert.match(consent, /clearMarketingConsentSubject\(subject\)/);
+  assert.match(consent, /if \(hasMarketingConsent\(\)\) ensureMarketingConsentSubject\(\)/);
   assert.match(revokeRoute, /origin === request\.nextUrl\.origin/);
-  assert.match(revokeRoute, /maxAge: 0/);
+  assert.doesNotMatch(revokeRoute, /response\.cookies\.set|Max-Age=0/,
+    'server response must not clear a newer consent subject after an in-flight revocation');
   assert.match(db, /export async function revokeMetaCapiOutboxForConsentSubject/);
   assert.match(db, /status='cancelled'.*last_error_code='consent_revoked'/s);
 });

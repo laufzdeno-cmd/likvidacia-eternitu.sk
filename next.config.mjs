@@ -44,6 +44,7 @@ const nextConfig = {
   async redirects() {
     return [
       { source: '/pre-strecharov/', destination: '/strechari/', permanent: true },
+      { source: '/overene-informacie/', destination: '/o-firme/', permanent: true },
     ];
   },
   async headers() {

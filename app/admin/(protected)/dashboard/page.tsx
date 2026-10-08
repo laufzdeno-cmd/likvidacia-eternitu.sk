@@ -5,6 +5,7 @@ import { businessPeriodBounds, businessTodayKey } from '@/src/lib/business-perio
 import { summarizeBusinessJobs } from '@/src/lib/business-dashboard-metrics';
 import { euro, jobStatusLabels, landfillLabels, numberSk } from '../zakazky/constants';
 import BusinessChart from './business-chart';
+import { formatLeadAreaCompact } from '@/src/server/lead-area';
 
 function pct(part: number, total: number) {
   return total > 0 ? `${Math.round((part / total) * 1000) / 10} %` : '—';
@@ -130,7 +131,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                 <tr key={lead.id}>
                   <td><a href={`/admin/dopyty/${lead.id}`}>{lead.fullName}</a></td>
                   <td>{lead.city}</td>
-                  <td>{lead.areaEstimate}</td>
+                  <td>{formatLeadAreaCompact(lead)}</td>
                   <td><a href={`tel:${lead.phone}`}>{lead.phone}</a></td>
                   <td>{statusLabels[lead.status] || lead.status}</td>
                 </tr>

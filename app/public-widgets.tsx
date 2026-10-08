@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { trackAnalyticsEvent } from '@/src/lib/analytics-client';
 import { attachAcceptedLeadConversionTracking } from '@/src/lib/ad-conversion-tracking.mjs';
-import { ensureMarketingConsentSubject, hasAnalyticsConsent, hasMarketingConsent, hasPendingMarketingRevocation, marketingConsentSubject, readConsentCategoryPreferences, readConsentPreferences, revokePendingMetaCapiOutbox, saveConsentPreferences, type ConsentPreferences } from '@/src/lib/marketing-consent';
+import { beginConsentPreferenceChange, ensureMarketingConsentSubject, hasAnalyticsConsent, hasMarketingConsent, hasPendingMarketingRevocation, isCurrentConsentPreferenceChange, marketingConsentSubject, readConsentCategoryPreferences, readConsentPreferences, revokePendingMetaCapiOutbox, saveConsentPreferences, type ConsentPreferences } from '@/src/lib/marketing-consent';
 import PublicWhatsapp from './public-whatsapp';
 
 const openConsentEvent = 'astana:open-cookie-settings';
@@ -24,6 +24,8 @@ export default function PublicWidgets({
   const [showCookieBanner, setShowCookieBanner] = useState(initialOpenSettings);
   const [preferences, setPreferences] = useState<ConsentPreferences>({ analytics: false, marketing: false });
   const [showCookiePreferences, setShowCookiePreferences] = useState(initialOpenSettings);
+  const [consentSaving, setConsentSaving] = useState(false);
+  const [consentError, setConsentError] = useState('');
   const analyticsCheckboxRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -72,12 +74,35 @@ export default function PublicWidgets({
     if (showCookieBanner && showCookiePreferences) analyticsCheckboxRef.current?.focus();
   }, [showCookieBanner, showCookiePreferences]);
 
-  const save = (next: ConsentPreferences) => {
+  const save = async (next: ConsentPreferences) => {
+    if (consentSaving) return;
+    const choiceRevision = beginConsentPreferenceChange();
+    setConsentSaving(true);
+    setConsentError('');
     const analyticsWasGranted = hasAnalyticsConsent();
-    saveConsentPreferences(next);
-    if (!next.marketing) void revokePendingMetaCapiOutbox();
-    setShowCookieBanner(false);
-    if (next.analytics && !analyticsWasGranted) trackAnalyticsEvent('page_view');
+    try {
+      const unfinishedRevocation = hasPendingMarketingRevocation()
+        || (!hasMarketingConsent() && Boolean(marketingConsentSubject()));
+      if (next.marketing && unfinishedRevocation) {
+        saveConsentPreferences({ ...next, marketing: false });
+        if (!await revokePendingMetaCapiOutbox()) {
+          if (isCurrentConsentPreferenceChange(choiceRevision)) {
+            setConsentError('Marketingové meranie sa zatiaľ nepodarilo bezpečne znovu povoliť. Skúste to ešte raz.');
+          }
+          return;
+        }
+        if (!isCurrentConsentPreferenceChange(choiceRevision)) {
+          setConsentError('Marketingové meranie zostalo vypnuté, pretože prehliadač neumožnil bezpečne overiť váš najnovší výber.');
+          return;
+        }
+      }
+      saveConsentPreferences(next);
+      if (!next.marketing) void revokePendingMetaCapiOutbox();
+      setShowCookieBanner(false);
+      if (next.analytics && !analyticsWasGranted) trackAnalyticsEvent('page_view');
+    } finally {
+      setConsentSaving(false);
+    }
   };
 
   return (
@@ -98,11 +123,12 @@ export default function PublicWidgets({
             </div>
           </div>
           <div className="cookie-actions">
-            <button className="cookie-primary" type="button" onClick={() => save({ analytics: true, marketing: true })}>Prijať všetky</button>
-            <button type="button" onClick={() => save({ analytics: false, marketing: false })}>Len nevyhnutné</button>
-            <button className="cookie-save" type="button" onClick={() => save(preferences)}>Uložiť výber</button>
+            <button className="cookie-primary" type="button" disabled={consentSaving} onClick={() => void save({ analytics: true, marketing: true })}>Prijať všetky</button>
+            <button type="button" disabled={consentSaving} onClick={() => void save({ analytics: false, marketing: false })}>Len nevyhnutné</button>
+            <button className="cookie-save" type="button" disabled={consentSaving} onClick={() => void save(preferences)}>Uložiť výber</button>
             <button className="cookie-customize" type="button" aria-expanded={showCookiePreferences} aria-controls="cookie-preferences" onClick={() => setShowCookiePreferences(true)}>Upraviť výber</button>
           </div>
+          {consentError ? <p className="cookie-consent-error" role="alert">{consentError}</p> : null}
         </section>
       ) : null}
     </>
