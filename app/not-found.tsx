@@ -20,7 +20,7 @@ export default function NotFoundPage() {
         </section>
         <section className="seo-cta">
           <h2>Potrebujete likvidáciu azbestu?</h2>
-          <p>Pošlite výmeru, lokalitu a fotky. Cenovú ponuku pripravíme do 24 hodín.</p>
+          <p>Pošlite výmeru a lokalitu. Fotky sú voliteľné. Cenovú ponuku pripravíme do 24 hodín.</p>
           <div className="final-actions">
             <a className="button button-primary" href="/#dopyt">Prejsť na dopytový formulár</a>
             <a className="button button-outline" href="/likvidacia-azbestu/">Likvidácia azbestu</a>

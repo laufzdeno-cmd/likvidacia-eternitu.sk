@@ -28,6 +28,8 @@ const realizationsLanding = read('../app/realizacie/page.tsx');
 const notFound = read('../app/not-found.tsx');
 const publicCompany = read('../public/data/company.json');
 const siteFacts = read('../src/content/site.ts');
+const contactPage = read('../app/kontakt/page.tsx');
+const seoContent = read('../src/content/seo-content.ts');
 
 test('public page shell is the single breadcrumb JSON-LD owner for its pages', () => {
   assert.match(publicLayout, /breadcrumb \? <BreadcrumbJsonLd/);
@@ -147,6 +149,12 @@ test('machine-readable company facts carry the offer promise and date-bound auth
   assert.match(siteFacts, /scopeAsPublished: \['EXT, BJ', 'INT'\]/);
 });
 
+test('career remains discoverable from every public footer implementation', () => {
+  assert.match(publicLayout, /<a href="\/kariera\/">Kariéra<\/a>/);
+  assert.match(homepage, /<a href="\/kariera\/">Kariéra<\/a>/);
+  assert.match(realizationsLanding, /<a href="\/kariera\/">Kariéra<\/a>/);
+});
+
 test('sitemap does not claim every page was modified at build time', () => {
   assert.doesNotMatch(sitemap, /lastModified|new Date\s*\(/);
 });
@@ -182,6 +190,29 @@ test('mobile floating WhatsApp yields to the sticky CTA and never covers the hom
   assert.match(visualPolish, /\.whatsapp-btn\.is-hidden-by-sticky-cta\s*\{\s*opacity:\s*0\s*!important;/);
 });
 
+test('public offer copy consistently treats customer photos as optional', () => {
+  assert.match(priceLanding, /Fotky môžu ponuku spresniť, ale nie sú povinné/);
+  assert.match(contactPage, /Fotky sú voliteľné, ale pomôžu ponuku spresniť/);
+  assert.match(seoContent, /Fotky materiálu sú voliteľné, ale pomôžu ponuku spresniť/);
+  assert.match(seoContent, /Na ponuku stačí m2 a lokalita; fotky sú voliteľné/);
+  assert.match(seoContent, /Pošlete výmeru a lokalitu/);
+  assert.match(seoContent, /Fotky strechy či materiálu sú voliteľné/);
+  assert.match(seoContent, /Fotky sú voliteľné\. Ak ich máte, priložte celkový záber strechy/);
+  assert.doesNotMatch(seoContent, /Pošlite fotky, výmeru a lokalitu/);
+  assert.doesNotMatch(seoContent, /Pošlite celkový záber strechy, detail krytiny/);
+  assert.doesNotMatch(seoContent, /Pošlete výmeru, lokalitu a fotky/);
+  assert.match(read('../app/faq/page.tsx'), /fotky sú voliteľné/);
+  assert.match(read('../app/postup/page.tsx'), /Fotky sú voliteľné/);
+  assert.match(notFound, /Fotky sú voliteľné/);
+});
+
+test('homepage calculator describes only a non-final price range and its exclusions', () => {
+  assert.match(homepage, /Orientačný cenový rozsah/);
+  assert.match(homepage, /Nejde o konečnú cenu/);
+  assert.match(homepage, /Dopravu, dokumentáciu, individuálne položky/);
+  assert.match(homepage, /režim DPH určí až konkrétna cenová ponuka/);
+});
+
 test('Plus Jakarta Sans is self-hosted and optional so it never delays the first render', () => {
   assert.match(rootLayout, /\.\.\/src\/global-bundle\.css/);
   assert.doesNotMatch(rootLayout, /next\/font\/google|fonts\.googleapis\.com|fonts\.gstatic\.com/);
@@ -190,9 +221,17 @@ test('Plus Jakarta Sans is self-hosted and optional so it never delays the first
   assert.match(fontFace, /url\(['"]?\/assets\/fonts\/plus-jakarta-sans-sk-wght-normal\.woff2['"]?\)/);
   const headerStability = read('../src/public-header-stability.css');
   assert.match(headerStability, /@media \(max-width: 760px\)[\s\S]*html,\s*\n\s*body\s*\{[\s\S]*font-family: ui-sans-serif/);
-  assert.match(headerStability, /\.site-header \.header-brand-picture\s*\{[\s\S]*display:\s*block/);
-  assert.match(headerStability, /\.site-header \.header-brand-picture \.brand-logo\s*\{[\s\S]*content:\s*normal\s*!important/,
-    'the picture element must neutralize the legacy content:url logo swap');
+  assert.match(headerStability, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none\s*!important;[\s\S]*transition:\s*none\s*!important/,
+    'reduced-motion users must not receive decorative animation or transitions');
+  assert.match(headerStability, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.site-header,\s*[\s\S]*\.site-header \*\s*\{[\s\S]*transition:\s*none\s*!important/,
+    'the compact header must override its more specific normal-motion transition');
+  assert.match(headerStability, /\.site-header \.header-brand-logo\s*\{[\s\S]*display:\s*block\s*!important[\s\S]*object-fit:\s*contain/);
+  assert.match(headerStability, /@media \(max-width: 820px\)[\s\S]*\.site-header,\s*[\s\S]*\.site-header \.header-main\s*\{[\s\S]*background:\s*rgba\(15, 31, 61, 0\.985\)\s*!important/,
+    'the single contrast-safe header logo requires the navy header at every mobile width');
+  assert.match(headerStability, /@media \(min-width: 821px\)[\s\S]*\.site-header \.brand:not\(\.footer-brand\)\s*\{[\s\S]*width:\s*195px\s*!important;[\s\S]*min-width:\s*195px\s*!important/,
+    'desktop header brand must reserve the reviewed logo column geometry');
+  assert.match(headerStability, /@media \(min-width: 821px\)[\s\S]*\.site-header \.header-brand-logo\s*\{[\s\S]*width:\s*195px\s*!important;[\s\S]*height:\s*65px\s*!important/,
+    'desktop header must paint the logo at deterministic dimensions');
   assert.match(headerStability, /\.site-footer \.footer-brand \.brand-logo\[src\^="\/assets\/astana-logo\.png"\][^{]*\{[^}]*width:\s*195px\s*!important/,
     'the shared cache URL must preserve the reviewed footer-logo geometry');
   assert.doesNotMatch(read('../src/final-visual-polish.css'),
@@ -204,10 +243,8 @@ test('Plus Jakarta Sans is self-hosted and optional so it never delays the first
       /<img className="brand-logo" src="\/assets\/astana-logo\.png\?surface=header" alt="ASTANA" width="195" height="65" loading="lazy" decoding="async" fetchPriority="low" \/>/,
       'below-fold footer logos must reuse the already cached mobile header asset');
   }
-  assert.match(headerLogo, /<source media="\(min-width: 821px\)" srcSet="\/assets\/astana-logo-dark\.png" \/>/);
-  assert.match(headerLogo, /loading="eager"[\s\S]*decoding="async"[\s\S]*fetchPriority="low"/,
-    'the non-LCP header logo must not compete with the high-priority hero image');
-  assert.match(headerLogo, /src="\/assets\/astana-logo\.png\?surface=header"/);
+  assert.match(headerLogo, /className="header-brand-logo"[\s\S]*src="\/assets\/astana-logo-dark\.png"[\s\S]*alt="ASTANA"[\s\S]*width="195"[\s\S]*height="65"/,
+    'the header logo must use one real, accessible image with stable intrinsic geometry');
   assert.equal((fontFace.match(/@font-face/g) || []).length, 1);
   const slovakSubset = readFileSync(new URL('../public/assets/fonts/plus-jakarta-sans-sk-wght-normal.woff2', import.meta.url));
   assert.ok(slovakSubset.byteLength > 20_000 && slovakSubset.byteLength < 35_000);

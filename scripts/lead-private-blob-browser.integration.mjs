@@ -778,7 +778,19 @@ async function runGalleryMobileChecks(page, appOrigin, tempRoot) {
   assert.ok(mobileWidth.page <= mobileWidth.viewport, `390px gallery overflows horizontally: ${JSON.stringify(mobileWidth)}`);
   assert.equal(await page.locator('.mobile-sticky-cta').evaluate((element) => element.inert), true,
     'hidden sticky CTA must be inert before it is displayed');
-  await page.evaluate(() => window.scrollTo(0, 420));
+  await page.evaluate(async () => {
+    for (let y = 360; y <= 420; y += 2) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  });
+  await page.waitForFunction(() => document.querySelector('.mobile-sticky-cta')?.classList.contains('is-visible') === false);
+  await page.evaluate(async () => {
+    for (let y = 420; y >= 360; y -= 2) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  });
   await page.waitForFunction(() => {
     const sticky = document.querySelector('.mobile-sticky-cta');
     const whatsapp = document.querySelector('.whatsapp-btn');
@@ -1442,7 +1454,7 @@ async function runPublicSeoCrawl(page, appOrigin) {
   return { sitemapUrls: urls.length, runtimeContentUrls: checkedRuntimePaths.size, privateNoindex: true, missingNoindex: true, unsignedReceiptRejected: true };
 }
 
-async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
+async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
   await page.addInitScript(() => {
     document.addEventListener('submit', () => {
       sessionStorage.setItem(
@@ -1486,6 +1498,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
   const screenshotDir = visualEvidenceLabel
     ? path.join(projectRoot, 'tmp', 'visual-evidence-exports', visualEvidenceLabel)
     : path.join(tempRoot, 'visual-evidence');
+  let evidenceManifest = null;
   if (visualEvidenceLabel) {
     const evidenceRoot = path.join(projectRoot, 'tmp', 'visual-evidence-exports');
     await mkdir(evidenceRoot, { recursive: true });
@@ -1499,6 +1512,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     await mkdir(screenshotDir, { recursive: true });
   }
   let screenshotCount = 0;
+  let logoPixelChecks = 0;
   await page.setViewportSize({ width: 320, height: 568 });
   const home = await page.goto(appOrigin, { waitUntil: 'networkidle', timeout: 45_000 });
   assert.equal(home?.status(), 200);
@@ -1595,6 +1609,41 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
       stickyFocused: false,
     }, `${viewport.width}x${viewport.height} sticky CTA must stay hidden and inert while the hero remains visible`);
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('#price-city').focus();
+  await page.waitForFunction(() => document.documentElement.dataset.homepageCriticalClient === 'loaded');
+  await page.evaluate(async () => {
+    const target = document.querySelector('.why-section');
+    if (!(target instanceof HTMLElement)) throw new Error('homepage slow-scroll target missing');
+    const start = target.offsetTop + Math.min(180, Math.max(40, target.offsetHeight / 3));
+    window.scrollTo(0, start);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    for (let y = start; y <= start + 60; y += 2) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  });
+  await page.waitForFunction(() => {
+    const intersects = (selector) => {
+      const element = document.querySelector(selector);
+      if (!(element instanceof HTMLElement)) return false;
+      const rect = element.getBoundingClientRect();
+      return rect.top < innerHeight && rect.bottom > 0;
+    };
+    return !intersects('main > .hero') && !intersects('#dopyt') && !intersects('[data-price-calculator]');
+  });
+  await page.waitForFunction(() => document.querySelector('.mobile-sticky-cta')?.classList.contains('is-visible') === false);
+  await page.evaluate(async () => {
+    const start = window.scrollY;
+    for (let y = start; y >= start - 60; y -= 2) {
+      window.scrollTo(0, y);
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
+  });
+  await page.waitForFunction(() => {
+    const sticky = document.querySelector('.mobile-sticky-cta');
+    return sticky instanceof HTMLElement && sticky.classList.contains('is-visible') && !sticky.inert;
+  });
   await page.setViewportSize({ width: 320, height: 568 });
   await resetVisualScroll();
 
@@ -1613,19 +1662,15 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     try {
       const logoResponse = await logoPage.goto(appOrigin, { waitUntil: 'networkidle', timeout: 45_000 });
       assert.equal(logoResponse?.status(), 200);
-      await logoPage.locator('.site-header .brand-logo').waitFor({ state: 'visible' });
-      const currentLogoUrl = new URL(await logoPage.locator('.site-header .brand-logo').evaluate((image) => image.currentSrc));
-      const expectedHeaderLogo = viewport.width === 820
-        ? '/assets/astana-logo.png?surface=header'
-        : '/assets/astana-logo-dark.png';
+      await logoPage.locator('.site-header .header-brand-logo').waitFor({ state: 'visible' });
+      const currentLogoUrl = new URL(await logoPage.locator('.site-header .header-brand-logo').evaluate((logo) => logo.currentSrc));
+      const expectedHeaderLogo = '/assets/astana-logo-dark.png';
       assert.equal(`${currentLogoUrl.pathname}${currentLogoUrl.search}`, expectedHeaderLogo,
-        `header contrast source must switch exactly at ${viewport.width}px`);
+        `header must keep one contrast-safe source at ${viewport.width}px`);
       assert.equal(logoRequests.filter((url) => url === expectedHeaderLogo).length, 1,
         `header logo must be requested exactly once at ${viewport.width}px: ${JSON.stringify(logoRequests)}`);
-      if (viewport.width === 820) {
-        assert.equal(logoRequests.includes('/assets/astana-logo-dark.png'), false,
-          `mobile header must not download the desktop contrast variant: ${JSON.stringify(logoRequests)}`);
-      }
+      assert.equal(logoRequests.some((url) => url.startsWith('/assets/astana-logo.png')), false,
+        `header must not download a second contrast variant: ${JSON.stringify(logoRequests)}`);
     } finally {
       await logoContext.close();
     }
@@ -1669,14 +1714,21 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
             const rect = element.getBoundingClientRect();
             return style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0 || rect.width === 0 || rect.height === 0;
           }).length,
-        runningAnimations: document.getAnimations().filter((animation) => animation.playState === 'running').length,
+        runningAnimations: document.getAnimations()
+          .filter((animation) => animation.playState === 'running')
+          .map((animation) => ({
+            name: animation.animationName || animation.transitionProperty || animation.constructor.name,
+            target: animation.effect?.target instanceof Element
+              ? `${animation.effect.target.tagName.toLowerCase()}${animation.effect.target.id ? `#${animation.effect.target.id}` : ''}${[...animation.effect.target.classList].map((className) => `.${className}`).join('')}`
+              : 'unknown',
+          })),
       }));
       assert.deepEqual(motionState, {
         preference: true,
         enhancedClass: false,
         revealClasses: 0,
         hiddenRelevantContent: 0,
-        runningAnimations: 0,
+        runningAnimations: [],
       }, `${route} must not initialize decorative motion when reduced motion is requested`);
     }
   } finally {
@@ -1764,27 +1816,35 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
     for (const viewport of viewports) {
       await page.setViewportSize(viewport);
       await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-      await page.waitForFunction(() => {
-        const logo = document.querySelector('.site-header .brand-logo');
-        return logo instanceof HTMLImageElement && logo.complete && logo.naturalWidth > 0;
+      await page.locator('.site-header .header-brand-logo').waitFor({ state: 'visible' });
+      await page.locator('.site-header .header-brand-logo').evaluate(async (logo) => {
+        if (!(logo instanceof HTMLImageElement)) throw new Error('header logo is not an image');
+        await logo.decode();
       });
       const metrics = await page.evaluate(() => ({
         viewport: innerWidth,
         document: document.documentElement.scrollWidth,
         body: document.body.scrollWidth,
         logo: (() => {
-          const image = document.querySelector('.site-header .brand-logo');
-          if (!(image instanceof HTMLImageElement)) return null;
-          const rect = image.getBoundingClientRect();
+          const logo = document.querySelector('.site-header .header-brand-logo');
+          if (!(logo instanceof HTMLImageElement)) return null;
+          const rect = logo.getBoundingClientRect();
+          const style = getComputedStyle(logo);
+          const brandRect = logo.closest('.brand')?.getBoundingClientRect();
           return {
-            complete: image.complete,
-            naturalWidth: image.naturalWidth,
             left: rect.left,
             right: rect.right,
             width: rect.width,
             height: rect.height,
-            src: image.getAttribute('src'),
-            currentSrc: image.currentSrc,
+            opacity: style.opacity,
+            visibility: style.visibility,
+            display: style.display,
+            brandLeft: brandRect?.left,
+            brandRight: brandRect?.right,
+            complete: logo.complete,
+            naturalWidth: logo.naturalWidth,
+            currentSrc: logo.currentSrc,
+            alt: logo.alt,
           };
         })(),
         headerMainDisplay: getComputedStyle(document.querySelector('.site-header .header-main')).display,
@@ -1801,16 +1861,33 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
       `${route} H1 hidden at ${viewport.width}px: ${JSON.stringify(metrics)}`);
       assert.ok(metrics.logo && metrics.logo.complete && metrics.logo.naturalWidth > 0
         && metrics.logo.left >= -1 && metrics.logo.right <= metrics.viewport + 1
-        && metrics.logo.width > 0 && metrics.logo.height > 0,
+        && metrics.logo.width > 0 && metrics.logo.height > 0
+        && metrics.logo.display !== 'none' && metrics.logo.visibility !== 'hidden' && Number(metrics.logo.opacity) === 1
+        && metrics.logo.brandLeft >= -1 && metrics.logo.brandRight <= metrics.viewport + 1
+        && metrics.logo.left >= metrics.logo.brandLeft - 1 && metrics.logo.right <= metrics.logo.brandRight + 1,
       `${route} header logo missing or clipped at ${viewport.width}px: ${JSON.stringify(metrics)}`);
-      assert.equal(metrics.logo.src, '/assets/astana-logo.png?surface=header',
-        `${route} header logo must use the stable public source at ${viewport.width}px`);
+      assert.equal(metrics.logo.alt, 'ASTANA', `${route} header logo must retain its accessible alternative text`);
       const currentLogoUrl = new URL(metrics.logo.currentSrc);
       assert.equal(currentLogoUrl.origin, appOrigin, `${route} header logo must stay on the isolated app origin`);
-      assert.equal(currentLogoUrl.pathname, viewport.width <= 820 ? '/assets/astana-logo.png' : '/assets/astana-logo-dark.png',
-        `${route} header logo contrast variant changed at ${viewport.width}px`);
-      assert.equal(currentLogoUrl.search, viewport.width <= 820 ? '?surface=header' : '',
-        `${route} header logo surface marker changed at ${viewport.width}px`);
+      assert.equal(currentLogoUrl.pathname, '/assets/astana-logo-dark.png',
+        `${route} header logo source changed at ${viewport.width}px`);
+      assert.equal(currentLogoUrl.search, '', `${route} header logo source must stay cache-stable at ${viewport.width}px`);
+      if (viewport.width === 320 || viewport.width === 1440) {
+        const png = await page.locator('.site-header .header-brand-logo').screenshot({ type: 'png', animations: 'disabled' });
+        const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+        let redPixels = 0;
+        let contrastPixels = 0;
+        for (let offset = 0; offset < data.length; offset += info.channels) {
+          const red = data[offset];
+          const green = data[offset + 1];
+          const blue = data[offset + 2];
+          if (red > 140 && red > green * 1.35 && red > blue * 1.35) redPixels += 1;
+          if (red > 190 && green > 190 && blue > 190) contrastPixels += 1;
+        }
+        assert.ok(redPixels > 40 && contrastPixels > 80,
+          `${route} header logo must contain visible red and contrast pixels at ${viewport.width}px: ${JSON.stringify({ redPixels, contrastPixels, info })}`);
+        logoPixelChecks += 1;
+      }
       if (viewport.width <= 760) {
         assert.equal(metrics.headerMainDisplay, 'flex', `${route} mobile header must keep a stable flex paint layer at ${viewport.width}px`);
       }
@@ -1985,10 +2062,8 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
         assert.equal(screenshotResponse?.status(), 200, `${route} should reload at ${viewport.width}px for visual evidence`);
         await stabilizeVisualPage();
         await resetVisualScroll();
-        await page.waitForFunction(() => {
-          const logo = document.querySelector('.site-header .brand-logo');
-          return logo instanceof HTMLImageElement && logo.complete && logo.naturalWidth > 0;
-        });
+        await page.locator('.site-header .header-brand-logo').waitFor({ state: 'visible' });
+        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
         await page.screenshot({ path: path.join(screenshotDir, `${name}-${viewport.width}.png`), type: 'png', caret: 'initial' });
         screenshotCount += 1;
       }
@@ -2056,7 +2131,10 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
       screenshots: files,
       computedStyleSnapshots,
     };
-    await writeFile(path.join(screenshotDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+    evidenceManifest = {
+      path: path.join(screenshotDir, 'manifest.json'),
+      value: manifest,
+    };
   }
   return {
     routes: routes.length,
@@ -2067,9 +2145,11 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot) {
       landscapeRoutes: routes.length,
     },
     screenshots: screenshotCount,
+    logoPixelChecks,
     evidence: visualEvidenceLabel ? `tmp/visual-evidence-exports/${visualEvidenceLabel}` : 'owned temporary root; removed after test',
     formsSubmitted,
-    hydrationErrors: 0,
+    hydrationErrors: hydrationErrors.length,
+    evidenceManifest,
   };
 }
 
@@ -2114,7 +2194,10 @@ async function runPublicNavigationChecks(page, appOrigin) {
   assert.equal(await page.locator('#site-nav').evaluate((nav) => nav.classList.contains('is-open')), false);
   assert.equal(await menu.evaluate((element) => document.activeElement === element), true, 'Escape restores focus to the menu toggle');
   await menu.click();
-  await page.locator('#site-nav a[href="/kariera/"]').click();
+  await page.locator('#site-nav a[href="/recenzie/"]').click();
+  await page.waitForURL(`${appOrigin}/recenzie/`);
+  assert.match(await page.locator('h1').innerText(), /recenzie/i, 'buyer navigation exposes trust-building reviews');
+  await page.goto(`${appOrigin}/kariera/`, { waitUntil: 'networkidle' });
   await page.waitForURL(`${appOrigin}/kariera/`);
   await page.locator('a[href="#prihlasit-sa"]').first().click();
   await page.waitForURL(`${appOrigin}/kariera/#prihlasit-sa`);
@@ -2433,7 +2516,8 @@ async function runHarness() {
       resultSummary = { result: 'PASS', ...noPhoto, blockedBrowserOrigins: browserDenied.length };
       passed = true;
     } else if (visualOnly) {
-      const visual = await runResponsiveVisualChecks(page, appOrigin, tempRoot);
+      const visualRun = await runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp);
+      const { evidenceManifest, ...visual } = visualRun;
       const navigation = await runPublicNavigationChecks(page, appOrigin);
       assert.equal(browserDenied.length, 0, `visual audit tried an external origin: ${browserDenied.join(', ')}`);
       assert.deepEqual(browserNonGetBlocked, [
@@ -2443,7 +2527,21 @@ async function runHarness() {
         { method: 'POST', url: '/api/analytics/', eventType: 'quote_section_view' },
         { method: 'POST', url: '/api/analytics/', eventType: 'page_view' },
         { method: 'POST', url: '/api/analytics/', eventType: 'cta_click' },
-      ], `visual audit must block exactly the six expected local funnel events: ${JSON.stringify(browserNonGetBlocked)}`);
+        { method: 'POST', url: '/api/analytics/', eventType: 'quote_section_view' },
+      ], `visual audit must block exactly the seven expected local funnel events: ${JSON.stringify(browserNonGetBlocked)}`);
+      if (evidenceManifest) {
+        const finalizedManifest = {
+          ...evidenceManifest.value,
+          verification: {
+            formsSubmitted: visual.formsSubmitted,
+            hydrationErrors: visual.hydrationErrors,
+            blockedBrowserOrigins: browserDenied.length,
+            blockedNonGetRequests: browserNonGetBlocked.length,
+            navigationInteractions: navigation.interactions,
+          },
+        };
+        await writeFile(evidenceManifest.path, `${JSON.stringify(finalizedManifest, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+      }
       resultSummary = {
         result: 'PASS', ...visual, navigation,
         blockedNonGetRequests: browserNonGetBlocked.length,

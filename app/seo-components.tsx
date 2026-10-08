@@ -182,11 +182,11 @@ export function FaqSection({ faqs, title = 'Časté otázky' }: { faqs: readonly
   );
 }
 
-export function QuoteCTA({ title = 'Pošlite výmeru a fotky' }: { title?: string }) {
+export function QuoteCTA({ title = 'Pošlite výmeru a lokalitu' }: { title?: string }) {
   return (
     <section className="seo-cta">
       <h2>{title}</h2>
-      <p>Pošlite približnú výmeru, lokalitu a fotky materiálu. Pripravíme konkrétnu cenovú ponuku a navrhneme ďalší postup.</p>
+      <p>Pošlite približnú výmeru a lokalitu. Fotky sú voliteľné; ak ich máte, pomôžu nám ponuku spresniť. Pripravíme konkrétnu cenovú ponuku a navrhneme ďalší postup.</p>
       <div className="final-actions">
         <a className="button button-primary" href="/#dopyt">Získať cenovú ponuku</a>
         <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
@@ -210,7 +210,7 @@ export function ContactStrip() {
         <ul>
           <li>lokalitu alebo okres,</li>
           <li>približnú výmeru v m2,</li>
-          <li>fotky strechy alebo materiálu,</li>
+          <li>fotky strechy alebo materiálu, ak ich máte – sú voliteľné,</li>
           <li>typ objektu a prístup,</li>
           <li>kontakt na vás.</li>
         </ul>
@@ -323,7 +323,7 @@ export function LocationPage({
   const quickAnswer = `ASTANA, s.r.o. so sídlom v Poprade zabezpečuje po dohode odbornú likvidáciu azbestu a eternitu v ${location.area}. Výjazd a termín potvrdíme podľa obce, rozsahu prác a aktuálnej kapacity; v tejto lokalite nemáme pobočku.`;
   const faqs: FaqItem[] = [
     { question: `Riešite likvidáciu azbestu v ${location.area}?`, answer: `Áno, ${site.legalName} pôsobí po celom Slovensku a zákazky prijíma aj v ${location.area}.` },
-    { question: 'Čo poslať v dopyte na cenovú ponuku?', answer: 'Pošlite približnú výmeru v m2, obec alebo okres, fotky materiálu, typ objektu a informáciu o prístupe.' },
+    { question: 'Čo poslať v dopyte na cenovú ponuku?', answer: 'Pošlite približnú výmeru v m2, obec alebo okres, typ objektu a informáciu o prístupe. Fotky materiálu sú voliteľné; ak ich máte, pomôžu ponuku spresniť.' },
     { question: 'Od čoho závisí cena v tejto lokalite?', answer: 'Od výmery, typu materiálu, výšky objektu, prístupu, objemu odpadu, termínu a potrebnej dokumentácie.' },
   ];
 
@@ -336,7 +336,7 @@ export function LocationPage({
           <h1>{h1}</h1>
           <p>{quickAnswer}</p>
           <div className="hero-actions">
-            <a className="button button-primary" href="/#dopyt">Pošlite <span className="unit-m2">m2</span> a fotky</a>
+            <a className="button button-primary" href="/#dopyt">Pošlite výmeru a lokalitu</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
         </section>

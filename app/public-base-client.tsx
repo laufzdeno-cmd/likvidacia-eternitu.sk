@@ -14,6 +14,8 @@ export default function PublicBaseClient({ analyticsScope = 'all' }: { analytics
     const heroSection = document.querySelector<HTMLElement>('main > .hero');
     const quoteSection = document.getElementById('dopyt');
     const priceCalculatorCard = document.querySelector<HTMLElement>('[data-price-calculator]');
+    let lastStickyScrollY = window.scrollY;
+    let stickySuppressedByDownScroll = false;
 
     const trackAnalytics = trackAnalyticsEvent;
 
@@ -52,8 +54,20 @@ export default function PublicBaseClient({ analyticsScope = 'all' }: { analytics
 
     const onScroll = () => {
       header?.classList.toggle('is-compact', window.scrollY > 28);
+      const currentScrollY = window.scrollY;
+      if (currentScrollY <= 280) {
+        stickySuppressedByDownScroll = false;
+        lastStickyScrollY = currentScrollY;
+      } else if (currentScrollY > lastStickyScrollY + 3) {
+        stickySuppressedByDownScroll = true;
+        lastStickyScrollY = currentScrollY;
+      } else if (currentScrollY < lastStickyScrollY - 3) {
+        stickySuppressedByDownScroll = false;
+        lastStickyScrollY = currentScrollY;
+      }
       const stickyVisible = window.innerWidth <= 760
         && window.scrollY > 280
+        && !stickySuppressedByDownScroll
         && !isVisibleInViewport(heroSection)
         && !isCookieBannerVisible()
         && !isVisibleInViewport(quoteSection)

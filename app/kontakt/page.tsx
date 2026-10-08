@@ -16,15 +16,15 @@ export default function ContactPage() {
         <section className="seo-hero">
           <p className="eyebrow">Kontakt</p>
           <h1>Kontaktujte ASTANA</h1>
-          <p>Pošlite približnú výmeru, lokalitu a fotky. Ozveme sa s cenovou ponukou a ďalším postupom.</p>
+          <p>Pošlite približnú výmeru a lokalitu. Fotky sú voliteľné, ale pomôžu ponuku spresniť.</p>
           <div className="hero-actions">
             <a className="button button-primary" href="/#dopyt">Odoslať dopyt</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
         </section>
         <QuickAnswer>
-          Pre rýchlu cenovú ponuku pošlite lokalitu, približnú výmeru v m2, fotky strechy alebo materiálu, typ objektu
-          a kontakt. ASTANA pôsobí po celom Slovensku.
+          Pre rýchlu cenovú ponuku pošlite lokalitu, približnú výmeru v m2, typ objektu a kontakt.
+          Fotky strechy alebo materiálu môžete priložiť voliteľne. ASTANA pôsobí po celom Slovensku.
         </QuickAnswer>
         <section className="seo-section seo-grid-2">
           <article>

@@ -23,7 +23,7 @@ export type ServicePageContent = {
 };
 
 export const commonProcessSteps = [
-  ['Pošlete výmeru, lokalitu a fotky.', 'Stačí približná výmera v m2, obec alebo okres a fotky strechy či materiálu, ak ich máte.'],
+  ['Pošlete výmeru a lokalitu.', 'Stačí približná výmera v m2 a obec alebo okres. Fotky strechy či materiálu sú voliteľné.'],
   ['Pripravíme cenovú ponuku.', 'Ponuku nastavíme podľa rozsahu, prístupu, typu materiálu, lokality a potrebnej dokumentácie.'],
   ['Pripravíme potrebné podklady.', 'Po potvrdení zákazky riešime ďalší postup a dokumentáciu podľa konkrétneho prípadu.'],
   ['Bezpečne zdemontujeme a zabalíme materiál.', 'Materiál stabilizujeme, demontujeme kontrolovane a balíme ako nebezpečný odpad.'],
@@ -49,7 +49,7 @@ export const coreFaqs: FaqItem[] = [
   {
     question: 'Čo potrebujem pre cenovú ponuku?',
     answer:
-      'Najviac pomôže lokalita, približná výmera v m2, typ objektu a fotky materiálu alebo strechy. Ak neviete presnú výmeru, stačí rozumný odhad.',
+      'Najviac pomôže lokalita, približná výmera v m2 a typ objektu. Fotky materiálu alebo strechy sú voliteľné. Ak neviete presnú výmeru, stačí rozumný odhad.',
   },
   {
     question: 'Koľko trvá likvidácia?',
@@ -97,7 +97,7 @@ export const faqPageItems: FaqItem[] = [
   {
     question: 'Treba obhliadka?',
     answer:
-      'Nie vždy. Pri mnohých dopytoch stačia fotky, výmera a lokalita. Obhliadka môže byť potrebná pri zložitejšom prístupe, väčšom rozsahu alebo nejasnom type materiálu.',
+      'Nie vždy. Pri mnohých dopytoch stačí výmera a lokalita; voliteľné fotky pomôžu ponuku spresniť. Obhliadka môže byť potrebná pri zložitejšom prístupe, väčšom rozsahu alebo nejasnom type materiálu.',
   },
   {
     question: 'Čo ak neviem presnú výmeru?',
@@ -107,7 +107,7 @@ export const faqPageItems: FaqItem[] = [
   {
     question: 'Ako poslať fotky?',
     answer:
-      'Fotky môžete priložiť priamo do formulára alebo poslať emailom. Ideálne sú zábery celej strechy, detail materiálu, prístup k objektu a miesto, kde by sa odpad nakladal.',
+      'Fotky sú voliteľné. Ak ich máte, môžete ich priložiť priamo do formulára alebo poslať emailom. Pomôže záber celej strechy, detail materiálu, prístup k objektu a miesto nakládky.',
   },
   {
     question: 'Čo je nebezpečný odpad?',
@@ -144,16 +144,16 @@ export const servicePages: Record<string, ServicePageContent> = {
       },
       {
         title: 'Čo si pripraviť',
-        text: 'Pre rýchle nacenenie pošlite približnú výmeru v m2, lokalitu, typ objektu, fotky materiálu a kontakt, na ktorom vás vieme zastihnúť.',
+        text: 'Pre rýchle nacenenie pošlite približnú výmeru v m2, lokalitu, typ objektu a kontakt, na ktorom vás vieme zastihnúť. Fotky materiálu sú voliteľné, ale pomôžu ponuku spresniť.',
       },
     ],
     summary: [
       ['Čo riešime', 'materiály s možným obsahom azbestu, strechy, dosky, obklady a pripravený odpad'],
       ['Kde pôsobíme', 'celé Slovensko'],
-      ['Čo potrebujeme od vás', 'm2, lokalitu, fotky a typ objektu'],
+      ['Čo potrebujeme od vás', 'm2, lokalitu a typ objektu; fotky sú voliteľné'],
       ['Čo zabezpečíme my', 'postup, demontáž, balenie, odvoz a doklady'],
       ['Aký doklad dostanete', 'potvrdenie alebo dokumentáciu podľa rozsahu zákazky'],
-      ['Ako rýchlo pripraviť ponuku', 'najlepšie po odoslaní výmery a fotiek'],
+      ['Ako rýchlo pripraviť ponuku', 'po odoslaní výmery a lokality; fotky ju môžu spresniť'],
     ],
     faqs: coreFaqs.slice(0, 6),
   },
@@ -178,17 +178,17 @@ export const servicePages: Record<string, ServicePageContent> = {
         text: 'Zabezpečíme nacenenie, potrebné podklady, stabilizáciu materiálu, demontáž, balenie, odvoz a potvrdenie alebo súvisiacu dokumentáciu.',
       },
       {
-        title: 'Ako poslať výmeru a fotky',
-        text: 'Do formulára uveďte približnú výmeru strechy v m2, obec alebo okres, typ objektu a priložte fotky celej strechy, detail materiálu a prístup k objektu.',
+        title: 'Ako poslať údaje a voliteľné fotky',
+        text: 'Do formulára uveďte približnú výmeru strechy v m2, obec alebo okres a typ objektu. Ak máte fotky celej strechy, detailu materiálu alebo prístupu k objektu, môžete ich priložiť na spresnenie ponuky.',
       },
     ],
     summary: [
       ['Čo riešime', 'eternitové strechy, šablóny a azbestocementové dosky'],
       ['Kde pôsobíme', 'celé Slovensko'],
-      ['Čo potrebujeme od vás', 'výmeru, lokalitu, fotky a informáciu, či máte strechára'],
+      ['Čo potrebujeme od vás', 'výmeru, lokalitu a informáciu, či máte strechára; fotky sú voliteľné'],
       ['Čo zabezpečíme my', 'bezpečný postup, demontáž, balenie, odvoz a doklady'],
       ['Aký doklad dostanete', 'potvrdenie alebo dokumentáciu po legálnej likvidácii'],
-      ['Ako rýchlo pripraviť ponuku', 'odošlite m2 a fotky cez formulár'],
+      ['Ako rýchlo pripraviť ponuku', 'odošlite m2 a lokalitu; fotky môžu ponuku spresniť'],
     ],
     faqs: [coreFaqs[0], coreFaqs[1], coreFaqs[2], coreFaqs[3], coreFaqs[5], coreFaqs[6]],
   },
@@ -216,7 +216,7 @@ export const locationPages = [
     name: 'Prešov',
     area: 'Prešove a Prešovskom kraji',
     title: 'Likvidácia azbestu a eternitu Prešov | ASTANA',
-    description: 'Odborná likvidácia azbestu a eternitu v Prešove a Prešovskom kraji. Pošlite m2, lokalitu a fotky pre cenovú ponuku.',
+    description: 'Odborná likvidácia azbestu a eternitu v Prešove a Prešovskom kraji. Na ponuku stačí m2 a lokalita; fotky sú voliteľné.',
     localNote: 'Prešov a okolie obsluhujeme z nášho sídla v Poprade. Pošlite približnú výmeru a informáciu, či potrebujete práce zladiť so strechárom.',
   },
   {
@@ -249,14 +249,14 @@ export const locationPages = [
     area: 'Nitre a Nitrianskom kraji',
     title: 'Likvidácia azbestu a eternitu Nitra | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Nitre a Nitrianskom kraji. Bezpečná demontáž, balenie, odvoz a doklady.',
-    localNote: 'Pri dopyte z Nitrianskeho kraja priložte, ak môžete, fotky materiálu z viacerých strán a napíšte, či je ešte na streche alebo už zložený.',
+    localNote: 'Pri dopyte z Nitrianskeho kraja napíšte, či je materiál ešte na streche alebo už zložený. Fotky z viacerých strán sú voliteľné a pomôžu ponuku spresniť.',
   },
   {
     slug: 'trnava',
     name: 'Trnava',
     area: 'Trnave a Trnavskom kraji',
     title: 'Likvidácia azbestu a eternitu Trnava | ASTANA',
-    description: 'Odborná likvidácia azbestu a eternitu v Trnave a Trnavskom kraji. Cenová ponuka podľa m2, fotiek, lokality a prístupu.',
+    description: 'Odborná likvidácia azbestu a eternitu v Trnave a Trnavskom kraji. Ponuka podľa m2, lokality a prístupu; fotky sú voliteľné.',
     localNote: 'Pri dopyte z Trnavy a okolia opíšte prístup vozidla k objektu a uveďte, či potrebujete termín zladiť s prácou strechárov.',
   },
 ] as const;
@@ -272,11 +272,11 @@ export const articles = [
     body: [
       ['Prečo na veku záleží', 'Pri starších strechách a obkladoch je bezpečnejšie počítať s možnosťou obsahu azbestu, kým sa materiál neposúdi.'],
       ['Čo si všimnúť', 'Dôležitý je typ dosiek, stav materiálu, rozsah poškodenia, prístup k streche a to, či sa s materiálom už manipulovalo.'],
-      ['Ako postupovať', 'Materiál zbytočne nelámte ani nerežte. Pošlite fotky, výmeru a lokalitu, aby sa dal navrhnúť ďalší postup.'],
+      ['Ako postupovať', 'Materiál zbytočne nelámte ani nerežte. Pošlite výmeru a lokalitu; voliteľné fotky pomôžu spresniť ďalší postup.'],
     ],
     faqs: [
       { question: 'Môže starší eternit obsahovať azbest?', answer: 'Pri starších strechách a obkladoch je bezpečnejšie počítať s možnosťou obsahu azbestu, kým sa materiál neposúdi.' },
-      { question: 'Čo poslať na prvé posúdenie eternitu?', answer: 'Pošlite fotky, približnú výmeru a lokalitu. Pri posúdení je dôležitý aj typ dosiek, stav materiálu, rozsah poškodenia a prístup k streche.' },
+      { question: 'Čo poslať na prvé posúdenie eternitu?', answer: 'Pošlite približnú výmeru a lokalitu. Fotky sú voliteľné, ale pomôžu posúdiť typ dosiek, stav materiálu, rozsah poškodenia a prístup k streche.' },
     ],
   },
   {
@@ -302,15 +302,15 @@ export const articles = [
     description: 'Cena likvidácie azbestu závisí od výmery, prístupu, typu materiálu, lokality a dokumentácie.',
     image: '/og/cena.jpg',
     quickAnswer:
-      'Cena likvidácie azbestu je individuálna. Najviac ju ovplyvňuje výmera, typ a stav materiálu, výška objektu, prístup, lokalita, rozsah dokumentácie a objem odpadu. Presnú ponuku je vhodné pripraviť podľa m2 a fotiek.',
+      'Cena likvidácie azbestu je individuálna. Najviac ju ovplyvňuje výmera, typ a stav materiálu, výška objektu, prístup, lokalita, rozsah dokumentácie a objem odpadu. Na prvú ponuku stačí m2 a lokalita; fotky sú voliteľné.',
     body: [
       ['Prečo nie je univerzálny cenník', 'Rovnaká výmera môže mať rozdielnu náročnosť podľa prístupu, výšky a stavu krytiny.'],
-      ['Čo poslať', 'Uveďte m2, obec, typ objektu, fotky strechy a informáciu, či je materiál ešte na streche.'],
+      ['Čo poslať', 'Uveďte m2, obec, typ objektu a informáciu, či je materiál ešte na streche. Fotky sú voliteľné a pomôžu ponuku spresniť.'],
       ['Čo má ponuka obsahovať', 'Ponuka má jasne pomenovať demontáž, balenie, odvoz, dokumentáciu a doklad po likvidácii.'],
     ],
     faqs: [
       { question: 'Prečo sa nedá určiť jedna cena likvidácie azbestu?', answer: 'Rovnaká výmera môže mať rozdielnu náročnosť podľa prístupu, výšky a stavu krytiny. Cenu ovplyvňuje aj typ materiálu, lokalita, rozsah dokumentácie a objem odpadu.' },
-      { question: 'Čo poslať, aby ste pripravili cenovú ponuku?', answer: 'Uveďte približnú výmeru v m2, obec, typ objektu, fotky strechy a informáciu, či je materiál ešte na streche.' },
+      { question: 'Čo poslať, aby ste pripravili cenovú ponuku?', answer: 'Uveďte približnú výmeru v m2, obec, typ objektu a informáciu, či je materiál ešte na streche. Fotky sú voliteľné a pomôžu ponuku spresniť.' },
     ],
   },
   {
@@ -336,15 +336,15 @@ export const articles = [
     description: 'Jednoduchý postup, ako pripraviť približnú výmeru strechy v m2 pre nacenenie likvidácie eternitu.',
     image: '/og/homepage.jpg',
     quickAnswer:
-      'Pre prvú cenovú ponuku stačí približná výmera strechy v m2. Ak presné rozmery nepoznáte, pošlite odhad, rozmery pôdorysu, počet strán strechy a fotky. Presnejší rozsah sa dá overiť podľa skutočnosti.',
+      'Pre prvú cenovú ponuku stačí približná výmera strechy v m2. Ak presné rozmery nepoznáte, pošlite odhad, rozmery pôdorysu a počet strán strechy. Fotky sú voliteľné a pomôžu rozsah spresniť.',
     body: [
       ['Začnite odhadom', 'Pri sedlovej streche pomôže dĺžka a šírka jednej strany, prípadne rozmery domu a sklon.'],
-      ['Priložte fotky', 'Fotky celej strechy a detail materiálu často povedia viac ako nepresný výpočet.'],
+      ['Fotky sú voliteľné', 'Ak ich máte, fotky celej strechy a detail materiálu pomôžu viac než nepresný výpočet.'],
       ['Uveďte nejasnosti', 'Ak si nie ste istí, napíšte, že ide o odhad. Ponuka sa dá spresniť po kontrole údajov.'],
     ],
     faqs: [
-      { question: 'Čo ak nepoznám presnú výmeru strechy?', answer: 'Na prvú cenovú ponuku stačí približný odhad. Uveďte rozmery pôdorysu, počet strán strechy a fotky; presnejší rozsah sa dá overiť podľa skutočnosti.' },
-      { question: 'Aké rozmery pomôžu pri odhade sedlovej strechy?', answer: 'Pomôže dĺžka a šírka jednej strany, prípadne rozmery domu a sklon strechy. Fotky celej strechy a detail materiálu často povedia viac ako nepresný výpočet.' },
+      { question: 'Čo ak nepoznám presnú výmeru strechy?', answer: 'Na prvú cenovú ponuku stačí približný odhad. Uveďte rozmery pôdorysu a počet strán strechy; voliteľné fotky pomôžu rozsah spresniť.' },
+      { question: 'Aké rozmery pomôžu pri odhade sedlovej strechy?', answer: 'Pomôže dĺžka a šírka jednej strany, prípadne rozmery domu a sklon strechy. Fotky sú voliteľné, ale často pomôžu viac ako nepresný výpočet.' },
     ],
   },
   {
@@ -353,15 +353,15 @@ export const articles = [
     description: 'Prehľad údajov, ktoré urýchlia cenovú ponuku na likvidáciu eternitu.',
     image: '/og/realizacie.jpg',
     quickAnswer:
-      'Pre rýchle nacenenie likvidácie eternitu pošlite lokalitu, približnú výmeru v m2, fotky strechy alebo materiálu, typ objektu, informáciu o prístupe a kontakt. Ak niečo neviete, uveďte odhad.',
+      'Pre rýchle nacenenie likvidácie eternitu pošlite lokalitu, približnú výmeru v m2, typ objektu, informáciu o prístupe a kontakt. Fotky sú voliteľné. Ak niečo neviete, uveďte odhad.',
     body: [
       ['Základné údaje', 'Obec alebo okres, výmera, typ objektu a kontakt sú základ pre prvé posúdenie.'],
-      ['Fotky', 'Pošlite celkový záber strechy, detail krytiny, okolie objektu a prípadné miesto nakládky.'],
+      ['Fotky sú voliteľné', 'Ak ich máte, pomôže celkový záber strechy, detail krytiny, okolie objektu a prípadné miesto nakládky.'],
       ['Dôležité okolnosti', 'Napíšte, či je materiál na streche alebo už zložený a či treba práce zladiť so strechárom.'],
     ],
     faqs: [
       { question: 'Aké údaje potrebujete na nacenenie likvidácie eternitu?', answer: 'Základom je obec alebo okres, približná výmera, typ objektu a kontakt. Pomôže aj informácia o prístupe a o tom, či je materiál na streche alebo už zložený.' },
-      { question: 'Aké fotky priložiť k dopytu?', answer: 'Pošlite celkový záber strechy, detail krytiny, okolie objektu a prípadné miesto nakládky.' },
+      { question: 'Aké fotky priložiť k dopytu?', answer: 'Fotky sú voliteľné. Ak ich máte, priložte celkový záber strechy, detail krytiny, okolie objektu a prípadné miesto nakládky.' },
     ],
   },
   {

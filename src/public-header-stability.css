@@ -26,15 +26,65 @@
   }
 }
 
-.site-header .header-brand-picture {
-  display: block;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+
+  .site-header,
+  .site-header * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.site-header .header-brand-logo {
+  display: block !important;
+  width: min(164px, 48vw);
+  height: 58px;
+  max-width: min(164px, 48vw) !important;
+  max-height: 58px !important;
+  object-fit: contain;
   line-height: 0;
 }
 
-.site-header .header-brand-picture .brand-logo {
-  /* The picture element owns the responsive source. Neutralize the legacy
-     content:url logo swap so the browser never downloads both variants. */
-  content: normal !important;
+@media (max-width: 820px) {
+  .site-header,
+  .site-header .header-main {
+    background: rgba(15, 31, 61, 0.985) !important;
+  }
+
+  .site-header .brand:not(.footer-brand) {
+    flex: 0 0 min(164px, 48vw) !important;
+    width: min(164px, 48vw) !important;
+    min-width: min(164px, 48vw) !important;
+    max-width: min(164px, 48vw) !important;
+    padding: 0 !important;
+  }
+}
+
+@media (min-width: 821px) {
+  .site-header .brand:not(.footer-brand) {
+    flex: 0 0 195px !important;
+    width: 195px !important;
+    min-width: 195px !important;
+    max-width: 195px !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .site-header .header-brand-logo {
+    display: block !important;
+    flex: 0 0 195px;
+    width: 195px !important;
+    height: 65px !important;
+    max-width: 195px !important;
+    max-height: 65px !important;
+  }
 }
 
 .brand.footer-brand .brand-logo[src^="/assets/astana-logo.png"],
@@ -62,5 +112,15 @@
     border-color: #84200e !important;
     background: #84200e !important;
     color: #ffffff !important;
+  }
+}
+
+@media (min-width: 821px) {
+  main.price-seo-page {
+    padding-top: 28px;
+  }
+
+  main.price-seo-page > .seo-hero {
+    padding-top: 38px;
   }
 }

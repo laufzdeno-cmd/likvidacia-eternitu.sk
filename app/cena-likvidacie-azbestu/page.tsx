@@ -8,7 +8,7 @@ import { PublicFontPreload } from '@/src/components/public-font-preload';
 export const metadata = buildPageMetadata({
   title: 'Cena likvidácie azbestu a eternitu | Faktory ceny | ASTANA',
   description:
-    'Cena likvidácie azbestu a eternitu závisí od výmery, prístupu, typu materiálu, lokality, dokumentácie a objemu odpadu. Pošlite m2 a fotky, pripravíme ponuku.',
+    'Cena likvidácie azbestu závisí od výmery, materiálu, prístupu a lokality. Pošlite výmeru a obec; fotky sú voliteľné. Získajte nezáväznú ponuku.',
   path: '/cena-likvidacie-azbestu/',
   image: '/og/cena.jpg',
 });
@@ -55,17 +55,21 @@ export default function AsbestosPricePage() {
         </section>
         <SummaryBox
           items={[
-            ['Čo poslať', 'm2, lokalitu, fotky, typ objektu a informáciu o prístupe'],
+            ['Čo poslať', 'približnú výmeru v m2, lokalitu, typ objektu a informáciu o prístupe; fotky, ak ich máte'],
             ['Čo nerobíme', 'neuvádzame vymyslený univerzálny cenník bez znalosti zákazky'],
             ['Čo dostanete', 'konkrétnu cenovú ponuku a návrh ďalšieho postupu'],
-            ['Prečo fotky pomôžu', 'spresnia typ materiálu, výšku, prístup a náročnosť'],
+            ['Prečo voliteľné fotky pomôžu', 'spresnia typ materiálu, výšku, prístup a náročnosť'],
           ]}
         />
         <section className="seo-calculator" id="orientacna-cena">
           <div>
             <p className="eyebrow">Orientačný výpočet</p>
             <h2>Kalkulátor podľa výmery</h2>
-            <p>Výsledok je orientačný. Presnú ponuku pripravíme po kontrole údajov, fotiek a lokality.</p>
+            <p>
+              Kalkulátor zobrazuje iba orientačný cenový rozsah podľa zadanej výmery v m2. Nejde o konečnú cenovú
+              ponuku. Výsledok automaticky nezahŕňa dopravu, dokumentáciu ani iné individuálne položky. Konkrétny
+              rozsah prác a DPH uvedieme až v cenovej ponuke.
+            </p>
           </div>
           <div className="price-calculator">
             <div className="price-city-field">
@@ -77,7 +81,7 @@ export default function AsbestosPricePage() {
             <input id="priceArea" data-price-area type="range" min="30" max="500" step="10" defaultValue="120" />
             <output data-price-area-output htmlFor="priceArea">120 m2</output>
             <div className="price-result" aria-live="polite">
-              <span>Orientačná cena:</span>
+              <span>Orientačný cenový rozsah:</span>
               <strong><span data-price-min>960 €</span> - <span data-price-max>1 680 €</span></strong>
             </div>
             <div className="price-materials" role="group" aria-label="Typ materiálu">

@@ -38,11 +38,12 @@ test('public visual audit covers every customer-facing template family and break
   assert.match(harness, /metrics\.h1\.display !== 'none'/);
   assert.match(harness, /metrics\.logo\.complete && metrics\.logo\.naturalWidth > 0/);
   assert.match(harness, /metrics\.logo\.left >= -1 && metrics\.logo\.right <= metrics\.viewport \+ 1/);
-  assert.match(harness, /metrics\.logo\.src, '\/assets\/astana-logo\.png\?surface=header'/);
   assert.match(harness, /currentLogoUrl\.origin, appOrigin/);
-  assert.match(harness, /viewport\.width <= 820 \? '\/assets\/astana-logo\.png' : '\/assets\/astana-logo-dark\.png'/);
+  assert.match(harness, /currentLogoUrl\.pathname, '\/assets\/astana-logo-dark\.png'/);
+  assert.match(harness, /currentLogoUrl\.search, ''/);
   assert.match(harness, /header logo must be requested exactly once at/);
-  assert.match(harness, /mobile header must not download the desktop contrast variant/);
+  assert.match(harness, /header must not download a second contrast variant/);
+  assert.match(harness, /redPixels > 40 && contrastPixels > 80/);
   assert.match(harness, /metrics\.headerMainDisplay, 'flex'/);
   assert.match(harness, /assert\.deepEqual\(hydrationErrors, \[\]/);
   assert.match(harness, /requested\.origin !== appOrigin && requested\.origin !== blobOrigin/);
@@ -52,4 +53,7 @@ test('public visual audit covers every customer-facing template family and break
   assert.match(harness, /\{ method: 'POST', url: '\/api\/analytics\/', eventType: 'quote_section_view' \}/);
   assert.match(harness, /campaign navigation records each expected funnel event exactly once and in order/);
   assert.match(harness, /assert\.equal\(formsSubmitted, 0, 'visual audit must not submit any form'\)/);
+  assert.match(harness, /const \{ evidenceManifest, \.\.\.visual \} = visualRun/);
+  assert.match(harness, /verification:\s*\{[\s\S]*formsSubmitted: visual\.formsSubmitted,[\s\S]*hydrationErrors: visual\.hydrationErrors,[\s\S]*blockedBrowserOrigins: browserDenied\.length,[\s\S]*blockedNonGetRequests: browserNonGetBlocked\.length,[\s\S]*navigationInteractions: navigation\.interactions/);
+  assert.match(harness, /await writeFile\(evidenceManifest\.path,[\s\S]*flag: 'wx'/);
 });

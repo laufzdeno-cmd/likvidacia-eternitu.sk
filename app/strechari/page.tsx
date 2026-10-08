@@ -97,7 +97,7 @@ export default function RoofersPage() {
           <a href="/postup/">Ako to prebieha</a>
           <a className="is-active" href="/strechari/" aria-current="page">Strechári</a>
           <a href="/realizacie/">Realizácie</a>
-          <a href="/kariera/">Kariéra</a>
+          <a href="/recenzie/">Recenzie</a>
           <a href="/faq/">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
           <a className="nav-mobile-phone" href="tel:+421905217946">
@@ -117,11 +117,11 @@ export default function RoofersPage() {
                 Veľa zákazníkov sa na nás obráti kvôli eternitu, ale ešte nemá vybraného strechára.
                 Keď poznáme spoľahlivého partnera v ich regióne, radi ho odporučíme. A keď vy narazíte na zákazku s azbestom, pošlete zákazníka k nám.
               </p>
-              <p className="roofer-b2b-hero-trust">Vy sa nemusíte púšťať do azbestu. My sa nemusíme hrať na strechárov. Každý urobí svoju robotu dobre a zákazník dostane kompletné riešenie.</p>
               <div className="hero-actions">
-                <a className="button button-primary" href="#registracia">Chcem byť medzi odporúčanými strechármi <span aria-hidden="true">→</span></a>
+                <a className="button button-primary" href="#registracia">Chcem byť medzi odporúčanými strechármi <span aria-hidden="true" style={{ marginInlineStart: '0.45em' }}>→</span></a>
                 <a className="button button-outline" href="tel:+421905217946">Zavolať 0905 217 946</a>
               </div>
+              <p className="roofer-b2b-hero-trust">Vy sa nemusíte púšťať do azbestu. My sa nemusíme hrať na strechárov. Každý urobí svoju robotu dobre a zákazník dostane kompletné riešenie.</p>
               <div className="roofer-b2b-trust-row" aria-label="Výhody spolupráce s ASTANA">
                 <span><strong>6:00 – 7:00</strong><small>skorý nástup</small></span>
                 <span><strong>Čistá strecha</strong><small>pripravená pre vašu partiu</small></span>
@@ -342,7 +342,7 @@ export default function RoofersPage() {
 
       <PublicFooter />
       <LandingClient />
-      <PublicWidgets />
+      <PublicWidgets hideWhatsappOnMobile />
     </>
   );
 }

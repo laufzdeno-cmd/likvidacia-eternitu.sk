@@ -33,6 +33,12 @@ test('roofer-only presentation is owned by the /strechari route', () => {
   assert.match(layout, /import '\.\/roofer-route\.css'/);
   assert.doesNotMatch(page, /roofer\.module\.css|styles\.routeMarker/);
   assert.match(page, /<main className="roofer-b2b-page">/);
+  assert.match(page, /<PublicWidgets hideWhatsappOnMobile \/>/,
+    'the partner hero must not be covered by the floating WhatsApp control on narrow screens');
+  assert.ok(page.indexOf('<div className="hero-actions">') < page.indexOf('<p className="roofer-b2b-hero-trust">'),
+    'the primary partner action must precede supporting copy on the smallest viewport');
+  assert.match(page, /aria-hidden="true" style=\{\{ marginInlineStart: '0\.45em' \}\}>→<\/span>/,
+    'the desktop partner CTA arrow must not merge visually with the preceding word');
   assert.match(routeCss, /--roofer-route-css:\s*1/);
   assert.match(routeCss, /body:has\(main\.roofer-b2b-page\) \.cookie-banner/);
 

@@ -299,7 +299,7 @@ export default function RealizationsPage({ searchParams }: PageProps) {
           <a href="/postup/">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
           <a href="/realizacie/" aria-current="page">Realizácie</a>
-          <a href="/kariera/">Kariéra</a>
+          <a href="/recenzie/">Recenzie</a>
           <a href="/faq/">FAQ</a>
           <a href="/#kontakt">Kontakt</a>
           <a className="nav-mobile-phone" href="tel:+421905217946">
@@ -386,6 +386,7 @@ export default function RealizationsPage({ searchParams }: PageProps) {
           <a href="/">Úvod</a>
           <a href="/realizacie/">Realizácie</a>
           <a href="/strechari/">Strechári</a>
+          <a href="/kariera/">Kariéra</a>
           <a href="/ochrana-osobnych-udajov/">GDPR</a>
           <a href="/cookies/">Cookies</a>
           <a href="/sitemap.xml">Sitemap</a>

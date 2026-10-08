@@ -171,6 +171,7 @@ export default function HomepageClientBoundary() {
     if (!initializeCriticalClient) return;
     const cleanup = initializeCriticalClient({ pageViewAlreadyTracked: true, clickAnalyticsAlreadyTracked: true });
     criticalReady.current = true;
+    document.documentElement.dataset.homepageCriticalClient = 'loaded';
     const input = restorePendingFiles();
     pendingFiles.current = [];
     input?.dispatchEvent(new Event('change', { bubbles: true }));
@@ -179,6 +180,7 @@ export default function HomepageClientBoundary() {
     if (target?.isConnected) target.click();
     return () => {
       criticalReady.current = false;
+      delete document.documentElement.dataset.homepageCriticalClient;
       cleanup?.();
     };
   }, [initializeCriticalClient]);

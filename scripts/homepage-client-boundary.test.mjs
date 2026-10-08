@@ -57,6 +57,8 @@ test('lead enhancements activate for direct results and explicit form or calcula
 
 test('the first calculator material, quote, submit, file-picker and drop action is preserved while the critical client loads', () => {
   assert.match(boundary, /const criticalReady = useRef\(false\)/);
+  assert.match(boundary, /document\.documentElement\.dataset\.homepageCriticalClient = 'loaded'/);
+  assert.match(boundary, /delete document\.documentElement\.dataset\.homepageCriticalClient/);
   assert.match(boundary, /\[data-price-material\], \[data-price-quote\], \.form-submit/);
   assert.match(boundary, /event\.stopImmediatePropagation\(\)/);
   assert.match(boundary, /pendingAction\.current \?\?= target/);
@@ -87,6 +89,13 @@ test('the lightweight homepage client keeps the sticky CTA inert under consent, 
   assert.match(base, /!isCookieBannerVisible\(\)/);
   assert.match(base, /!isVisibleInViewport\(quoteSection\)/);
   assert.match(base, /!isVisibleInViewport\(priceCalculatorCard\)/);
+  assert.match(base, /stickySuppressedByDownScroll/);
+  assert.match(base, /currentScrollY > lastStickyScrollY \+ 3/);
+  assert.match(base, /currentScrollY < lastStickyScrollY - 3/);
+  assert.doesNotMatch(base, /\}\s*lastStickyScrollY = currentScrollY;\s*const stickyVisible/,
+    'sub-threshold scroll events must accumulate instead of resetting the direction anchor');
+  assert.doesNotMatch(critical, /\}\s*lastStickyScrollY = currentScrollY;\s*const cookieBannerVisible/,
+    'the full client must preserve the same cumulative direction threshold');
   assert.match(base, /cookieBannerObserver = new MutationObserver\(onScroll\)/);
   assert.match(base, /cookieBannerObserver\?\.disconnect\(\)/);
   assert.match(base, /window\.addEventListener\('load', startDeferredObservers, \{ once: true \}\)/);
@@ -102,4 +111,5 @@ test('the lightweight homepage client keeps the sticky CTA inert under consent, 
   assert.match(base, /window\.cancelAnimationFrame\(firstObserverFrame\)/);
   assert.match(base, /window\.cancelAnimationFrame\(secondObserverFrame\)/);
   assert.match(base, /stickyCta\.inert = !stickyVisible/);
+  assert.match(critical, /!stickySuppressedByDownScroll/);
 });

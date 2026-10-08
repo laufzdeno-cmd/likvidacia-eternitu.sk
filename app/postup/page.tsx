@@ -112,7 +112,7 @@ export const metadata = buildPageMetadata({
 
 export default function ProcessPage() {
   const quickAnswer =
-    'Likvidácia azbestu a eternitu začína približnou výmerou, lokalitou a fotkami. ASTANA potom pripraví ponuku, potrebný postup, bezpečnú demontáž, balenie, odvoz a dokumentáciu podľa konkrétnej zákazky.';
+    'Likvidácia azbestu a eternitu začína približnou výmerou a lokalitou. Fotky sú voliteľné. ASTANA potom pripraví ponuku, potrebný postup, bezpečnú demontáž, balenie, odvoz a dokumentáciu podľa konkrétnej zákazky.';
 
   return (
     <PublicPageShell breadcrumb={{ name: 'Postup likvidácie', path: '/postup/' }} hideWhatsappOnMobile>

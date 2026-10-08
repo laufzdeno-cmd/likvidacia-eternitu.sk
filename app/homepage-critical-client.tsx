@@ -55,6 +55,8 @@ export default function initializeHomepageCriticalClient({
     let isHeroSectionVisible = true;
     let isQuoteSectionVisible = false;
     let formStarted = false;
+    let lastStickyScrollY = window.scrollY;
+    let stickySuppressedByDownScroll = false;
     let quoteSectionTracked = false;
     const formStages = Array.from(form?.querySelectorAll<HTMLElement>(':scope > .form-stage') || []);
     const mobileStepMedia = window.matchMedia('(max-width: 760px)');
@@ -732,10 +734,21 @@ export default function initializeHomepageCriticalClient({
       header?.classList.toggle('is-compact', window.scrollY > 28);
       const isMobile = window.innerWidth <= 760;
       if (!stickyCta) return;
+      const currentScrollY = window.scrollY;
+      if (currentScrollY <= 280) {
+        stickySuppressedByDownScroll = false;
+        lastStickyScrollY = currentScrollY;
+      } else if (currentScrollY > lastStickyScrollY + 3) {
+        stickySuppressedByDownScroll = true;
+        lastStickyScrollY = currentScrollY;
+      } else if (currentScrollY < lastStickyScrollY - 3) {
+        stickySuppressedByDownScroll = false;
+        lastStickyScrollY = currentScrollY;
+      }
       const cookieBannerVisible = isCookieBannerVisible();
       const calculatorRect = priceCalculatorCard?.getBoundingClientRect();
       const calculatorVisible = Boolean(calculatorRect && calculatorRect.top < window.innerHeight && calculatorRect.bottom > 0);
-      const shouldShow = isMobile && !isHeroSectionVisible && !isQuoteSectionVisible && !calculatorVisible && !cookieBannerVisible;
+      const shouldShow = isMobile && !stickySuppressedByDownScroll && !isHeroSectionVisible && !isQuoteSectionVisible && !calculatorVisible && !cookieBannerVisible;
       stickyCta.classList.toggle('is-visible', shouldShow);
       stickyCta.inert = !shouldShow;
       whatsappButton?.classList.toggle('is-hidden-over-form', isMobile && (isQuoteSectionVisible || shouldShow));

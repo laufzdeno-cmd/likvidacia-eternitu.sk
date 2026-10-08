@@ -365,7 +365,7 @@ export default async function HomePage() {
           <a href="/postup/">Ako to prebieha</a>
           <a href="/strechari/">Strechári</a>
           <a href="/realizacie/">Realizácie</a>
-          <a href="/kariera/">Kariéra</a>
+          <a href="/recenzie/">Recenzie</a>
           <a href="/faq/">FAQ</a>
           <a href="#kontakt">Kontakt</a>
           <a className="nav-mobile-phone" href="tel:+421905217946">
@@ -639,11 +639,12 @@ export default async function HomePage() {
 
         <section className="price-calculator-section" id="orientacna-cena" aria-labelledby="price-calculator-title">
           <div className="price-calculator-copy">
-            <p className="eyebrow">Orientačná cena</p>
+            <p className="eyebrow">Orientačný cenový rozsah</p>
             <h2 id="price-calculator-title">Koľko môže stáť likvidácia?</h2>
             <p>
-              Najrýchlejšie sa orientujeme podľa približnej výmery v m2. Zadajte plochu a typ materiálu, uvidíte pracovný
-              rozsah ceny. Záväznú ponuku pripravíme po overení detailov.
+              Najrýchlejšie sa orientujeme podľa približnej výmery v m2. Zadajte plochu a typ materiálu a uvidíte
+              orientačný cenový rozsah. Nejde o konečnú cenu. Dopravu, dokumentáciu, individuálne položky
+              a režim DPH určí až konkrétna cenová ponuka po overení detailov.
             </p>
             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginTop: '12px' }}>
               ✓ Bez záväzkov &nbsp;·&nbsp; ✓ Odpovieme do 24h
@@ -677,9 +678,9 @@ export default async function HomePage() {
               <button type="button" data-price-material="neviem" aria-pressed="false">Neviem posúdiť</button>
             </div>
             <div className="price-result" aria-live="polite">
-              <span>Orientačná cena</span>
+              <span>Orientačný cenový rozsah</span>
               <strong><span data-price-min>960 €</span> – <span data-price-max>1 680 €</span></strong>
-              <small>Presná cena závisí od prístupu, výšky objektu, typu materiálu a rozsahu dokumentácie.</small>
+              <small>Výpočet automaticky nezahŕňa dopravu, dokumentáciu, individuálne položky ani určenie DPH.</small>
             </div>
             <a className="button button-primary" data-price-quote href="#dopyt">Preniesť údaje do dopytu</a>
           </div>
@@ -935,6 +936,7 @@ export default async function HomePage() {
           <a href="/kontakt/">Kontakt</a>
           <a href="/poradna/">Poradňa</a>
           <a href="/strechari/">Pre strechárov</a>
+          <a href="/kariera/">Kariéra</a>
         </div>
         <div>
           <h2>Lokality</h2>

@@ -22,8 +22,8 @@ export default function FaqPage() {
           <p>Vecné odpovede k bezpečnému postupu, dokumentácii, cene, odvozu a tomu, čo poslať pre cenovú ponuku.</p>
         </section>
         <QuickAnswer>
-          Pri likvidácii azbestu a eternitu je najdôležitejší bezpečný a preukázateľný postup. Zákazník pošle lokalitu,
-          približné m2 a fotky, odborná firma navrhne cenu, dokumentáciu, demontáž, balenie, odvoz a doklad o likvidácii.
+          Pri likvidácii azbestu a eternitu je najdôležitejší bezpečný a preukázateľný postup. Zákazník pošle lokalitu
+          a približnú výmeru; fotky sú voliteľné. Odborná firma navrhne cenu, dokumentáciu, demontáž, balenie, odvoz a doklad o likvidácii.
         </QuickAnswer>
         <FaqSection faqs={faqPageItems} title="Otázky a odpovede" />
         <QuoteCTA title="Máte inú otázku?" />

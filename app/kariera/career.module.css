@@ -68,3 +68,12 @@
   .formWide { grid-column: auto; }
   .expectations, .applicationForm { padding: 23px 19px; }
 }
+
+@media (max-width: 360px) {
+  .page { padding-top: 24px; padding-inline: 14px; }
+  .intro h1 { margin-block: 6px 12px; font-size: 1.9rem; line-height: 1.04; }
+  .lead { margin-bottom: 16px; font-size: 1rem; line-height: 1.42; }
+  .intro > :global(.button) { min-height: 46px; margin-bottom: 18px; }
+  .intro > p:not(:global(.eyebrow)):not(.lead) { font-size: .96rem; line-height: 1.55; }
+  .benefits { margin-block: 20px; }
+}
