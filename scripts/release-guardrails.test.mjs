@@ -59,6 +59,7 @@ function createRepository() {
   git(repo, ['init', '-b', 'codex/approved-release']);
   git(repo, ['config', 'user.email', 'release-test@example.invalid']);
   git(repo, ['config', 'user.name', 'Release Guard Test']);
+  git(repo, ['config', 'commit.gpgSign', 'false']);
   write(repo, '.gitignore', 'test-results/\n');
   write(repo, 'package.json', `${JSON.stringify({
     private: true,

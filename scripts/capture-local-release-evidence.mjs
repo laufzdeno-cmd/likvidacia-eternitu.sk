@@ -246,15 +246,25 @@ export function releaseEvidenceMetrics(unitLog, buildLog) {
   };
 }
 
-export function databaseEvidenceMetrics(databaseLog) {
+export const currentDatabaseEvidenceProfile = Object.freeze({
+  expectedTests: 13,
+  requireOperationsAlerts: true,
+});
+
+export function databaseEvidenceMetrics(databaseLog, profile) {
+  if (!profile || !Number.isInteger(profile.expectedTests) || profile.expectedTests < 1
+    || typeof profile.requireOperationsAlerts !== 'boolean') {
+    throw new Error('DB integration profil musí explicitne určiť počet testov a O06 dôkaz.');
+  }
   const fields = ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo'];
   const summary = Object.fromEntries(fields.map((field) => {
     const matches = [...databaseLog.matchAll(new RegExp(`^ℹ ${field} (\\d+)$`, 'gm'))];
     if (matches.length !== 1) throw new Error(`DB integration log musí obsahovať práve jeden súhrn ${field}.`);
     return [field, Number(matches[0][1])];
   }));
-  if (summary.tests !== 12 || summary.pass !== 12) {
-    throw new Error('DB integration log nepotvrdzuje presne 12/12 testov.');
+  const expectedTests = profile.expectedTests;
+  if (summary.tests !== expectedTests || summary.pass !== expectedTests) {
+    throw new Error(`DB integration log nepotvrdzuje presne ${expectedTests}/${expectedTests} testov.`);
   }
   if (['fail', 'cancelled', 'skipped', 'todo'].some((field) => summary[field] !== 0)) {
     throw new Error('DB integration log obsahuje neúspešný alebo neúplný test.');
@@ -265,11 +275,19 @@ export function databaseEvidenceMetrics(databaseLog) {
     'DB integration log nepotvrdzuje Meta consent race.');
   requireMatch(databaseLog, /PASS: isolated Meta CAPI outbox; no real fetch, form, email or production action\./,
     'DB integration log nepotvrdzuje izolovaný Meta CAPI outbox.');
+  if (profile.requireOperationsAlerts) {
+    requireMatch(
+      databaseLog,
+      /PASS: PostgreSQL prevádzkové alerty majú kompatibilnú migráciu, súbežný claim, opakovanie, obnovu a audit bez PII\./,
+      'DB integration log nepotvrdzuje PostgreSQL prevádzkové alerty.',
+    );
+  }
   return {
     tests: summary.tests,
     stagingBootstrap: 'PASS',
     metaConsentRace: 'PASS',
     metaCapiOutbox: 'PASS',
+    ...(profile.requireOperationsAlerts ? { operationsAlerts: 'PASS' } : {}),
   };
 }
 
@@ -461,7 +479,7 @@ async function main() {
   const buildLog = await readFile(path.join(outputDirectory, 'productionBuild.txt'), 'utf8');
   const lighthouseLog = await readFile(path.join(outputDirectory, 'lighthouseBuild.txt'), 'utf8');
   const metrics = releaseEvidenceMetrics(unitLog, buildLog);
-  const databaseIntegration = databaseEvidenceMetrics(databaseLog);
+  const databaseIntegration = databaseEvidenceMetrics(databaseLog, currentDatabaseEvidenceProfile);
   const lighthouse = lighthouseEvidenceMetrics(lighthouseLog);
   const buildCleanup = cleanupEvidenceMetrics(buildLog, 'Build');
   const lighthouseCleanup = cleanupEvidenceMetrics(lighthouseLog, 'Lighthouse');

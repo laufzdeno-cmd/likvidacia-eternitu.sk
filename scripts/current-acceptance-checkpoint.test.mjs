@@ -134,7 +134,10 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     generatedRouteCount: 100,
     staticSeoUrlCount: 33,
   });
-  assert.deepEqual(databaseEvidenceMetrics(logs.get('databaseIntegration')), evidence.databaseIntegration);
+  assert.deepEqual(databaseEvidenceMetrics(logs.get('databaseIntegration'), {
+    expectedTests: 12,
+    requireOperationsAlerts: false,
+  }), evidence.databaseIntegration);
   assert.deepEqual(lighthouseEvidenceMetrics(logs.get('lighthouseBuild')), evidence.lighthouse);
   assert.deepEqual(cleanupEvidenceMetrics(logs.get('productionBuild'), 'Build'), {
     temporaryDatabaseStopped: true,
@@ -365,4 +368,47 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.equal(baselineVisual.verification.hydrationErrors, 0);
   assert.equal(baselineVisual.verification.blockedBrowserOrigins, 0);
   assert.equal(baselineVisual.production, 'NOT_VERIFIED');
+});
+
+test('release evidence parser requires the current explicit 13-test DB profile and PostgreSQL operations-alert proof', async () => {
+  const { currentDatabaseEvidenceProfile, databaseEvidenceMetrics } = await import('./capture-local-release-evidence.mjs');
+  const currentLog = [
+    '> node --import tsx --test scripts/lead-submission-postgres.integration.mjs scripts/ops-alert-local-state.integration.mjs',
+    'ℹ tests 13',
+    'ℹ pass 13',
+    'ℹ fail 0',
+    'ℹ cancelled 0',
+    'ℹ skipped 0',
+    'ℹ todo 0',
+    'PASS: staging bootstrap is transactional, idempotent and concurrency-safe on disposable PostgreSQL.',
+    'PASS: local Meta consent tombstone and create/revoke race; no network or production access.',
+    'PASS: isolated Meta CAPI outbox; no real fetch, form, email or production action.',
+    'PASS: PostgreSQL prevádzkové alerty majú kompatibilnú migráciu, súbežný claim, opakovanie, obnovu a audit bez PII.',
+  ].join('\n');
+
+  assert.deepEqual(databaseEvidenceMetrics(currentLog, currentDatabaseEvidenceProfile), {
+    tests: 13,
+    stagingBootstrap: 'PASS',
+    metaConsentRace: 'PASS',
+    metaCapiOutbox: 'PASS',
+    operationsAlerts: 'PASS',
+  });
+  assert.throws(
+    () => databaseEvidenceMetrics(
+      currentLog.replace('ℹ tests 13', 'ℹ tests 12'),
+      currentDatabaseEvidenceProfile,
+    ),
+    /13\/13/,
+  );
+  assert.throws(
+    () => databaseEvidenceMetrics(
+      currentLog.replace(/^PASS: PostgreSQL prevádzkové alerty.*$/m, ''),
+      currentDatabaseEvidenceProfile,
+    ),
+    /PostgreSQL prevádzkové alerty/,
+  );
+  assert.throws(
+    () => databaseEvidenceMetrics(currentLog),
+    /profil musí explicitne určiť/,
+  );
 });
