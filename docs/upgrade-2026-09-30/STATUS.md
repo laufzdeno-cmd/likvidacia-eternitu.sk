@@ -1,5 +1,13 @@
 # Stav a poradie práce
 
+## Aktuálny lokálny prevádzkový checkpoint (8. 10. 2026)
+
+- Commity `9419c3e5`, `bfd9ebef` a `367e5e14` pridávajú do superadmin kontroly systému bezpečný prehľad pripravenosti serverových konverzií, automatických kilometrov, retencie fotografií dopytov, retencie životopisov a tímového príjmu fotografií. Zobrazuje iba pevné stavové texty, nikdy hodnoty hesiel, tokenov, URL databázy ani osobné údaje.
+- Zelený stav workerov je teraz fail-closed: vyžaduje úplnú väzbu príslušnej databázy a súkromného úložiska, presne použiteľný `CRON_SECRET` bez okrajových medzier a prostredie, v ktorom proxy plánované úlohy skutočne povoľuje. Preview aj overený izolovaný staging preto nemôžu predstierať aktívny produkčný worker.
+- Po opravách prešlo **397/397 MJS + 34/34 TypeScript testov**, typová kontrola, `git diff --check`, izolovaný test retencie životopisov a úplný izolovaný Next.js 16.4.0 produkčný build **99/99 trás**. Build `v1gIydfonrSNNXVamwRwO` prešiel oboma SEO kontrolami na 32 statických URL, dynamickými realizáciami/recenziami a route CSS/JS izoláciou; `productionAccess:false`, jednorazová PostgreSQL aj vlastný dočasný root boli odstránené.
+- Nezávislý read-only kontrolór najprv vrátil P2/P3 za staging a medzeru v hesle cronu. Obe vady majú regresné testy a finálna kontrola rozsahu `bb6db184..367e5e14` vydala **PASS**.
+- Produkcia, Vercel alias, produkčná databáza, súkromné úložiská, formuláre, e-maily a reklamné účty sa nemenili. Ďalšou release bránou zostáva doplnenie/overenie chýbajúcich produkčných nastavení, nemenný staged kandidát a až po samostatnom schválení ostrý test dopytu bez fotografie aj s fotografiou.
+
 ## Aktuálny lokálny formulárový checkpoint (8. 10. 2026)
 
 - Presný checkpoint `c18f6f545628a8a6713b1098131efb4c1c85e3ef` (tree `2f96e42f9994b09128db82d525d1146ab0134551`) prešiel úplným izolovaným produkčným buildom **99/99 trás**, oboma SEO kontrolami na 32 statických URL, dynamickými realizáciami/recenziami, starým 308 presmerovaním a route CSS/JS izoláciou. BUILD_ID `bVLQq_0VJpnqv3VPx66dc`; `productionAccess:false`; jednorazová PostgreSQL aj vlastné dočasné dáta boli odstránené.
