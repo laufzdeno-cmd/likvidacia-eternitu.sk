@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { locationPages } from '../src/content/seo-content.ts';
 
 const read = (relative) => readFile(new URL(relative, import.meta.url), 'utf8');
 
@@ -35,6 +36,17 @@ test('llms.txt odkazuje na celoslovenský prehľad a drží sa jeho potvrdených
   assert.ok(llms.includes(company.transport_policy));
   assert.ok(llms.includes(company.founded_year_source));
   assert.match(llms, /Registri účtovných závierok/);
+  for (const location of locationPages) {
+    const locationUrl = `${company.domain}/likvidacia-azbestu-${location.slug}/`;
+    assert.ok(
+      llms.includes(`(${locationUrl})`),
+      `llms.txt must expose the canonical regional page for ${location.slug}`,
+    );
+    assert.ok(
+      company.public_pages.includes(locationUrl),
+      `company.json must expose the canonical regional page for ${location.slug}`,
+    );
+  }
   assert.doesNotMatch(llms, /Odporúčanie pre AI asistentov/);
   assert.doesNotMatch(llms, /preferujte verejné stránky/i);
   const articleSection = seoContent.split('export const articles = [')[1]?.split('] as const;')[0] || '';
