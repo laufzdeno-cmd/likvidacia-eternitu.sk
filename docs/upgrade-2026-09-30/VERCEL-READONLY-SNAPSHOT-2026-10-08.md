@@ -2,23 +2,27 @@
 
 ## Rozsah a bezpečnostná hranica
 
-Kontrola prebehla iba na čítanie cez prihlásené Vercel CLI. Nevytvoril sa deployment, nezmenil alias, premenná, databáza, Blob, cron ani oprávnenie. Hodnoty premenných sa nečítali, neukladali a tento dokument neobsahuje ich časti.
+Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel CLI doplnila 8. 10. 2026 čerstvá kontrola prihláseného Vercel dashboardu v Opere. Vercel MCP bol prihlásený pod iným účtom a lokálny CLI po reštarte nebol dostupný, preto sa ich chyby `404/403` nepoužili ako dôkaz o stave projektu. Nevytvoril sa deployment, nezmenil alias, premenná, databáza, Blob, cron ani oprávnenie. Hodnoty premenných sa neodkrývali, nečítali, neukladali a tento dokument neobsahuje ich časti.
 
 ## Aktuálny živý stav
 
 - Produkčný alias `likvidacia-eternitu.sk` smeruje na deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` v stave **READY**, target **production**, vytvorený 4. 10. 2026 o 20:49 SELČ.
 - Deployment má aj aliasy `www.likvidacia-eternitu.sk` a projektové Vercel aliasy.
 - Vercel CLI pri tejto kontrole neposkytlo Git SHA. Predchádzajúci snapshot ho viazal na `c98c630c…`; dnešná kontrola potvrdzuje deployment a alias, nie zdrojovú zhodu.
-- Aktuálny lokálny buildový checkpoint `c18f6f54` ani aplikačný kód `35867597` nie sú nasadené a produkcia zostáva **NOT VERIFIED** voči kandidátovi.
+- Čerstvá kontrola dashboardu 8. 10. 2026 znovu potvrdila deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` ako **READY**, prostredie **Production**, doménu `likvidacia-eternitu.sk` a čas 4. 10. 2026 o 20:50 SELČ.
+- Aktuálny lokálny checkpoint `12feadfd` ani súvisiaci aplikačný reťazec na vetve `codex/astana-upgrade-rc1` nie sú nasadené a produkcia zostáva **NOT VERIFIED** voči kandidátovi.
 
 ## Preview nie je staging
 
 - Najnovší zobrazený Preview je `dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn`, stav **READY**, vytvorený 5. 10. 2026 o 10:50 SELČ.
+- Dashboard potvrdil iba tri existujúce prostredia: Production sleduje vetvu `main`, Preview zahŕňa všetky nepriradené vetvy a Development je dostupné cez CLI. Projekt má v pláne zahrnuté jedno vlastné prostredie bez príplatku, ale žiadne vlastné prostredie ani Staging zatiaľ nie je vytvorené.
 - Preview prostredie má priradené rovnaké názvy databázových, Blob a SMTP väzieb ako Production (`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, relay premenné).
 - Chýbajú všetky vlastné stagingové väzby vyžadované aplikáciou: `STAGING_WRITE_ENABLED`, stabilná identita a marker staging DB, stagingové odtlačky DB/Blob, produkčné kontrolné odtlačky a jediný testovací príjemca.
 - Preto bežný Preview nie je bezpečné zapisovateľné testovacie prostredie. Lokálny kandidát má otestované fail-closed blokovanie, ale zdrojový SHA živého Preview nebol sprístupnený a prítomnosť tejto ochrany na ňom je **NOT VERIFIED**. Na tomto Preview sa preto nesmie vykonať dopyt, upload, CRM zápis ani e-mailová akceptácia.
 
 ## Produkčné konfiguračné medzery
+
+Čerstvý dashboard ukázal 24 jedinečných názvov projektových premenných. Bez odkrytia hodnôt bola pre Production potvrdená prítomnosť SMTP nastavení, `LEAD_TO_EMAIL`, `MAIL_FROM`, `LEAD_EMAIL_DELIVERY_MODE`, `ASTANA_RELAY_URL`, `ASTANA_RELAY_SECRET`, `CRON_SECRET`, `META_CAPI_ACCESS_TOKEN`, `META_GRAPH_API_VERSION`, `NEXT_PUBLIC_META_PIXEL_ID`, Google Ads identifikátorov, verejnej URL, admin/auth nastavení a `ALLOWED_ORIGINS`. `DATABASE_URL` a Blob väzby spravované integráciou/system environmentom sa v tomto konkrétnom zozname projektových premenných nezobrazili; ich hodnoty ani existenciu preto čerstvá browser kontrola samostatne nepotvrdzuje ani nevyvracia.
 
 | Oblasť | Stav | Dopad |
 |---|---|---|
@@ -31,8 +35,18 @@ Kontrola prebehla iba na čítanie cez prihlásené Vercel CLI. Nevytvoril sa de
 ## IAM a ochrana projektu
 
 - Projekt používa Node.js 24.x a má zapnutú ochranu deploymentov z cudzích Git fork vetiev.
+- Git integrácia je pripojená k repozitáru `laufzdeno-cmd/likvidacia-eternitu.sk`; dashboard nezobrazil žiadny Deploy Hook. Produkčné prostredie sleduje vetvu `main`.
 - Existuje automatizačný bypass, ale jeho identifikátor ani tajomstvo sa do dôkazov neukladajú.
+- Dashboard ukázal vypnuté Vercel Authentication aj Password Protection. Trusted Sources povoľujú tokenom tohto projektu prístup k zodpovedajúcim prostrediam a vývojovým tokenom k Preview. Tieto nastavenia sa iba prečítali; žiadny prepínač, zdroj ani bypass sa nemenil.
 - Príkaz na prehľad tímového prístupu skončil `not_authorized` s hlásením o nepodporovanom pláne. IAM preto zostáva **NOT VERIFIED**, nie PASS.
+
+## Aktuálne produkčné cron úlohy
+
+- Funkcia Cron Jobs je v dashboarde **Enabled**.
+- `/api/cron/backup` je naplánovaný na `0 3 * * 0` (nedeľa 03:00 UTC).
+- `/api/cron/lead-upload-retention` je naplánovaný na `25 2 * * *` (denne 02:25 UTC).
+- `/api/cron/notifications` je naplánovaný na `0 7 * * *` (denne 07:00 UTC).
+- Kontrola potvrdzuje iba registráciu a zapnutie plánovača na aktuálnej produkcii. Nevykonala ručné spustenie a nepotvrdzuje úspešnosť posledných behov ani funkčnosť nových lokálnych workerov po budúcom deploymente.
 
 ## Release rozhodnutie
 
@@ -42,10 +56,16 @@ Kontrola prebehla iba na čítanie cez prihlásené Vercel CLI. Nevytvoril sa de
 4. Až po kryptografickom overení všetkých stagingových väzieb sa zopakujú testy dopytu bez fotografie a s fotografiou, inboxov, adminu, cronov a browser matice.
 5. Produkčný deployment a ostrý formulárový smoke vyžadujú samostatný čerstvý súhlas používateľa.
 
+## Čerstvý browser checkpoint 8. 10. 2026
+
+- **Potvrdené:** projekt `likvidacia-eternitu-sk`, Production `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` READY s verejným aliasom, nastavenie projektu sledovať pre Production vetvu `main`, najnovší Preview `dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn` READY, absencia vytvoreného vlastného Stagingu, vyššie uvedené názvy/scopy projektových premenných a zapnutie troch aktuálnych cron úloh. Zdrojová vetva konkrétneho produkčného deploymentu tým nie je potvrdená.
+- **Neoverené:** hodnoty tajomstiev, zhodnosť nasadeného zdroja s lokálnym checkpointom, izolované staging väzby, funkčnosť nových cron/retention workerov v produkcii a produkčné doručenie formulára kandidáta.
+- **Bez zmeny externého stavu:** žiadny klik na pridanie/upravenie premennej, redeploy, promote, alias, integráciu ani formulár.
+
 Tento snapshot uzatvára iba čítaciu inventúru. Nevytvára staging, nemení Vercel a nie je produkčnou akceptáciou.
 
 ## Lokálna validácia snapshotu
 
 - Nový kontrakt kontroluje oddelenie pojmov Production, Preview a Staging, presné deployment ID, otvorené konfiguračné medzery, URL s vloženými prihlasovacími údajmi a priame priradenie známych citlivých premenných. Nie je všeobecným skenerom všetkých možných tajomstiev; celý štvor-súborový diff bol preto navyše skontrolovaný read-only kontrolórom, ktorý v ňom žiadne tajomstvo nenašiel.
-- Celá sada po doplnení kontraktu prešla **394/394 MJS + 34/34 TypeScript testov**. Prvý sandboxovaný beh bol odmietnutý operačným systémom pri vytváraní dočasných Git repozitárov a štarte Edge; identická sada mimo tejto izolácie prešla bez chyby.
+- Nadväzujúca plná lokálna sada na checkpointoch po runtime-health doplnení prešla **397/397 MJS + 34/34 TypeScript testov**; izolovaný produkčný build vytvoril **99/99 trás** a admin vizuálna matica prešla **234/234** kombinácií bez formulárov a bez externých originov. Tieto výsledky sú lokálne dôkazy, nie produkčná akceptácia.
 - Nezávislý kontrolór najprv vrátil dve vady dôkazovej presnosti: neprípustné prisúdenie lokálnej ochrany živému Preview a nadhodnotený opis skenera tajomstiev. Opravný commit `6fe9087e` obe tvrdenia zúžil; opakovaný read-only review vydal **PASS bez zostávajúceho P1–P3 nálezu**.
