@@ -21,7 +21,12 @@ const regions = [
 const businessTypeLabels = { sro: 's.r.o.', szco: 'živnostník / SZČO', other: 'iné' } as const;
 const trussLabels = { yes: 'áno', no: 'nie', by_scope: 'podľa rozsahu' } as const;
 const registrationStatusLabels = { new: 'nová', reviewed: 'skontrolovaná', archived: 'archivovaná' } as const;
-export default async function RoofersAdminPage() {
+export default async function RoofersAdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ chyba?: string }>;
+}) {
+  const query = await searchParams;
   const admin = await requireAdminUser();
   const csrfToken = csrfTokenForEmail(admin.email);
   const [roofers, leads, registrations] = await Promise.all([listRoofers(), listLeadSummaries(), listRooferRegistrations()]);
@@ -46,10 +51,17 @@ export default async function RoofersAdminPage() {
 
       <section className="admin-stat-grid">
         <article><span>Aktívni partneri</span><strong>{roofers.filter((item) => item.active).length}</strong></article>
+        <article><span>Možno odporučiť</span><strong>{roofers.filter((item) => item.customerReferralApproved).length}</strong></article>
         <article><span>Overení partneri</span><strong>{roofers.filter((item) => item.verifiedPartner).length}</strong></article>
         <article><span>V overovaní</span><strong>{roofers.filter((item) => item.inVerification).length}</strong></article>
         <article><span>Dopyty chcú strechára</span><strong>{wantsRooferLeads.length}</strong></article>
       </section>
+
+      {query.chyba === 'odporucanie' ? (
+        <p className="admin-alert" role="alert">
+          Na odporúčanie strechára zákazníkovi treba zaškrtnúť súhlas a uviesť interný podklad súhlasu.
+        </p>
+      ) : null}
 
       <section className="admin-card">
         <h2>Nové registrácie partnerov</h2>
@@ -187,6 +199,18 @@ export default async function RoofersAdminPage() {
           <label className="admin-checkbox"><input name="verifiedPartner" type="checkbox" /> Overený partner</label>
           <label className="admin-checkbox"><input name="inVerification" type="checkbox" defaultChecked /> Partner v overovaní</label>
           <label className="admin-checkbox"><input name="preferredPartner" type="checkbox" /> Preferovaný partner</label>
+          <label className="admin-checkbox admin-form-wide">
+            <input name="customerReferralApproved" type="checkbox" /> Možno odporučiť zákazníkovi
+          </label>
+          <label className="admin-form-wide">
+            Interný podklad súhlasu na odporúčanie
+            <textarea
+              name="customerReferralEvidence"
+              rows={2}
+              minLength={8}
+              placeholder="Napr. partnerská dohoda zo dňa 8. 10. 2026. Nezobrazuje sa zákazníkovi."
+            />
+          </label>
           <button className="admin-primary-button admin-form-wide" type="submit">Uložiť strechára</button>
         </form>
       </section>
@@ -194,7 +218,7 @@ export default async function RoofersAdminPage() {
       <section className="admin-card">
         <h2>Rýchly import strechárov</h2>
         <p className="admin-muted">
-          Vložte jeden riadok na partnera. Formát: meno/firma; kraj; okresy; telefón; email; overený áno/nie; hodnotenie; interná poznámka.
+          Vložte jeden riadok na partnera. Formát: meno/firma; kraj; okresy; telefón; email; overený áno/nie; hodnotenie; interná poznámka. Importovaný partner sa bez samostatného potvrdenia neponúkne zákazníkovi.
         </p>
         <form action={importRoofersAction} className="admin-quote-form">
           <label className="admin-form-wide">
@@ -245,6 +269,7 @@ export default async function RoofersAdminPage() {
                       {roofer.verifiedPartner ? <span>overený</span> : null}
                       {roofer.inVerification ? <span>v overovaní</span> : null}
                       {roofer.preferredPartner ? <span>preferovaný</span> : null}
+                      {roofer.customerReferralApproved ? <span>možno odporučiť</span> : <span>bez súhlasu na odporúčanie</span>}
                     </div>
                   </td>
                   <td>
@@ -258,12 +283,23 @@ export default async function RoofersAdminPage() {
                       <label><input name="verifiedPartner" type="checkbox" defaultChecked={roofer.verifiedPartner} /> overený</label>
                       <label><input name="inVerification" type="checkbox" defaultChecked={roofer.inVerification} /> v overovaní</label>
                       <label><input name="preferredPartner" type="checkbox" defaultChecked={roofer.preferredPartner} /> preferovaný</label>
+                      <label><input name="customerReferralApproved" type="checkbox" defaultChecked={roofer.customerReferralApproved} /> možno odporučiť zákazníkovi</label>
+                      <label>
+                        podklad súhlasu
+                        <textarea
+                          name="customerReferralEvidence"
+                          defaultValue={roofer.customerReferralEvidence}
+                          rows={2}
+                          minLength={8}
+                          placeholder="interný podklad súhlasu"
+                        />
+                      </label>
                       <button type="submit">Uložiť</button>
                     </form>
                   </td>
                 </tr>
               ))}
-              {!roofers.length ? <tr><td colSpan={7}>Zatiaľ nie sú pridaní žiadni strechári. Verejná stránka preto zobrazí bezpečný fallback bez falošných údajov.</td></tr> : null}
+              {!roofers.length ? <tr><td colSpan={7}>Zatiaľ nie sú pridaní žiadni strechári.</td></tr> : null}
             </tbody>
           </table>
         </div>

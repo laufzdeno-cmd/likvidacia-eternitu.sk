@@ -10,6 +10,7 @@ const loginRoute = read('../app/admin/login/submit/route.ts');
 const twoFactorActions = read('../app/admin/2fa/actions.ts');
 const sharedRateLimit = read('../src/server/shared-rate-limit.ts');
 const database = read('../src/server/db.ts');
+const databaseConfig = read('../src/server/database-config.ts');
 const homepageClient = read('../app/homepage-critical-client.tsx');
 const homepage = read('../app/page.tsx');
 const leadRoute = read('../app/api/lead/route.ts');
@@ -274,8 +275,8 @@ test('lead rate limiting uses a shared hashed database bucket in production', ()
 
 test('the PGlite browser harness serializes its pool without changing the production default', () => {
   assert.match(database, /process\.env\.DATABASE_POOL_MAX/);
-  assert.match(database, /configuredPoolMax >= 1 && configuredPoolMax <= 50/);
-  assert.match(database, /\.\.\.\(poolMax \? \{ max: poolMax \} : \{\}\)/);
+  assert.match(databaseConfig, /parsedPoolMax >= 1 && parsedPoolMax <= 50/);
+  assert.match(databaseConfig, /\.\.\.\(max \? \{ max \} : \{\}\)/);
   assert.match(browserHarness, /DATABASE_POOL_MAX:\s*isolatedPgUrl \? '' : '1'/);
   assert.match(adminVisualHarness, /DATABASE_POOL_MAX:\s*'1'/);
 });

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getLeadWithFiles, getRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
+import { getLeadWithFiles, getReferralEligibleRoofer, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { createQuoteAction } from './actions';
 import QuoteLivePreview from './quote-live-preview';
 import { isLeadAreaUnknown } from '@/src/server/lead-area';
@@ -17,7 +17,7 @@ export default async function CreateQuotePage({ params }: { params: Promise<{ id
   const [quoteNumber, matchingRoofers, selectedRoofer] = await Promise.all([
     nextQuoteNumber(),
     listMatchingRoofers(lead),
-    lead.selectedRooferId ? getRoofer(lead.selectedRooferId) : Promise.resolve(null),
+    lead.selectedRooferId ? getReferralEligibleRoofer(lead.selectedRooferId) : Promise.resolve(null),
   ]);
   const roofersForSelect = selectedRoofer && !matchingRoofers.some((roofer) => roofer.id === selectedRoofer.id)
     ? [selectedRoofer, ...matchingRoofers]

@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { requireAdmin, verifyCsrf } from '@/src/server/auth';
-import { createQuote, getRoofer, nextQuoteNumber } from '@/src/server/db';
+import { createQuote, getReferralEligibleRoofer, nextQuoteNumber } from '@/src/server/db';
 import { quoteSchema } from '@/src/server/validation';
 
 export async function createQuoteAction(formData: FormData) {
@@ -26,7 +26,7 @@ export async function createQuoteAction(formData: FormData) {
     redirect(`/admin/dopyty/${leadId}`);
   }
   const recommendedRooferId = String(formData.get('recommendedRooferId') || '');
-  const recommendedRoofer = recommendedRooferId ? await getRoofer(recommendedRooferId) : null;
+  const recommendedRoofer = recommendedRooferId ? await getReferralEligibleRoofer(recommendedRooferId) : null;
   const note = [
     parsed.data.note || '',
     recommendedRoofer

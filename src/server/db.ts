@@ -116,6 +116,8 @@ import { careerCvUploadContentTypes, isCareerCvUploadPath, validateCareerCvReser
 import type { ApplicationRecipientResult } from './application-notification-policy';
 import { deploymentDatabaseAccessBlocked, isVerifiedIsolatedStaging, isVerifiedLocalBuildHarness, runtimeSchemaInitializationAllowed, stagingDatabaseMarkerMatches } from './preview-safety';
 import { mergeLatestTestClassifications } from './local-lead-test-classification';
+import { assertDatabaseConfiguredForRuntime, databasePoolConfig, normalizeDatabaseUrl } from './database-config';
+import { isRooferReferralEligible, resolveRooferReferralApproval, resolveRooferReferralApprovalUpdate } from './roofer-referral-policy';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { validatePriceOfferNote } from '../lib/price-offer-note';
@@ -188,38 +190,14 @@ function withLocalLeadSubmissionLock<T>(operation: () => Promise<T>): Promise<T>
   return result;
 }
 
-function normalizeDatabaseUrl(value?: string) {
-  if (!value || value.includes('localhost') || value.includes('127.0.0.1')) return value;
-  try {
-    const url = new URL(value);
-    const sslMode = url.searchParams.get('sslmode');
-    if (!sslMode) {
-      url.searchParams.set('sslmode', 'require');
-    } else if (['prefer', 'require', 'verify-ca'].includes(sslMode) && !url.searchParams.has('uselibpqcompat')) {
-      url.searchParams.set('uselibpqcompat', 'true');
-    }
-    return url.toString();
-  } catch {
-    const separator = value.includes('?') ? '&' : '?';
-    return `${value}${separator}sslmode=require`;
-  }
-}
-
 function getPool() {
+  assertDatabaseConfiguredForRuntime(databaseUrl);
   // Schema initialization also writes. A shared Neon Preview connection must never reach it.
   if (deploymentDatabaseAccessBlocked()) {
     throw new Error('Database access is disabled without verified production deployment identity.');
   }
   if (!databaseUrl) return undefined;
-  const configuredPoolMax = Number.parseInt(process.env.DATABASE_POOL_MAX || '', 10);
-  const poolMax = Number.isSafeInteger(configuredPoolMax) && configuredPoolMax >= 1 && configuredPoolMax <= 50
-    ? configuredPoolMax
-    : undefined;
-  pool ??= new Pool({
-    connectionString: databaseUrl,
-    ssl: databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1') ? undefined : { rejectUnauthorized: false },
-    ...(poolMax ? { max: poolMax } : {}),
-  });
+  pool ??= new Pool(databasePoolConfig(databaseUrl, process.env.DATABASE_POOL_MAX));
   return pool;
 }
 
@@ -967,6 +945,10 @@ async function initializeSchema() {
       verified_partner boolean NOT NULL DEFAULT false,
       in_verification boolean NOT NULL DEFAULT true,
       preferred_partner boolean NOT NULL DEFAULT false,
+      customer_referral_approved boolean NOT NULL DEFAULT false,
+      customer_referral_evidence text NOT NULL DEFAULT '',
+      customer_referral_approved_at timestamptz,
+      customer_referral_approved_by text NOT NULL DEFAULT '',
       rating numeric(3,2) NOT NULL DEFAULT 0,
       review_count integer NOT NULL DEFAULT 0,
       complaints_count integer NOT NULL DEFAULT 0,
@@ -980,7 +962,15 @@ async function initializeSchema() {
       internal_score numeric(5,2) NOT NULL DEFAULT 0,
       total_m2 numeric(12,2) NOT NULL DEFAULT 0,
       revenue_without_vat numeric(12,2) NOT NULL DEFAULT 0,
-      profit numeric(12,2) NOT NULL DEFAULT 0
+      profit numeric(12,2) NOT NULL DEFAULT 0,
+      CONSTRAINT roofers_customer_referral_approval_check CHECK (
+        customer_referral_approved = false
+        OR (
+          length(btrim(customer_referral_evidence)) >= 8
+          AND customer_referral_approved_at IS NOT NULL
+          AND length(btrim(customer_referral_approved_by)) > 0
+        )
+      )
     );
 
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS in_verification boolean NOT NULL DEFAULT true;
@@ -989,6 +979,20 @@ async function initializeSchema() {
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS quote_use_click_count integer NOT NULL DEFAULT 0;
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS failed_jobs_count integer NOT NULL DEFAULT 0;
     ALTER TABLE roofers ADD COLUMN IF NOT EXISTS internal_score numeric(5,2) NOT NULL DEFAULT 0;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS customer_referral_approved boolean NOT NULL DEFAULT false;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS customer_referral_evidence text NOT NULL DEFAULT '';
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS customer_referral_approved_at timestamptz;
+    ALTER TABLE roofers ADD COLUMN IF NOT EXISTS customer_referral_approved_by text NOT NULL DEFAULT '';
+    ALTER TABLE roofers DROP CONSTRAINT IF EXISTS roofers_customer_referral_approval_check;
+    ALTER TABLE roofers ADD CONSTRAINT roofers_customer_referral_approval_check CHECK (
+      customer_referral_approved = false
+      OR (
+        length(btrim(customer_referral_evidence)) >= 8
+        AND customer_referral_approved_at IS NOT NULL
+        AND length(btrim(customer_referral_approved_by)) > 0
+      )
+    ) NOT VALID;
+    ALTER TABLE roofers VALIDATE CONSTRAINT roofers_customer_referral_approval_check;
 
     CREATE TABLE IF NOT EXISTS roofer_registrations (
       id uuid PRIMARY KEY,
@@ -1797,6 +1801,12 @@ function toRoofer(row: Record<string, unknown>): Roofer {
     verifiedPartner: Boolean(row.verified_partner ?? row.verifiedPartner),
     inVerification: Boolean(row.in_verification ?? row.inVerification ?? !row.verified_partner),
     preferredPartner: Boolean(row.preferred_partner ?? row.preferredPartner),
+    customerReferralApproved: Boolean(row.customer_referral_approved ?? row.customerReferralApproved),
+    customerReferralEvidence: row.customer_referral_evidence ? String(row.customer_referral_evidence) : row.customerReferralEvidence ? String(row.customerReferralEvidence) : '',
+    customerReferralApprovedAt: row.customer_referral_approved_at || row.customerReferralApprovedAt
+      ? new Date(String(row.customer_referral_approved_at ?? row.customerReferralApprovedAt)).toISOString()
+      : undefined,
+    customerReferralApprovedBy: row.customer_referral_approved_by ? String(row.customer_referral_approved_by) : row.customerReferralApprovedBy ? String(row.customerReferralApprovedBy) : '',
     rating: Number(row.rating ?? 0),
     reviewCount: Number(row.review_count ?? row.reviewCount ?? 0),
     complaintsCount: Number(row.complaints_count ?? row.complaintsCount ?? 0),
@@ -8371,7 +8381,7 @@ export async function updateRealizationStatus(id: string, status: RealizationSta
   }
 }
 
-export async function listRoofers(options: { publicOnly?: boolean; region?: string; district?: string } = {}): Promise<Roofer[]> {
+export async function listRoofers(options: { referralEligibleOnly?: boolean; region?: string; district?: string } = {}): Promise<Roofer[]> {
   await ensureSchema();
   const db = getPool();
   const region = options.region?.trim() ?? '';
@@ -8381,7 +8391,7 @@ export async function listRoofers(options: { publicOnly?: boolean; region?: stri
     const local = await readLocalDb();
     return local.roofers
       .map((roofer) => toRoofer(roofer as unknown as Record<string, unknown>))
-      .filter((roofer) => (!options.publicOnly || roofer.active))
+      .filter((roofer) => (!options.referralEligibleOnly || isRooferReferralEligible(roofer)))
       .filter((roofer) => (!region || roofer.region === region))
       .filter((roofer) => (!district || roofer.districts.includes(district)))
       .sort((a, b) =>
@@ -8395,7 +8405,13 @@ export async function listRoofers(options: { publicOnly?: boolean; region?: stri
 
   const clauses: string[] = [];
   const values: unknown[] = [];
-  if (options.publicOnly) clauses.push('active = true');
+  if (options.referralEligibleOnly) {
+    clauses.push(`active = true
+      AND customer_referral_approved = true
+      AND length(btrim(customer_referral_evidence)) >= 8
+      AND customer_referral_approved_at IS NOT NULL
+      AND length(btrim(customer_referral_approved_by)) > 0`);
+  }
   if (region) {
     values.push(region);
     clauses.push(`region = $${values.length}`);
@@ -8412,8 +8428,8 @@ export async function listRoofers(options: { publicOnly?: boolean; region?: stri
     .filter((roofer) => (!district || roofer.districts.includes(district)));
 }
 
-export async function listPublicRoofers(filters: { region?: string; district?: string } = {}) {
-  return listRoofers({ ...filters, publicOnly: true });
+export async function listReferralEligibleRoofers(filters: { region?: string; district?: string } = {}) {
+  return listRoofers({ ...filters, referralEligibleOnly: true });
 }
 
 export type PhotoUploadInvite = {
@@ -11392,7 +11408,7 @@ export async function getApplicationNotificationEntity(
 export async function listMatchingRoofers(lead: Pick<Lead, 'city' | 'district'>, limit = 5) {
   const district = lead.district?.trim() || '';
   const city = lead.city?.trim() || '';
-  const all = await listPublicRoofers();
+  const all = await listReferralEligibleRoofers();
   return all
     .filter((roofer) => !district || roofer.districts.includes(district) || roofer.districts.includes(city))
     .slice(0, limit);
@@ -11410,9 +11426,36 @@ export async function getRoofer(id: string): Promise<Roofer | null> {
   return rows[0] ? toRoofer(rows[0]) : null;
 }
 
+export async function getReferralEligibleRoofer(id: string): Promise<Roofer | null> {
+  const roofer = await getRoofer(id);
+  return roofer && isRooferReferralEligible(roofer) ? roofer : null;
+}
+
+function rooferFlagsAuditSnapshot(input: Pick<
+  Roofer,
+  'active' | 'verifiedPartner' | 'inVerification' | 'preferredPartner' | 'customerReferralApproved' | 'customerReferralEvidence' | 'customerReferralApprovedAt' | 'customerReferralApprovedBy'
+>) {
+  return {
+    active: input.active,
+    verifiedPartner: input.verifiedPartner,
+    inVerification: input.inVerification,
+    preferredPartner: input.preferredPartner,
+    customerReferralApproved: input.customerReferralApproved,
+    customerReferralEvidenceRecorded: Boolean(input.customerReferralEvidence?.trim()),
+    customerReferralApprovedAt: input.customerReferralApprovedAt ?? null,
+    customerReferralApprovedBy: input.customerReferralApprovedBy ?? '',
+  };
+}
+
 export async function createRoofer(input: RooferInput, actorEmail: string): Promise<Roofer> {
   await ensureSchema();
   const timestamp = now();
+  const referralApproval = resolveRooferReferralApproval(
+    Boolean(input.customerReferralApproved),
+    input.customerReferralEvidence,
+    actorEmail,
+    timestamp,
+  );
   const roofer: Roofer = {
     id: randomUUID(),
     name: input.name.trim(),
@@ -11430,6 +11473,7 @@ export async function createRoofer(input: RooferInput, actorEmail: string): Prom
     verifiedPartner: Boolean(input.verifiedPartner),
     inVerification: Boolean(input.inVerification ?? !input.verifiedPartner),
     preferredPartner: Boolean(input.preferredPartner),
+    ...referralApproval,
     rating: Math.min(5, Math.max(0, Number(input.rating ?? 0))),
     reviewCount: Math.max(0, Math.round(Number(input.reviewCount ?? 0))),
     complaintsCount: Math.max(0, Math.round(Number(input.complaintsCount ?? 0))),
@@ -11453,18 +11497,19 @@ export async function createRoofer(input: RooferInput, actorEmail: string): Prom
     const local = await readLocalDb();
     local.roofers.unshift(roofer);
     await writeLocalDb(local);
-    await addAuditLog('roofer', roofer.id, 'roofer_created', actorEmail, { active: roofer.active, verifiedPartner: roofer.verifiedPartner });
+    await addAuditLog('roofer', roofer.id, 'roofer_created', actorEmail, rooferFlagsAuditSnapshot(roofer));
     return roofer;
   }
 
   await db.query(
     `INSERT INTO roofers (
       id, created_at, updated_at, name, ico, contact_person, phone, email, web, region, districts,
-      specialization, public_note, internal_note, active, verified_partner, in_verification, preferred_partner, rating,
+      specialization, public_note, internal_note, active, verified_partner, in_verification, preferred_partner,
+      customer_referral_approved, customer_referral_evidence, customer_referral_approved_at, customer_referral_approved_by, rating,
       review_count, complaints_count, card_view_count, contact_reveal_count, quote_use_click_count,
       referral_count, recommended_jobs_count, confirmed_jobs_count, failed_jobs_count, internal_score,
       total_m2, revenue_without_vat, profit
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32)`,
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)`,
     [
       roofer.id,
       roofer.createdAt,
@@ -11484,6 +11529,10 @@ export async function createRoofer(input: RooferInput, actorEmail: string): Prom
       roofer.verifiedPartner,
       roofer.inVerification,
       roofer.preferredPartner,
+      roofer.customerReferralApproved,
+      roofer.customerReferralEvidence,
+      roofer.customerReferralApprovedAt ?? null,
+      roofer.customerReferralApprovedBy,
       roofer.rating,
       roofer.reviewCount,
       roofer.complaintsCount,
@@ -11500,13 +11549,13 @@ export async function createRoofer(input: RooferInput, actorEmail: string): Prom
       roofer.profit,
     ],
   );
-  await addAuditLog('roofer', roofer.id, 'roofer_created', actorEmail, { active: roofer.active, verifiedPartner: roofer.verifiedPartner });
+  await addAuditLog('roofer', roofer.id, 'roofer_created', actorEmail, rooferFlagsAuditSnapshot(roofer));
   return roofer;
 }
 
 export async function updateRooferFlags(
   id: string,
-  input: Pick<RooferInput, 'active' | 'verifiedPartner' | 'inVerification' | 'preferredPartner'>,
+  input: Pick<RooferInput, 'active' | 'verifiedPartner' | 'inVerification' | 'preferredPartner' | 'customerReferralApproved' | 'customerReferralEvidence'>,
   actorEmail: string,
 ): Promise<Roofer | null> {
   await ensureSchema();
@@ -11515,27 +11564,72 @@ export async function updateRooferFlags(
     const local = await readLocalDb();
     const roofer = local.roofers.find((item) => item.id === id);
     if (!roofer) return null;
-    const previous = { active: roofer.active, verifiedPartner: roofer.verifiedPartner, inVerification: roofer.inVerification, preferredPartner: roofer.preferredPartner };
+    const current = toRoofer(roofer as unknown as Record<string, unknown>);
+    const previous = rooferFlagsAuditSnapshot(current);
+    const referralApproval = resolveRooferReferralApprovalUpdate(
+      {
+        customerReferralApproved: current.customerReferralApproved,
+        customerReferralEvidence: current.customerReferralEvidence ?? '',
+        customerReferralApprovedAt: current.customerReferralApprovedAt,
+        customerReferralApprovedBy: current.customerReferralApprovedBy ?? '',
+      },
+      Boolean(input.customerReferralApproved),
+      input.customerReferralEvidence,
+      actorEmail,
+    );
     roofer.active = Boolean(input.active);
     roofer.verifiedPartner = Boolean(input.verifiedPartner);
     roofer.inVerification = Boolean(input.inVerification);
     roofer.preferredPartner = Boolean(input.preferredPartner);
+    Object.assign(roofer, referralApproval);
     roofer.updatedAt = now();
     await writeLocalDb(local);
-    await addAuditLog('roofer', id, 'roofer_flags_changed', actorEmail, { previous, next: input });
+    await addAuditLog('roofer', id, 'roofer_flags_changed', actorEmail, { previous, next: rooferFlagsAuditSnapshot(roofer) });
     return roofer;
   }
   const previous = await getRoofer(id);
+  if (!previous) return null;
+  const referralApproval = resolveRooferReferralApproval(
+    Boolean(input.customerReferralApproved),
+    input.customerReferralEvidence,
+    actorEmail,
+  );
   const { rows } = await db.query(
     `UPDATE roofers
-     SET active = $1, verified_partner = $2, in_verification = $3, preferred_partner = $4, updated_at = now()
-     WHERE id = $5
+     SET active = $1, verified_partner = $2, in_verification = $3, preferred_partner = $4,
+         customer_referral_approved = $5, customer_referral_evidence = $6,
+         customer_referral_approved_at = CASE
+           WHEN $5 = true AND customer_referral_approved = true AND btrim(customer_referral_evidence) = btrim($6)
+             THEN customer_referral_approved_at
+           ELSE $7
+         END,
+         customer_referral_approved_by = CASE
+           WHEN $5 = true AND customer_referral_approved = true AND btrim(customer_referral_evidence) = btrim($6)
+             THEN customer_referral_approved_by
+           ELSE $8
+         END,
+         updated_at = now()
+     WHERE id = $9
      RETURNING *`,
-    [Boolean(input.active), Boolean(input.verifiedPartner), Boolean(input.inVerification), Boolean(input.preferredPartner), id],
+    [
+      Boolean(input.active),
+      Boolean(input.verifiedPartner),
+      Boolean(input.inVerification),
+      Boolean(input.preferredPartner),
+      referralApproval.customerReferralApproved,
+      referralApproval.customerReferralEvidence,
+      referralApproval.customerReferralApprovedAt ?? null,
+      referralApproval.customerReferralApprovedBy,
+      id,
+    ],
   );
   if (!rows[0]) return null;
-  await addAuditLog('roofer', id, 'roofer_flags_changed', actorEmail, { previous, next: input });
-  return toRoofer(rows[0]);
+  const updated = toRoofer(rows[0]);
+  await addAuditLog('roofer', id, 'roofer_flags_changed', actorEmail, {
+    previous: rooferFlagsAuditSnapshot(previous),
+    next: rooferFlagsAuditSnapshot(updated),
+  });
+  return updated;
 }
 
 export type RooferEventType = 'card_viewed' | 'contact_revealed' | 'quote_selected';

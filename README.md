@@ -62,7 +62,7 @@ Použite `.env.example`.
 
 Dôležité:
 
-- `DATABASE_URL` musí smerovať na PostgreSQL databázu.
+- `DATABASE_URL` musí smerovať na PostgreSQL databázu. V produkcii je povinná; vzdialené spojenie používa plné overenie TLS certifikátu a názvu servera.
 - `S3_*` premenné nastavte na S3 kompatibilné úložisko pre fotky.
 - `SMTP_*` nastavte až pred ostrým odosielaním emailov.
 

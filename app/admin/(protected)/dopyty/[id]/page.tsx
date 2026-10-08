@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { canManuallyRetryLeadEmail } from '@/src/server/mail';
-import { findDuplicateLeads, getLatestPriceOffersByInquiryIds, getLeadWithFiles, getRoofer, listAdminUsers, listLeadEmailOutbox, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
+import { findDuplicateLeads, getLatestPriceOffersByInquiryIds, getLeadWithFiles, getReferralEligibleRoofer, listAdminUsers, listLeadEmailOutbox, listMatchingRoofers, nextQuoteNumber } from '@/src/server/db';
 import { getLeadInsight, statusLabels, tagLabels } from '@/src/server/lead-insights';
 import { cleanSlovakText, leadEventLabel } from '@/src/server/slovak-text';
 import { formatLeadArea } from '@/src/server/lead-area';
@@ -80,7 +80,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const [defaultQuoteNumber, matchingRoofers, selectedRoofer, adminUsers, duplicateLeads, priceOfferMap] = await Promise.all([
     nextQuoteNumber(),
     listMatchingRoofers(lead),
-    lead.selectedRooferId ? getRoofer(lead.selectedRooferId) : Promise.resolve(null),
+    lead.selectedRooferId ? getReferralEligibleRoofer(lead.selectedRooferId) : Promise.resolve(null),
     listAdminUsers(),
     findDuplicateLeads(id),
     getLatestPriceOffersByInquiryIds([lead.id]),

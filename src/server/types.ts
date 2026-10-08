@@ -806,6 +806,10 @@ export type Roofer = {
   verifiedPartner: boolean;
   inVerification: boolean;
   preferredPartner: boolean;
+  customerReferralApproved: boolean;
+  customerReferralEvidence?: string;
+  customerReferralApprovedAt?: string;
+  customerReferralApprovedBy?: string;
   rating: number;
   reviewCount: number;
   complaintsCount: number;
@@ -840,6 +844,8 @@ export type RooferInput = {
   verifiedPartner?: boolean;
   inVerification?: boolean;
   preferredPartner?: boolean;
+  customerReferralApproved?: boolean;
+  customerReferralEvidence?: string;
   rating?: number;
   reviewCount?: number;
   complaintsCount?: number;

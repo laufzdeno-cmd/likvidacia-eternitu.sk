@@ -8,6 +8,10 @@ function checkbox(value: FormDataEntryValue | null) {
   return value === 'on' || value === 'true';
 }
 
+function textValue(value: FormDataEntryValue | null) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function parseDistricts(value: FormDataEntryValue | null) {
   return String(value || '')
     .split(',')
@@ -45,6 +49,11 @@ export async function createRooferAction(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const region = String(formData.get('region') || '').trim();
   if (!name || !region) redirect('/admin/strechari?chyba=1');
+  const customerReferralApproved = checkbox(formData.get('customerReferralApproved'));
+  const customerReferralEvidence = textValue(formData.get('customerReferralEvidence'));
+  if (customerReferralApproved && customerReferralEvidence.length < 8) {
+    redirect('/admin/strechari?chyba=odporucanie');
+  }
 
   await createRoofer(
     {
@@ -63,6 +72,8 @@ export async function createRooferAction(formData: FormData) {
       verifiedPartner: checkbox(formData.get('verifiedPartner')),
       inVerification: checkbox(formData.get('inVerification')),
       preferredPartner: checkbox(formData.get('preferredPartner')),
+      customerReferralApproved,
+      customerReferralEvidence,
       rating: numberValue(formData.get('rating')),
       reviewCount: numberValue(formData.get('reviewCount')),
       complaintsCount: numberValue(formData.get('complaintsCount')),
@@ -103,6 +114,8 @@ export async function importRoofersAction(formData: FormData) {
         verifiedPartner,
         inVerification: !verifiedPartner,
         preferredPartner: false,
+        customerReferralApproved: false,
+        customerReferralEvidence: '',
         rating: Number(row.rating || 0),
         reviewCount: 0,
         complaintsCount: 0,
@@ -121,6 +134,11 @@ export async function updateRooferFlagsAction(formData: FormData) {
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
   if (!id) redirect('/admin/strechari');
+  const customerReferralApproved = checkbox(formData.get('customerReferralApproved'));
+  const customerReferralEvidence = textValue(formData.get('customerReferralEvidence'));
+  if (customerReferralApproved && customerReferralEvidence.length < 8) {
+    redirect('/admin/strechari?chyba=odporucanie');
+  }
   await updateRooferFlags(
     id,
     {
@@ -128,6 +146,8 @@ export async function updateRooferFlagsAction(formData: FormData) {
       verifiedPartner: checkbox(formData.get('verifiedPartner')),
       inVerification: checkbox(formData.get('inVerification')),
       preferredPartner: checkbox(formData.get('preferredPartner')),
+      customerReferralApproved,
+      customerReferralEvidence,
     },
     actor,
   );
