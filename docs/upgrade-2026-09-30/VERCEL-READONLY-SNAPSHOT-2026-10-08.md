@@ -66,6 +66,12 @@ Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel
 
 Tento snapshot uzatvára iba čítaciu inventúru. Nevytvára staging, nemení Vercel a nie je produkčnou akceptáciou.
 
+## Nadväzujúci checkpoint po vytvorení prázdneho stagingu
+
+Neskoršia read-only kontrola Vercel dashboardu po reštarte potvrdila stav opísaný v [STAGING-BOOTSTRAP-2026-10-08.md](STAGING-BOOTSTRAP-2026-10-08.md): vlastné prostredie `staging` už existuje, ale nemá vetvu, doménu ani žiadne projektové environment variables. `astana-staging-db` je dostupná na pripojenie, nie pripojená. V projekte sú naďalej pripojené iba `astana-crm-db` a `astana-lead-files-prod` so scope **All Environments** a nie sú pripojené dva požadované stagingové Private Blob stores. Toto pozorovanie nemení historický obsah pôvodného snapshotu vyššie; aktualizuje iba dnešný rozhodovací stav.
+
+Najnovší lokálny release kandidát je zdrojový commit `bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a`, evidenčne uzavretý commitom `9fb623e5`. Nie je nasadený; produkčná zhodnosť a ostrá akceptácia zostávajú **NOT VERIFIED**.
+
 ## Lokálna validácia snapshotu
 
 - Nový kontrakt kontroluje oddelenie pojmov Production, Preview a Staging, presné deployment ID, otvorené konfiguračné medzery, URL s vloženými prihlasovacími údajmi a priame priradenie známych citlivých premenných. Nie je všeobecným skenerom všetkých možných tajomstiev; celý štvor-súborový diff bol preto navyše skontrolovaný read-only kontrolórom, ktorý v ňom žiadne tajomstvo nenašiel.
