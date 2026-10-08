@@ -16,7 +16,7 @@ Kontrola prebehla iba na čítanie cez prihlásené Vercel CLI. Nevytvoril sa de
 - Najnovší zobrazený Preview je `dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn`, stav **READY**, vytvorený 5. 10. 2026 o 10:50 SELČ.
 - Preview prostredie má priradené rovnaké názvy databázových, Blob a SMTP väzieb ako Production (`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, relay premenné).
 - Chýbajú všetky vlastné stagingové väzby vyžadované aplikáciou: `STAGING_WRITE_ENABLED`, stabilná identita a marker staging DB, stagingové odtlačky DB/Blob, produkčné kontrolné odtlačky a jediný testovací príjemca.
-- Preto bežný Preview nie je bezpečné zapisovateľné testovacie prostredie. Aplikácia ho správne blokuje fail-closed; nemožno na ňom vykonať dopyt, upload, CRM zápis ani e-mailovú akceptáciu.
+- Preto bežný Preview nie je bezpečné zapisovateľné testovacie prostredie. Lokálny kandidát má otestované fail-closed blokovanie, ale zdrojový SHA živého Preview nebol sprístupnený a prítomnosť tejto ochrany na ňom je **NOT VERIFIED**. Na tomto Preview sa preto nesmie vykonať dopyt, upload, CRM zápis ani e-mailová akceptácia.
 
 ## Produkčné konfiguračné medzery
 
@@ -46,5 +46,5 @@ Tento snapshot uzatvára iba čítaciu inventúru. Nevytvára staging, nemení V
 
 ## Lokálna validácia snapshotu
 
-- Nový kontrakt kontroluje oddelenie pojmov Production, Preview a Staging, presné deployment ID, otvorené konfiguračné medzery a neprítomnosť hodnoty tajomstva v tomto dôkaze.
+- Nový kontrakt kontroluje oddelenie pojmov Production, Preview a Staging, presné deployment ID, otvorené konfiguračné medzery, URL s vloženými prihlasovacími údajmi a priame priradenie známych citlivých premenných. Nie je všeobecným skenerom všetkých možných tajomstiev; celý štvor-súborový diff bol preto navyše skontrolovaný read-only kontrolórom, ktorý v ňom žiadne tajomstvo nenašiel.
 - Celá sada po doplnení kontraktu prešla **394/394 MJS + 34/34 TypeScript testov**. Prvý sandboxovaný beh bol odmietnutý operačným systémom pri vytváraní dočasných Git repozitárov a štarte Edge; identická sada mimo tejto izolácie prešla bez chyby.
