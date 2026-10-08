@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "452c4f75c7ab0f976d6e4b19099afdb9aa1428b7",
+  "sourceTree": "46e883535b1d7fcd83ae9bac2559ab32b13dec7b",
+  "result": "PASS",
+  "runner": "scripts/lead-private-blob-browser.integration.mjs",
+  "rawManifest": {
+    "historicalPath": "tmp/visual-evidence-exports/commercial-gate-452c4f75-20261008/manifest.json",
+    "sha256": "2eab5db82da4c50dea3b004363ebc984f93dc230aa5aab1155ffaebc6d5ebda6",
+    "bytes": 128142,
+    "generatedAt": "2026-10-08T04:28:50.454Z"
+  },
+  "cleanSource": {
+    "trackedDiffSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedFilesSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "untrackedFileCount": 0
+  },
+  "routes": [
+    "/",
+    "/cena-likvidacie-azbestu/",
+    "/realizacie/",
+    "/kariera/",
+    "/strechari/",
+    "/postup/",
+    "/kontakt/",
+    "/likvidacia-azbestu/",
+    "/likvidacia-eternitu/",
+    "/likvidacia-azbestu-poprad/",
+    "/kde-posobime/",
+    "/faq/",
+    "/o-firme/",
+    "/poradna/",
+    "/poradna/kolko-stoji-likvidacia-azbestu/",
+    "/recenzie/",
+    "/spolupracujuci-strechari/",
+    "/ochrana-osobnych-udajov/",
+    "/podmienky-pouzivania/",
+    "/cookies/"
+  ],
+  "viewports": [
+    "320x568",
+    "360x800",
+    "390x844",
+    "568x320",
+    "760x900",
+    "761x900",
+    "768x1024",
+    "820x900",
+    "821x900",
+    "1024x768",
+    "1440x900"
+  ],
+  "matrix": {
+    "stateCount": 220,
+    "derivation": "routes.length * viewports.length",
+    "failurePolicy": "Runner exits non-zero on any route, viewport, console, hydration, origin or invariant failure. PASS records a completed zero-exit run."
+  },
+  "screenshots": 25,
+  "verification": {
+    "formsSubmitted": 0,
+    "hydrationErrors": 0,
+    "blockedBrowserOrigins": 0,
+    "blockedNonGetRequests": 7,
+    "navigationInteractions": 8
+  },
+  "production": "NOT_VERIFIED"
+}
