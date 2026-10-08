@@ -23,6 +23,7 @@ const publicBase = read('../app/public-base-client.tsx');
 const adConversion = read('../src/lib/ad-conversion-tracking.mjs');
 const adConversionEngine = read('../src/lib/ad-conversion-engine.mjs');
 const adConversionTests = read('../scripts/ad-conversion-tracking.test.mjs');
+const mobileCookieLayout = read('../src/mobile-cookie-layout.css');
 
 test('analytics API is gated by the server-readable consent cookie before persistence', () => {
   assert.match(route, /request\.cookies\.get\(analyticsConsentCookieName\)\?\.value !== 'granted'/);
@@ -118,6 +119,14 @@ test('cookie settings can be reopened and policy no longer calls analytics anony
   assert.match(cookies, /CookieSettingsTrigger/);
   assert.match(privacy, /Tieto údaje nie sú anonymné/);
   assert.doesNotMatch(privacy, /anonymn.{0,30}analytik/i);
+});
+
+test('compact mobile cookie choices stay in one accessible row above the hero actions', () => {
+  assert.match(mobileCookieLayout, /^@media \(max-width: 480px\) \{[\s\S]*\}\s*$/);
+  assert.match(mobileCookieLayout, /\.cookie-banner:not\(\.cookie-banner-expanded\) \.cookie-actions\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(mobileCookieLayout, /\.cookie-banner:not\(\.cookie-banner-expanded\) \.cookie-actions\s*>\s*button\s*\{[\s\S]*?min-width:\s*0[\s\S]*?min-height:\s*44px[\s\S]*?white-space:\s*normal/);
+  assert.match(mobileCookieLayout, /\.cookie-banner:not\(\.cookie-banner-expanded\) \.cookie-customize\s*\{[\s\S]*?grid-column:\s*auto[\s\S]*?min-height:\s*44px/);
+  assert.doesNotMatch(mobileCookieLayout, /\.cookie-banner\.cookie-banner-expanded\s+\.cookie-actions/);
 });
 
 test('public cookie widget does not pull the admin-aware router into every public page', () => {

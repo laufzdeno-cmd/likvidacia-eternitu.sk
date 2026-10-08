@@ -10,6 +10,7 @@ const sourceFiles = [
   'src/responsive-audit-hotfix.css',
   'src/public-header-stability.css',
   'src/article-editorial.css',
+  'src/mobile-cookie-layout.css',
 ];
 
 function normalize(source) {

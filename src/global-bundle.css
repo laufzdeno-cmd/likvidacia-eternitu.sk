@@ -168,3 +168,19 @@
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 480px) {
+  .cookie-banner:not(.cookie-banner-expanded) .cookie-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .cookie-banner:not(.cookie-banner-expanded) .cookie-actions > button {
+    min-width: 0 !important;
+    min-height: 44px !important;
+    white-space: normal !important;
+  }
+
+  .cookie-banner:not(.cookie-banner-expanded) .cookie-customize {
+    grid-column: auto !important;
+    min-height: 44px !important;
+  }
+}
