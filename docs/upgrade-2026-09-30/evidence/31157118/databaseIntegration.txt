@@ -1,0 +1,45 @@
+command: ["npm.cmd","run","test:db-integration"]
+startedAt: 2026-10-08T23:08:19.288Z
+endedAt: 2026-10-08T23:08:32.598Z
+exitCode: 0
+
+[stdout]
+
+> likvidacia-eternitu-sk@1.0.0 test:db-integration
+> node --import tsx --test scripts/lead-submission-postgres.integration.mjs scripts/career-admin-local.integration.mjs scripts/lead-email-safety.local.integration.mjs scripts/lead-email-relay-manual-retry.local.integration.mjs scripts/lead-email-unconfigured.local.integration.mjs scripts/ops-alert-local-state.integration.mjs scripts/two-factor-totp-atomicity.integration.mjs scripts/price-offer-email-state.integration.mjs scripts/price-offer-local-state.integration.mjs scripts/price-offer-parent-state.local.integration.mjs scripts/price-offer-parent-state.postgres.integration.mjs scripts/business-billing.local.integration.mjs scripts/business-billing.postgres.integration.mjs && tsx scripts/bootstrap-staging-database.integration.mjs && tsx scripts/meta-capi-consent-race.local.integration.mjs && tsx scripts/meta-capi-outbox.pglite.integration.mjs && tsx scripts/ops-alert-postgres.integration.mjs
+
+PASS: lokálna evidencia faktúr a úhrad je idempotentná, auditovaná a chráni finančnú históriu.
+✔ scripts\business-billing.local.integration.mjs (2413.3724ms)
+PASS: PostgreSQL evidencia faktúr a úhrad má súbežnú idempotenciu, rollback, migráciu a lokálnu paritu.
+✔ scripts\business-billing.postgres.integration.mjs (4010.2014ms)
+✔ legacy local career records preserve attached CV and count only truly incomplete CVs (908.0693ms)
+✔ relay partial result needs evidence before one-recipient SMTP recovery (1733.0277ms)
+✔ local lead email cannot send archived work and permanent deletion clears outbox and legacy audit PII (1067.3035ms)
+✔ unconfigured lead transport preserves the outbox until a local SMTP transport is configured (2636.2325ms)
+PASS: PGlite SQL test — dopyt, idempotencia/rollback, súbežný limit, token-vs-retencia, paralelné retenčné a notifikačné claimy, súkromné koncepty prípadov a interne schválené fotky, kariéra/strechári outbox a referencie so súhlasom/revokáciou. Bez skutočného Blob uploadu/mazania a emailu.
+✔ scripts\lead-submission-postgres.integration.mjs (7275.445ms)
+✔ local operations alert state is atomic, migration-safe, repeatable, and auditable without PII (1731.5192ms)
+PASS: izolovaný PostgreSQL offer numbering, claim, unknown delivery, manuálna obnova a retry po potvrdenom no-send. Bez SMTP, Blobu, produkčnej DB alebo deployu.
+✔ scripts\price-offer-email-state.integration.mjs (3846.8255ms)
+PASS: lokálna CP používa jedinečné čísla, nemennú odoslanú verziu, atómový claim, prijatie a audit.
+✔ scripts\price-offer-local-state.integration.mjs (2393.3231ms)
+PASS: lokálna price-offer synchronizácia rodičov je monotónna, atómová a bez PII v audite.
+✔ scripts\price-offer-parent-state.local.integration.mjs (2603.5947ms)
+PASS: PostgreSQL price-offer synchronizácia rodičov má monotónnu paritu, manuálne potvrdenie a transakčný rollback.
+✔ scripts\price-offer-parent-state.postgres.integration.mjs (3159.4213ms)
+PASS: izolovaný PGlite TOTP replay/atomickosť, setup replay a rotácia secretu. Bez produkčnej DB, Blobu alebo e-mailu.
+✔ scripts\two-factor-totp-atomicity.integration.mjs (2675.5625ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7318.5074
+PASS: staging bootstrap is transactional, idempotent and concurrency-safe on disposable PostgreSQL.
+PASS: local Meta consent tombstone and create/revoke race; no network or production access.
+PASS: isolated Meta CAPI outbox; no real fetch, form, email or production action.
+PASS: PostgreSQL prevádzkové alerty majú kompatibilnú migráciu, súbežný claim, opakovanie, obnovu a audit bez PII.
+
+[stderr]

@@ -12,7 +12,7 @@ Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel
 - Doména `www.likvidacia-eternitu.sk` má stav **Valid Configuration** a robí HTTP **308** presmerovanie na `likvidacia-eternitu.sk`. Apex aj projektová doména `likvidacia-eternitu-sk.vercel.app` majú stav **Valid Configuration / Production**.
 - Vercel CLI pri tejto kontrole neposkytlo Git SHA. Predchádzajúci snapshot ho viazal na `c98c630c…`; dnešná kontrola potvrdzuje deployment a alias, nie zdrojovú zhodu.
 - Čerstvá kontrola dashboardu 8. 10. 2026 znovu potvrdila deployment `dpl_FYaPKy6tkko75rkam3RUAbXFSdcT` ako **READY**, prostredie **Production**, doménu `likvidacia-eternitu.sk` a čas 4. 10. 2026 o 20:50 SELČ.
-- Aktuálny otestovaný zdrojový kandidát `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1` ani novšie evidenčné commity na vetve `codex/astana-upgrade-rc1` nie sú nasadené a produkcia zostáva **NOT VERIFIED** voči kandidátovi.
+- Aktuálny otestovaný zdrojový kandidát `31157118a05f9f903963f57182b957fe4e0347e9` ani novšie evidenčné commity na vetve `codex/astana-upgrade-rc1` nie sú nasadené a produkcia zostáva **NOT VERIFIED** voči kandidátovi.
 
 ## Preview nie je staging
 
@@ -70,17 +70,17 @@ Tento snapshot uzatvára iba čítaciu inventúru. Nevytvára staging, nemení V
 
 Neskoršia read-only kontrola Vercel dashboardu po reštarte potvrdila stav opísaný v [STAGING-BOOTSTRAP-2026-10-08.md](STAGING-BOOTSTRAP-2026-10-08.md): vlastné prostredie `staging` už existuje, ale nemá vetvu, doménu ani projektové environment variables. Automatické Vercel System Environment Variables sú zapnuté a poskytujú identitu targetu/projektu pre fail-closed guard. `astana-staging-db` je dostupná na pripojenie, nie pripojená. Súhrnný Storage zoznam označuje produkčné `astana-crm-db` a `astana-lead-files-prod` ako **All Environments**, no detail oboch spojení uvádza presne **Production, Preview, Development** a custom `staging` v nich nie je. Dva požadované stagingové Private Blob stores stále nie sú vytvorené ani pripojené. Toto pozorovanie nemení historický obsah pôvodného snapshotu vyššie; aktualizuje iba dnešný rozhodovací stav.
 
-Najnovší lokálny release kandidát je zdrojový commit `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1` (tree `3198f4d10255700c61a409ace6a7e3295a53ca8b`), evidenčne uzavretý commitmi `816a2d24` a `e60ffbfe`. Nie je nasadený; produkčná zhodnosť a ostrá akceptácia zostávajú **NOT VERIFIED**.
+Najnovší lokálny release kandidát je zdrojový commit `31157118a05f9f903963f57182b957fe4e0347e9` (tree `f957ecb0edeb43fe927714e0440d7d6d990c8204`). Nie je nasadený; produkčná zhodnosť a ostrá akceptácia zostávajú **NOT VERIFIED**.
 
 ## Čerstvý CLI checkpoint po uzavretí kandidáta
 
 - Prihlásené Vercel CLI `63.1.0` znovu rozpoznalo správny projekt `likvidacia-eternitu-sk` a tím. Kontrola bola iba na čítanie; nepoužil sa deploy, promote, alias, zápis premennej ani pripojenie zdroja.
-- Príkaz na zoznam deploymentov s presným filtrom custom prostredia `staging` vrátil **0 deploymentov**. Kandidát `981cd9e2…` teda nie je v stagingu a neexistuje ani neznámy stagingový deployment, ktorý by sa dal bezpečne prevziať ako kandidát.
+- Príkaz na zoznam deploymentov s presným filtrom custom prostredia `staging` vrátil **0 deploymentov**. Kandidát `31157118…` teda nie je v stagingu a neexistuje ani neznámy stagingový deployment, ktorý by sa dal bezpečne prevziať ako kandidát.
 - Custom prostredie `staging` naďalej nemá projektové environment variables. Projektová integrácia zobrazuje pripojenú produkčnú databázu, ale nie samostatnú stagingovú väzbu; tento projektový zoznam sám osebe nedokazuje scope a nenahrádza kontrolu detailu spojenia.
 - Inventár Blob úložísk nepotvrdil dve samostatné Private Blob úložiská vyhradené pre hlavné stagingové prílohy a tímový photo-intake. Žiadne identifikátory, tokeny ani hodnoty tajomstiev sa do dôkazu nezapisujú.
 
 ## Lokálna validácia snapshotu
 
 - Nový kontrakt kontroluje oddelenie pojmov Production, Preview a Staging, presné deployment ID, otvorené konfiguračné medzery, URL s vloženými prihlasovacími údajmi a priame priradenie známych citlivých premenných. Nie je všeobecným skenerom všetkých možných tajomstiev; celý štvor-súborový diff bol preto navyše skontrolovaný read-only kontrolórom, ktorý v ňom žiadne tajomstvo nenašiel.
-- Najnovší nemenný zdrojový kandidát `981cd9e2…` prešiel **428/428 MJS + 35/35 TypeScript testov**, samostatnou typovou kontrolou, **12/12 databázovými integráciami** a izolovaným produkčným buildom **100/100 trás**; SEO metadata a obsah prešli na **33/33 statických URL**. Päť verejných trás absolvovalo tri Lighthouse behy, spolu **15/15 PASS**, pri `productionAccess: false`. Skoršia admin vizuálna matica prešla **234/234** kombinácií bez formulárov a bez externých originov. Tieto výsledky sú lokálne dôkazy, nie stagingová ani produkčná akceptácia.
+- Najnovší nemenný zdrojový kandidát `31157118…` prešiel **436/436 MJS + 35/35 TypeScript testov**, samostatnou typovou kontrolou, **13/13 databázovými integráciami** vrátane PostgreSQL O06 alarmov a izolovaným produkčným buildom **100/100 trás**; SEO metadata a obsah prešli na **33/33 statických URL**. Päť verejných trás absolvovalo tri Lighthouse behy, spolu **15/15 PASS**, pri `productionAccess: false`. Skoršia admin vizuálna matica prešla **234/234** kombinácií bez formulárov a bez externých originov. Tieto výsledky sú lokálne dôkazy, nie stagingová ani produkčná akceptácia.
 - Nezávislý kontrolór najprv vrátil dve vady dôkazovej presnosti: neprípustné prisúdenie lokálnej ochrany živému Preview a nadhodnotený opis skenera tajomstiev. Opravný commit `6fe9087e` obe tvrdenia zúžil; opakovaný read-only review vydal **PASS bez zostávajúceho P1–P3 nálezu**.

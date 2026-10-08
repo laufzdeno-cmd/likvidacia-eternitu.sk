@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 4,
+  "recordedAt": "2026-10-08T23:15:10.153Z",
+  "testedSourceCommit": "31157118a05f9f903963f57182b957fe4e0347e9",
+  "testedSourceTree": "f957ecb0edeb43fe927714e0440d7d6d990c8204",
+  "result": "PASS",
+  "buildId": "fc0sTa8dV7FOC8i_pwIAO",
+  "unitMjsCount": 436,
+  "unitTypeScriptCount": 35,
+  "generatedRouteCount": 100,
+  "staticSeoUrlCount": 33,
+  "databaseIntegration": {
+    "tests": 13,
+    "stagingBootstrap": "PASS",
+    "metaConsentRace": "PASS",
+    "metaCapiOutbox": "PASS",
+    "operationsAlerts": "PASS"
+  },
+  "lighthouse": {
+    "buildId": "WumrPiz3b_54MDt2SYIOt",
+    "lighthouseVersion": "13.5.0",
+    "originKind": "isolated-loopback",
+    "runsPerPage": 3,
+    "pageCount": 5,
+    "runCount": 15,
+    "thresholds": {
+      "medianPerformance": 90,
+      "medianAccessibility": 90,
+      "medianSeo": 90,
+      "medianLcpMs": 2500,
+      "medianCls": 0.1
+    },
+    "pages": [
+      {
+        "key": "homepage",
+        "path": "/",
+        "runCount": 3,
+        "medianPerformance": 96,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2464,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "price",
+        "path": "/cena-likvidacie-azbestu/",
+        "runCount": 3,
+        "medianPerformance": 98,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2376,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "realizations",
+        "path": "/realizacie/",
+        "runCount": 3,
+        "medianPerformance": 97,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2479,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "article",
+        "path": "/poradna/co-je-eternit-a-kedy-obsahuje-azbest/",
+        "runCount": 3,
+        "medianPerformance": 98,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2435,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "career",
+        "path": "/kariera/",
+        "runCount": 3,
+        "medianPerformance": 98,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2448,
+        "medianCls": 0,
+        "pass": true
+      }
+    ]
+  },
+  "typecheck": "PASS",
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true,
+  "temporaryRootRemoved": true,
+  "commands": [
+    {
+      "name": "unit",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "test:unit"
+      ],
+      "startedAt": "2026-10-08T23:06:08.891Z",
+      "endedAt": "2026-10-08T23:08:16.242Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/31157118/unit.txt",
+      "logSha256": "9062800ebd61aad4297c9faab3f4499e01a275fa80dd3c6e06d6f9f1329b1c32",
+      "trackedLogSha256": "9062800ebd61aad4297c9faab3f4499e01a275fa80dd3c6e06d6f9f1329b1c32"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-08T23:08:16.245Z",
+      "endedAt": "2026-10-08T23:08:19.286Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/31157118/typecheck.txt",
+      "logSha256": "ba38255a463d41b1564ee7fcba37251cada38bb8070781ea14bacf9839237a5c",
+      "trackedLogSha256": "ba38255a463d41b1564ee7fcba37251cada38bb8070781ea14bacf9839237a5c"
+    },
+    {
+      "name": "databaseIntegration",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "test:db-integration"
+      ],
+      "startedAt": "2026-10-08T23:08:19.288Z",
+      "endedAt": "2026-10-08T23:08:32.598Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/31157118/databaseIntegration.txt",
+      "logSha256": "d45963b4c46e014004e74f6ca8eeb3c43ffd0d690daa921923d261faa8c7bfb1",
+      "trackedLogSha256": "d45963b4c46e014004e74f6ca8eeb3c43ffd0d690daa921923d261faa8c7bfb1"
+    },
+    {
+      "name": "productionBuild",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "<CANDIDATE_ROOT>\\scripts\\run-isolated-postgres.ps1",
+        "-ProductionBuild"
+      ],
+      "startedAt": "2026-10-08T23:08:32.600Z",
+      "endedAt": "2026-10-08T23:09:22.239Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/31157118/productionBuild.txt",
+      "logSha256": "c264f9ca2834198a9543427f501cc0ed4bec78e7d46cdb90c240f96372b74836",
+      "trackedLogSha256": "c264f9ca2834198a9543427f501cc0ed4bec78e7d46cdb90c240f96372b74836"
+    },
+    {
+      "name": "lighthouseBuild",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "<CANDIDATE_ROOT>\\scripts\\run-isolated-postgres.ps1",
+        "-ProductionBuild",
+        "-Lighthouse"
+      ],
+      "startedAt": "2026-10-08T23:09:22.241Z",
+      "endedAt": "2026-10-08T23:15:10.147Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/31157118/lighthouseBuild.txt",
+      "logSha256": "9bdc8ed2a134e3b4998f10c9db36fcdaf5e54f92b02fc35d9a8df0e355f59b9a",
+      "trackedLogSha256": "9bdc8ed2a134e3b4998f10c9db36fcdaf5e54f92b02fc35d9a8df0e355f59b9a"
+    }
+  ],
+  "releaseStatus": {
+    "candidateDeployment": "NOT_VERIFIED",
+    "customStaging": "NOT_CONFIGURED",
+    "production": "NOT_VERIFIED"
+  }
+}
