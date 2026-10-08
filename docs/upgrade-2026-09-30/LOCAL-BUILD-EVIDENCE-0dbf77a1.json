@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 2,
+  "recordedAt": "2026-10-08T13:51:44.812Z",
+  "testedSourceCommit": "0dbf77a155d4e53215db455518f91a186fb131e4",
+  "testedSourceTree": "0f4040464d079fc16cb609d5833f99123ee77f64",
+  "result": "PASS",
+  "buildId": "xhh9WDTgWXRDvD2Dg80S-",
+  "generatedRouteCount": 99,
+  "staticSeoUrlCount": 32,
+  "unitMjsCount": 397,
+  "unitTypeScriptCount": 34,
+  "typecheck": "PASS",
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true,
+  "temporaryRootRemoved": true,
+  "commands": [
+    {
+      "name": "unit",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "test:unit"
+      ],
+      "startedAt": "2026-10-08T13:49:01.114Z",
+      "endedAt": "2026-10-08T13:50:57.451Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/0dbf77a1/unit.txt",
+      "logSha256": "594e05444d61d6450e1515517ae7a736701bc6fbd070ab6cea22ccd9e8aff23f"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-08T13:50:57.454Z",
+      "endedAt": "2026-10-08T13:50:59.797Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/0dbf77a1/typecheck.txt",
+      "logSha256": "a4b4245f4ff22df95fef9f81b7515c9bc1afc4e76a09da4d9201c9d662873a36"
+    },
+    {
+      "name": "productionBuild",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "<CANDIDATE_ROOT>\\scripts\\run-isolated-postgres.ps1",
+        "-ProductionBuild"
+      ],
+      "startedAt": "2026-10-08T13:50:59.798Z",
+      "endedAt": "2026-10-08T13:51:44.809Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/0dbf77a1/productionBuild.txt",
+      "logSha256": "d811bbf08ddf6fbb846b297a865b22c2369725cae719a9b73c72fae222bc7654"
+    }
+  ],
+  "releaseStatus": {
+    "candidateDeployment": "NOT_VERIFIED",
+    "customStaging": "NOT_CONFIGURED",
+    "production": "NOT_VERIFIED"
+  }
+}

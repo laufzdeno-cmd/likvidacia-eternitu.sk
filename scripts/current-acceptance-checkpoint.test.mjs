@@ -1,101 +1,119 @@
 import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-test('acceptance evidence distinguishes the current application, visual, performance and production gates', async () => {
-  const [matrix, rawCurrentEvidence, rawBaselineVisual] = await Promise.all([
+const candidateCommit = '0dbf77a155d4e53215db455518f91a186fb131e4';
+const candidateShortSha = candidateCommit.slice(0, 8);
+
+test('acceptance evidence binds the tested source candidate to immutable local logs', async () => {
+  const [matrix, rawEvidence, rawBaselineVisual, generator] = await Promise.all([
     readFile(new URL('../docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md', import.meta.url), 'utf8'),
-    readFile(new URL('../docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-c18f6f54.json', import.meta.url), 'utf8'),
+    readFile(new URL(`../docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-${candidateShortSha}.json`, import.meta.url), 'utf8'),
     readFile(new URL('../docs/upgrade-2026-09-30/VISUAL-EVIDENCE-SUMMARY-452c4f75.json', import.meta.url), 'utf8'),
+    readFile(new URL('./capture-local-release-evidence.mjs', import.meta.url), 'utf8'),
   ]);
-  const current = JSON.parse(rawCurrentEvidence);
+  const evidence = JSON.parse(rawEvidence);
   const baselineVisual = JSON.parse(rawBaselineVisual);
+  const { safeChildEnvironment, sanitizeLog } = await import('./capture-local-release-evidence.mjs');
+  const candidateTree = execFileSync('git', ['show', '-s', '--format=%T', candidateCommit], {
+    encoding: 'utf8',
+    windowsHide: true,
+  }).trim();
 
-  assert.equal(current.applicationCommit, 'c18f6f545628a8a6713b1098131efb4c1c85e3ef');
-  assert.equal(current.applicationTree, '2f96e42f9994b09128db82d525d1146ab0134551');
-  assert.equal(current.applicationCodeParent, '358675979d2725c618f53122d13782105298df2e');
-  assert.equal(current.qaCommit, '439f75dcae5b6f536cfcd6ca04204903eccdf4ee');
-  assert.equal(current.visualEvidenceCommit, '088ac8f3a0f83211a9337a7cdbb8565620e531fe');
-  assert.equal(current.performanceEvidenceCommit, 'c882d5eb563940fc88caeef96a071c465a2b4626');
-  assert.equal(current.result, 'PASS');
-  assert.equal(current.buildId, 'bVLQq_0VJpnqv3VPx66dc');
-  assert.equal(current.generatedRouteCount, 99);
-  assert.equal(current.staticSeoUrlCount, 32);
-  assert.equal(current.dynamicReviews, 'PASS');
-  assert.equal(current.dynamicRealizations, 'PASS');
-  assert.equal(current.routeCssIsolation, 'PASS');
-  assert.equal(current.clientBundleIsolation, 'PASS');
-  assert.equal(current.oldRooferRedirect, 'PASS');
-  assert.equal(current.unitMjsCount, 393);
-  assert.equal(current.unitTypeScriptCount, 34);
-  assert.equal(current.productionAccess, false);
-  assert.equal(current.temporaryDatabaseStopped, true);
-  assert.equal(current.temporaryDatabaseRemoved, true);
-  assert.equal(current.temporaryRootRemoved, true);
-  assert.equal(current.originMainAncestor, true);
-  assert.equal(current.originMainRevision, 'd314826537c6b94cb019164fc19140d10a014669');
-  assert.equal(current.divergenceMeasuredAtCommit, current.applicationCommit);
-  assert.deepEqual(current.originMainDivergence, { candidateOnlyCommits: 97, originMainOnlyCommits: 0 });
-  assert.ok(Date.parse(current.recordedAt) > Date.parse('2026-10-08T13:40:00+02:00'),
-    'evidence record must be created after the exact current build completed');
+  assert.equal(evidence.schemaVersion, 2);
+  assert.equal(evidence.testedSourceCommit, candidateCommit);
+  assert.equal(evidence.testedSourceTree, candidateTree);
+  assert.equal(evidence.testedSourceTree, '0f4040464d079fc16cb609d5833f99123ee77f64');
+  assert.equal(evidence.result, 'PASS');
+  assert.equal(evidence.buildId, 'xhh9WDTgWXRDvD2Dg80S-');
+  assert.equal(evidence.generatedRouteCount, 99);
+  assert.equal(evidence.staticSeoUrlCount, 32);
+  assert.equal(evidence.unitMjsCount, 397);
+  assert.equal(evidence.unitTypeScriptCount, 34);
+  assert.equal(evidence.typecheck, 'PASS');
+  assert.equal(evidence.productionAccess, false);
+  assert.equal(evidence.temporaryDatabaseStopped, true);
+  assert.equal(evidence.temporaryDatabaseRemoved, true);
+  assert.equal(evidence.temporaryRootRemoved, true);
+  assert.ok(Number.isFinite(Date.parse(evidence.recordedAt)));
 
-  assert.equal(current.formFocusReview.targetedContracts, 8);
-  assert.equal(current.formFocusReview.leadBrowser, 'PASS');
-  assert.equal(current.formFocusReview.careerAndRooferBrowser, 'PASS');
-  assert.equal(current.formFocusReview.testimonialBrowser, 'PASS');
-  assert.equal(current.formFocusReview.repeatedOversizedCvFocusAttempts, 2);
-  assert.equal(current.formFocusReview.repeatedOversizedCvPosts, 0);
-  assert.equal(current.formFocusReview.productController, 'PASS');
-  assert.equal(current.formFocusReview.latestTechnicalController, 'NOT_RUN_QUOTA');
-  assert.equal(current.formFocusReview.physicalScreenReader, 'NOT_VERIFIED');
+  assert.deepEqual(evidence.commands.map(({ name }) => name), ['unit', 'typecheck', 'productionBuild']);
+  const logs = new Map();
+  for (const command of evidence.commands) {
+    assert.equal(command.exitCode, 0);
+    assert.ok(command.logPath.startsWith(`docs/upgrade-2026-09-30/evidence/${candidateShortSha}/`));
+    assert.match(command.logSha256, /^[a-f0-9]{64}$/);
+    assert.ok(Date.parse(command.endedAt) >= Date.parse(command.startedAt));
+    const log = await readFile(new URL(`../${command.logPath}`, import.meta.url), 'utf8');
+    const digest = createHash('sha256').update(log).digest('hex');
+    assert.equal(digest, command.logSha256, `${command.name} log digest must match the manifest`);
+    assert.notEqual(spawnSync('git', ['check-ignore', '-q', '--', command.logPath]).status, 0,
+      `${command.name} evidence log must be tracked by a normal git add`);
+    assert.doesNotMatch(log, /C:(?:\\+|\/)Users|C:(?:\\+|\/)WEB|\bZdeno\b/i);
+    logs.set(command.name, log);
+  }
 
-  assert.equal(current.lighthouseS08.result, 'PASS_AT_PERFORMANCE_CHECKPOINT');
-  assert.equal(current.lighthouseS08.buildId, 'Wyp6vsSNT67wymqcXaMyB');
-  assert.equal(current.lighthouseS08.routes, 5);
-  assert.equal(current.lighthouseS08.runsPerRoute, 3);
-  assert.equal(current.lighthouseS08.totalRuns, 15);
-  assert.deepEqual(current.lighthouseS08.medianPerformanceRange, [97, 98]);
-  assert.equal(current.lighthouseS08.accessibility, 100);
-  assert.equal(current.lighthouseS08.seo, 100);
-  assert.deepEqual(current.lighthouseS08.medianLcpMsRange, [2351, 2467]);
-  assert.equal(current.lighthouseS08.maximumMedianCls, 0);
-  assert.equal(current.lighthouseS08.productionAccess, false);
+  const safeEnvironment = safeChildEnvironment();
+  for (const key of ['AUTH_SECRET', 'DATABASE_URL', 'META_CAPI_ACCESS_TOKEN', 'SMTP_PASS', 'BLOB_READ_WRITE_TOKEN']) {
+    assert.equal(safeEnvironment[key], undefined, `${key} must not reach evidence child processes`);
+  }
+  const previousSecret = process.env.CONVERSION_EVENT_SECRET;
+  process.env.CONVERSION_EVENT_SECRET = 'evidence-test-secret-value';
+  try {
+    assert.throws(
+      () => sanitizeLog('output evidence-test-secret-value', 'C:\\WEB\\candidate'),
+      /CONVERSION_EVENT_SECRET/,
+    );
+  } finally {
+    if (previousSecret === undefined) delete process.env.CONVERSION_EVENT_SECRET;
+    else process.env.CONVERSION_EVENT_SECRET = previousSecret;
+  }
+  const pathSample = 'C:\\WEB\\candidate';
+  const sanitizedPaths = sanitizeLog([
+    pathSample,
+    pathSample.replaceAll('\\', '/'),
+    JSON.stringify(pathSample),
+  ].join('\n'), pathSample);
+  assert.doesNotMatch(sanitizedPaths, /C:(?:\\+|\/)WEB/i);
+  assert.doesNotMatch(rawEvidence, /C:(?:\\+|\/)WEB|C:(?:\\+|\/)Users/i);
 
-  assert.equal(current.securityBaseline.scanId, 'b3026b4f-bc75-4813-8429-d9717b16c1f5');
-  assert.equal(current.securityBaseline.changedFilesReviewed, 13);
-  assert.equal(current.securityBaseline.coverage, 'complete');
-  assert.equal(current.securityBaseline.reportableFindings, 0);
-  assert.equal(current.securityBaseline.latestFocusSliceServerSurfaceChanged, false);
-  assert.equal(current.historicalVisualBaseline.commit, current.visualEvidenceCommit);
-  assert.equal(current.historicalVisualBaseline.viewportStates, baselineVisual.matrix.stateCount);
-  assert.equal(current.historicalVisualBaseline.status, 'PASS_AT_REVIEWED_VISUAL_CHECKPOINT');
-  assert.match(current.releaseGuardExecution, /^WAITING_/);
-  assert.equal(current.staging, 'NOT_VERIFIED');
-  assert.equal(current.production, 'NOT_VERIFIED');
+  assert.match(generator, /env: safeChildEnvironment\(\)/);
+  assert.doesNotMatch(generator, /env: process\.env/);
+  assert.match(generator, /sanitizeLog\(command\.log, candidateRoot\)/);
+  assert.match(generator, /`\$\{command\.name\}\.txt`/);
+  assert.match(generator, /candidateDeployment: 'NOT_VERIFIED'/);
 
-  assert.match(matrix, /aplikačný checkpoint je commit `c18f6f54`/);
-  assert.match(matrix, /aplikačný kód je commit `35867597`/);
-  assert.match(matrix, /consent QA checkpoint je `439f75dc`/i);
-  assert.match(matrix, /\*\*393\/393 MJS \+ 34\/34 TypeScript PASS\*\*/);
+  assert.match(logs.get('unit'), /ℹ tests 397[\s\S]*ℹ pass 397[\s\S]*ℹ tests 34[\s\S]*ℹ pass 34/);
+  assert.match(logs.get('typecheck'), /> tsc --noEmit/);
+  assert.doesNotMatch(logs.get('typecheck'), /error TS\d+/);
+  assert.match(logs.get('productionBuild'), /"result":"PASS"/);
+  assert.match(logs.get('productionBuild'), /Generating static pages using 7 workers \(99\/99\)/);
+  assert.match(logs.get('productionBuild'), new RegExp(`PASS: build ${evidence.buildId};`));
+  assert.match(logs.get('productionBuild'), /"productionAccess":false/);
+  assert.match(logs.get('productionBuild'), /server stopped/);
+  assert.match(logs.get('productionBuild'), /PASS: jednorazov.*PostgreSQL bol zastaven/i);
+
+  assert.deepEqual(evidence.releaseStatus, {
+    candidateDeployment: 'NOT_VERIFIED',
+    customStaging: 'NOT_CONFIGURED',
+    production: 'NOT_VERIFIED',
+  });
+
+  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `0dbf77a1`/);
+  assert.match(matrix, /runtime aplikačný checkpoint je `367e5e14`/);
+  assert.match(matrix, /admin QA checkpoint je `c7c2059e`/i);
+  assert.match(matrix, /\*\*397\/397 MJS \+ 34\/34 TypeScript PASS\*\*/);
   assert.match(matrix, /\*\*99\/99\*\* trás/);
-  assert.match(matrix, new RegExp(current.buildId));
-  assert.match(matrix, new RegExp(current.securityBaseline.scanId));
+  assert.match(matrix, new RegExp(evidence.buildId));
+  assert.match(matrix, /manifest s hashmi úplných logov/i);
   assert.match(matrix, /čistom dôkazovom commite `088ac8f3`/);
   assert.match(matrix, /220\/220 stavov/);
   assert.match(matrix, /čistom commite `c882d5eb`/);
-  assert.match(matrix, new RegExp(current.lighthouseS08.buildId));
-  assert.match(matrix, /\| S08 \| PASS local current \|/);
-  assert.match(matrix, /\| U05 \| PASS local current \|/);
-  assert.match(matrix, /\| U01 \| PASS local current \|/);
-  assert.match(matrix, /\| U02 \| PASS local current \|/);
-  assert.match(matrix, /\| U03 \| PASS local current \|/);
-  assert.match(matrix, /\| U04 \| PASS local current \|/);
-  assert.match(matrix, /\| U07 \| PASS local current \|/);
-  assert.match(matrix, /\| U08 \| PASS local current \|/);
-  assert.match(matrix, /databázové integrácie kompatibilného checkpointu `4d0b6bfb`: \*\*12\/12 PASS\*\*/);
   assert.match(matrix, /produkci(?:a|u)[^\n]*\*\*NOT VERIFIED\*\*/iu);
-  assert.doesNotMatch(matrix, /celá matica sa na ňom ešte nezopakovala/);
-  assert.doesNotMatch(matrix, /Aktuálny aplikačný zdroj je uložený ako lokálny QA checkpoint `452c4f75`/);
+  assert.doesNotMatch(matrix, /Aktuálny čistý release checkpoint/);
+  assert.doesNotMatch(matrix, /release checkpoint je commit `5590c07e`/);
 
   assert.equal(baselineVisual.result, 'PASS');
   assert.equal(baselineVisual.matrix.stateCount, 220);
