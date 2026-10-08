@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 3,
+  "recordedAt": "2026-10-08T18:30:16.027Z",
+  "testedSourceCommit": "bd61a709677f9a24a04fd5f5d61ef9f3984c8f5a",
+  "testedSourceTree": "7156f6b731bd684c8481a7a6ac8503c16bfba73b",
+  "result": "PASS",
+  "buildId": "2eQuczFB0EwJ0JvxiE64j",
+  "unitMjsCount": 425,
+  "unitTypeScriptCount": 35,
+  "generatedRouteCount": 100,
+  "staticSeoUrlCount": 33,
+  "typecheck": "PASS",
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true,
+  "temporaryRootRemoved": true,
+  "commands": [
+    {
+      "name": "unit",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "test:unit"
+      ],
+      "startedAt": "2026-10-08T18:26:42.942Z",
+      "endedAt": "2026-10-08T18:28:40.842Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/bd61a709/unit.txt",
+      "logSha256": "71990ce6e4dbe91ceac8b124b790f60b6b71f117b4324bcbbd33cbc9b138aac3",
+      "trackedLogSha256": "71990ce6e4dbe91ceac8b124b790f60b6b71f117b4324bcbbd33cbc9b138aac3"
+    },
+    {
+      "name": "typecheck",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "typecheck"
+      ],
+      "startedAt": "2026-10-08T18:28:40.846Z",
+      "endedAt": "2026-10-08T18:28:47.991Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/bd61a709/typecheck.txt",
+      "logSha256": "3c4ec85cbaeaba717e5c7e99700715e6a3476710c9d3de04f32f8c05977c95b6",
+      "trackedLogSha256": "3c4ec85cbaeaba717e5c7e99700715e6a3476710c9d3de04f32f8c05977c95b6"
+    },
+    {
+      "name": "productionBuild",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "<CANDIDATE_ROOT>\\scripts\\run-isolated-postgres.ps1",
+        "-ProductionBuild"
+      ],
+      "startedAt": "2026-10-08T18:28:47.992Z",
+      "endedAt": "2026-10-08T18:30:16.022Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/bd61a709/productionBuild.txt",
+      "logSha256": "8068ce977d5ac2e126ae9aaed5f5fee4745830f34817a4be2ca3408095ace938",
+      "trackedLogSha256": "8068ce977d5ac2e126ae9aaed5f5fee4745830f34817a4be2ca3408095ace938"
+    }
+  ],
+  "releaseStatus": {
+    "candidateDeployment": "NOT_VERIFIED",
+    "customStaging": "NOT_CONFIGURED",
+    "production": "NOT_VERIFIED"
+  }
+}
