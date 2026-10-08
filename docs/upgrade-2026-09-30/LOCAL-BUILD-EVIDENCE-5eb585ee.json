@@ -1,0 +1,40 @@
+{
+  "sourceCommit": "5eb585eeb9b6173d2a3002c0caa315675b355bd1",
+  "sourceTree": "5fa98d7a88d52cb188a5b4eb37fafe41cefcdc16",
+  "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-isolated-postgres.ps1 -ProductionBuild",
+  "result": "PASS",
+  "nextVersion": "16.4.0",
+  "buildId": "AJ7BlBzKxDGqIzxiddIpg",
+  "generatedRouteCount": 99,
+  "staticSeoUrlCount": 32,
+  "dynamicRouteChecks": ["/realizacie/", "/recenzie/"],
+  "unitMjsCount": 366,
+  "unitTypeScriptCount": 32,
+  "databaseIntegrationCount": 8,
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true,
+  "rollbackSourceCommit": "c98c630c1af467c51c615980841630a4cabf6c29",
+  "rollbackCompatibility": "PASS",
+  "independentReview": "PASS",
+  "securityDiffScan": {
+    "scanId": "b6501f8a-8a5f-4792-adbe-6fb19a99243b",
+    "coverage": "complete",
+    "changedFilesReviewed": 11,
+    "reportableFindings": 0
+  },
+  "browserReview": {
+    "focusedMobile320": "PASS",
+    "fullCurrentMatrix": "PASS",
+    "routes": 20,
+    "viewportStates": 220,
+    "screenshots": 25,
+    "formsSubmitted": 0,
+    "blockedBrowserOrigins": 0,
+    "leadNoPhoto": "PASS",
+    "leadTenPhotos": "PASS",
+    "careerAndRoofer": "PASS",
+    "testimonial": "PASS",
+    "production": "NOT_VERIFIED"
+  }
+}

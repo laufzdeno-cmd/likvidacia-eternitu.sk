@@ -230,7 +230,7 @@ test('unconfigured lead transport preserves the outbox until a local SMTP transp
     assert.ok(uncertainCustomerClaim);
     assert.equal(await db.recordLeadEmailRecipientResult(uncertain.lead.id, 'customer', { status: 'unknown' }, uncertainCustomerClaim), true);
     const uncertainResponse = await GET(request);
-    assert.equal(uncertainResponse.status, 200);
+    assert.equal(uncertainResponse.status, 503, 'an unresolved recipient must keep monitoring visibly unhealthy');
     const uncertainResult = await uncertainResponse.json();
     assert.equal(uncertainResult.sent, 0, 'one successful internal message is not a fully sent inquiry');
     assert.equal(uncertainResult.unresolved, 1);
@@ -255,7 +255,7 @@ test('unconfigured lead transport preserves the outbox until a local SMTP transp
       JSON.stringify({ ok: true, customerSent: true, adminSent: true }), { status: 503 },
     );
     const failedHttpResponse = await GET(request);
-    assert.equal(failedHttpResponse.status, 200, 'the worker completed and recorded the ambiguous delivery result');
+    assert.equal(failedHttpResponse.status, 503, 'an ambiguous relay result is recorded but must remain visible to monitoring');
     const failedHttpResult = await failedHttpResponse.json();
     assert.equal(failedHttpResult.ok, false);
     assert.equal(failedHttpResult.sent, 0);
