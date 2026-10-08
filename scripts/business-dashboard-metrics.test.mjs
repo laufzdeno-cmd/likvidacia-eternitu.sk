@@ -89,7 +89,7 @@ test('annual report uses the shared cancelled-job separation and avoids accounti
   assert.match(detailPage, /Orientačný rozdiel po zadaných nákladoch a odmenách/);
   assert.doesNotMatch(detailPage, /<span>Tržba<\/span>|<span>Zisk<\/span>/);
   assert.match(exportRoute, /evidovaná suma/);
-  assert.match(exportRoute, /typ platby \(nie dôkaz úhrady\)/);
+  assert.match(exportRoute, /dohodnutý spôsob vyúčtovania \(nie dôkaz úhrady\)/);
   assert.match(exportRoute, /orientačný rozdiel po zadaných nákladoch a odmenách/);
   assert.match(exportRoute, /limit: null/);
   assert.match(exportRoute, /countBusinessJobs\(filters\)/);

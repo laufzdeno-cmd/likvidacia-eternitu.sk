@@ -370,6 +370,122 @@ export type BusinessJobCosts = {
   total: number;
 };
 
+export type BusinessPaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'CARD' | 'OTHER';
+export type BusinessPaymentEventType = 'RECEIPT' | 'REVERSAL';
+
+export type BusinessJobInvoice = {
+  id: string;
+  jobId: string;
+  operationId: string;
+  requestHash: string;
+  invoiceNumber: string;
+  issuedOn: string;
+  dueOn?: string;
+  amountWithoutVatCents: number;
+  vatRateBasisPoints: number;
+  amountWithVatCents: number;
+  createdAt: string;
+  createdBy: string;
+  cancelledOn?: string;
+  cancelledAt?: string;
+  cancelledBy?: string;
+  cancelReasonCode?: string;
+  cancelOperationId?: string;
+  cancelRequestHash?: string;
+};
+
+export type BusinessJobPaymentEvent = {
+  id: string;
+  jobId: string;
+  invoiceId?: string;
+  operationId: string;
+  requestHash: string;
+  eventType: BusinessPaymentEventType;
+  occurredOn: string;
+  amountCents: number;
+  method: BusinessPaymentMethod;
+  reference: string;
+  reversalOf?: string;
+  reasonCode?: string;
+  createdAt: string;
+  createdBy: string;
+};
+
+export type BusinessJobFinance = {
+  invoices: BusinessJobInvoice[];
+  paymentEvents: BusinessJobPaymentEvent[];
+  invoiceBalances: Array<{
+    invoiceId: string;
+    receivedCents: number;
+    outstandingCents: number;
+    overpaidCents: number;
+    overdue: boolean;
+    status: 'CANCELLED' | 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERPAID' | 'OVERDUE';
+  }>;
+  activeInvoicedCents: number;
+  netReceivedCents: number;
+  allocatedReceivedCents: number;
+  outstandingCents: number;
+  overdueCents: number;
+  unallocatedReceivedCents: number;
+  overpaidCents: number;
+  requiresReview: boolean;
+  oldestDueOn?: string;
+};
+
+export type BusinessFinanceSummary = {
+  invoicedInPeriodCents: number;
+  cancelledInPeriodCents: number;
+  receivedInPeriodCents: number;
+  reversedInPeriodCents: number;
+  netReceivedInPeriodCents: number;
+  currentOutstandingCents: number;
+  currentOverdueCents: number;
+  currentUnallocatedCents: number;
+  currentOverpaidCents: number;
+  jobsWithEvidence: number;
+};
+
+export type BusinessFinanceMonthlySummary = {
+  month: number;
+  invoicedCents: number;
+  cancelledCents: number;
+  receivedCents: number;
+  reversedCents: number;
+  netReceivedCents: number;
+};
+
+export type BusinessJobInvoiceInput = {
+  operationId: string;
+  invoiceNumber: string;
+  issuedOn: string;
+  dueOn?: string;
+  amountWithoutVatCents: number;
+  vatRateBasisPoints: number;
+  amountWithVatCents: number;
+};
+
+export type BusinessJobInvoiceCancellationInput = {
+  operationId: string;
+  cancelledOn: string;
+  reasonCode: string;
+};
+
+export type BusinessJobPaymentInput = {
+  operationId: string;
+  invoiceId?: string;
+  occurredOn: string;
+  amountCents: number;
+  method: BusinessPaymentMethod;
+  reference?: string;
+};
+
+export type BusinessJobPaymentReversalInput = {
+  operationId: string;
+  occurredOn: string;
+  reasonCode: string;
+};
+
 export type BusinessJobInput = {
   demolitionDate: string;
   customerName: string;

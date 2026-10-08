@@ -1,4 +1,4 @@
-import { getLeadDashboardMetrics, getLeadEmailOutboxAttention, getLeadQueueCounts, getPriceOfferEventMetrics, getSystemHealth, listBusinessJobDashboardRows, listBusinessJobs, listLeadSummaryPage, listPlannerActions, listWorkers } from '@/src/server/db';
+import { getBusinessFinanceSummary, getLeadDashboardMetrics, getLeadEmailOutboxAttention, getLeadQueueCounts, getPriceOfferEventMetrics, getSystemHealth, listBusinessJobDashboardRows, listBusinessJobs, listLeadSummaryPage, listPlannerActions, listWorkers } from '@/src/server/db';
 import { requireAdminUser } from '@/src/server/auth';
 import { statusLabels } from '@/src/server/lead-insights';
 import { businessPeriodBounds, businessTodayKey } from '@/src/lib/business-period';
@@ -64,7 +64,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   const currentYear = String(currentMonth[0]);
   const trailingStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 12, 1)).toISOString().slice(0, 10);
   const allJobsFrom = trailingStart < `${currentYear}-01-01` ? trailingStart : `${currentYear}-01-01`;
-  const [jobs, chartJobs, leadMetrics, recentLeadPage, lostLeadPage, workers, offerEvents, health, todayActions, queueCounts, mailQueue] = await Promise.all([
+  const [jobs, chartJobs, leadMetrics, recentLeadPage, lostLeadPage, workers, offerEvents, health, todayActions, queueCounts, mailQueue, financeSummary] = await Promise.all([
     bounds.valid ? listBusinessJobs({ ...bounds, limit: null, excludeTestData: true }) : Promise.resolve([]),
     listBusinessJobDashboardRows(allJobsFrom, `${currentYear}-12-31`),
     bounds.valid ? getLeadDashboardMetrics(bounds.from, bounds.to, today) : Promise.resolve({ receivedInPeriod: 0, newToday: 0, waitingForOffer: 0, followupsDue: 0 }),
@@ -76,9 +76,10 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
     listPlannerActions({ from: today, to: today }),
     getLeadQueueCounts(today, true),
     getLeadEmailOutboxAttention(),
+    bounds.valid ? getBusinessFinanceSummary(bounds.from, bounds.to) : Promise.resolve(null),
   ]);
   const businessMetrics = summarizeBusinessJobs(jobs);
-  const { activeJobs, cancelledJobs, recordedOrderValue, cancelledValue, invoiceTypeValue, cashTypeValue, area: m2, wasteKg, rewards, directCosts: costs, preOverheadRemainder, jobsWithoutRecordedDirectCosts, averageRecordedPricePerM2: averageM2 } = businessMetrics;
+  const { activeJobs, cancelledJobs, recordedOrderValue, cancelledValue, area: m2, wasteKg, rewards, directCosts: costs, preOverheadRemainder, jobsWithoutRecordedDirectCosts, averageRecordedPricePerM2: averageM2 } = businessMetrics;
   const wasteTons = wasteKg / 1000;
   const last12 = Array.from({ length: 12 }, (_, index) => {
     const monthStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 1 - (11 - index), 1));
@@ -122,7 +123,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <WorkQueues counts={queueCounts} />
         <section className="admin-card">
           <h2>Rýchly prehľad</h2>
-          <table className="admin-table">
+          <div className="admin-table-wrap" role="region" aria-label="Rýchly prehľad dopytov" tabIndex={0}><table className="admin-table">
             <thead><tr><th>Meno</th><th>Lokalita</th><th>m2</th><th>Tel.</th><th>Stav</th></tr></thead>
             <tbody>
               {recentLeadPage.items.map((lead) => (
@@ -135,18 +136,18 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </section>
         <section className="admin-card">
           <h2>Dopyty ktoré nevyšli</h2>
-          <table className="admin-table">
+          <div className="admin-table-wrap" role="region" aria-label="Dopyty ktoré nevyšli" tabIndex={0}><table className="admin-table">
             <thead><tr><th>Meno</th><th>Lokalita</th><th>Dôvod / follow-up</th><th></th></tr></thead>
             <tbody>
               {lostLeadPage.items.map((lead) => (
                 <tr key={lead.id}><td>{lead.fullName}</td><td>{lead.city}</td><td>{lead.followupNote || 'Bez poznámky'}</td><td><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a></td></tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         </section>
       </main>
     );
@@ -189,13 +190,24 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
       {!bounds.valid ? <p className="admin-warning-badge" role="alert">Vlastné obdobie nie je platné. Zadajte oba dátumy a skontrolujte, že dátum „Od“ nie je po dátume „Do“. Pre toto obdobie sa nezobrazujú súhrnné údaje.</p> : null}
       {bounds.valid ? <>
-      <p className="admin-muted-note">Súhrn sa riadi evidovaným dátumom demontáže. Zahrnuté sú aj nezáväzné dopyty a rozpracované práce; zrušené zákazky sú oddelené. Evidovaná suma nie je doklad o fakturácii ani prijatej platbe. Systém úhrady zatiaľ neeviduje.</p>
+      <section className="admin-card" aria-labelledby="finance-summary-title">
+        <div className="admin-section-heading"><div><p>Podľa skutočne zaevidovaných dokladov</p><h2 id="finance-summary-title">Financie</h2></div><a href="/admin/zakazky">Otvoriť zákazky</a></div>
+        <p className="admin-muted-note">Faktúry sa rátajú podľa dátumu vystavenia, úhrady podľa dátumu prijatia. Neuhradené a po splatnosti sú aktuálny stav ku dnešku. Údaje sa nevytvárajú z ceny ani stavu zákazky.</p>
+        {financeSummary?.jobsWithEvidence ? <div className="admin-stat-grid admin-finance-stats">
+          <article><span>Faktúry vystavené v období</span><strong>{euro(financeSummary.invoicedInPeriodCents / 100)}</strong><small>Storno faktúr v období {euro(financeSummary.cancelledInPeriodCents / 100)}</small></article>
+          <article><span>Prijaté úhrady netto v období</span><strong>{euro(financeSummary.netReceivedInPeriodCents / 100)}</strong><small>Prijaté {euro(financeSummary.receivedInPeriodCents / 100)} · storno {euro(financeSummary.reversedInPeriodCents / 100)}</small></article>
+          <article><span>Aktuálne neuhradené</span><strong>{euro(financeSummary.currentOutstandingCents / 100)}</strong></article>
+          <article><span>Aktuálne po splatnosti</span><strong>{euro(financeSummary.currentOverdueCents / 100)}</strong></article>
+          <article><span>Nepriradené úhrady</span><strong>{euro(financeSummary.currentUnallocatedCents / 100)}</strong></article>
+          <article><span>Preplatky na faktúrach</span><strong>{euro(financeSummary.currentOverpaidCents / 100)}</strong></article>
+        </div> : <div className="admin-empty-state"><strong>Finančné údaje: neevidované</strong><p>Zatiaľ nie je uložená žiadna skutočne vystavená faktúra ani prijatá úhrada.</p></div>}
+      </section>
+
+      <h2>Operatívne odhady podľa dátumu demontáže</h2>
+      <p className="admin-muted-note">Súhrn sa riadi evidovaným dátumom demontáže. Zahrnuté sú aj nezáväzné dopyty a rozpracované práce; zrušené zákazky sú oddelené. Evidovaná cena nie je doklad o fakturácii ani prijatej platbe.</p>
       <section className="admin-stat-grid">
         <article><span>Evidované ceny (vrátane dopytov a odhadov)</span><strong>{euro(recordedOrderValue)}</strong></article>
-        <article><span>Evidovaná suma — typ faktúra</span><strong>{euro(invoiceTypeValue)}</strong><small>{pct(invoiceTypeValue, recordedOrderValue)} evidovanej sumy; nejde o potvrdenú úhradu</small></article>
-        <article><span>Evidovaná suma — typ hotovosť</span><strong>{euro(cashTypeValue)}</strong><small>{pct(cashTypeValue, recordedOrderValue)} evidovanej sumy; nejde o potvrdenú úhradu</small></article>
         <article><span>Priemerná evidovaná suma / m²</span><strong>{averageM2 === null ? '—' : euro(averageM2)}</strong></article>
-        <article><span>Prijaté úhrady</span><strong>Nezaznamenávajú sa</strong><small>Nie je možné určiť zaplatené tržby.</small></article>
         <article><span>Aktívne a rozpracované záznamy</span><strong>{activeJobs.length}</strong></article>
         <article><span>Zrušené záznamy, oddelene</span><strong>{cancelledJobs.length}</strong><small>{euro(cancelledValue)}</small></article>
         <article><span>m2 spolu</span><strong>{numberSk(m2, ' m2')}</strong></article>
@@ -206,8 +218,8 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
       <section className="admin-card">
         <h2>Zadané priame náklady a odmeny</h2>
-        <p className="admin-muted-note">Rozdiel oproti evidovaným sumám je len orientačný: sumy môžu byť odhadmi alebo dopytmi, zadané náklady nemusia byť úplné a úhrady sa neevidujú. Nejde o zisk ani účtovný údaj. Záznamy s nulovými evidovanými priamymi nákladmi aj odmenami: {jobsWithoutRecordedDirectCosts}.</p>
-        <table className="admin-table"><tbody>
+        <p className="admin-muted-note">Rozdiel oproti evidovaným sumám je len orientačný: sumy môžu byť odhadmi alebo dopytmi a zadané náklady nemusia byť úplné. Prijaté úhrady evidujeme osobitne v sekcii Financie, nie v tomto odhade. Nejde o zisk ani účtovný údaj. Záznamy s nulovými evidovanými priamymi nákladmi aj odmenami: {jobsWithoutRecordedDirectCosts}.</p>
+        <div className="admin-table-wrap" role="region" aria-label="Zadané priame náklady a odmeny" tabIndex={0}><table className="admin-table"><tbody>
           {[
             ['Odmeny spolu', rewards],
             ['Nafta', activeJobs.reduce((s, j) => s + j.costs.fuel, 0)],
@@ -220,7 +232,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
             ['ROZDIEL PO ZADANÝCH NÁKLADOCH A ODMENÁCH (ORIENTAČNE)', preOverheadRemainder],
           ].map(([label, value]) => <tr key={label}><td>{label}</td><td>{euro(Number(value))}</td><td>{pct(Number(value), recordedOrderValue)}</td></tr>)}
           <tr><th>POMER ROZDIELU K EVIDOVANEJ SUME (ORIENTAČNE)</th><th colSpan={2}>{pct(preOverheadRemainder, recordedOrderValue)}</th></tr>
-        </tbody></table>
+        </tbody></table></div>
       </section>
 
       <section className="admin-stat-grid">
@@ -247,12 +259,12 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
 
       <section className="admin-card">
         <h2>Skládky</h2>
-        <table className="admin-table"><thead><tr><th>Skládka</th><th>Zákaziek</th><th>Ton</th><th>Náklad €</th></tr></thead><tbody>{landfillRows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{numberSk(row.tons)}</td><td>{euro(row.cost)}</td></tr>)}</tbody></table>
+        <div className="admin-table-wrap" role="region" aria-label="Prehľad skládok" tabIndex={0}><table className="admin-table"><thead><tr><th>Skládka</th><th>Zákaziek</th><th>Ton</th><th>Náklad €</th></tr></thead><tbody>{landfillRows.map((row) => <tr key={row.label}><td>{row.label}</td><td>{row.count}</td><td>{numberSk(row.tons)}</td><td>{euro(row.cost)}</td></tr>)}</tbody></table></div>
       </section>
 
       <section className="admin-card">
         <h2>Najvyššie evidované zákazky</h2>
-        <table className="admin-table"><thead><tr><th>Dátum demontáže</th><th>Zákazník</th><th>Lokalita</th><th>Stav</th><th>m2</th><th>Evidovaná suma €</th></tr></thead><tbody>{activeJobs.sort((a, b) => b.totalPrice - a.totalPrice).slice(0, 5).map((job) => <tr key={job.id}><td>{job.demolitionDate}</td><td>{job.customerName}</td><td>{job.location}</td><td>{jobStatusLabels[job.status] || job.status}</td><td>{numberSk(job.m2)}</td><td>{euro(job.totalPrice)}</td></tr>)}</tbody></table>
+        <div className="admin-table-wrap" role="region" aria-label="Najvyššie evidované zákazky" tabIndex={0}><table className="admin-table"><thead><tr><th>Dátum demontáže</th><th>Zákazník</th><th>Lokalita</th><th>Stav</th><th>m2</th><th>Evidovaná suma €</th></tr></thead><tbody>{activeJobs.sort((a, b) => b.totalPrice - a.totalPrice).slice(0, 5).map((job) => <tr key={job.id}><td>{job.demolitionDate}</td><td>{job.customerName}</td><td>{job.location}</td><td>{jobStatusLabels[job.status] || job.status}</td><td>{numberSk(job.m2)}</td><td>{euro(job.totalPrice)}</td></tr>)}</tbody></table></div>
       </section>
       </> : null}
     </main>

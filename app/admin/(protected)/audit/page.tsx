@@ -29,9 +29,14 @@ const actionLabels: Record<string, string> = {
   lead_file_deleted: 'Súbor odstránený',
   business_jobs_exported: 'Export zákaziek',
   analytics_exported: 'Export analytiky',
+  business_finance_exported: 'Finančný export vytvorený',
   business_job_created: 'Zákazka vytvorená',
   business_job_updated: 'Zákazka upravená',
   business_job_status_changed: 'Stav zákazky zmenený',
+  business_invoice_recorded: 'Faktúra zaevidovaná',
+  business_invoice_cancelled: 'Faktúra stornovaná',
+  business_payment_recorded: 'Úhrada zaevidovaná',
+  business_payment_reversed: 'Úhrada stornovaná',
   quote_created: 'Ponuka vytvorená',
   quote_updated: 'Ponuka upravená',
   price_offer_email_sent: 'Ponuka odoslaná emailom',
@@ -41,10 +46,54 @@ const actionLabels: Record<string, string> = {
   admin_user_active_changed: 'Aktivita používateľa zmenená',
 };
 
+const changeLabels: Record<string, string> = {
+  invoiceId: 'ID faktúry',
+  paymentEventId: 'ID udalosti úhrady',
+  reversalOf: 'Oprava udalosti',
+  issuedOn: 'Dátum vystavenia',
+  dueOn: 'Dátum splatnosti',
+  cancelledOn: 'Dátum storna',
+  occurredOn: 'Dátum úhrady / opravy',
+  amountWithoutVatCents: 'Suma bez DPH',
+  amountWithVatCents: 'Suma s DPH',
+  amountCents: 'Suma',
+  vatRateBasisPoints: 'Sadzba DPH',
+  method: 'Spôsob úhrady',
+  allocated: 'Priradená k faktúre',
+  reasonCode: 'Dôvod opravy',
+};
+
+const money = new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' });
+const paymentMethodLabels: Record<string, string> = {
+  BANK_TRANSFER: 'Bankový prevod',
+  CASH: 'Hotovosť',
+  CARD: 'Karta',
+  OTHER: 'Iné',
+};
+const reasonLabels: Record<string, string> = {
+  DATA_ERROR: 'Chybne zaevidované údaje',
+  DUPLICATE: 'Duplicitný záznam',
+  CUSTOMER_CANCELLED: 'Zrušenie zákazníkom',
+  REFUNDED: 'Vrátenie platby',
+  OTHER: 'Iný interný dôvod',
+};
+
+function formatChangeValue(key: string, value: unknown) {
+  if (['amountWithoutVatCents', 'amountWithVatCents', 'amountCents'].includes(key) && typeof value === 'number') {
+    return money.format(value / 100);
+  }
+  if (key === 'vatRateBasisPoints' && typeof value === 'number') return `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 2 }).format(value / 100)} %`;
+  if (key === 'allocated' && typeof value === 'boolean') return value ? 'Áno' : 'Nie';
+  if (key === 'method' && typeof value === 'string') return paymentMethodLabels[value] || value;
+  if (key === 'reasonCode' && typeof value === 'string') return reasonLabels[value] || value;
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
+}
+
 function formatChanges(changes: Record<string, unknown>) {
   const entries = Object.entries(changes).filter(([key]) => key !== 'reason' || changes[key]);
   if (!entries.length) return 'Bez detailu';
-  return entries.map(([key, value]) => `${key}: ${typeof value === 'string' ? value : JSON.stringify(value)}`).join(' · ');
+  return entries.map(([key, value]) => `${changeLabels[key] || key}: ${formatChangeValue(key, value)}`).join(' · ');
 }
 
 export default async function AdminAuditPage() {
@@ -66,7 +115,7 @@ export default async function AdminAuditPage() {
           <div><p>Nemenná história zmien</p><h2>Kto čo urobil</h2></div>
           <span className="admin-muted">Exporty, zmeny workflow, archivácia a administratívne zásahy</span>
         </div>
-        <div className="admin-table-wrap">
+        <div className="admin-table-wrap" role="region" aria-label="Audit aktivít" tabIndex={0}>
           <table className="admin-table">
             <thead>
               <tr><th>Čas</th><th>Udalosť</th><th>Objekt</th><th>Vykonal</th><th>Detail</th></tr>

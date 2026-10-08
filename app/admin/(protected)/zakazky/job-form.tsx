@@ -19,11 +19,22 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+function todayInBratislava() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Bratislava',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+}
+
 export default function JobForm({ workers, landfillPrices, defaultPricePerM2, job }: Props) {
   const initialWorkerIds = job?.workers.map((worker) => worker.workerId) ?? [];
   const [m2, setM2] = useState(job?.m2 ?? 0);
   const [pricePerM2, setPricePerM2] = useState(job?.pricePerM2 ?? defaultPricePerM2);
-  const [date, setDate] = useState(job?.demolitionDate ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(job?.demolitionDate ?? todayInBratislava());
   const [wasteKg, setWasteKg] = useState(job?.wasteKg ?? 0);
   const [landfill, setLandfill] = useState(job?.landfill ?? 'MOCHOVCE');
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(initialWorkerIds);
@@ -86,8 +97,8 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
         <div className="admin-quote-form">
           <label>m2<input name="m2" type="number" step="0.01" value={m2 || ''} onChange={(event) => setM2(n(event.target.value))} required /></label>
           <label>Cena za m2<input name="pricePerM2" type="number" step="0.01" value={pricePerM2 || ''} onChange={(event) => setPricePerM2(n(event.target.value))} required /></label>
-          <label>Celková cena<input readOnly value={euro(totalPrice)} /></label>
-          <fieldset><legend>Typ platby</legend>{paymentTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="paymentType" value={type} defaultChecked={(job?.paymentType ?? 'FAKTURA') === type} /> {paymentLabels[type]}</label>)}</fieldset>
+          <label>Evidovaná cena zákazky<input readOnly value={euro(totalPrice)} /></label>
+          <fieldset><legend>Dohodnutý spôsob vyúčtovania</legend>{paymentTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="paymentType" value={type} defaultChecked={(job?.paymentType ?? 'FAKTURA') === type} /> {paymentLabels[type]}</label>)}<small>Nejde o potvrdenie prijatej úhrady.</small></fieldset>
           <fieldset><legend>Typ práce</legend>{workTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="workType" value={type} defaultChecked={(job?.workType ?? 'DEMONTAZ_A_ODVOZ') === type} /> {workTypeLabels[type]}</label>)}</fieldset>
         </div>
       </section>
@@ -117,7 +128,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
             </label>
           ))}
         </div>
-        <div className="admin-table-wrap">
+        <div className="admin-table-wrap" role="region" aria-label="Rozdelenie práce a odmien" tabIndex={0}>
           <table className="admin-table">
             <thead><tr><th>Pracovník</th><th>m2/podiel</th><th>Sadzba</th><th>Odmena</th><th>Upraviť</th></tr></thead>
             <tbody>
@@ -161,13 +172,13 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
       </section>
 
       <section className="admin-card">
-        <h2>Ziskovosť</h2>
+        <h2>Orientačný prepočet</h2>
         <dl className="admin-dl">
-          <dt>Tržba</dt><dd>{euro(totalPrice)}</dd>
+          <dt>Evidovaná cena</dt><dd>{euro(totalPrice)}</dd>
           <dt>Odmeny</dt><dd>{euro(rewardTotal)}</dd>
           <dt>Náklady</dt><dd>{euro(costsTotal)}</dd>
-          <dt>Hrubý zisk</dt><dd>{euro(grossProfit)}</dd>
-          <dt>Marža</dt><dd>{margin.toFixed(1)} %</dd>
+          <dt>Rozdiel po zadaných nákladoch a odmenách</dt><dd>{euro(grossProfit)}</dd>
+          <dt>Podiel orientačného rozdielu k evidovanej cene</dt><dd>{margin.toFixed(1)} %</dd>
         </dl>
         <label>Poznámka<textarea name="note" rows={4} defaultValue={job?.note} /></label>
       </section>

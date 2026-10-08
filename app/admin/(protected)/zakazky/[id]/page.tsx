@@ -1,8 +1,10 @@
 import { notFound } from 'next/navigation';
+import { randomUUID } from 'node:crypto';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
-import { getBusinessJobWithActivity, getBusinessSettings, isLeadTestData, listLandfillPrices, listWorkers } from '@/src/server/db';
+import { getBusinessJobFinance, getBusinessJobWithActivity, getBusinessSettings, isLeadTestData, listLandfillPrices, listWorkers } from '@/src/server/db';
 import { addBusinessJobNoteAction, saveBusinessJobAction, setBusinessJobTestDataAction } from '../actions';
 import JobForm from '../job-form';
+import BillingPanel from './billing-panel';
 import { euro, jobStatusLabels, normalizeWorkflowStatus, workflowStatuses } from '../constants';
 
 function activityTitle(action: string) {
@@ -15,18 +17,23 @@ function activityTitle(action: string) {
     business_job_note_added: 'Poznámka pridaná',
     business_job_archived: 'Zákazka archivovaná',
     business_job_deleted: 'Zákazka archivovaná',
+    business_invoice_recorded: 'Faktúra zaevidovaná',
+    business_invoice_cancelled: 'Faktúra stornovaná',
+    business_payment_recorded: 'Úhrada zaevidovaná',
+    business_payment_reversed: 'Úhrada stornovaná',
   };
   return labels[action] || action;
 }
 
 export default async function BusinessJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [job, adminUser, workers, landfillPrices, settings] = await Promise.all([
+  const [job, adminUser, workers, landfillPrices, settings, finance] = await Promise.all([
     getBusinessJobWithActivity(id),
     requireAdminUser(),
     listWorkers(true),
     listLandfillPrices(),
     getBusinessSettings(),
+    getBusinessJobFinance(id),
   ]);
   if (!job) notFound();
   if (job.deletedAt && adminUser.role !== 'SUPER_ADMIN') notFound();
@@ -37,6 +44,17 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
   const activeIndex = workflowStatuses.indexOf(activeStatus);
   const phoneForWhatsApp = job.customerPhone.replace(/\D/g, '').replace(/^0/, '421');
   const reviewText = encodeURIComponent(`Dobrý deň ${job.customerName}, ďakujeme za dôveru pri likvidácii azbestu v ${job.location}. Ak ste boli spokojní, veľmi by nám pomohla krátka recenzia na Google — trvá 2 minúty: ${settings.googleReviewLink || '[DOPLNIŤ GOOGLE ODKAZ]'}. Ďakujeme, tím ASTANA`);
+  const csrfToken = csrfTokenForEmail(adminUser.email);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+  const dueDate = new Date(`${today}T12:00:00+02:00`);
+  dueDate.setDate(dueDate.getDate() + 14);
+  const dueOn = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(dueDate);
+  const operationIds = {
+    invoice: randomUUID(),
+    payment: randomUUID(),
+    invoiceCancellation: Object.fromEntries(finance.invoices.map((invoice) => [invoice.id, randomUUID()])),
+    paymentReversal: Object.fromEntries(finance.paymentEvents.filter((event) => event.eventType === 'RECEIPT').map((event) => [event.id, randomUUID()])),
+  };
 
   return (
     <main className="admin-page">
@@ -61,11 +79,22 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
       </section>
       <p className="admin-muted-note">Evidovaná suma nie je doklad o fakturácii ani úhrade. Náklady môžu byť neúplné; orientačný rozdiel nie je účtovný zisk. Stav „zrušená“ sa v súhrnných aktívnych hodnotách nezapočítava.</p>
 
+      <BillingPanel
+        jobId={job.id}
+        finance={finance}
+        canWrite={adminUser.role === 'SUPER_ADMIN'}
+        archived={Boolean(job.deletedAt)}
+        csrfToken={csrfToken}
+        today={today}
+        dueOn={dueOn}
+        operationIds={operationIds}
+      />
+
       {adminUser.role === 'SUPER_ADMIN' ? <section className="admin-card no-print" aria-labelledby="job-test-classification-title">
         <h2 id="job-test-classification-title">Obchodné reporty</h2>
         <p>{isEffectivelyTestData ? 'Táto zákazka alebo jej dopyt je označený ako testovací. CRM záznam zostáva zachovaný a reporty ho nezapočítavajú.' : 'Zákazka sa započítava do obchodných reportov. Označenie testu ju nemaže ani nemení jej stav.'}</p>
         {linkedLeadIsTestData ? <p>Dôvodom vylúčenia je testovací dopyt <a href={`/admin/dopyty/${job.leadId}`}>otvoriť dopyt</a>.</p> : <form action={setBusinessJobTestDataAction} className="admin-form-stack">
-          <input type="hidden" name="_csrf" value={csrfTokenForEmail(adminUser.email)} />
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="id" value={job.id} />
           <input type="hidden" name="isTestData" value={job.isTestData ? 'false' : 'true'} />
           <label>Dôvod zmeny

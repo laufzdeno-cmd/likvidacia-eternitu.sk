@@ -3,7 +3,17 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { addBusinessJobNote, deleteBusinessJob, destroyBusinessJob, saveBusinessJob, setBusinessJobTestData } from '@/src/server/db';
+import {
+  addBusinessJobNote,
+  cancelBusinessInvoice,
+  deleteBusinessJob,
+  destroyBusinessJob,
+  recordBusinessInvoice,
+  recordBusinessPayment,
+  reverseBusinessPayment,
+  saveBusinessJob,
+  setBusinessJobTestData,
+} from '@/src/server/db';
 import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
@@ -62,6 +72,126 @@ export async function saveBusinessJobAction(formData: FormData) {
   if (next === 'new') redirect('/admin/zakazky/nova');
   if (!id) redirect('/admin/zakazky');
   redirect(`/admin/zakazky/${job.id}`);
+}
+
+export type FinanceActionState = { ok: boolean; message: string };
+
+function euroCents(value: FormDataEntryValue | null, label: string) {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) throw new Error(`${label} musí byť suma s najviac dvoma desatinnými miestami.`);
+  const [whole, fraction = ''] = normalized.split('.');
+  const cents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  if (!Number.isSafeInteger(cents) || cents <= 0) throw new Error(`${label} musí byť kladná suma.`);
+  return cents;
+}
+
+function vatBasisPoints(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? '').trim().replace(',', '.');
+  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) throw new Error('Sadzba DPH nie je platná.');
+  const basisPoints = Math.round(Number(normalized) * 100);
+  if (!Number.isSafeInteger(basisPoints) || basisPoints < 0 || basisPoints > 10_000) throw new Error('Sadzba DPH nie je platná.');
+  return basisPoints;
+}
+
+function financeMessage(error: unknown) {
+  return error instanceof Error ? error.message : 'Finančný záznam sa nepodarilo uložiť.';
+}
+
+function revalidateFinance(jobId: string) {
+  revalidatePath(`/admin/zakazky/${jobId}`);
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/rok');
+}
+
+export async function recordBusinessInvoiceAction(
+  _previousState: FinanceActionState,
+  formData: FormData,
+): Promise<FinanceActionState> {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const jobId = String(formData.get('jobId') || '');
+  try {
+    const amountWithoutVatCents = euroCents(formData.get('amountWithoutVat'), 'Suma bez DPH');
+    const vatRateBasisPoints = vatBasisPoints(formData.get('vatRate'));
+    await recordBusinessInvoice(jobId, {
+      operationId: String(formData.get('operationId') || ''),
+      invoiceNumber: String(formData.get('invoiceNumber') || ''),
+      issuedOn: String(formData.get('issuedOn') || ''),
+      dueOn: String(formData.get('dueOn') || '') || undefined,
+      amountWithoutVatCents,
+      vatRateBasisPoints,
+      amountWithVatCents: amountWithoutVatCents + Math.round(amountWithoutVatCents * vatRateBasisPoints / 10_000),
+    }, actor);
+    revalidateFinance(jobId);
+    return { ok: true, message: 'Vystavená faktúra bola zaevidovaná.' };
+  } catch (error) {
+    return { ok: false, message: financeMessage(error) };
+  }
+}
+
+export async function cancelBusinessInvoiceAction(
+  _previousState: FinanceActionState,
+  formData: FormData,
+): Promise<FinanceActionState> {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const jobId = String(formData.get('jobId') || '');
+  if (formData.get('confirm') !== 'yes') return { ok: false, message: 'Storno faktúry musíte výslovne potvrdiť.' };
+  try {
+    await cancelBusinessInvoice(jobId, String(formData.get('invoiceId') || ''), {
+      operationId: String(formData.get('operationId') || ''),
+      cancelledOn: String(formData.get('cancelledOn') || ''),
+      reasonCode: String(formData.get('reasonCode') || ''),
+    }, actor);
+    revalidateFinance(jobId);
+    return { ok: true, message: 'Faktúra bola stornovaná bez vymazania histórie.' };
+  } catch (error) {
+    return { ok: false, message: financeMessage(error) };
+  }
+}
+
+export async function recordBusinessPaymentAction(
+  _previousState: FinanceActionState,
+  formData: FormData,
+): Promise<FinanceActionState> {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const jobId = String(formData.get('jobId') || '');
+  try {
+    await recordBusinessPayment(jobId, {
+      operationId: String(formData.get('operationId') || ''),
+      invoiceId: String(formData.get('invoiceId') || '') || undefined,
+      occurredOn: String(formData.get('occurredOn') || ''),
+      amountCents: euroCents(formData.get('amount'), 'Prijatá suma'),
+      method: String(formData.get('method') || 'BANK_TRANSFER') as 'BANK_TRANSFER' | 'CASH' | 'CARD' | 'OTHER',
+      reference: String(formData.get('reference') || ''),
+    }, actor);
+    revalidateFinance(jobId);
+    return { ok: true, message: 'Prijatá úhrada bola zaevidovaná.' };
+  } catch (error) {
+    return { ok: false, message: financeMessage(error) };
+  }
+}
+
+export async function reverseBusinessPaymentAction(
+  _previousState: FinanceActionState,
+  formData: FormData,
+): Promise<FinanceActionState> {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const jobId = String(formData.get('jobId') || '');
+  if (formData.get('confirm') !== 'yes') return { ok: false, message: 'Storno úhrady musíte výslovne potvrdiť.' };
+  try {
+    await reverseBusinessPayment(jobId, String(formData.get('receiptId') || ''), {
+      operationId: String(formData.get('operationId') || ''),
+      occurredOn: String(formData.get('occurredOn') || ''),
+      reasonCode: String(formData.get('reasonCode') || ''),
+    }, actor);
+    revalidateFinance(jobId);
+    return { ok: true, message: 'Úhrada bola stornovaná novou opravnou udalosťou.' };
+  } catch (error) {
+    return { ok: false, message: financeMessage(error) };
+  }
 }
 
 export async function setBusinessJobTestDataAction(formData: FormData) {

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     month: month || 'all', status: status || 'all', paymentType: paymentType || 'all',
     landfill: landfill || 'all', includeArchived, resultCount: jobs.length,
   });
-  const header = ['dátum', 'meno', 'lokalita', 'm2', 'evidovaná cena/m2', 'evidovaná suma', 'typ platby (nie dôkaz úhrady)', 'typ práce', 'váha kg', 'skládka', 'tím', 'zadané odmeny', 'zadané priame náklady', 'orientačný rozdiel po zadaných nákladoch a odmenách', 'stav', 'archivované'];
+  const header = ['dátum', 'meno', 'lokalita', 'm2', 'evidovaná cena/m2', 'evidovaná suma', 'dohodnutý spôsob vyúčtovania (nie dôkaz úhrady)', 'typ práce', 'váha kg', 'skládka', 'tím', 'zadané odmeny', 'zadané priame náklady', 'orientačný rozdiel po zadaných nákladoch a odmenách', 'stav', 'archivované'];
   const lines = [
     header.join(';'),
     ...jobs.map((job) =>

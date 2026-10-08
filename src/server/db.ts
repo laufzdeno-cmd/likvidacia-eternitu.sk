@@ -32,10 +32,20 @@ import type {
   AdminUserInput,
   BusinessJob,
   BusinessJobCosts,
+  BusinessFinanceMonthlySummary,
+  BusinessFinanceSummary,
+  BusinessJobFinance,
   BusinessJobInput,
+  BusinessJobInvoice,
+  BusinessJobInvoiceCancellationInput,
+  BusinessJobInvoiceInput,
+  BusinessJobPaymentEvent,
+  BusinessJobPaymentInput,
+  BusinessJobPaymentReversalInput,
   BusinessJobStatus,
   BusinessLandfill,
   BusinessPaymentType,
+  BusinessPaymentMethod,
   BusinessSettings,
   BusinessWorkType,
   CareerApplication,
@@ -109,6 +119,7 @@ import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { validatePriceOfferNote } from '../lib/price-offer-note';
 import { priceOfferUpdateLifecycle } from '../lib/price-offer-state';
+import { MAX_BUSINESS_FINANCE_CENTS, projectBusinessJobFinance } from '../lib/business-billing';
 
 type LocalDb = {
   leads: Lead[];
@@ -126,6 +137,8 @@ type LocalDb = {
   adminUsers: AdminUser[];
   plannerActions: PlannerAction[];
   businessJobs: BusinessJob[];
+  businessJobInvoices: BusinessJobInvoice[];
+  businessJobPaymentEvents: BusinessJobPaymentEvent[];
   priceOffers: PriceOffer[];
   landfillPrices: LandfillPrice[];
   realizations: Realization[];
@@ -160,6 +173,7 @@ type BusinessJobWithActivity = BusinessJob & { activityLogs: AuditLog[] };
 const databaseUrl = normalizeDatabaseUrl(process.env.DATABASE_URL);
 const localDbPath = process.env.ASTANA_LOCAL_DB_PATH || path.join(process.cwd(), '.data', 'local-db.json');
 const siteContentAuditId = '00000000-0000-0000-0000-000000000001';
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 let pool: Pool | undefined;
 let schemaReady = false;
@@ -220,7 +234,19 @@ function nextLocalTestimonialVersion(currentVersion?: string) {
 
 function dateOnly(value: unknown) {
   if (!value) return '';
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return '';
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Bratislava',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(value);
+    const year = parts.find((part) => part.type === 'year')?.value;
+    const month = parts.find((part) => part.type === 'month')?.value;
+    const day = parts.find((part) => part.type === 'day')?.value;
+    return year && month && day ? `${year}-${month}-${day}` : '';
+  }
   const text = String(value);
   if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
   const parsed = new Date(text);
@@ -1234,6 +1260,61 @@ async function initializeSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ouzp_approved_date date;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS demolition_finished_date date;
 
+    -- Internal financial evidence only. Existing jobs are intentionally not backfilled:
+    -- a quoted value, job status or preferred payment type is not proof of an invoice or payment.
+    CREATE TABLE IF NOT EXISTS business_job_invoices (
+      id uuid PRIMARY KEY,
+      job_id uuid NOT NULL REFERENCES business_jobs(id) ON DELETE RESTRICT,
+      operation_id uuid NOT NULL UNIQUE,
+      request_hash char(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+      invoice_number text NOT NULL,
+      issued_on date NOT NULL,
+      due_on date,
+      amount_without_vat_cents bigint NOT NULL CHECK (amount_without_vat_cents > 0 AND amount_without_vat_cents <= 200000000),
+      vat_rate_basis_points integer NOT NULL CHECK (vat_rate_basis_points >= 0 AND vat_rate_basis_points <= 10000),
+      amount_with_vat_cents bigint NOT NULL CHECK (amount_with_vat_cents > 0 AND amount_with_vat_cents <= 200000000),
+      created_at timestamptz NOT NULL DEFAULT now(),
+      created_by text NOT NULL,
+      cancelled_on date,
+      cancelled_at timestamptz,
+      cancelled_by text,
+      cancel_reason_code text,
+      cancel_operation_id uuid UNIQUE,
+      cancel_request_hash char(64) CHECK (cancel_request_hash IS NULL OR cancel_request_hash ~ '^[0-9a-f]{64}$'),
+      UNIQUE (id, job_id),
+      CHECK (due_on IS NULL OR due_on >= issued_on),
+      CHECK (
+        (cancelled_on IS NULL AND cancelled_at IS NULL AND cancelled_by IS NULL AND cancel_reason_code IS NULL
+          AND cancel_operation_id IS NULL AND cancel_request_hash IS NULL)
+        OR
+        (cancelled_on IS NOT NULL AND cancelled_at IS NOT NULL AND cancelled_by IS NOT NULL AND cancel_reason_code IS NOT NULL
+          AND cancel_operation_id IS NOT NULL AND cancel_request_hash IS NOT NULL)
+      )
+    );
+
+    CREATE TABLE IF NOT EXISTS business_job_payment_events (
+      id uuid PRIMARY KEY,
+      job_id uuid NOT NULL REFERENCES business_jobs(id) ON DELETE RESTRICT,
+      invoice_id uuid,
+      operation_id uuid NOT NULL UNIQUE,
+      request_hash char(64) NOT NULL CHECK (request_hash ~ '^[0-9a-f]{64}$'),
+      event_type text NOT NULL CHECK (event_type IN ('RECEIPT', 'REVERSAL')),
+      occurred_on date NOT NULL,
+      amount_cents bigint NOT NULL CHECK (amount_cents > 0 AND amount_cents <= 200000000),
+      method text NOT NULL CHECK (method IN ('BANK_TRANSFER', 'CASH', 'CARD', 'OTHER')),
+      reference text NOT NULL DEFAULT '',
+      reversal_of uuid REFERENCES business_job_payment_events(id) ON DELETE RESTRICT,
+      reason_code text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      created_by text NOT NULL,
+      FOREIGN KEY (invoice_id, job_id) REFERENCES business_job_invoices(id, job_id) ON DELETE RESTRICT,
+      CHECK (
+        (event_type = 'RECEIPT' AND reversal_of IS NULL AND reason_code = '')
+        OR
+        (event_type = 'REVERSAL' AND reversal_of IS NOT NULL AND reason_code <> '')
+      )
+    );
+
     -- New crew photo invitations are tied to an already completed CRM job.
     -- Older invitations remain readable with a NULL assignment.
     ALTER TABLE photo_upload_invites ADD COLUMN IF NOT EXISTS business_job_id uuid REFERENCES business_jobs(id) ON DELETE SET NULL;
@@ -1416,6 +1497,18 @@ async function initializeSchema() {
     CREATE INDEX IF NOT EXISTS analytics_events_created_type_idx ON analytics_events (created_at DESC, event_type);
     CREATE INDEX IF NOT EXISTS analytics_events_session_idx ON analytics_events (session_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS business_jobs_date_status_idx ON business_jobs (demolition_date DESC, status);
+    CREATE UNIQUE INDEX IF NOT EXISTS business_job_invoices_number_uq
+      ON business_job_invoices (lower(btrim(invoice_number)));
+    CREATE INDEX IF NOT EXISTS business_job_invoices_job_issued_idx
+      ON business_job_invoices (job_id, issued_on DESC);
+    CREATE INDEX IF NOT EXISTS business_job_invoices_due_idx
+      ON business_job_invoices (due_on) WHERE cancelled_at IS NULL AND due_on IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS business_job_payment_events_reversal_uq
+      ON business_job_payment_events (reversal_of) WHERE event_type = 'REVERSAL';
+    CREATE INDEX IF NOT EXISTS business_job_payment_events_job_occurred_idx
+      ON business_job_payment_events (job_id, occurred_on DESC);
+    CREATE INDEX IF NOT EXISTS business_job_payment_events_invoice_idx
+      ON business_job_payment_events (invoice_id, occurred_on DESC) WHERE invoice_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
     CREATE INDEX IF NOT EXISTS price_offers_created_status_idx ON price_offers (created_at DESC, status);
     CREATE INDEX IF NOT EXISTS price_offers_job_idx ON price_offers (job_id);
@@ -1612,6 +1705,8 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     adminUsers: (data.adminUsers ?? []).map((user) => ({ ...user, twoFactorLastUsedStep: Number(user.twoFactorLastUsedStep ?? -1) })),
     plannerActions: data.plannerActions ?? [],
     businessJobs: data.businessJobs ?? [],
+    businessJobInvoices: data.businessJobInvoices ?? [],
+    businessJobPaymentEvents: data.businessJobPaymentEvents ?? [],
     priceOffers: (data.priceOffers ?? []).map((offer) => ({
       ...offer,
       documentationPromotion: Boolean(offer.documentationPromotion),
@@ -1984,6 +2079,8 @@ async function readLocalDb(): Promise<LocalDb> {
       adminUsers: [],
       plannerActions: [],
       businessJobs: [],
+      businessJobInvoices: [],
+      businessJobPaymentEvents: [],
       priceOffers: [],
       landfillPrices: [],
       realizations: [],
@@ -2044,10 +2141,18 @@ async function writeLocalDb(data: LocalDb, options: { purgeLeadAuditId?: string 
         .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
       const durableLeads = mergeLatestTestClassifications(data.leads, durableAuditLogs, 'lead');
       const durableBusinessJobs = mergeLatestTestClassifications(data.businessJobs, durableAuditLogs, 'business_job');
+      const durableInvoices = new Map(existingDb.businessJobInvoices.map((item) => [item.id, item]));
+      for (const invoice of data.businessJobInvoices) {
+        const persisted = durableInvoices.get(invoice.id);
+        if (persisted?.cancelledAt) continue;
+        durableInvoices.set(invoice.id, invoice);
+      }
       const durableData = {
         ...data,
         leads: durableLeads,
         businessJobs: durableBusinessJobs,
+        businessJobInvoices: [...durableInvoices.values()],
+        businessJobPaymentEvents: uniqueById(existingDb.businessJobPaymentEvents, data.businessJobPaymentEvents),
         testimonials: [...latestTestimonials.values()],
         auditLogs: durableAuditLogs,
         testimonialConsentHistory: uniqueById(existingDb.testimonialConsentHistory, data.testimonialConsentHistory)
@@ -2555,6 +2660,54 @@ export async function getExistingLeadSubmission(
     businessJobId: String(jobResult.rows[0].id),
     files: fileResult.rows.map((item) => toLeadFile(item)),
     duplicate: true,
+  };
+}
+
+function toBusinessJobInvoice(row: Record<string, unknown>): BusinessJobInvoice {
+  const financeDate = (value: unknown) => value instanceof Date
+    ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+    : dateOnly(value);
+  return {
+    id: String(row.id),
+    jobId: String(row.job_id ?? row.jobId),
+    operationId: String(row.operation_id ?? row.operationId),
+    requestHash: String(row.request_hash ?? row.requestHash),
+    invoiceNumber: String(row.invoice_number ?? row.invoiceNumber),
+    issuedOn: financeDate(row.issued_on ?? row.issuedOn),
+    dueOn: row.due_on || row.dueOn ? financeDate(row.due_on ?? row.dueOn) : undefined,
+    amountWithoutVatCents: Number(row.amount_without_vat_cents ?? row.amountWithoutVatCents),
+    vatRateBasisPoints: Number(row.vat_rate_basis_points ?? row.vatRateBasisPoints),
+    amountWithVatCents: Number(row.amount_with_vat_cents ?? row.amountWithVatCents),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    createdBy: String(row.created_by ?? row.createdBy),
+    cancelledOn: row.cancelled_on || row.cancelledOn ? financeDate(row.cancelled_on ?? row.cancelledOn) : undefined,
+    cancelledAt: row.cancelled_at || row.cancelledAt ? new Date(String(row.cancelled_at ?? row.cancelledAt)).toISOString() : undefined,
+    cancelledBy: row.cancelled_by || row.cancelledBy ? String(row.cancelled_by ?? row.cancelledBy) : undefined,
+    cancelReasonCode: row.cancel_reason_code || row.cancelReasonCode ? String(row.cancel_reason_code ?? row.cancelReasonCode) : undefined,
+    cancelOperationId: row.cancel_operation_id || row.cancelOperationId ? String(row.cancel_operation_id ?? row.cancelOperationId) : undefined,
+    cancelRequestHash: row.cancel_request_hash || row.cancelRequestHash ? String(row.cancel_request_hash ?? row.cancelRequestHash) : undefined,
+  };
+}
+
+function toBusinessJobPaymentEvent(row: Record<string, unknown>): BusinessJobPaymentEvent {
+  const financeDate = (value: unknown) => value instanceof Date
+    ? `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+    : dateOnly(value);
+  return {
+    id: String(row.id),
+    jobId: String(row.job_id ?? row.jobId),
+    invoiceId: row.invoice_id || row.invoiceId ? String(row.invoice_id ?? row.invoiceId) : undefined,
+    operationId: String(row.operation_id ?? row.operationId),
+    requestHash: String(row.request_hash ?? row.requestHash),
+    eventType: String(row.event_type ?? row.eventType) as BusinessJobPaymentEvent['eventType'],
+    occurredOn: financeDate(row.occurred_on ?? row.occurredOn),
+    amountCents: Number(row.amount_cents ?? row.amountCents),
+    method: String(row.method) as BusinessPaymentMethod,
+    reference: String(row.reference ?? ''),
+    reversalOf: row.reversal_of || row.reversalOf ? String(row.reversal_of ?? row.reversalOf) : undefined,
+    reasonCode: row.reason_code || row.reasonCode ? String(row.reason_code ?? row.reasonCode) : undefined,
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    createdBy: String(row.created_by ?? row.createdBy),
   };
 }
 
@@ -6245,6 +6398,602 @@ export async function getBusinessJobWithActivity(id: string): Promise<BusinessJo
   return { ...job, activityLogs: rows.map(toAuditLog) };
 }
 
+const financeReasonCodes = new Set(['DUPLICATE', 'DATA_ERROR', 'CUSTOMER_CANCELLED', 'REFUNDED', 'OTHER']);
+const financePaymentMethods = new Set<BusinessPaymentMethod>(['BANK_TRANSFER', 'CASH', 'CARD', 'OTHER']);
+
+function requireFinanceUuid(value: string, label: string) {
+  if (!uuidPattern.test(value)) throw new Error(`${label} nemá platný identifikátor.`);
+  return value;
+}
+
+function requireFinanceDate(value: string, label: string) {
+  if (!isValidIsoCalendarDate(value)) throw new Error(`${label} nemá platný dátum.`);
+  return value;
+}
+
+function requireFinanceEventDate(value: string, label: string) {
+  requireFinanceDate(value, label);
+  if (value > dateOnly(new Date())) throw new Error(`${label} nemôže byť v budúcnosti.`);
+  return value;
+}
+
+function requireFinanceCents(value: number, label: string) {
+  if (!Number.isSafeInteger(value) || value <= 0 || value > MAX_BUSINESS_FINANCE_CENTS) {
+    throw new Error(`${label} musí byť kladná suma v eurocentoch.`);
+  }
+  return value;
+}
+
+function requireFinanceReason(value: string) {
+  const reason = value.trim().toUpperCase();
+  if (!financeReasonCodes.has(reason)) throw new Error('Vyberte platný dôvod opravy.');
+  return reason;
+}
+
+function financeRequestHash(kind: string, payload: Record<string, unknown>) {
+  return createHash('sha256').update(JSON.stringify({ kind, ...payload })).digest('hex');
+}
+
+function financeAuditLog(
+  jobId: string,
+  action: string,
+  actorEmail: string,
+  changes: Record<string, unknown>,
+): AuditLog {
+  return {
+    id: randomUUID(),
+    entityType: 'business_job',
+    entityId: jobId,
+    action,
+    actorEmail: actorEmail.trim().toLowerCase(),
+    changes,
+    createdAt: now(),
+  };
+}
+
+async function insertFinanceAudit(client: PoolClient, log: AuditLog) {
+  await client.query(
+    'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+    [log.id, log.entityType, log.entityId, log.action, log.actorEmail, log.changes, log.createdAt],
+  );
+}
+
+export async function getBusinessJobFinance(jobId: string): Promise<BusinessJobFinance> {
+  await ensureSchema();
+  requireFinanceUuid(jobId, 'Zákazka');
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return projectBusinessJobFinance(
+      local.businessJobInvoices.filter((item) => item.jobId === jobId),
+      local.businessJobPaymentEvents.filter((item) => item.jobId === jobId),
+      dateInBratislava(new Date()),
+    );
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const invoiceResult = await client.query(
+      'SELECT * FROM business_job_invoices WHERE job_id = $1 ORDER BY issued_on DESC, created_at DESC',
+      [jobId],
+    );
+    const eventResult = await client.query(
+      'SELECT * FROM business_job_payment_events WHERE job_id = $1 ORDER BY occurred_on DESC, created_at DESC',
+      [jobId],
+    );
+    await client.query('COMMIT');
+    return projectBusinessJobFinance(
+      invoiceResult.rows.map(toBusinessJobInvoice),
+      eventResult.rows.map(toBusinessJobPaymentEvent),
+      dateInBratislava(new Date()),
+    );
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function loadReportableBusinessFinanceEvidence(): Promise<{
+  invoices: BusinessJobInvoice[];
+  paymentEvents: BusinessJobPaymentEvent[];
+}> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const allowedJobIds = new Set(local.businessJobs.filter((job) => !job.isTestData && !(job.leadId && testLeadIds.has(job.leadId))).map((job) => job.id));
+    return {
+      invoices: local.businessJobInvoices.filter((invoice) => allowedJobIds.has(invoice.jobId)),
+      paymentEvents: local.businessJobPaymentEvents.filter((event) => allowedJobIds.has(event.jobId)),
+    };
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+    const invoices = await client.query(
+      `SELECT invoice.* FROM business_job_invoices invoice
+       JOIN business_jobs job ON job.id = invoice.job_id
+       LEFT JOIN leads lead ON lead.id = job.lead_id
+       WHERE COALESCE(job.is_test_data, false) = false AND COALESCE(lead.is_test_data, false) = false`,
+    );
+    const events = await client.query(
+      `SELECT event.* FROM business_job_payment_events event
+       JOIN business_jobs job ON job.id = event.job_id
+       LEFT JOIN leads lead ON lead.id = job.lead_id
+       WHERE COALESCE(job.is_test_data, false) = false AND COALESCE(lead.is_test_data, false) = false`,
+    );
+    await client.query('COMMIT');
+    return { invoices: invoices.rows.map(toBusinessJobInvoice), paymentEvents: events.rows.map(toBusinessJobPaymentEvent) };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listBusinessFinanceEvidence() {
+  return loadReportableBusinessFinanceEvidence();
+}
+
+export async function getBusinessFinanceSummary(from: string, to: string): Promise<BusinessFinanceSummary> {
+  requireFinanceDate(from, 'Začiatok obdobia');
+  requireFinanceDate(to, 'Koniec obdobia');
+  if (to < from) throw new Error('Koniec obdobia nemôže byť pred začiatkom.');
+  const { invoices, paymentEvents } = await loadReportableBusinessFinanceEvidence();
+  const inPeriod = (value: string) => value >= from && value <= to;
+  const invoicesInPeriod = invoices.filter((invoice) => inPeriod(invoice.issuedOn));
+  const cancellationsInPeriod = invoices.filter((invoice) => invoice.cancelledOn && inPeriod(invoice.cancelledOn));
+  const receiptsInPeriod = paymentEvents.filter((event) => event.eventType === 'RECEIPT' && inPeriod(event.occurredOn));
+  const reversalsInPeriod = paymentEvents.filter((event) => event.eventType === 'REVERSAL' && inPeriod(event.occurredOn));
+  const jobIds = new Set([...invoices.map((item) => item.jobId), ...paymentEvents.map((item) => item.jobId)]);
+  const projections = [...jobIds].map((jobId) => projectBusinessJobFinance(
+    invoices.filter((item) => item.jobId === jobId),
+    paymentEvents.filter((item) => item.jobId === jobId),
+    dateInBratislava(new Date()),
+  ));
+  return {
+    invoicedInPeriodCents: invoicesInPeriod.reduce((sum, item) => sum + item.amountWithVatCents, 0),
+    cancelledInPeriodCents: cancellationsInPeriod.reduce((sum, item) => sum + item.amountWithVatCents, 0),
+    receivedInPeriodCents: receiptsInPeriod.reduce((sum, item) => sum + item.amountCents, 0),
+    reversedInPeriodCents: reversalsInPeriod.reduce((sum, item) => sum + item.amountCents, 0),
+    netReceivedInPeriodCents: receiptsInPeriod.reduce((sum, item) => sum + item.amountCents, 0)
+      - reversalsInPeriod.reduce((sum, item) => sum + item.amountCents, 0),
+    currentOutstandingCents: projections.reduce((sum, item) => sum + item.outstandingCents, 0),
+    currentOverdueCents: projections.reduce((sum, item) => sum + item.overdueCents, 0),
+    currentUnallocatedCents: projections.reduce((sum, item) => sum + item.unallocatedReceivedCents, 0),
+    currentOverpaidCents: projections.reduce((sum, item) => sum + item.overpaidCents, 0),
+    jobsWithEvidence: jobIds.size,
+  };
+}
+
+export async function listBusinessFinanceMonthlySummary(year: number): Promise<BusinessFinanceMonthlySummary[]> {
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) throw new Error('Rok finančného prehľadu nie je platný.');
+  const { invoices, paymentEvents } = await loadReportableBusinessFinanceEvidence();
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const prefix = `${year}-${String(month).padStart(2, '0')}`;
+    const issued = invoices.filter((item) => item.issuedOn.startsWith(prefix));
+    const cancelled = invoices.filter((item) => item.cancelledOn?.startsWith(prefix));
+    const receipts = paymentEvents.filter((item) => item.eventType === 'RECEIPT' && item.occurredOn.startsWith(prefix));
+    const reversals = paymentEvents.filter((item) => item.eventType === 'REVERSAL' && item.occurredOn.startsWith(prefix));
+    const receivedCents = receipts.reduce((sum, item) => sum + item.amountCents, 0);
+    const reversedCents = reversals.reduce((sum, item) => sum + item.amountCents, 0);
+    return {
+      month,
+      invoicedCents: issued.reduce((sum, item) => sum + item.amountWithVatCents, 0),
+      cancelledCents: cancelled.reduce((sum, item) => sum + item.amountWithVatCents, 0),
+      receivedCents,
+      reversedCents,
+      netReceivedCents: receivedCents - reversedCents,
+    };
+  });
+}
+
+export async function recordBusinessInvoice(
+  jobId: string,
+  input: BusinessJobInvoiceInput,
+  actorEmail: string,
+): Promise<BusinessJobInvoice> {
+  await ensureSchema();
+  requireFinanceUuid(jobId, 'Zákazka');
+  requireFinanceUuid(input.operationId, 'Operácia');
+  const invoiceNumber = input.invoiceNumber.trim().replace(/\s+/g, ' ');
+  if (!invoiceNumber || invoiceNumber.length > 80) throw new Error('Číslo faktúry je povinné a môže mať najviac 80 znakov.');
+  requireFinanceDate(input.issuedOn, 'Dátum vystavenia');
+  if (input.dueOn) requireFinanceDate(input.dueOn, 'Dátum splatnosti');
+  if (input.dueOn && input.dueOn < input.issuedOn) throw new Error('Dátum splatnosti nemôže byť pred dátumom vystavenia.');
+  requireFinanceCents(input.amountWithoutVatCents, 'Suma bez DPH');
+  if (!Number.isSafeInteger(input.vatRateBasisPoints) || input.vatRateBasisPoints < 0 || input.vatRateBasisPoints > 10_000) {
+    throw new Error('Sadzba DPH nie je platná.');
+  }
+  requireFinanceCents(input.amountWithVatCents, 'Suma s DPH');
+  const expectedWithVat = input.amountWithoutVatCents + Math.round(input.amountWithoutVatCents * input.vatRateBasisPoints / 10_000);
+  if (input.amountWithVatCents !== expectedWithVat) throw new Error('Suma s DPH nezodpovedá základu a sadzbe DPH.');
+  const normalized = {
+    jobId,
+    invoiceNumber: invoiceNumber.toLocaleLowerCase('sk-SK'),
+    issuedOn: input.issuedOn,
+    dueOn: input.dueOn || '',
+    amountWithoutVatCents: input.amountWithoutVatCents,
+    vatRateBasisPoints: input.vatRateBasisPoints,
+    amountWithVatCents: input.amountWithVatCents,
+  };
+  const requestHash = financeRequestHash('invoice-recorded', normalized);
+  const timestamp = now();
+  const invoice: BusinessJobInvoice = {
+    id: randomUUID(), jobId, operationId: input.operationId, requestHash, invoiceNumber,
+    issuedOn: input.issuedOn, dueOn: input.dueOn || undefined,
+    amountWithoutVatCents: input.amountWithoutVatCents,
+    vatRateBasisPoints: input.vatRateBasisPoints,
+    amountWithVatCents: input.amountWithVatCents,
+    createdAt: timestamp, createdBy: actorEmail.trim().toLowerCase(),
+  };
+  const db = getPool();
+  if (!db) return withLocalLeadSubmissionLock(async () => {
+    const local = await readLocalDb();
+    const existingOperation = local.businessJobInvoices.find((item) => item.operationId === input.operationId);
+    if (existingOperation) {
+      if (existingOperation.requestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      return existingOperation;
+    }
+    if (local.businessJobInvoices.some((item) => item.cancelOperationId === input.operationId)
+      || local.businessJobPaymentEvents.some((item) => item.operationId === input.operationId)) {
+      throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    }
+    const targetJob = local.businessJobs.find((item) => item.id === jobId);
+    if (!targetJob) throw new Error('Zákazka sa nenašla.');
+    if (targetJob.deletedAt) throw new Error('K archivovanej zákazke nemožno pridať novú faktúru.');
+    if (local.businessJobInvoices.some((item) => item.invoiceNumber.trim().toLocaleLowerCase('sk-SK') === normalized.invoiceNumber)) {
+      throw new Error('Faktúra s týmto číslom je už evidovaná.');
+    }
+    local.businessJobInvoices.push(invoice);
+    local.auditLogs.unshift(financeAuditLog(jobId, 'business_invoice_recorded', actorEmail, {
+      invoiceId: invoice.id, issuedOn: invoice.issuedOn, dueOn: invoice.dueOn,
+      amountWithoutVatCents: invoice.amountWithoutVatCents, vatRateBasisPoints: invoice.vatRateBasisPoints,
+      amountWithVatCents: invoice.amountWithVatCents,
+    }));
+    await writeLocalDb(local);
+    return invoice;
+  });
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.operationId]);
+    const prior = await client.query('SELECT * FROM business_job_invoices WHERE operation_id = $1 FOR UPDATE', [input.operationId]);
+    if (prior.rows[0]) {
+      const existing = toBusinessJobInvoice(prior.rows[0]);
+      if (existing.requestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      await client.query('COMMIT');
+      return existing;
+    }
+    const job = await client.query('SELECT id, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [jobId]);
+    if (!job.rowCount) throw new Error('Zákazka sa nenašla.');
+    if (job.rows[0].deleted_at) throw new Error('K archivovanej zákazke nemožno pridať novú faktúru.');
+    const operationConflict = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM business_job_invoices WHERE cancel_operation_id = $1)
+           OR EXISTS (SELECT 1 FROM business_job_payment_events WHERE operation_id = $1) AS present`,
+      [input.operationId],
+    );
+    if (operationConflict.rows[0]?.present) throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    const duplicate = await client.query('SELECT id FROM business_job_invoices WHERE lower(btrim(invoice_number)) = lower(btrim($1)) LIMIT 1', [invoiceNumber]);
+    if (duplicate.rowCount) throw new Error('Faktúra s týmto číslom je už evidovaná.');
+    const inserted = await client.query(
+      `INSERT INTO business_job_invoices
+       (id, job_id, operation_id, request_hash, invoice_number, issued_on, due_on, amount_without_vat_cents, vat_rate_basis_points, amount_with_vat_cents, created_at, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [invoice.id, jobId, input.operationId, requestHash, invoiceNumber, input.issuedOn, input.dueOn || null,
+        input.amountWithoutVatCents, input.vatRateBasisPoints, input.amountWithVatCents, timestamp, invoice.createdBy],
+    );
+    await insertFinanceAudit(client, financeAuditLog(jobId, 'business_invoice_recorded', actorEmail, {
+      invoiceId: invoice.id, issuedOn: invoice.issuedOn, dueOn: invoice.dueOn,
+      amountWithoutVatCents: invoice.amountWithoutVatCents, vatRateBasisPoints: invoice.vatRateBasisPoints,
+      amountWithVatCents: invoice.amountWithVatCents,
+    }));
+    await client.query('COMMIT');
+    return toBusinessJobInvoice(inserted.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505'
+      && 'constraint' in error && error.constraint === 'business_job_invoices_number_uq') {
+      throw new Error('Faktúra s týmto číslom je už evidovaná.');
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function cancelBusinessInvoice(
+  jobId: string,
+  invoiceId: string,
+  input: BusinessJobInvoiceCancellationInput,
+  actorEmail: string,
+): Promise<BusinessJobInvoice> {
+  await ensureSchema();
+  requireFinanceUuid(jobId, 'Zákazka');
+  requireFinanceUuid(invoiceId, 'Faktúra');
+  requireFinanceUuid(input.operationId, 'Operácia');
+  requireFinanceEventDate(input.cancelledOn, 'Dátum storna');
+  const reasonCode = requireFinanceReason(input.reasonCode);
+  const requestHash = financeRequestHash('invoice-cancelled', { jobId, invoiceId, cancelledOn: input.cancelledOn, reasonCode });
+  const timestamp = now();
+  const db = getPool();
+  if (!db) return withLocalLeadSubmissionLock(async () => {
+    const local = await readLocalDb();
+    const sameOperation = local.businessJobInvoices.find((item) => item.cancelOperationId === input.operationId);
+    if (sameOperation) {
+      if (sameOperation.cancelRequestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      return sameOperation;
+    }
+    if (local.businessJobInvoices.some((item) => item.operationId === input.operationId)
+      || local.businessJobPaymentEvents.some((item) => item.operationId === input.operationId)) {
+      throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    }
+    const invoice = local.businessJobInvoices.find((item) => item.id === invoiceId && item.jobId === jobId);
+    if (!invoice) throw new Error('Faktúra sa nenašla.');
+    if (invoice.cancelledAt) throw new Error('Faktúra už bola stornovaná.');
+    if (input.cancelledOn < invoice.issuedOn) throw new Error('Dátum storna nemôže byť pred dátumom vystavenia faktúry.');
+    const reversedIds = new Set(local.businessJobPaymentEvents.filter((item) => item.eventType === 'REVERSAL').map((item) => item.reversalOf));
+    if (local.businessJobPaymentEvents.some((item) => item.eventType === 'RECEIPT' && item.invoiceId === invoiceId && !reversedIds.has(item.id))) {
+      throw new Error('Faktúru s aktívnou úhradou nemožno stornovať. Najprv stornujte priradenú úhradu.');
+    }
+    invoice.cancelledOn = input.cancelledOn;
+    invoice.cancelledAt = timestamp;
+    invoice.cancelledBy = actorEmail.trim().toLowerCase();
+    invoice.cancelReasonCode = reasonCode;
+    invoice.cancelOperationId = input.operationId;
+    invoice.cancelRequestHash = requestHash;
+    local.auditLogs.unshift(financeAuditLog(jobId, 'business_invoice_cancelled', actorEmail, {
+      invoiceId, cancelledOn: input.cancelledOn, reasonCode,
+    }));
+    await writeLocalDb(local);
+    return invoice;
+  });
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.operationId]);
+    const sameOperation = await client.query('SELECT * FROM business_job_invoices WHERE cancel_operation_id = $1 FOR UPDATE', [input.operationId]);
+    if (sameOperation.rows[0]) {
+      const existing = toBusinessJobInvoice(sameOperation.rows[0]);
+      if (existing.cancelRequestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      await client.query('COMMIT');
+      return existing;
+    }
+    const operationConflict = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM business_job_invoices WHERE operation_id = $1)
+           OR EXISTS (SELECT 1 FROM business_job_payment_events WHERE operation_id = $1) AS present`,
+      [input.operationId],
+    );
+    if (operationConflict.rows[0]?.present) throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    const current = await client.query('SELECT * FROM business_job_invoices WHERE id = $1 AND job_id = $2 FOR UPDATE', [invoiceId, jobId]);
+    if (!current.rows[0]) throw new Error('Faktúra sa nenašla.');
+    if (current.rows[0].cancelled_at) throw new Error('Faktúra už bola stornovaná.');
+    if (input.cancelledOn < dateOnly(current.rows[0].issued_on)) throw new Error('Dátum storna nemôže byť pred dátumom vystavenia faktúry.');
+    const activePayment = await client.query(
+      `SELECT receipt.id FROM business_job_payment_events receipt
+       WHERE receipt.invoice_id = $1 AND receipt.event_type = 'RECEIPT'
+         AND NOT EXISTS (
+           SELECT 1 FROM business_job_payment_events reversal
+           WHERE reversal.reversal_of = receipt.id AND reversal.event_type = 'REVERSAL'
+         )
+       LIMIT 1 FOR UPDATE OF receipt`,
+      [invoiceId],
+    );
+    if (activePayment.rowCount) throw new Error('Faktúru s aktívnou úhradou nemožno stornovať. Najprv stornujte priradenú úhradu.');
+    const updated = await client.query(
+      `UPDATE business_job_invoices SET cancelled_on = $3, cancelled_at = $4, cancelled_by = $5,
+       cancel_reason_code = $6, cancel_operation_id = $7, cancel_request_hash = $8
+       WHERE id = $1 AND job_id = $2 RETURNING *`,
+      [invoiceId, jobId, input.cancelledOn, timestamp, actorEmail.trim().toLowerCase(), reasonCode, input.operationId, requestHash],
+    );
+    await insertFinanceAudit(client, financeAuditLog(jobId, 'business_invoice_cancelled', actorEmail, {
+      invoiceId, cancelledOn: input.cancelledOn, reasonCode,
+    }));
+    await client.query('COMMIT');
+    return toBusinessJobInvoice(updated.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function recordBusinessPayment(
+  jobId: string,
+  input: BusinessJobPaymentInput,
+  actorEmail: string,
+): Promise<BusinessJobPaymentEvent> {
+  await ensureSchema();
+  requireFinanceUuid(jobId, 'Zákazka');
+  requireFinanceUuid(input.operationId, 'Operácia');
+  if (input.invoiceId) requireFinanceUuid(input.invoiceId, 'Faktúra');
+  requireFinanceEventDate(input.occurredOn, 'Dátum úhrady');
+  requireFinanceCents(input.amountCents, 'Prijatá suma');
+  if (!financePaymentMethods.has(input.method)) throw new Error('Vyberte platný spôsob úhrady.');
+  const reference = (input.reference ?? '').trim().replace(/\s+/g, ' ');
+  if (reference.length > 80) throw new Error('Referencia môže mať najviac 80 znakov.');
+  const normalized = { jobId, invoiceId: input.invoiceId || '', occurredOn: input.occurredOn, amountCents: input.amountCents, method: input.method, reference };
+  const requestHash = financeRequestHash('payment-received', normalized);
+  const event: BusinessJobPaymentEvent = {
+    id: randomUUID(), jobId, invoiceId: input.invoiceId || undefined, operationId: input.operationId, requestHash,
+    eventType: 'RECEIPT', occurredOn: input.occurredOn, amountCents: input.amountCents,
+    method: input.method, reference, createdAt: now(), createdBy: actorEmail.trim().toLowerCase(),
+  };
+  const db = getPool();
+  if (!db) return withLocalLeadSubmissionLock(async () => {
+    const local = await readLocalDb();
+    const existing = local.businessJobPaymentEvents.find((item) => item.operationId === input.operationId);
+    if (existing) {
+      if (existing.requestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      return existing;
+    }
+    if (local.businessJobInvoices.some((item) => item.operationId === input.operationId || item.cancelOperationId === input.operationId)) {
+      throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    }
+    const targetJob = local.businessJobs.find((item) => item.id === jobId);
+    if (!targetJob) throw new Error('Zákazka sa nenašla.');
+    if (targetJob.deletedAt) throw new Error('K archivovanej zákazke nemožno pridať novú úhradu.');
+    if (input.invoiceId) {
+      const invoice = local.businessJobInvoices.find((item) => item.id === input.invoiceId && item.jobId === jobId);
+      if (!invoice) throw new Error('Faktúra nepatrí k tejto zákazke.');
+      if (invoice.cancelledAt) throw new Error('Úhradu nemožno priradiť k stornovanej faktúre.');
+    }
+    local.businessJobPaymentEvents.push(event);
+    local.auditLogs.unshift(financeAuditLog(jobId, 'business_payment_recorded', actorEmail, {
+      paymentEventId: event.id, invoiceId: event.invoiceId, occurredOn: event.occurredOn,
+      amountCents: event.amountCents, method: event.method, allocated: Boolean(event.invoiceId),
+    }));
+    await writeLocalDb(local);
+    return event;
+  });
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.operationId]);
+    const existingResult = await client.query('SELECT * FROM business_job_payment_events WHERE operation_id = $1 FOR UPDATE', [input.operationId]);
+    if (existingResult.rows[0]) {
+      const existing = toBusinessJobPaymentEvent(existingResult.rows[0]);
+      if (existing.requestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      await client.query('COMMIT');
+      return existing;
+    }
+    const job = await client.query('SELECT id, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [jobId]);
+    if (!job.rowCount) throw new Error('Zákazka sa nenašla.');
+    if (job.rows[0].deleted_at) throw new Error('K archivovanej zákazke nemožno pridať novú úhradu.');
+    const operationConflict = await client.query(
+      'SELECT EXISTS (SELECT 1 FROM business_job_invoices WHERE operation_id = $1 OR cancel_operation_id = $1) AS present',
+      [input.operationId],
+    );
+    if (operationConflict.rows[0]?.present) throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    if (input.invoiceId) {
+      const invoice = await client.query('SELECT cancelled_at FROM business_job_invoices WHERE id = $1 AND job_id = $2 FOR UPDATE', [input.invoiceId, jobId]);
+      if (!invoice.rows[0]) throw new Error('Faktúra nepatrí k tejto zákazke.');
+      if (invoice.rows[0].cancelled_at) throw new Error('Úhradu nemožno priradiť k stornovanej faktúre.');
+    }
+    const inserted = await client.query(
+      `INSERT INTO business_job_payment_events
+       (id, job_id, invoice_id, operation_id, request_hash, event_type, occurred_on, amount_cents, method, reference, reversal_of, reason_code, created_at, created_by)
+       VALUES ($1,$2,$3,$4,$5,'RECEIPT',$6,$7,$8,$9,NULL,'',$10,$11) RETURNING *`,
+      [event.id, jobId, input.invoiceId || null, input.operationId, requestHash, input.occurredOn,
+        input.amountCents, input.method, reference, event.createdAt, event.createdBy],
+    );
+    await insertFinanceAudit(client, financeAuditLog(jobId, 'business_payment_recorded', actorEmail, {
+      paymentEventId: event.id, invoiceId: event.invoiceId, occurredOn: event.occurredOn,
+      amountCents: event.amountCents, method: event.method, allocated: Boolean(event.invoiceId),
+    }));
+    await client.query('COMMIT');
+    return toBusinessJobPaymentEvent(inserted.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function reverseBusinessPayment(
+  jobId: string,
+  receiptId: string,
+  input: BusinessJobPaymentReversalInput,
+  actorEmail: string,
+): Promise<BusinessJobPaymentEvent> {
+  await ensureSchema();
+  requireFinanceUuid(jobId, 'Zákazka');
+  requireFinanceUuid(receiptId, 'Úhrada');
+  requireFinanceUuid(input.operationId, 'Operácia');
+  requireFinanceEventDate(input.occurredOn, 'Dátum storna úhrady');
+  const reasonCode = requireFinanceReason(input.reasonCode);
+  const requestHash = financeRequestHash('payment-reversed', { jobId, receiptId, occurredOn: input.occurredOn, reasonCode });
+  const db = getPool();
+  if (!db) return withLocalLeadSubmissionLock(async () => {
+    const local = await readLocalDb();
+    const existingOperation = local.businessJobPaymentEvents.find((item) => item.operationId === input.operationId);
+    if (existingOperation) {
+      if (existingOperation.requestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      return existingOperation;
+    }
+    if (local.businessJobInvoices.some((item) => item.operationId === input.operationId || item.cancelOperationId === input.operationId)) {
+      throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    }
+    const receipt = local.businessJobPaymentEvents.find((item) => item.id === receiptId && item.jobId === jobId && item.eventType === 'RECEIPT');
+    if (!receipt) throw new Error('Prijatá úhrada sa nenašla.');
+    if (input.occurredOn < receipt.occurredOn) throw new Error('Dátum storna nemôže byť pred dátumom prijatia úhrady.');
+    if (local.businessJobPaymentEvents.some((item) => item.eventType === 'REVERSAL' && item.reversalOf === receiptId)) {
+      throw new Error('Táto úhrada už bola stornovaná.');
+    }
+    const event: BusinessJobPaymentEvent = {
+      id: randomUUID(), jobId, invoiceId: receipt.invoiceId, operationId: input.operationId, requestHash,
+      eventType: 'REVERSAL', occurredOn: input.occurredOn, amountCents: receipt.amountCents,
+      method: receipt.method, reference: '', reversalOf: receipt.id, reasonCode,
+      createdAt: now(), createdBy: actorEmail.trim().toLowerCase(),
+    };
+    local.businessJobPaymentEvents.push(event);
+    local.auditLogs.unshift(financeAuditLog(jobId, 'business_payment_reversed', actorEmail, {
+      paymentEventId: event.id, reversalOf: receipt.id, invoiceId: receipt.invoiceId,
+      occurredOn: event.occurredOn, amountCents: event.amountCents, reasonCode,
+    }));
+    await writeLocalDb(local);
+    return event;
+  });
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', [input.operationId]);
+    const existingResult = await client.query('SELECT * FROM business_job_payment_events WHERE operation_id = $1 FOR UPDATE', [input.operationId]);
+    if (existingResult.rows[0]) {
+      const existing = toBusinessJobPaymentEvent(existingResult.rows[0]);
+      if (existing.requestHash !== requestHash) throw new Error('Táto operácia už bola použitá s inými údajmi.');
+      await client.query('COMMIT');
+      return existing;
+    }
+    const operationConflict = await client.query(
+      'SELECT EXISTS (SELECT 1 FROM business_job_invoices WHERE operation_id = $1 OR cancel_operation_id = $1) AS present',
+      [input.operationId],
+    );
+    if (operationConflict.rows[0]?.present) throw new Error('Táto operácia už bola použitá na inú finančnú udalosť.');
+    const receiptResult = await client.query(
+      `SELECT * FROM business_job_payment_events
+       WHERE id = $1 AND job_id = $2 AND event_type = 'RECEIPT' FOR UPDATE`,
+      [receiptId, jobId],
+    );
+    if (!receiptResult.rows[0]) throw new Error('Prijatá úhrada sa nenašla.');
+    const receipt = toBusinessJobPaymentEvent(receiptResult.rows[0]);
+    if (input.occurredOn < receipt.occurredOn) throw new Error('Dátum storna nemôže byť pred dátumom prijatia úhrady.');
+    const reversal = await client.query("SELECT id FROM business_job_payment_events WHERE reversal_of = $1 AND event_type = 'REVERSAL' LIMIT 1", [receiptId]);
+    if (reversal.rowCount) throw new Error('Táto úhrada už bola stornovaná.');
+    const event: BusinessJobPaymentEvent = {
+      id: randomUUID(), jobId, invoiceId: receipt.invoiceId, operationId: input.operationId, requestHash,
+      eventType: 'REVERSAL', occurredOn: input.occurredOn, amountCents: receipt.amountCents,
+      method: receipt.method, reference: '', reversalOf: receipt.id, reasonCode,
+      createdAt: now(), createdBy: actorEmail.trim().toLowerCase(),
+    };
+    const inserted = await client.query(
+      `INSERT INTO business_job_payment_events
+       (id, job_id, invoice_id, operation_id, request_hash, event_type, occurred_on, amount_cents, method, reference, reversal_of, reason_code, created_at, created_by)
+       VALUES ($1,$2,$3,$4,$5,'REVERSAL',$6,$7,$8,'',$9,$10,$11,$12) RETURNING *`,
+      [event.id, jobId, event.invoiceId || null, input.operationId, requestHash, input.occurredOn,
+        event.amountCents, event.method, receiptId, reasonCode, event.createdAt, event.createdBy],
+    );
+    await insertFinanceAudit(client, financeAuditLog(jobId, 'business_payment_reversed', actorEmail, {
+      paymentEventId: event.id, reversalOf: receipt.id, invoiceId: receipt.invoiceId,
+      occurredOn: event.occurredOn, amountCents: event.amountCents, reasonCode,
+    }));
+    await client.query('COMMIT');
+    return toBusinessJobPaymentEvent(inserted.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function deleteBusinessJob(id: string, actorEmail: string) {
   await ensureSchema();
   const db = getPool();
@@ -6272,6 +7021,10 @@ export async function destroyBusinessJob(id: string, actorEmail: string) {
       const local = await readLocalDb();
       const job = local.businessJobs.find((item) => item.id === id);
       if (!job) return;
+      if (local.businessJobInvoices.some((item) => item.jobId === id)
+        || local.businessJobPaymentEvents.some((item) => item.jobId === id)) {
+        throw new Error('Zákazku s evidovanou faktúrou alebo úhradou nemožno natrvalo vymazať. Môžete ju archivovať.');
+      }
       const linkedLeadIsTest = local.leads.some((lead) => lead.id === job.leadId && lead.isTestData);
       const wasTest = Boolean(job.isTestData || linkedLeadIsTest);
       local.priceOffers = local.priceOffers.map((offer) => {
@@ -6303,6 +7056,14 @@ export async function destroyBusinessJob(id: string, actorEmail: string) {
     if (!current.rowCount) {
       await client.query('ROLLBACK');
       return;
+    }
+    const financeEvidence = await client.query(
+      `SELECT EXISTS (SELECT 1 FROM business_job_invoices WHERE job_id = $1)
+           OR EXISTS (SELECT 1 FROM business_job_payment_events WHERE job_id = $1) AS present`,
+      [id],
+    );
+    if (financeEvidence.rows[0]?.present) {
+      throw new Error('Zákazku s evidovanou faktúrou alebo úhradou nemožno natrvalo vymazať. Môžete ju archivovať.');
     }
     if (current.rows[0].is_test_data || current.rows[0].lead_is_test_data) {
       await client.query('UPDATE price_offers SET is_test_data = true WHERE job_id = $1::uuid OR $1::uuid = ANY(source_job_ids)', [id]);
