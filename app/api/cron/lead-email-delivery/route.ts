@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   addAuditLog,
   claimLeadEmailOutbox,
+  getLeadEmailOutboxAttention,
   getLeadEmailOutboxHealth,
   listLeadEmailOutbox,
   listPendingLeadEmailDeliveries,
@@ -9,6 +10,7 @@ import {
   recordLeadEmailRecipientResult,
 } from '@/src/server/db';
 import { leadDeliveryMode } from '@/src/server/astana-local-relay';
+import { evaluateLeadEmailWorkerHealth } from '@/src/server/lead-email-worker-health';
 import { hasLeadEmailTransportConfiguration, hasUsableLeadSmtpConfiguration, sendLeadEmailToRecipient, sendLeadEmails } from '@/src/server/mail';
 
 export const runtime = 'nodejs';
@@ -98,9 +100,17 @@ export async function GET(request: Request) {
     }
 
     const outbox = await getLeadEmailOutboxHealth();
+    const attention = await getLeadEmailOutboxAttention();
     const pendingWithoutSingleRecipientTransport = pairsOnly && outbox.pending > 0;
+    const workerHealth = evaluateLeadEmailWorkerHealth({
+      errors,
+      unresolved,
+      deferred,
+      pendingWithoutSingleRecipientTransport,
+      attention,
+    });
     return NextResponse.json({
-      ok: errors === 0 && unresolved === 0 && deferred === 0 && !pendingWithoutSingleRecipientTransport,
+      ok: workerHealth.ok,
       considered: pendingDeliveries.length,
       processed: sent + unresolved + errors,
       sent,
@@ -108,7 +118,8 @@ export async function GET(request: Request) {
       deferred,
       errors,
       outbox,
-    }, { status: errors > 0 ? 500 : deferred > 0 || pendingWithoutSingleRecipientTransport ? 503 : 200 });
+      attention: workerHealth.attention,
+    }, { status: workerHealth.status });
   } catch {
     // Keep the response safe for callers and monitoring systems.
     return NextResponse.json({ ok: false, error: 'Lead email delivery worker failed', code: 'LEAD_EMAIL_WORKER_FAILED' }, { status: 500 });

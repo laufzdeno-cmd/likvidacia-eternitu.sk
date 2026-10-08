@@ -13,15 +13,16 @@ export async function GET(request: Request) {
 
   try {
     const applicationNotifications = await runApplicationNotificationRecovery(2);
+    const ok = applicationNotifications.errors === 0
+      && applicationNotifications.staleClaimsMarkedUnknown === 0
+      && applicationNotifications.health.pending === 0
+      && applicationNotifications.health.failed === 0
+      && applicationNotifications.health.unknown === 0
+      && applicationNotifications.health.staleSending === 0;
     return NextResponse.json({
-      ok: applicationNotifications.errors === 0
-        && applicationNotifications.staleClaimsMarkedUnknown === 0
-        && applicationNotifications.health.pending === 0
-        && applicationNotifications.health.failed === 0
-        && applicationNotifications.health.unknown === 0
-        && applicationNotifications.health.staleSending === 0,
+      ok,
       applicationNotifications,
-    });
+    }, { status: applicationNotifications.errors > 0 ? 500 : ok ? 200 : 503 });
   } catch (error) {
     console.error('Application notification recovery worker failed.', error);
     return NextResponse.json({

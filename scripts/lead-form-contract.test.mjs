@@ -456,7 +456,7 @@ test('dedicated lead-email cron is authenticated, bounded, outbox-only, and resp
   assert.match(leadEmailDeliveryCron, /mode === 'local_relay' \|\| \(mode === 'smtp_then_local_relay' && !hasUsableLeadSmtpConfiguration\(\)\)/);
   assert.match(leadEmailDeliveryCron, /if \(!hasLeadEmailTransportConfiguration\(mode\)\)/);
   assert.match(leadEmailDeliveryCron, /pendingRoles\.length === 1 && \(mode === 'local_relay' \|\| !hasUsableLeadSmtpConfiguration\(\)\)/);
-  assert.match(leadEmailDeliveryCron, /deferred > 0 \|\| pendingWithoutSingleRecipientTransport \? 503 : 200/);
+  assert.match(leadEmailDeliveryCron, /const workerHealth = evaluateLeadEmailWorkerHealth\(\{/);
   assert.match(leadEmailDeliveryCron, /const MAX_DELIVERIES_PER_RUN = 5/);
   assert.match(leadEmailDeliveryCron, /pendingDeliveries\.slice\(0, MAX_DELIVERIES_PER_RUN\)/);
   assert.match(leadEmailDeliveryCron, /claimLeadEmailOutbox\(lead\.id, role\)/);
@@ -466,6 +466,11 @@ test('dedicated lead-email cron is authenticated, bounded, outbox-only, and resp
   assert.match(leadEmailDeliveryCron, /mode === 'local_relay' \|\| mode === 'smtp_then_local_relay'\) && pendingRoles\.length === 2/);
   assert.match(leadEmailDeliveryCron, /sendLeadEmailToRecipient\(lead, role/);
   assert.match(leadEmailDeliveryCron, /getLeadEmailOutboxHealth\(\)/);
+  assert.match(leadEmailDeliveryCron, /getLeadEmailOutboxAttention\(\)/);
+  assert.match(leadEmailDeliveryCron, /evaluateLeadEmailWorkerHealth\(\{/);
+  assert.match(leadEmailDeliveryCron, /attention: workerHealth\.attention/);
+  assert.match(leadEmailDeliveryCron, /status: workerHealth\.status/);
+  assert.doesNotMatch(leadEmailDeliveryCron, /oldestAttentionLeadId/);
   assert.match(leadEmailDeliveryCron, /await markStaleLeadEmailClaimsUnknown\(\)/);
   assert.ok(leadEmailDeliveryCron.indexOf('await markStaleLeadEmailClaimsUnknown()') < leadEmailDeliveryCron.indexOf('await listPendingLeadEmailDeliveries('));
   assert.match(leadEmailDeliveryCron, /LEAD_EMAIL_WORKER_FAILED/);

@@ -13,7 +13,7 @@
     "test:release-deploy": "node --test scripts/release-deployment.test.mjs",
     "test:lead-form": "node --import tsx --test scripts/lead-form-contract.test.mjs scripts/lead-form-snapshot.test.mjs scripts/lead-attribution.test.mjs scripts/lead-attribution.behavior.mjs scripts/lead-file-validation.behavior.mjs scripts/lead-receipt-route.behavior.mjs scripts/lead-mail-health.behavior.mjs",
     "test:analytics": "node --import tsx --test scripts/lead-attribution.behavior.mjs scripts/lead-attribution-report.behavior.mjs scripts/marketing-consent.behavior.mjs scripts/analytics-metrics.behavior.mjs scripts/analytics-client.behavior.mjs scripts/deferred-public-client-engine.behavior.mjs",
-    "test:unit": "node --import tsx --test scripts/*.test.mjs scripts/meta-capi-transport.behavior.mjs && tsx --test scripts/article-faq-content.test.ts scripts/article-social-metadata.test.ts scripts/price-offer-vertical-slice.test.ts scripts/site-content-local-concurrency.test.ts scripts/preview-isolation.test.ts",
+    "test:unit": "node --import tsx --test scripts/*.test.mjs scripts/meta-capi-transport.behavior.mjs && tsx --test scripts/article-faq-content.test.ts scripts/article-social-metadata.test.ts scripts/lead-email-worker-health.test.ts scripts/price-offer-vertical-slice.test.ts scripts/site-content-local-concurrency.test.ts scripts/preview-isolation.test.ts",
     "test:seo-rendered": "node scripts/seo-rendered-metadata-check.mjs",
     "test:seo-content": "node scripts/seo-rendered-content-check.mjs",
     "test:site-content-build-policy": "tsx --test scripts/site-content-build-policy.test.ts",
