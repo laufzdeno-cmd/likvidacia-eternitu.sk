@@ -6549,6 +6549,200 @@ function calculatePriceOfferTotals(input: PriceOfferInput, vatRate: number) {
   };
 }
 
+type PriceOfferParentTransition = 'prepared' | 'sent' | 'accepted';
+
+const leadStatusOrder: Partial<Record<LeadStatus, number>> = {
+  novy: 0,
+  kontaktovany: 1,
+  caka_na_doplnenie: 1,
+  naceneny: 2,
+  cenova_ponuka_odoslana: 3,
+  objednane: 4,
+  v_realizacii: 5,
+  dokoncena: 6,
+};
+
+const businessJobStatusOrder: Partial<Record<BusinessJobStatus, number>> = {
+  DOPYT: 0,
+  DOPYT_PRIJATY: 1,
+  PONUKA_ODOSLANA: 2,
+  PRIJATA: 3,
+  PONUKA_POTVRDENA: 3,
+  URADY_PODANE: 4,
+  URADY_SCHVALENE: 5,
+  V_REALIZACII: 6,
+  DEMONT_NAPLANOVANA: 7,
+  DEMONT_DOKONCENA: 8,
+  VYUCTOVANIE: 9,
+  DOKONCENA: 10,
+};
+
+function parentTransitionTargets(transition: PriceOfferParentTransition) {
+  if (transition === 'prepared') return { lead: 'naceneny' as const };
+  if (transition === 'sent') return { lead: 'cenova_ponuka_odoslana' as const, job: 'PONUKA_ODOSLANA' as const };
+  return { lead: 'objednane' as const, job: 'PONUKA_POTVRDENA' as const };
+}
+
+function shouldAdvanceLeadStatus(current: LeadStatus, target: LeadStatus) {
+  const currentRank = leadStatusOrder[current];
+  const targetRank = leadStatusOrder[target];
+  return currentRank !== undefined && targetRank !== undefined && currentRank < targetRank;
+}
+
+function shouldAdvanceBusinessJobStatus(current: BusinessJobStatus, target: BusinessJobStatus) {
+  const currentRank = businessJobStatusOrder[current];
+  const targetRank = businessJobStatusOrder[target];
+  return currentRank !== undefined && targetRank !== undefined && currentRank < targetRank;
+}
+
+const priceOfferConfirmationEvidenceCodes = new Set([
+  'sent_folder_verified',
+  'recipient_confirmed',
+  'provider_confirmed',
+]);
+
+function normalizePriceOfferConfirmationReason(reason: string) {
+  const normalized = reason.trim();
+  if (!priceOfferConfirmationEvidenceCodes.has(normalized)) {
+    throw new Error('Vyberte platný interný dôkaz o odoslaní ponuky.');
+  }
+  return normalized;
+}
+
+function localLinkedBusinessJob(local: LocalDb, offer: PriceOffer) {
+  if (offer.jobId) {
+    return local.businessJobs.find((job) => job.id === offer.jobId && !job.deletedAt && job.status !== 'ZRUSENA');
+  }
+  if (!offer.leadId) return undefined;
+  const candidates = local.businessJobs.filter(
+    (job) => job.leadId === offer.leadId && !job.deletedAt && job.status !== 'ZRUSENA',
+  );
+  return candidates.length === 1 ? candidates[0] : undefined;
+}
+
+function priceOfferParentAuditChanges(
+  offer: PriceOffer,
+  previous: string,
+  next: string,
+  reasonCode: string,
+) {
+  return {
+    offerId: offer.id,
+    number: offer.number,
+    previous,
+    next,
+    reasonCode,
+  };
+}
+
+function syncPriceOfferParentsLocal(
+  local: LocalDb,
+  offer: PriceOffer,
+  transition: PriceOfferParentTransition,
+  actorEmail: string,
+  timestamp: string,
+  reasonCode: string,
+) {
+  const targets = parentTransitionTargets(transition);
+  const linkedJob = localLinkedBusinessJob(local, offer);
+  const leadId = offer.leadId || linkedJob?.leadId;
+  const lead = leadId ? local.leads.find((item) => item.id === leadId && !item.deletedAt) : undefined;
+  if (lead && shouldAdvanceLeadStatus(lead.status, targets.lead)) {
+    const previous = lead.status;
+    lead.status = targets.lead;
+    lead.updatedAt = timestamp;
+    local.auditLogs.unshift({
+      id: randomUUID(),
+      entityType: 'lead',
+      entityId: lead.id,
+      action: 'status_changed',
+      actorEmail,
+      changes: priceOfferParentAuditChanges(offer, previous, targets.lead, reasonCode),
+      createdAt: timestamp,
+    });
+  }
+  if (targets.job && linkedJob && shouldAdvanceBusinessJobStatus(linkedJob.status, targets.job)) {
+    const previous = linkedJob.status;
+    linkedJob.status = targets.job;
+    linkedJob.updatedAt = timestamp;
+    local.auditLogs.unshift({
+      id: randomUUID(),
+      entityType: 'business_job',
+      entityId: linkedJob.id,
+      action: 'business_job_status_changed',
+      actorEmail,
+      changes: priceOfferParentAuditChanges(offer, previous, targets.job, reasonCode),
+      createdAt: timestamp,
+    });
+  }
+}
+
+async function resolvePriceOfferBusinessJobForUpdate(client: PoolClient, offer: PriceOffer) {
+  let jobId = offer.jobId;
+  let discoveredLeadId = offer.leadId;
+  if (jobId) {
+    const linked = await client.query(
+      `SELECT id, lead_id FROM business_jobs
+       WHERE id = $1 AND deleted_at IS NULL AND status <> 'ZRUSENA' LIMIT 1`,
+      [jobId],
+    );
+    if (!linked.rows[0]) return { jobId: '', leadId: discoveredLeadId };
+    discoveredLeadId ||= linked.rows[0].lead_id ? String(linked.rows[0].lead_id) : undefined;
+  } else if (discoveredLeadId) {
+    const linked = await client.query(
+      `SELECT id FROM business_jobs
+       WHERE lead_id = $1 AND deleted_at IS NULL AND status <> 'ZRUSENA'
+       ORDER BY created_at DESC, id DESC LIMIT 2`,
+      [discoveredLeadId],
+    );
+    jobId = linked.rows.length === 1 && linked.rows[0]?.id ? String(linked.rows[0].id) : '';
+  }
+  return { jobId, leadId: discoveredLeadId };
+}
+
+async function syncPriceOfferParentsPostgres(
+  client: PoolClient,
+  offer: PriceOffer,
+  transition: PriceOfferParentTransition,
+  actorEmail: string,
+  timestamp: string,
+  reasonCode: string,
+) {
+  const targets = parentTransitionTargets(transition);
+  const linked = await resolvePriceOfferBusinessJobForUpdate(client, offer);
+  if (linked.leadId) {
+    const currentLead = await client.query(
+      'SELECT status FROM leads WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+      [linked.leadId],
+    );
+    const previous = currentLead.rows[0]?.status as LeadStatus | undefined;
+    if (previous && shouldAdvanceLeadStatus(previous, targets.lead)) {
+      await client.query('UPDATE leads SET status = $2, updated_at = $3 WHERE id = $1', [linked.leadId, targets.lead, timestamp]);
+      await client.query(
+        'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [randomUUID(), 'lead', linked.leadId, 'status_changed', actorEmail,
+          priceOfferParentAuditChanges(offer, previous, targets.lead, reasonCode), timestamp],
+      );
+    }
+  }
+  if (targets.job && linked.jobId) {
+    const currentJob = await client.query(
+      `SELECT status FROM business_jobs
+       WHERE id = $1 AND deleted_at IS NULL AND status <> 'ZRUSENA' FOR UPDATE`,
+      [linked.jobId],
+    );
+    const previous = currentJob.rows[0]?.status as BusinessJobStatus | undefined;
+    if (previous && shouldAdvanceBusinessJobStatus(previous, targets.job)) {
+      await client.query('UPDATE business_jobs SET status = $2, updated_at = $3 WHERE id = $1', [linked.jobId, targets.job, timestamp]);
+      await client.query(
+        'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [randomUUID(), 'business_job', linked.jobId, 'business_job_status_changed', actorEmail,
+          priceOfferParentAuditChanges(offer, previous, targets.job, reasonCode), timestamp],
+      );
+    }
+  }
+}
+
 export async function savePriceOffer(input: PriceOfferInput, actorEmail: string, id?: string): Promise<PriceOffer> {
   if (input.validUntil && !isValidIsoCalendarDate(input.validUntil)) {
     throw new Error('Platnosť cenovej ponuky musí byť skutočný kalendárny dátum.');
@@ -6633,6 +6827,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       if (current?.status === 'ODOSIELA' || current?.status === 'NEISTY_STAV') throw new Error('Odoslanie ponuky prebieha alebo sa musí overiť. Zatiaľ ju neupravujte ani neodosielajte znova.');
       local.priceOffers = [offer, ...local.priceOffers.filter((item) => item.id !== offerId)];
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id, action: id ? 'price_offer_updated' : 'price_offer_created', actorEmail, changes: { number: offer.number, requiresResend: lifecycle.requiresResend }, createdAt: timestamp });
+      syncPriceOfferParentsLocal(local, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
       await writeLocalDb(local);
       return offer;
     });
@@ -6718,6 +6913,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       [randomUUID(), offer.jobId || offer.id, id ? 'price_offer_updated' : 'price_offer_created', actorEmail,
         { number: offer.number, requiresResend: lifecycle.requiresResend }, timestamp],
     );
+    await syncPriceOfferParentsPostgres(client, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
     await client.query('COMMIT');
     return offer;
   } catch (error) {
@@ -6924,10 +7120,13 @@ export async function updatePriceOfferStatus(id: string, status: PriceOfferStatu
       const local = await readLocalDb();
       const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt && item.status === 'ODOSLANA');
       if (!offer) return null;
+      const previous = offer.status;
       offer.status = status;
       offer.acceptedAt = timestamp;
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
-        action: 'price_offer_status_changed', actorEmail, changes: { number: offer.number, status }, createdAt: timestamp });
+        action: 'price_offer_status_changed', actorEmail,
+        changes: priceOfferParentAuditChanges(offer, previous, status, 'price_offer_accepted'), createdAt: timestamp });
+      syncPriceOfferParentsLocal(local, offer, 'accepted', actorEmail, timestamp, 'price_offer_accepted');
       await writeLocalDb(local);
       return offer;
     });
@@ -6947,8 +7146,10 @@ export async function updatePriceOfferStatus(id: string, status: PriceOfferStatu
     const offer = toPriceOffer(rows[0]);
     await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail, { number: offer.number, status }, timestamp],
+      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail,
+        priceOfferParentAuditChanges(offer, 'ODOSLANA', status, 'price_offer_accepted'), timestamp],
     );
+    await syncPriceOfferParentsPostgres(client, offer, 'accepted', actorEmail, timestamp, 'price_offer_accepted');
     await client.query('COMMIT');
     return offer;
   } catch (error) {
@@ -7061,7 +7262,9 @@ export async function finishPriceOfferSending(id: string, attemptId: string, res
       offer.sendStartedAt = result === 'unknown' ? (offer.sendStartedAt || timestamp) : undefined;
       offer.sendAttemptId = result === 'unknown' ? attemptId : undefined;
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
-        action: `price_offer_send_${result}`, actorEmail, changes: { number: offer.number }, createdAt: timestamp });
+        action: `price_offer_send_${result}`, actorEmail,
+        changes: priceOfferParentAuditChanges(offer, 'ODOSIELA', nextStatus, `price_offer_send_${result}`), createdAt: timestamp });
+      if (result === 'sent') syncPriceOfferParentsLocal(local, offer, 'sent', actorEmail, timestamp, 'price_offer_sent');
       await writeLocalDb(local);
       return offer;
     });
@@ -7084,12 +7287,86 @@ export async function finishPriceOfferSending(id: string, attemptId: string, res
     const offer = toPriceOffer(rows[0]);
     await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [randomUUID(), 'business_job', offer.jobId || offer.id, `price_offer_send_${result}`, actorEmail, { number: offer.number }, timestamp],
+      [randomUUID(), 'business_job', offer.jobId || offer.id, `price_offer_send_${result}`, actorEmail,
+        priceOfferParentAuditChanges(offer, 'ODOSIELA', nextStatus, `price_offer_send_${result}`), timestamp],
     );
+    if (result === 'sent') await syncPriceOfferParentsPostgres(client, offer, 'sent', actorEmail, timestamp, 'price_offer_sent');
     await client.query('COMMIT');
     return offer;
   } catch (error) {
     await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function confirmUncertainPriceOfferSent(id: string, actorEmail: string, reason: string) {
+  await ensureSchema();
+  const evidenceCode = normalizePriceOfferConfirmationReason(reason);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt);
+      const startedAt = offer?.sendStartedAt ? new Date(offer.sendStartedAt).getTime() : Number.NaN;
+      const staleSending = offer?.status === 'ODOSIELA' && Number.isFinite(startedAt) && Date.now() - startedAt >= 15 * 60_000;
+      if (!offer || (offer.status !== 'NEISTY_STAV' && !staleSending)) return null;
+      const previous = offer.status;
+      offer.status = 'ODOSLANA';
+      offer.sentAt = timestamp;
+      offer.sendStartedAt = undefined;
+      offer.sendAttemptId = undefined;
+      local.auditLogs.unshift({
+        id: randomUUID(),
+        entityType: 'business_job',
+        entityId: offer.jobId || offer.id,
+        action: 'price_offer_uncertain_send_confirmed',
+        actorEmail,
+        changes: priceOfferParentAuditChanges(offer, previous, 'ODOSLANA', evidenceCode),
+        createdAt: timestamp,
+      });
+      syncPriceOfferParentsLocal(local, offer, 'sent', actorEmail, timestamp, evidenceCode);
+      await writeLocalDb(local);
+      return offer;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query(
+      'SELECT * FROM price_offers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
+      [id],
+    );
+    if (!current.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const currentOffer = toPriceOffer(current.rows[0]);
+    const startedAt = currentOffer.sendStartedAt ? new Date(currentOffer.sendStartedAt).getTime() : Number.NaN;
+    const staleSending = currentOffer.status === 'ODOSIELA' && Number.isFinite(startedAt) && Date.now() - startedAt >= 15 * 60_000;
+    if (currentOffer.status !== 'NEISTY_STAV' && !staleSending) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const { rows } = await client.query(
+      `UPDATE price_offers
+       SET status = 'ODOSLANA', sent_at = $2, send_started_at = NULL, send_attempt_id = NULL
+       WHERE id = $1 RETURNING *`,
+      [id, timestamp],
+    );
+    const offer = toPriceOffer(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_uncertain_send_confirmed', actorEmail,
+        priceOfferParentAuditChanges(offer, currentOffer.status, 'ODOSLANA', evidenceCode), timestamp],
+    );
+    await syncPriceOfferParentsPostgres(client, offer, 'sent', actorEmail, timestamp, evidenceCode);
+    await client.query('COMMIT');
+    return offer;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
     throw error;
   } finally {
     client.release();

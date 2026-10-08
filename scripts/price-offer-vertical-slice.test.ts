@@ -145,9 +145,9 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(actions, /current\.status !== 'PRIPRAVENA'/);
   assert.match(actions, /claimPriceOfferForSending\(id, actor\)/);
   assert.match(actions, /finishPriceOfferSending\(id, sendAttemptId, result\.status, actor\)/);
-  assert.match(actions, /if \(result\.status === 'sent'\)[\s\S]*?price_offer_email_sent[\s\S]*?else \{[\s\S]*?price_offer_email_error/);
+  assert.match(actions, /if \(result\.status === 'sent'\) \{[\s\S]*?sent = true;[\s\S]*?\} else \{[\s\S]*?sendError = result\.status === 'unknown'/);
   assert.doesNotMatch(actions, /result\.status !== 'not_sent'/);
-  assert.match(actions, /sent \? 'price_offer_email_sent' : 'price_offer_email_error'/);
+  assert.doesNotMatch(actions, /price_offer_email_sent|price_offer_email_error/);
   assert.match(actions, /let deliveryReason = ''/);
   assert.match(actions, /const persisted = finalized \|\| await getPriceOffer\(id\)/);
   assert.match(actions, /\['ODOSLANA', 'PRIJATA'\]\.includes\(persisted\.status\)/);
@@ -172,6 +172,23 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(db, /offer\.sendAttemptId !== attemptId/);
   assert.match(db, /withLocalLeadSubmissionLock[\s\S]*?price_offer_status_changed[\s\S]*?writeLocalDb\(local\)/);
   assert.match(db, /client\.query\('BEGIN'\)[\s\S]*?price_offer_status_changed[\s\S]*?client\.query\('COMMIT'\)/);
+  assert.doesNotMatch(actions, /email:\s*offer\.email/);
+  assert.match(actions, /confirmUncertainPriceOfferSentAction/);
+  assert.match(actions, /uncertainSendEvidenceCodes\.has\(reason\)/);
+  assert.match(actions, /confirmUncertainPriceOfferSent\(id, actor, reason\)/);
+  assert.match(actions, /revalidatePath\('\/admin\/dopyty'\)/);
+  assert.match(actions, /revalidatePath\('\/admin\/zakazky'\)/);
+});
+
+test('neisté odoslanie možno manuálne potvrdiť iba s dôkazom a bez nového emailu', async () => {
+  const detail = await readFile(new URL('../app/admin/(protected)/ponuky/[id]/page.tsx', import.meta.url), 'utf8');
+  assert.match(detail, /canConfirmUncertainSend\(offer\)[\s\S]*?confirmationEvidence/);
+  assert.match(detail, /offer\.status === 'ODOSIELA'[\s\S]*?canResetUncertainSend\(offer\)/);
+  assert.match(detail, /sent_folder_verified/);
+  assert.match(detail, /recipient_confirmed/);
+  assert.match(detail, /provider_confirmed/);
+  assert.match(detail, /Potvrdzujem, že ponuka bola odoslaná a nemá sa posielať znova/);
+  assert.doesNotMatch(detail, /confirmUncertainPriceOfferSentAction[\s\S]*?sendPriceOfferDocumentEmail/);
 });
 
 test('detail zákazky vedie iba do schváleného PDF toku cenovej ponuky', async () => {

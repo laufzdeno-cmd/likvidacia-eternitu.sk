@@ -20,7 +20,7 @@
     "test:price-calculator": "node --import tsx --test scripts/price-calculator.behavior.mjs",
     "test:map-locality": "node --import tsx --test scripts/published-realization-locality-points.behavior.mjs",
     "test:map-visual": "node --import tsx scripts/approved-case-map.visual.mjs",
-    "test:db-integration": "node --import tsx --test scripts/lead-submission-postgres.integration.mjs scripts/career-admin-local.integration.mjs scripts/lead-email-safety.local.integration.mjs scripts/lead-email-relay-manual-retry.local.integration.mjs scripts/lead-email-unconfigured.local.integration.mjs scripts/two-factor-totp-atomicity.integration.mjs scripts/price-offer-email-state.integration.mjs scripts/price-offer-local-state.integration.mjs && tsx scripts/meta-capi-consent-race.local.integration.mjs && tsx scripts/meta-capi-outbox.pglite.integration.mjs",
+    "test:db-integration": "node --import tsx --test scripts/lead-submission-postgres.integration.mjs scripts/career-admin-local.integration.mjs scripts/lead-email-safety.local.integration.mjs scripts/lead-email-relay-manual-retry.local.integration.mjs scripts/lead-email-unconfigured.local.integration.mjs scripts/two-factor-totp-atomicity.integration.mjs scripts/price-offer-email-state.integration.mjs scripts/price-offer-local-state.integration.mjs scripts/price-offer-parent-state.local.integration.mjs scripts/price-offer-parent-state.postgres.integration.mjs && tsx scripts/meta-capi-consent-race.local.integration.mjs && tsx scripts/meta-capi-outbox.pglite.integration.mjs",
     "lighthouse:ci": "ts-node scripts/lighthouse-ci.ts",
     "db:init": "tsx scripts/init-db.ts",
     "admin:hash": "node scripts/hash-password.mjs"

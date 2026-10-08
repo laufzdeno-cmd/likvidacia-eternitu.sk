@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getPriceOffer, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
-import { resetUncertainPriceOfferSendAction, savePriceOfferAction, sendPriceOfferAction } from '../actions';
+import { confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, savePriceOfferAction, sendPriceOfferAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 import PendingOfferButton from '../pending-offer-button';
 import { euro, priceOfferStatusLabels } from '../constants';
@@ -18,6 +18,11 @@ function isExpired(value: string) {
 function canResetUncertainSend(offer: { status: string; sendStartedAt?: string }) {
   if ((offer.status !== 'NEISTY_STAV' && offer.status !== 'ODOSIELA') || !offer.sendStartedAt) return false;
   return Date.now() - new Date(offer.sendStartedAt).getTime() >= 15 * 60_000;
+}
+
+function canConfirmUncertainSend(offer: { status: string; sendStartedAt?: string }) {
+  if (offer.status === 'NEISTY_STAV') return true;
+  return offer.status === 'ODOSIELA' && canResetUncertainSend(offer);
 }
 
 export default async function PriceOfferDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
@@ -51,8 +56,28 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         </section>
       ) : null}
       {query.sendReset ? <section className="admin-card"><div className="admin-alert is-success">Stav bol po potvrdenej kontrole vrátený na „Pripravená“. E-mail odošlite až po overení, že pôvodný pokus nebol doručený.</div></section> : null}
+      {query.sendConfirmed ? <section className="admin-card"><div className="admin-alert is-success">Odoslanie bolo manuálne overené. Ponuka, dopyt aj zákazka majú zosúladený stav.</div></section> : null}
       {offer.status === 'ODOSIELA' ? <section className="admin-card"><div className="admin-alert">Odoslanie ponuky prebieha alebo sa jeho výsledok ešte spracúva. Zatiaľ ju neupravujte ani neodosielajte znova.</div></section> : null}
       {offer.status === 'NEISTY_STAV' ? <section className="admin-card"><div className="admin-alert">Server nepotvrdil výsledok odoslania. Pred ďalším pokusom skontrolujte schránku ASTANA aj odoslanú poštu.</div></section> : null}
+      {canConfirmUncertainSend(offer) ? (
+        <section className="admin-card">
+          <h2>Odoslanie bolo overené</h2>
+          <p>Túto možnosť použite iba vtedy, keď máte dôkaz, že pôvodný e-mail odišiel. Nový e-mail sa neposiela.</p>
+          <form action={confirmUncertainPriceOfferSentAction} className="admin-pending-form">
+            <input type="hidden" name="id" value={offer.id} />
+            <label>Spôsob overenia
+              <select name="confirmationEvidence" required defaultValue="">
+                <option value="" disabled>Vyberte dôkaz</option>
+                <option value="sent_folder_verified">Overené v odoslanej pošte</option>
+                <option value="recipient_confirmed">Zákazník potvrdil prijatie</option>
+                <option value="provider_confirmed">Poskytovateľ potvrdil odoslanie</option>
+              </select>
+            </label>
+            <label className="admin-check-label"><input type="checkbox" name="confirmedSent" value="yes" required /> Potvrdzujem, že ponuka bola odoslaná a nemá sa posielať znova.</label>
+            <button className="admin-primary-button" type="submit">Označiť ako overene odoslanú</button>
+          </form>
+        </section>
+      ) : null}
       {canResetUncertainSend(offer) ? (
         <section className="admin-card">
           <h2>Overený opakovaný pokus</h2>
