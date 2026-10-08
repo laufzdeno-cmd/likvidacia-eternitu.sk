@@ -56,7 +56,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
       <script
         dangerouslySetInnerHTML={{
           __html:
-            "document.addEventListener('submit',function(e){var f=e.target;if(!(f instanceof HTMLFormElement))return;if((f.method||'').toLowerCase()!=='post')return;if(f.querySelector('input[name=\"_csrf\"]'))return;var token=document.getElementById('admin-csrf-token');if(!token)return;var input=document.createElement('input');input.type='hidden';input.name='_csrf';input.value=token.getAttribute('data-token')||'';f.appendChild(input);},true)",
+            "document.addEventListener('submit',function(e){var f=e.target;if(!(f instanceof HTMLFormElement))return;if(f.querySelector('input[name=\"_csrf\"]'))return;if((f.getAttribute('method')||'get').toLowerCase()!=='post')return;var token=document.getElementById('admin-csrf-token');if(!token)return;var input=document.createElement('input');input.type='hidden';input.name='_csrf';input.value=token.getAttribute('data-token')||'';f.appendChild(input);},true)",
         }}
       />
       <script

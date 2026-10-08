@@ -138,7 +138,12 @@ try {
   assert.equal(await panel.getByRole('heading', { name: 'Zaevidovať prijatú úhradu', exact: true }).count(), 1);
 
   const invoiceForm = panel.locator('form.admin-finance-form').first();
-  await invoiceForm.locator('input[name="invoiceNumber"]').fill('QA-2026-001');
+  await invoiceForm.locator('input[name="invoiceNumber"]').fill('QA-LOSS-001');
+  await invoiceForm.locator('input[name="amountWithoutVat"]').fill('1,234');
+  await invoiceForm.getByRole('button', { name: 'Zaevidovať vystavenú faktúru', exact: true }).click();
+  await panel.getByText('Suma bez DPH musí byť suma s najviac dvoma desatinnými miestami.', { exact: true }).waitFor({ timeout: 30_000 });
+  assert.equal(await invoiceForm.locator('input[name="invoiceNumber"]').inputValue(), 'QA-LOSS-001', 'invalid invoice must retain its number');
+  assert.equal(await invoiceForm.locator('input[name="amountWithoutVat"]').inputValue(), '1,234', 'invalid invoice must retain the entered amount');
   await invoiceForm.locator('input[name="amountWithoutVat"]').fill('1000,00');
   await invoiceForm.getByRole('button', { name: 'Zaevidovať vystavenú faktúru', exact: true }).click();
   await panel.getByText('Vystavená faktúra bola zaevidovaná.', { exact: true }).waitFor({ timeout: 30_000 });
@@ -149,8 +154,34 @@ try {
   assert.match(await desktopInvoiceHistory.innerText(), /Neuhradená/);
   assert.match(await desktopInvoiceHistory.innerText(), /Prijaté/i);
   assert.match(await desktopInvoiceHistory.innerText(), /Zostáva/i);
-  const invoicedLocalDb = JSON.parse(await readFile(localDbPath, 'utf8'));
-  assert.equal(invoicedLocalDb.businessJobInvoices.filter((invoice) => invoice.invoiceNumber === 'QA-2026-001').length, 1);
+  let invoicedLocalDb = JSON.parse(await readFile(localDbPath, 'utf8'));
+  assert.equal(invoicedLocalDb.businessJobInvoices.filter((invoice) => invoice.invoiceNumber === 'QA-LOSS-001').length, 1);
+
+  await invoiceForm.locator('input[name="invoiceNumber"]').fill('QA-LOSS-001');
+  await invoiceForm.locator('input[name="amountWithoutVat"]').fill('50,00');
+  await invoiceForm.getByRole('button', { name: 'Zaevidovať vystavenú faktúru', exact: true }).click();
+  await panel.getByText('Faktúra s týmto číslom je už evidovaná.', { exact: true }).waitFor({ timeout: 30_000 });
+  assert.equal(await invoiceForm.locator('input[name="invoiceNumber"]').inputValue(), 'QA-LOSS-001', 'duplicate invoice must retain its number');
+  assert.equal(await invoiceForm.locator('input[name="amountWithoutVat"]').inputValue(), '50,00', 'duplicate invoice must retain its amount');
+  await invoiceForm.locator('input[name="invoiceNumber"]').fill('QA-2026-002');
+  await invoiceForm.getByRole('button', { name: 'Zaevidovať vystavenú faktúru', exact: true }).click();
+  await panel.getByText('Vystavená faktúra bola zaevidovaná.', { exact: true }).waitFor({ timeout: 30_000 });
+
+  const paymentForm = panel.locator('form.admin-finance-form').nth(1);
+  await paymentForm.locator('select[name="invoiceId"]').selectOption({ index: 1 });
+  await paymentForm.locator('input[name="amount"]').fill('1,234');
+  await paymentForm.locator('input[name="reference"]').fill('QA-PAY-RETAIN');
+  await paymentForm.getByRole('button', { name: 'Zaevidovať prijatú úhradu', exact: true }).click();
+  await panel.getByText('Prijatá suma musí byť suma s najviac dvoma desatinnými miestami.', { exact: true }).waitFor({ timeout: 30_000 });
+  assert.notEqual(await paymentForm.locator('select[name="invoiceId"]').inputValue(), '', 'invalid payment must retain the selected invoice');
+  assert.equal(await paymentForm.locator('input[name="amount"]').inputValue(), '1,234', 'invalid payment must retain its amount');
+  assert.equal(await paymentForm.locator('input[name="reference"]').inputValue(), 'QA-PAY-RETAIN', 'invalid payment must retain its reference');
+  await paymentForm.locator('input[name="amount"]').fill('123,45');
+  await paymentForm.getByRole('button', { name: 'Zaevidovať prijatú úhradu', exact: true }).click();
+  await panel.getByText('Prijatá úhrada bola zaevidovaná.', { exact: true }).waitFor({ timeout: 30_000 });
+  invoicedLocalDb = JSON.parse(await readFile(localDbPath, 'utf8'));
+  assert.equal(invoicedLocalDb.businessJobInvoices.filter((invoice) => invoice.invoiceNumber.startsWith('QA-')).length, 2, 'retry must create exactly two unique invoices');
+  assert.equal(invoicedLocalDb.businessJobPaymentEvents.filter((event) => event.reference === 'QA-PAY-RETAIN').length, 1, 'payment retry must create one receipt');
 
   const overflowDesktop = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   assert.ok(overflowDesktop <= 1, `desktop admin overflows horizontally by ${overflowDesktop}px`);
@@ -164,8 +195,9 @@ try {
   assert.equal(await mobilePanel.locator('.admin-finance-history-table').first().isVisible(), false, 'mobile must hide the wide invoice table');
   const mobileInvoiceCards = mobilePanel.locator('.admin-finance-history-cards').first();
   assert.equal(await mobileInvoiceCards.isVisible(), true, 'mobile must show readable invoice cards');
-  assert.match(await mobileInvoiceCards.innerText(), /QA-2026-001/);
-  assert.match(await mobileInvoiceCards.innerText(), /Neuhradená/);
+  assert.match(await mobileInvoiceCards.innerText(), /QA-LOSS-001/);
+  assert.match(await mobileInvoiceCards.innerText(), /QA-2026-002/);
+  assert.match(await mobileInvoiceCards.innerText(), /Čiastočne uhradená|Neuhradená/);
   assert.match(await mobileInvoiceCards.innerText(), /Prijaté/i);
   assert.match(await mobileInvoiceCards.innerText(), /Zostáva/i);
   const overflowMobile = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -174,7 +206,7 @@ try {
   await mobilePanel.screenshot({ path: path.join(outputDirectory, 'business-finance-mobile-panel.png'), caret: 'initial' });
   assert.equal(deniedOrigins.length, 0, `browser attempted external requests: ${deniedOrigins.join(', ')}`);
   assert.deepEqual(browserErrors, [], `browser reported runtime errors: ${browserErrors.join(' | ')}`);
-  console.log(JSON.stringify({ result: 'PASS', invoiceRows: 1, desktopOverflow: overflowDesktop, mobileOverflow: overflowMobile, browserExternalOrigins: deniedOrigins.length, browserErrors: browserErrors.length }));
+  console.log(JSON.stringify({ result: 'PASS', invoiceRows: 2, paymentRows: 1, retainedValidationValues: true, desktopOverflow: overflowDesktop, mobileOverflow: overflowMobile, browserExternalOrigins: deniedOrigins.length, browserErrors: browserErrors.length }));
 } catch (error) {
   console.error('Isolated finance browser QA failed:', error.message);
   console.error('Local Next diagnostics:', logs.join('').slice(-4500));

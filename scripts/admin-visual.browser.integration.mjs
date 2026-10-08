@@ -240,6 +240,7 @@ try {
     .filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
   Object.assign(childEnv, {
     NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1', DATABASE_URL: databaseUrl,
+    DATABASE_POOL_MAX: '1',
     AUTH_SECRET: secret, ADMIN_EMAIL: adminEmail, ALLOWED_ORIGINS: origin,
     TEMP: tempRoot, TMP: tempRoot, ASTANA_TEST_NETWORK_GUARD: '1',
     ASTANA_TEST_APP_ROOT: tempRoot, ASTANA_TEST_APP_PORT: String(appPort),

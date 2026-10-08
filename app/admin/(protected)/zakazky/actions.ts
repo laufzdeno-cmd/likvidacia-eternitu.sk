@@ -74,7 +74,30 @@ export async function saveBusinessJobAction(formData: FormData) {
   redirect(`/admin/zakazky/${job.id}`);
 }
 
-export type FinanceActionState = { ok: boolean; message: string };
+export type FinanceActionState = {
+  ok: boolean;
+  message: string;
+  revision: number;
+  values?: Record<string, string>;
+};
+
+function financeActionSuccess(previousState: FinanceActionState, message: string): FinanceActionState {
+  return { ok: true, message, revision: previousState.revision + 1 };
+}
+
+function financeActionFailure(
+  previousState: FinanceActionState,
+  formData: FormData,
+  fields: readonly string[],
+  error: unknown,
+): FinanceActionState {
+  return {
+    ok: false,
+    message: financeMessage(error),
+    revision: previousState.revision + 1,
+    values: Object.fromEntries(fields.map((field) => [field, String(formData.get(field) ?? '')])),
+  };
+}
 
 function euroCents(value: FormDataEntryValue | null, label: string) {
   const normalized = String(value ?? '').trim().replace(',', '.');
@@ -104,7 +127,7 @@ function revalidateFinance(jobId: string) {
 }
 
 export async function recordBusinessInvoiceAction(
-  _previousState: FinanceActionState,
+  previousState: FinanceActionState,
   formData: FormData,
 ): Promise<FinanceActionState> {
   await verifyCsrf(formData);
@@ -123,20 +146,22 @@ export async function recordBusinessInvoiceAction(
       amountWithVatCents: amountWithoutVatCents + Math.round(amountWithoutVatCents * vatRateBasisPoints / 10_000),
     }, actor);
     revalidateFinance(jobId);
-    return { ok: true, message: 'Vystavená faktúra bola zaevidovaná.' };
+    return financeActionSuccess(previousState, 'Vystavená faktúra bola zaevidovaná.');
   } catch (error) {
-    return { ok: false, message: financeMessage(error) };
+    return financeActionFailure(previousState, formData, ['invoiceNumber', 'issuedOn', 'dueOn', 'amountWithoutVat', 'vatRate'], error);
   }
 }
 
 export async function cancelBusinessInvoiceAction(
-  _previousState: FinanceActionState,
+  previousState: FinanceActionState,
   formData: FormData,
 ): Promise<FinanceActionState> {
   await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const jobId = String(formData.get('jobId') || '');
-  if (formData.get('confirm') !== 'yes') return { ok: false, message: 'Storno faktúry musíte výslovne potvrdiť.' };
+  if (formData.get('confirm') !== 'yes') {
+    return financeActionFailure(previousState, formData, ['cancelledOn', 'reasonCode', 'confirm'], new Error('Storno faktúry musíte výslovne potvrdiť.'));
+  }
   try {
     await cancelBusinessInvoice(jobId, String(formData.get('invoiceId') || ''), {
       operationId: String(formData.get('operationId') || ''),
@@ -144,14 +169,14 @@ export async function cancelBusinessInvoiceAction(
       reasonCode: String(formData.get('reasonCode') || ''),
     }, actor);
     revalidateFinance(jobId);
-    return { ok: true, message: 'Faktúra bola stornovaná bez vymazania histórie.' };
+    return financeActionSuccess(previousState, 'Faktúra bola stornovaná bez vymazania histórie.');
   } catch (error) {
-    return { ok: false, message: financeMessage(error) };
+    return financeActionFailure(previousState, formData, ['cancelledOn', 'reasonCode', 'confirm'], error);
   }
 }
 
 export async function recordBusinessPaymentAction(
-  _previousState: FinanceActionState,
+  previousState: FinanceActionState,
   formData: FormData,
 ): Promise<FinanceActionState> {
   await verifyCsrf(formData);
@@ -167,20 +192,22 @@ export async function recordBusinessPaymentAction(
       reference: String(formData.get('reference') || ''),
     }, actor);
     revalidateFinance(jobId);
-    return { ok: true, message: 'Prijatá úhrada bola zaevidovaná.' };
+    return financeActionSuccess(previousState, 'Prijatá úhrada bola zaevidovaná.');
   } catch (error) {
-    return { ok: false, message: financeMessage(error) };
+    return financeActionFailure(previousState, formData, ['invoiceId', 'occurredOn', 'amount', 'method', 'reference'], error);
   }
 }
 
 export async function reverseBusinessPaymentAction(
-  _previousState: FinanceActionState,
+  previousState: FinanceActionState,
   formData: FormData,
 ): Promise<FinanceActionState> {
   await verifyCsrf(formData);
   const actor = (await requireSuperAdmin()).email;
   const jobId = String(formData.get('jobId') || '');
-  if (formData.get('confirm') !== 'yes') return { ok: false, message: 'Storno úhrady musíte výslovne potvrdiť.' };
+  if (formData.get('confirm') !== 'yes') {
+    return financeActionFailure(previousState, formData, ['occurredOn', 'reasonCode', 'confirm'], new Error('Storno úhrady musíte výslovne potvrdiť.'));
+  }
   try {
     await reverseBusinessPayment(jobId, String(formData.get('receiptId') || ''), {
       operationId: String(formData.get('operationId') || ''),
@@ -188,9 +215,9 @@ export async function reverseBusinessPaymentAction(
       reasonCode: String(formData.get('reasonCode') || ''),
     }, actor);
     revalidateFinance(jobId);
-    return { ok: true, message: 'Úhrada bola stornovaná novou opravnou udalosťou.' };
+    return financeActionSuccess(previousState, 'Úhrada bola stornovaná novou opravnou udalosťou.');
   } catch (error) {
-    return { ok: false, message: financeMessage(error) };
+    return financeActionFailure(previousState, formData, ['occurredOn', 'reasonCode', 'confirm'], error);
   }
 }
 

@@ -29,6 +29,7 @@ const relay = read('../src/server/astana-local-relay.ts');
 const envExample = read('../.env.example');
 const privacyPage = read('../app/ochrana-osobnych-udajov/page.tsx');
 const browserHarness = read('../scripts/lead-private-blob-browser.integration.mjs');
+const adminVisualHarness = read('../scripts/admin-visual.browser.integration.mjs');
 
 test('customer confirmation email clearly identifies ASTANA, s.r.o.', () => {
   assert.match(mailer, /customerLeadEmailSubject = '✅ ASTANA, s\.r\.o\. prijala váš dopyt \| likvidacia-eternitu\.sk'/);
@@ -276,6 +277,7 @@ test('the PGlite browser harness serializes its pool without changing the produc
   assert.match(database, /configuredPoolMax >= 1 && configuredPoolMax <= 50/);
   assert.match(database, /\.\.\.\(poolMax \? \{ max: poolMax \} : \{\}\)/);
   assert.match(browserHarness, /DATABASE_POOL_MAX:\s*isolatedPgUrl \? '' : '1'/);
+  assert.match(adminVisualHarness, /DATABASE_POOL_MAX:\s*'1'/);
 });
 
 test('lead endpoint enforces its request limit before parsing multipart bodies', () => {

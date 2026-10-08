@@ -16,6 +16,11 @@ test('financial actions are CSRF-protected, super-admin only and use stable oper
   assert.match(panel, /name="_csrf"/);
   assert.match(panel, /name="operationId"/);
   assert.match(panel, /role=\{state\.ok \? 'status' : 'alert'\}/);
+  assert.match(actions, /values: Object\.fromEntries/);
+  assert.match(panel, /key=\{`invoice-\$\{invoiceState\.revision\}`\}/);
+  assert.match(panel, /key=\{`payment-\$\{paymentState\.revision\}`\}/);
+  assert.match(panel, /retainedValue\(invoiceState, 'invoiceNumber'\)/);
+  assert.match(panel, /retainedValue\(paymentState, 'reference'\)/);
   assert.match(panel, /Finančné údaje: neevidované/);
   assert.match(panel, /Evidovaná cena zákazky ani jej stav platbu nepotvrdzujú/);
   assert.doesNotMatch(panel, /name="dueOn"[^>]*min=/, 'historická faktúra musí umožniť starší dátum splatnosti');
@@ -63,4 +68,7 @@ test('admin financial evidence formats business units and local dates for people
   assert.doesNotMatch(jobForm, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
   assert.match(detail, /settings, finance\] = await Promise\.all/);
   assert.doesNotMatch(detail, /const finance = await getBusinessJobFinance/);
+  assert.doesNotMatch(detail, /Stav recenzie<select/);
+  assert.match(detail, /Otvoriť žiadosť o recenziu/);
+  assert.match(detail, /stav po obnovení stránky nestratil/);
 });

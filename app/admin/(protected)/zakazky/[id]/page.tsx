@@ -44,6 +44,7 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
   const activeIndex = workflowStatuses.indexOf(activeStatus);
   const phoneForWhatsApp = job.customerPhone.replace(/\D/g, '').replace(/^0/, '421');
   const reviewText = encodeURIComponent(`Dobrý deň ${job.customerName}, ďakujeme za dôveru pri likvidácii azbestu v ${job.location}. Ak ste boli spokojní, veľmi by nám pomohla krátka recenzia na Google — trvá 2 minúty: ${settings.googleReviewLink || '[DOPLNIŤ GOOGLE ODKAZ]'}. Ďakujeme, tím ASTANA`);
+  const reviewRequestHref = `/admin/reviews/request?meno=${encodeURIComponent(job.customerName)}&lokalita=${encodeURIComponent(job.location)}`;
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const dueDate = new Date(`${today}T12:00:00+02:00`);
@@ -67,7 +68,7 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
         <div className="admin-action-row">
           <button type="button" className="admin-primary-link" data-print>Tlačiť / PDF</button>
           {!job.deletedAt ? <a className="admin-primary-link" href={`/admin/ponuky/nova?zakazka=${job.id}`}>+ Vytvoriť cenovú ponuku</a> : null}
-          {!job.deletedAt ? <a className="admin-primary-link" href={`/admin/reviews/request?meno=${encodeURIComponent(job.customerName)}&lokalita=${encodeURIComponent(job.location)}`}>Žiadosť o recenziu</a> : null}
+          {!job.deletedAt ? <a className="admin-primary-link" href={reviewRequestHref}>Žiadosť o recenziu</a> : null}
         </div>
       </div>
 
@@ -144,9 +145,8 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
           <h2>Recenzia zákazníka</h2>
           <p>Po dokončení pošlite zákazníkovi krátku žiadosť o Google recenziu.</p>
           <a className="admin-primary-link" href={`https://wa.me/${phoneForWhatsApp}?text=${reviewText}`} target="_blank" rel="noopener">📱 Vygenerovať WhatsApp</a>
-          <div className="admin-form-inline">
-            <label>Stav recenzie<select defaultValue="caka"><option value="caka">Čaká</option><option value="odoslana">Odoslaná</option><option value="prijata">Prijatá</option></select></label>
-          </div>
+          <p className="admin-muted-note">Odoslanie a prijatie recenzie evidujte v samostatnom pracovnom toku, aby sa stav po obnovení stránky nestratil.</p>
+          <a className="admin-secondary-link" href={reviewRequestHref}>Otvoriť žiadosť o recenziu</a>
         </section>
       ) : null}
 

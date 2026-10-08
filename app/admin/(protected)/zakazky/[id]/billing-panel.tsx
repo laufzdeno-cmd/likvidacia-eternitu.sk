@@ -11,7 +11,7 @@ import {
   type FinanceActionState,
 } from '../actions';
 
-const initialState: FinanceActionState = { ok: false, message: '' };
+const initialState: FinanceActionState = { ok: false, message: '', revision: 0 };
 const money = new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' });
 const date = new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' });
 const paymentMethodLabels = { BANK_TRANSFER: 'Bankový prevod', CASH: 'Hotovosť', CARD: 'Karta', OTHER: 'Iné' } as const;
@@ -29,6 +29,10 @@ function localDate(value?: string) {
   return value ? date.format(new Date(`${value}T12:00:00`)) : '—';
 }
 
+function retainedValue(state: FinanceActionState, name: string, fallback = '') {
+  return state.values?.[name] ?? fallback;
+}
+
 function SubmitButton({ children, destructive = false }: { children: React.ReactNode; destructive?: boolean }) {
   const { pending } = useFormStatus();
   return <button className={destructive ? 'admin-danger-button' : 'admin-primary-button'} type="submit" disabled={pending}>{pending ? 'Ukladám…' : children}</button>;
@@ -44,14 +48,14 @@ function InvoiceCancellationForm({ jobId, invoice, csrfToken, operationId, today
 }) {
   const [state, action] = useActionState(cancelBusinessInvoiceAction, initialState);
   if (blockedByPayment) return <p className="admin-muted-note">Najprv stornujte všetky aktívne úhrady priradené k tejto faktúre.</p>;
-  return <form action={action} className="admin-finance-correction-form no-print">
+  return <form action={action} className="admin-finance-correction-form no-print" key={state.revision}>
     <input type="hidden" name="_csrf" value={csrfToken} />
     <input type="hidden" name="jobId" value={jobId} />
     <input type="hidden" name="invoiceId" value={invoice.id} />
     <input type="hidden" name="operationId" value={operationId} />
-    <label>Dátum storna<input name="cancelledOn" type="date" defaultValue={today} min={invoice.issuedOn} max={today} required /></label>
-    <label>Dôvod<select name="reasonCode" required defaultValue=""><option value="" disabled>Vyberte dôvod</option>{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-    <label className="admin-checkbox"><input type="checkbox" name="confirm" value="yes" required /> Potvrdzujem storno faktúry bez vymazania histórie.</label>
+    <label>Dátum storna<input name="cancelledOn" type="date" defaultValue={retainedValue(state, 'cancelledOn', today)} min={invoice.issuedOn} max={today} required /></label>
+    <label>Dôvod<select name="reasonCode" required defaultValue={retainedValue(state, 'reasonCode')}><option value="" disabled>Vyberte dôvod</option>{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+    <label className="admin-checkbox"><input type="checkbox" name="confirm" value="yes" defaultChecked={retainedValue(state, 'confirm') === 'yes'} required /> Potvrdzujem storno faktúry bez vymazania histórie.</label>
     <SubmitButton destructive>Stornovať faktúru</SubmitButton>
     <ActionMessage state={state} />
   </form>;
@@ -61,14 +65,14 @@ function PaymentReversalForm({ jobId, receipt, csrfToken, operationId, today }: 
   jobId: string; receipt: BusinessJobPaymentEvent; csrfToken: string; operationId: string; today: string;
 }) {
   const [state, action] = useActionState(reverseBusinessPaymentAction, initialState);
-  return <form action={action} className="admin-finance-correction-form no-print">
+  return <form action={action} className="admin-finance-correction-form no-print" key={state.revision}>
     <input type="hidden" name="_csrf" value={csrfToken} />
     <input type="hidden" name="jobId" value={jobId} />
     <input type="hidden" name="receiptId" value={receipt.id} />
     <input type="hidden" name="operationId" value={operationId} />
-    <label>Dátum storna<input name="occurredOn" type="date" defaultValue={today} min={receipt.occurredOn} max={today} required /></label>
-    <label>Dôvod<select name="reasonCode" required defaultValue=""><option value="" disabled>Vyberte dôvod</option>{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-    <label className="admin-checkbox"><input type="checkbox" name="confirm" value="yes" required /> Potvrdzujem storno úhrady novou opravnou udalosťou.</label>
+    <label>Dátum storna<input name="occurredOn" type="date" defaultValue={retainedValue(state, 'occurredOn', today)} min={receipt.occurredOn} max={today} required /></label>
+    <label>Dôvod<select name="reasonCode" required defaultValue={retainedValue(state, 'reasonCode')}><option value="" disabled>Vyberte dôvod</option>{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+    <label className="admin-checkbox"><input type="checkbox" name="confirm" value="yes" defaultChecked={retainedValue(state, 'confirm') === 'yes'} required /> Potvrdzujem storno úhrady novou opravnou udalosťou.</label>
     <SubmitButton destructive>Stornovať úhradu</SubmitButton>
     <ActionMessage state={state} />
   </form>;
@@ -120,22 +124,22 @@ export default function BillingPanel({ jobId, finance, canWrite, archived, csrfT
     </div> : null}
 
     {canWrite && !archived ? <div className="admin-finance-entry-grid no-print">
-      <form action={invoiceAction} className="admin-finance-form">
+      <form action={invoiceAction} className="admin-finance-form" key={`invoice-${invoiceState.revision}`}>
         <h3>Zaevidovať vystavenú faktúru</h3>
         <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="jobId" value={jobId} /><input type="hidden" name="operationId" value={operationIds.invoice} />
-        <label>Číslo faktúry<input name="invoiceNumber" maxLength={80} required /></label>
-        <div className="admin-form-inline"><label>Dátum vystavenia<input name="issuedOn" type="date" defaultValue={today} max={today} required /></label><label>Dátum splatnosti<input name="dueOn" type="date" defaultValue={dueOn} /></label></div>
-        <div className="admin-form-inline"><label>Suma bez DPH<input name="amountWithoutVat" type="text" inputMode="decimal" placeholder="0,00" required /></label><label>DPH %<input name="vatRate" type="text" inputMode="decimal" defaultValue="23" required /></label></div>
+        <label>Číslo faktúry<input name="invoiceNumber" maxLength={80} defaultValue={retainedValue(invoiceState, 'invoiceNumber')} required /></label>
+        <div className="admin-form-inline"><label>Dátum vystavenia<input name="issuedOn" type="date" defaultValue={retainedValue(invoiceState, 'issuedOn', today)} max={today} required /></label><label>Dátum splatnosti<input name="dueOn" type="date" defaultValue={retainedValue(invoiceState, 'dueOn', dueOn)} /></label></div>
+        <div className="admin-form-inline"><label>Suma bez DPH<input name="amountWithoutVat" type="text" inputMode="decimal" placeholder="0,00" defaultValue={retainedValue(invoiceState, 'amountWithoutVat')} required /></label><label>DPH %<input name="vatRate" type="text" inputMode="decimal" defaultValue={retainedValue(invoiceState, 'vatRate', '23')} required /></label></div>
         <SubmitButton>Zaevidovať vystavenú faktúru</SubmitButton><ActionMessage state={invoiceState} />
       </form>
 
-      <form action={paymentAction} className="admin-finance-form">
+      <form action={paymentAction} className="admin-finance-form" key={`payment-${paymentState.revision}`}>
         <h3>Zaevidovať prijatú úhradu</h3>
         <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="jobId" value={jobId} /><input type="hidden" name="operationId" value={operationIds.payment} />
-        <label>Priradiť k faktúre<select name="invoiceId" defaultValue=""><option value="">Nepriradená úhrada</option>{activeInvoices.map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoiceNumber} · {money.format(invoice.amountWithVatCents / 100)}</option>)}</select></label>
-        <div className="admin-form-inline"><label>Dátum prijatia<input name="occurredOn" type="date" defaultValue={today} max={today} required /></label><label>Prijatá suma<input name="amount" type="text" inputMode="decimal" placeholder="0,00" required /></label></div>
-        <label>Spôsob úhrady<select name="method" defaultValue="BANK_TRANSFER">{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>Referencia / variabilný symbol<input name="reference" maxLength={80} autoComplete="off" /><small>Nezadávajte prihlasovacie ani bankové bezpečnostné údaje.</small></label>
+        <label>Priradiť k faktúre<select name="invoiceId" defaultValue={retainedValue(paymentState, 'invoiceId')}><option value="">Nepriradená úhrada</option>{activeInvoices.map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoiceNumber} · {money.format(invoice.amountWithVatCents / 100)}</option>)}</select></label>
+        <div className="admin-form-inline"><label>Dátum prijatia<input name="occurredOn" type="date" defaultValue={retainedValue(paymentState, 'occurredOn', today)} max={today} required /></label><label>Prijatá suma<input name="amount" type="text" inputMode="decimal" placeholder="0,00" defaultValue={retainedValue(paymentState, 'amount')} required /></label></div>
+        <label>Spôsob úhrady<select name="method" defaultValue={retainedValue(paymentState, 'method', 'BANK_TRANSFER')}>{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>Referencia / variabilný symbol<input name="reference" maxLength={80} autoComplete="off" defaultValue={retainedValue(paymentState, 'reference')} /><small>Nezadávajte prihlasovacie ani bankové bezpečnostné údaje.</small></label>
         <SubmitButton>Zaevidovať prijatú úhradu</SubmitButton><ActionMessage state={paymentState} />
       </form>
     </div> : null}
