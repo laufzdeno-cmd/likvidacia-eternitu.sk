@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { getRuntimeFeatureHealth } from '../src/server/runtime-feature-health.ts';
+import {
+  deploymentResourceFingerprint,
+  deploymentRequestBlocked,
+  isVerifiedIsolatedStaging,
+  stagingResourceBinding,
+} from '../src/server/preview-safety.ts';
 
 function binding(values) {
   return createHash('sha256').update(JSON.stringify(values), 'utf8').digest('hex');
@@ -12,6 +18,7 @@ function readyEnvironment() {
     NODE_ENV: 'production',
     VERCEL: '1',
     VERCEL_ENV: 'production',
+    VERCEL_TARGET_ENV: 'production',
     VERCEL_PROJECT_ID: 'project-id',
     DATABASE_URL: 'postgresql://private.invalid/astana',
     BLOB_READ_WRITE_TOKEN: 'private-lead-token',
@@ -41,6 +48,44 @@ function readyEnvironment() {
     environment.DATABASE_URL,
     environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN,
   ]);
+  return environment;
+}
+
+function verifiedStagingEnvironment() {
+  const productionResources = {
+    database: 'postgresql://production.invalid/astana',
+    databaseResourceId: 'neon-production/branch-production/astana',
+    blob: 'vercel_blob_rw_production',
+    photoBlob: 'vercel_blob_rw_photo_production',
+  };
+  const environment = {
+    ...readyEnvironment(),
+    VERCEL_ENV: 'preview',
+    VERCEL_TARGET_ENV: 'staging',
+    DATABASE_URL: 'postgresql://staging.invalid/astana',
+    DATABASE_RESOURCE_ID: 'neon-staging/branch-staging/astana',
+    BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_staging',
+    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_photo_staging',
+    STAGING_WRITE_ENABLED: 'true',
+    STAGING_MAIL_OVERRIDE_TO: 'qa@example.test',
+    STAGING_DATABASE_MARKER: 'b'.repeat(64),
+    PRODUCTION_DATABASE_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.database),
+    PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.databaseResourceId),
+    PRODUCTION_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.blob),
+    PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.photoBlob),
+  };
+  environment.LEAD_BLOB_RETENTION_BINDING_SHA256 = binding([
+    environment.VERCEL_PROJECT_ID,
+    environment.DATABASE_URL,
+    environment.BLOB_READ_WRITE_TOKEN,
+  ]);
+  environment.CAREER_CV_RETENTION_BINDING_SHA256 = environment.LEAD_BLOB_RETENTION_BINDING_SHA256;
+  environment.PHOTO_INTAKE_RETENTION_BINDING_SHA256 = binding([
+    environment.VERCEL_PROJECT_ID,
+    environment.DATABASE_URL,
+    environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN,
+  ]);
+  environment.STAGING_RESOURCE_BINDING_SHA256 = stagingResourceBinding(environment);
   return environment;
 }
 
@@ -88,6 +133,30 @@ test('runtime feature health reports only exact complete production bindings as 
   assert.equal(missingWorkerAuthorization.careerRetention.level, 'warning');
   assert.equal(missingWorkerAuthorization.photoIntake.level, 'warning');
   assert.equal(missingWorkerAuthorization.routeDistance.level, 'ok');
+
+  const whitespaceWorkerAuthorization = getRuntimeFeatureHealth({ ...environment, CRON_SECRET: 'cron-secret ' });
+  assert.equal(whitespaceWorkerAuthorization.leadRetention.level, 'warning');
+  assert.equal(whitespaceWorkerAuthorization.careerRetention.level, 'warning');
+  assert.equal(whitespaceWorkerAuthorization.photoIntake.level, 'warning');
+
+  const whitespaceS3 = getRuntimeFeatureHealth({
+    ...environment,
+    BLOB_READ_WRITE_TOKEN: '',
+    S3_BUCKET: 'private-bucket',
+    S3_ACCESS_KEY_ID: 'private-access-key',
+    S3_SECRET_ACCESS_KEY: 'private-secret-key',
+    CRON_SECRET: 'cron-secret ',
+  });
+  assert.equal(whitespaceS3.leadRetention.level, 'warning');
+
+  const staging = verifiedStagingEnvironment();
+  assert.equal(isVerifiedIsolatedStaging(staging), true);
+  assert.equal(deploymentRequestBlocked(staging, 'GET', '/api/cron/meta-capi/', 'staging.vercel.app'), true);
+  const stagingHealth = getRuntimeFeatureHealth(staging);
+  assert.notEqual(stagingHealth.conversion.level, 'ok');
+  assert.notEqual(stagingHealth.leadRetention.level, 'ok');
+  assert.notEqual(stagingHealth.careerRetention.level, 'ok');
+  assert.notEqual(stagingHealth.photoIntake.level, 'ok');
 });
 
 test('super-admin health page renders only bounded readiness labels', async () => {

@@ -6,6 +6,7 @@ import {
   privatePhotoIntakeEnabled,
   privatePhotoIntakeStorageReady,
 } from './photo-intake-config';
+import { deploymentRequestBlocked } from './preview-safety';
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -16,7 +17,14 @@ export type RuntimeFeatureState = {
 };
 
 function scheduledWorkerReady(environment: RuntimeEnvironment) {
-  return Boolean(environment.CRON_SECRET?.trim());
+  const secret = environment.CRON_SECRET;
+  if (!secret || secret !== secret.trim()) return false;
+  return !deploymentRequestBlocked(
+    environment,
+    'GET',
+    '/api/cron/runtime-feature-health/',
+    'likvidacia-eternitu.sk',
+  );
 }
 
 function leadRetentionState(environment: RuntimeEnvironment): RuntimeFeatureState {
