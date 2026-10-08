@@ -741,7 +741,7 @@ main .quote-section-inner>.quote-card{width:100%;max-width:none;min-width:0;marg
 .form-step-assurance{grid-column:1/-1;margin:0;padding:10px 12px;border-radius:12px;background:#eef7f2;color:#255b3d;font-size:13px;font-weight:750;line-height:1.4}
 .form-step-controls{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:2px 0 8px}
 .form-step-controls[hidden],.is-mobile-steps .form-stage[hidden],.is-mobile-steps .mobile-final-control[hidden]{display:none!important}
-.form-step-back{min-height:44px;padding:10px 16px;border:1px solid rgba(15,31,61,.22);border-radius:12px;background:#fff;color:#0f1f3d;font-weight:800;cursor:pointer}
+.form-step-back{flex:0 0 auto;min-height:44px;padding:10px 16px;border:1px solid rgba(15,31,61,.22);border-radius:12px;background:#fff;color:#0f1f3d;font-weight:800;white-space:nowrap;cursor:pointer}
 .form-step-next{min-height:46px;margin-left:auto}
 .form-error-summary{margin:0 0 12px;padding:12px 14px;border:2px solid #b42318;border-radius:12px;background:#fff4f2;color:#7a271a;font-weight:800;line-height:1.4}
 .field-error{grid-column:1/-1;margin:-4px 0 4px;color:#b42318;font-size:13px;font-weight:750;line-height:1.35}

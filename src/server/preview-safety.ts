@@ -121,19 +121,11 @@ export function deploymentDatabaseAccessBlocked(environment: DeploymentSafetyEnv
   return !isVerifiedIsolatedStaging(environment);
 }
 
-function canonicalProductionHostname(environment: DeploymentSafetyEnvironment) {
-  try {
-    const hostname = new URL(environment.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk').hostname.toLowerCase();
-    return hostname === 'www.likvidacia-eternitu.sk' ? 'likvidacia-eternitu.sk' : hostname;
-  } catch {
-    return '';
-  }
-}
+const canonicalProductionHosts = new Set(['likvidacia-eternitu.sk', 'www.likvidacia-eternitu.sk']);
 
-function isCanonicalProductionHost(hostname: string, environment: DeploymentSafetyEnvironment) {
+function isCanonicalProductionHost(hostname: string) {
   const normalized = hostname.trim().toLowerCase();
-  const canonical = canonicalProductionHostname(environment);
-  return Boolean(canonical) && (normalized === canonical || normalized === `www.${canonical}`);
+  return canonicalProductionHosts.has(normalized);
 }
 
 export function deploymentRequestBlocked(
@@ -150,14 +142,15 @@ export function deploymentRequestBlocked(
     && environment.VERCEL === '1'
     && environment.VERCEL_ENV === 'production'
     && environment.VERCEL_TARGET_ENV === 'production'
-    && isCanonicalProductionHost(hostname, environment);
+    && isCanonicalProductionHost(hostname);
   if (liveProduction) return false;
 
   const stagedProduction = environment.NODE_ENV === 'production'
     && environment.VERCEL === '1'
     && environment.VERCEL_ENV === 'production'
     && environment.VERCEL_TARGET_ENV === 'production';
-  if (stagedProduction && (/^\/api(?:\/|$)/i.test(pathname) || /^\/dopyt-prijaty(?:\/|$)/i.test(pathname))) return true;
+  const stagedPrivateRoute = /^\/(?:admin|spolupraca\/fotky)(?:\/|$)/i.test(pathname);
+  if (stagedProduction && (/^\/api(?:\/|$)/i.test(pathname) || /^\/dopyt-prijaty(?:\/|$)/i.test(pathname) || stagedPrivateRoute)) return true;
 
   if (environment.NODE_ENV !== 'production') return false;
   if (cronRequest) return true;

@@ -93,6 +93,7 @@ test('mobile CSS hides inactive steps and stacks hero actions at 360px', () => {
   const mobileControls = declarationsForRule(root, '.is-mobile-steps .form-step-controls', /max-width:\s*760px/);
   const compactHeroActions = declarationsForRule(root, 'main>.hero .hero-actions', /max-width:\s*360px/);
   const compactHeroButtons = declarationsForRule(root, '.hero-actions .button', /max-width:\s*360px/);
+  const backButton = declarationsForRule(root, '.form-step-back');
   const deferredVisibleControls = declarationsForRule(deferredRoot, '.is-mobile-steps .form-step-controls:not([hidden])', /max-width:\s*760px/);
   const deferredHiddenControls = declarationsForRule(deferredRoot, '.form-step-controls[hidden]');
 
@@ -100,6 +101,8 @@ test('mobile CSS hides inactive steps and stacks hero actions at 360px', () => {
   assert.ok(mobileSteps.has('gap'), 'the mobile step layout must be activated at 760px');
   assert.deepEqual(mobileControls.get('display'), { value: 'flex', important: false });
   assert.deepEqual(compactHeroActions.get('display'), { value: 'grid', important: true });
+  assert.equal(backButton.get('flex')?.value, '0 0 auto');
+  assert.equal(backButton.get('white-space')?.value, 'nowrap');
   assert.deepEqual(compactHeroActions.get('grid-template-columns'), { value: 'minmax(0,1fr)', important: true });
   assert.deepEqual(compactHeroButtons.get('width'), { value: '100%', important: true });
   assert.deepEqual(deferredVisibleControls.get('display'), { value: 'flex', important: true });

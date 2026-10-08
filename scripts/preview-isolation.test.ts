@@ -102,6 +102,9 @@ test('Preview and staged Production refuse writes; only canonical live Productio
   assert.equal(deploymentRequestBlocked(liveProductionEnvironment, 'GET', '/api/realization-case-media/id/', 'release.vercel.app'), true);
   assert.equal(deploymentRequestBlocked(liveProductionEnvironment, 'GET', '/api/lead/receipt/', 'release.vercel.app'), true);
   assert.equal(deploymentRequestBlocked(liveProductionEnvironment, 'GET', '/dopyt-prijaty/', 'release.vercel.app'), true);
+  assert.equal(deploymentRequestBlocked(liveProductionEnvironment, 'GET', '/admin/dopyty/', 'release.vercel.app'), true);
+  assert.equal(deploymentRequestBlocked(liveProductionEnvironment, 'GET', '/spolupraca/fotky/', 'release.vercel.app'), true);
+  assert.equal(deploymentRequestBlocked({ ...liveProductionEnvironment, NEXT_PUBLIC_SITE_URL: 'https://release.vercel.app' }, 'POST', '/api/lead/', 'release.vercel.app'), true);
   assert.equal(deploymentRequestBlocked(liveProductionEnvironment, 'GET', '/realizacie/', 'release.vercel.app'), false);
   assert.equal(deploymentRequestBlocked(previewEnvironment, 'GET', '/api/cron/backup/', 'preview.vercel.app'), true);
   assert.equal(deploymentRequestBlocked(previewEnvironment, 'GET', '/api/lead/receipt/', 'preview.vercel.app'), false);
