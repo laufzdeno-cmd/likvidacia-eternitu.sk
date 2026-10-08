@@ -1,0 +1,29 @@
+{
+  "sourceCommit": "293bf313507b2b97151ea7ccd9159a418e91ec24",
+  "sourceTree": "0607ee3c3b26ab553983e784a663767030f8bf47",
+  "command": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-isolated-postgres.ps1 -ProductionBuild",
+  "result": "PASS",
+  "nextVersion": "16.4.0",
+  "buildId": "D0Ikz1z3st4RBFzGf51_5",
+  "generatedRouteCount": 99,
+  "staticSeoUrlCount": 32,
+  "dynamicRouteChecks": [
+    "/realizacie/",
+    "/recenzie/"
+  ],
+  "unitMjsCount": 362,
+  "unitTypeScriptCount": 28,
+  "databaseIntegrationCount": 8,
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true,
+  "rollbackSourceCommit": "c98c630c1af467c51c615980841630a4cabf6c29",
+  "rollbackCommand": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-isolated-postgres.ps1 -LiveUploadCompatibility",
+  "rollbackCompatibility": "PASS",
+  "independentReview": "PASS",
+  "browserReview": {
+    "focusedMobile320": "PASS",
+    "fullCurrentMatrix": "NOT_RERUN",
+    "production": "NOT_VERIFIED"
+  }
+}
