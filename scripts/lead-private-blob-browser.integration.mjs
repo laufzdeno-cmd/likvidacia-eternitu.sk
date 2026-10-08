@@ -2299,7 +2299,7 @@ async function runPublicNavigationChecks(page, appOrigin) {
   assert.match(await page.locator('h1').innerText(), /recenzie/i, 'buyer navigation exposes trust-building reviews');
   await page.goto(`${appOrigin}/kariera/`, { waitUntil: 'networkidle' });
   await page.waitForURL(`${appOrigin}/kariera/`);
-  await page.locator('a[href="#prihlasit-sa"]').first().click();
+  await page.locator('.career-hero a[href="#prihlasit-sa"]').click();
   await page.waitForURL(`${appOrigin}/kariera/#prihlasit-sa`);
   assert.equal(await page.locator('#prihlasit-sa').count(), 1, 'career action targets the application');
   await assertAnchorVisible('prihlasit-sa');

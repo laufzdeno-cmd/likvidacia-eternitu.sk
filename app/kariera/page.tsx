@@ -20,7 +20,10 @@ const faqs = [
 
 export default function CareerPage() {
   return (
-    <PublicPageShell breadcrumb={{ name: 'Kariéra', path: '/kariera/' }}>
+    <PublicPageShell
+      breadcrumb={{ name: 'Kariéra', path: '/kariera/' }}
+      headerCta={{ href: '#prihlasit-sa', label: 'Chcem sa prihlásiť' }}
+    >
       <PublicFontPreload />
       <main className={`career-page ${styles.page}`}>
         <JsonLd data={buildFaqJsonLd(faqs)} />
@@ -29,7 +32,7 @@ export default function CareerPage() {
             <p className="eyebrow">Kariéra v ASTANA</p>
             <h1>Hľadáme šikovných živnostníkov a partie</h1>
             <p className={`career-lead ${styles.lead}`}>Na demontáž eternitu a azbestových materiálov hľadáme spoľahlivých ľudí, ktorí berú bezpečnosť a poctivo urobenú prácu vážne.</p>
-            <a className="button button-outline" href="#prihlasit-sa">Chcem sa prihlásiť</a>
+            <a className="button button-primary" href="#prihlasit-sa">Chcem sa prihlásiť</a>
             <p>Nemusíte písať dlhý životopis. Pošlite nám krátku žiadosť, ozveme sa vám a prejdeme si spolu skúsenosti, odmenu aj možný termín nástupu.</p>
             <ul className={`career-benefits ${styles.benefits}`}>
               <li>krátky formulár namiesto povinného životopisu</li>

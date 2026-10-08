@@ -4,7 +4,17 @@ import HeaderBrandLogo from './header-brand-logo';
 import { companyAddressLine, emailLink, phoneLink, site } from '@/src/content/site';
 import { BreadcrumbJsonLd } from './seo-json-ld';
 
-export function PublicHeader() {
+type PublicHeaderCta = Readonly<{
+  href: string;
+  label: string;
+}>;
+
+const defaultHeaderCta: PublicHeaderCta = {
+  href: '/#dopyt',
+  label: 'Získať cenovú ponuku',
+};
+
+export function PublicHeader({ primaryCta = defaultHeaderCta }: { primaryCta?: PublicHeaderCta } = {}) {
   return (
     <header className="site-header simple-header">
       <div className="header-main">
@@ -17,7 +27,7 @@ export function PublicHeader() {
             <span className="meta-icon phone" aria-hidden="true"></span>
             <strong>{site.phone}</strong>
           </a>
-          <a className="button button-primary header-button" href="/#dopyt">Získať cenovú ponuku</a>
+          <a className="button button-primary header-button" href={primaryCta.href}>{primaryCta.label}</a>
         </div>
         <button className="menu-toggle" type="button" aria-controls="site-nav" aria-expanded="false">Menu</button>
       </div>
@@ -33,7 +43,7 @@ export function PublicHeader() {
         <a className="nav-mobile-phone" href={phoneLink}>
           <span className="meta-icon phone" aria-hidden="true"></span>{site.phone}
         </a>
-        <a className="nav-mobile-cta" href="/#dopyt">Získať cenovú ponuku</a>
+        <a className="nav-mobile-cta" href={primaryCta.href}>{primaryCta.label}</a>
       </nav>
     </header>
   );
@@ -105,16 +115,18 @@ export function PublicPageShell({
   breadcrumb,
   breadcrumbParents = [],
   hideWhatsappOnMobile = false,
+  headerCta,
 }: {
   children: React.ReactNode;
   breadcrumb?: { name: string; path: string };
   breadcrumbParents?: Array<{ name: string; path: string }>;
   hideWhatsappOnMobile?: boolean;
+  headerCta?: PublicHeaderCta;
 }) {
   return (
     <>
       {breadcrumb ? <BreadcrumbJsonLd name={breadcrumb.name} path={breadcrumb.path} parents={breadcrumbParents} /> : null}
-      <PublicHeader />
+      <PublicHeader primaryCta={headerCta} />
       {children}
       <PublicFooter />
       <PublicBaseClient />
