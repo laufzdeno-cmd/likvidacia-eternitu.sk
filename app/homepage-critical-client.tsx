@@ -146,7 +146,7 @@ export default function initializeHomepageCriticalClient({
       status.textContent = message;
     };
 
-    const focusSubmitConfirmation = () => {
+    const focusSubmitResult = () => {
       if (!status) return;
       status.tabIndex = -1;
       status.focus({ preventScroll: true });
@@ -195,12 +195,14 @@ export default function initializeHomepageCriticalClient({
           setStatus(verifiedReceipt.emailSent === true
             ? 'Dopyt sme prijali a potvrdenie sme odoslali.'
             : 'Dopyt sme prijali. Potvrdenie emailom ešte overujeme; nemusíte ho odosielať znova.', 'success');
-          focusSubmitConfirmation();
+          focusSubmitResult();
         } else {
           setStatus('Výsledok odoslania sa nepodarilo bezpečne overiť. Dopyt zatiaľ neposielajte znova; zavolajte nám na 0905 217 946.', 'error');
+          focusSubmitResult();
         }
       } else if (errorMessage) {
         setStatus(errorMessage, 'error');
+        focusSubmitResult();
       }
       url.searchParams.delete('odoslane');
       url.searchParams.delete('potvrdenie');
@@ -681,7 +683,7 @@ export default function initializeHomepageCriticalClient({
         if (result.metaLead) dispatchMetaLead(result.metaLead);
         form.classList.add('is-submitted');
         setStatus(result.message || 'Dopyt sme prijali. Ozveme sa vám s ďalším postupom.', 'success', 'submit', submittedEmail, result.emailSent === true);
-        focusSubmitConfirmation();
+        focusSubmitResult();
       } catch (error) {
         if (error instanceof Error && 'retryPhotoPathname' in error && typeof error.retryPhotoPathname === 'string') {
           resetMissingLeadPhotoUpload(uploadedFilesByFingerprint, error.retryPhotoPathname);
@@ -695,6 +697,7 @@ export default function initializeHomepageCriticalClient({
               : 'Dopyt sa nepodarilo odoslať. Skontrolujte pripojenie a skúste to znova alebo zavolajte 0905 217 946.',
           'error',
         );
+        focusSubmitResult();
         return;
       } finally {
         leadSnapshotInProgress = false;

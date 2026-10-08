@@ -27,7 +27,7 @@ test('roofer grouped choices keep errors beside the focused repair control', asy
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
-test('career form keeps an atomic live region mounted and exposes busy, alert and success focus states', async () => {
+test('career form keeps an atomic live region mounted and focuses every settled result', async () => {
   const source = await read('../app/career-form-client.tsx');
 
   assert.match(source, /<form[^>]*aria-busy=\{isSubmitting\}/s);
@@ -35,7 +35,11 @@ test('career form keeps an atomic live region mounted and exposes busy, alert an
   assert.match(source, /ref=\{messageRef\}[\s\S]*role=\{messageIsError \? 'alert' : 'status'\}/);
   assert.match(source, /aria-live=\{messageIsError \? 'assertive' : 'polite'\}/);
   assert.match(source, /aria-atomic="true"/);
-  assert.match(source, /if \(isSuccess\) messageRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /if \(settledAttempt > 0 && message && !isSubmitting\) messageRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /\}, \[isSubmitting, message, settledAttempt\]\)/);
+  assert.match(source, /Životopis môže mať maximálne 5 MB[\s\S]*setSettledAttempt\(\(attempt\) => attempt \+ 1\)/);
+  assert.match(source, /finally \{[\s\S]*setSettledAttempt\(\(attempt\) => attempt \+ 1\)[\s\S]*setIsSubmitting\(false\)/);
+  assert.match(source, /tabIndex=\{message && !isSubmitting \? -1 : undefined\}/);
   assert.match(source, /const submissionData = new FormData\(form\);[\s\S]*setIsSubmitting\(true\)/);
   assert.match(source, /name="cv"[\s\S]*disabled=\{isSubmitting\}/);
   assert.match(source, /name="gdpr"[^>]*disabled=\{isSubmitting\}/);
@@ -67,7 +71,9 @@ test('testimonial form times out after 30 seconds, announces progress and always
   assert.match(source, /role=\{error \? 'alert' : 'status'\}/);
   assert.match(source, /aria-live=\{error \? 'assertive' : 'polite'\}/);
   assert.match(source, /aria-atomic="true"/);
-  assert.match(source, /messageRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /if \(message && !pending\) messageRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /tabIndex=\{message && !pending \? -1 : undefined\}/);
+  assert.doesNotMatch(source, /message && !error && !pending/);
 });
 
 test('signed native testimonial confirmation is the first main content and is focusable without client JavaScript', async () => {

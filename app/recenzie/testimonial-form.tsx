@@ -11,7 +11,7 @@ export default function TestimonialForm({ initialSubmissionId }: { initialSubmis
   const messageRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
-    if (message && !error && !pending) messageRef.current?.focus({ preventScroll: true });
+    if (message && !pending) messageRef.current?.focus({ preventScroll: true });
   }, [error, message, pending]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -64,7 +64,7 @@ export default function TestimonialForm({ initialSubmissionId }: { initialSubmis
       role={error ? 'alert' : 'status'}
       aria-live={error ? 'assertive' : 'polite'}
       aria-atomic="true"
-      tabIndex={message && !error && !pending ? -1 : undefined}
+      tabIndex={message && !pending ? -1 : undefined}
     >
       {message}
     </p>

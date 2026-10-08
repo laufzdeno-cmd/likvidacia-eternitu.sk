@@ -42,6 +42,7 @@ export default function CareerFormClient() {
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
   const [isAccepted, setIsAccepted] = useState(false);
+  const [settledAttempt, setSettledAttempt] = useState(0);
   const [hasAsbestosExperience, setHasAsbestosExperience] = useState<'yes' | 'no' | ''>('');
 
   function replaceSubmissionId(next: string) {
@@ -58,8 +59,8 @@ export default function CareerFormClient() {
   }, []);
 
   useEffect(() => {
-    if (isSuccess) messageRef.current?.focus({ preventScroll: true });
-  }, [isSuccess]);
+    if (settledAttempt > 0 && message && !isSubmitting) messageRef.current?.focus({ preventScroll: true });
+  }, [isSubmitting, message, settledAttempt]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,6 +74,7 @@ export default function CareerFormClient() {
       setMessage('Životopis môže mať maximálne 5 MB. Vyberte menší súbor alebo žiadosť pošlite bez životopisu.');
       setIsSuccess(false);
       setIsAccepted(false);
+      setSettledAttempt((attempt) => attempt + 1);
       return;
     }
     const submissionData = new FormData(form);
@@ -181,6 +183,7 @@ export default function CareerFormClient() {
       setIsAccepted(applicationAccepted);
     } finally {
       window.clearTimeout(timeout);
+      setSettledAttempt((attempt) => attempt + 1);
       setIsSubmitting(false);
     }
   }
@@ -240,7 +243,7 @@ export default function CareerFormClient() {
         role={messageIsError ? 'alert' : 'status'}
         aria-live={messageIsError ? 'assertive' : 'polite'}
         aria-atomic="true"
-        tabIndex={isSuccess ? -1 : undefined}
+        tabIndex={message && !isSubmitting ? -1 : undefined}
       >
         {message}
       </p>

@@ -87,14 +87,20 @@ test('mobile steps initialize, validate accessibly, and reset to step one', () =
     'desktop-to-mobile transition must preserve the step that contains the focused control');
   assert.match(normalizedClient, /mobileStepMedia\.addEventListener\('change', onMobileStepMediaChange\);/);
   assert.match(normalizedClient, /mobileStepMedia\.removeEventListener\('change', onMobileStepMediaChange\);/);
-  assert.match(normalizedClient, /const focusSubmitConfirmation = \(\) => \{ if \(!status\) return; status\.tabIndex = -1; status\.focus\(\{ preventScroll: true \}\); \};/,
-    'the visible submit confirmation must be programmatically focusable and receive focus');
+  assert.match(normalizedClient, /const focusSubmitResult = \(\) => \{ if \(!status\) return; status\.tabIndex = -1; status\.focus\(\{ preventScroll: true \}\); \};/,
+    'the visible submit result must be programmatically focusable and receive focus');
   const nativeSuccess = sourceBetween(normalizedClient, 'if (verifiedReceipt?.accepted === true)', '} else {');
-  assert.match(nativeSuccess, /setStatus\([\s\S]*?'success'\); focusSubmitConfirmation\(\);/,
+  assert.match(nativeSuccess, /setStatus\([\s\S]*?'success'\); focusSubmitResult\(\);/,
     'verified native submission must focus its confirmation');
+  const nativeFailure = sourceBetween(normalizedClient, '} else { setStatus(\'Výsledok odoslania', '} } else if (errorMessage)');
+  assert.match(nativeFailure, /setStatus\([\s\S]*?'error'\); focusSubmitResult\(\);/,
+    'an unverifiable native submission must focus its error result');
   const javascriptSuccess = sourceBetween(normalizedClient, 'const result = await submitLeadForm(payload);', '} catch (error) {');
-  assert.match(javascriptSuccess, /setStatus\([\s\S]*?'success', 'submit',[\s\S]*?\); focusSubmitConfirmation\(\);/,
+  assert.match(javascriptSuccess, /setStatus\([\s\S]*?'success', 'submit',[\s\S]*?\); focusSubmitResult\(\);/,
     'JavaScript submission with or without photos must focus its confirmation');
+  const javascriptFailure = sourceBetween(normalizedClient, "} catch (error) { if (error instanceof Error && 'retryPhotoPathname'", '} finally {');
+  assert.match(javascriptFailure, /setStatus\([\s\S]*?'error', \); focusSubmitResult\(\);/,
+    'JavaScript submission failure or timeout must focus its error result');
 });
 
 test('mobile CSS hides inactive steps and stacks hero actions at 360px', () => {

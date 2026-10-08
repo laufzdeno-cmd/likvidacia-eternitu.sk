@@ -950,6 +950,29 @@ async function runCareerRetryChecks(page, pglite, appOrigin, tempRoot) {
   await form.locator('input[name="hasTradeLicense"]').check();
   await form.locator('input[name="workAtHeights"]').check();
   await form.locator('input[name="gdpr"]').check();
+  const oversizedPdf = Buffer.alloc(5 * 1024 * 1024 + 1, 0x20);
+  oversizedPdf.write('%PDF-1.4\n', 0, 'ascii');
+  await form.locator('input[name="cv"]').setInputFiles({ name: 'test-f12-prilis-velke-cv.pdf', mimeType: 'application/pdf', buffer: oversizedPdf });
+  let oversizedPosts = 0;
+  const countOversizedPosts = (request) => {
+    if (request.url() === `${appOrigin}/api/kariera/` && request.method() === 'POST') oversizedPosts += 1;
+  };
+  page.on('request', countOversizedPosts);
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    await form.locator('button[type="submit"]').click();
+    await page.waitForFunction(() => {
+      const message = document.querySelector('.career-form-message');
+      return message?.classList.contains('is-error') && document.activeElement === message;
+    });
+    assert.match(await form.locator('.career-form-message').innerText(), /maximálne 5 MB/);
+    assert.equal(await form.locator('input[name="cv"]').evaluate((input) => input.files.length), 1,
+      `oversized career attempt ${attempt} must retain the selected CV`);
+    assert.equal(await form.locator('input[name="fullName"]').inputValue(), 'TEST-UPGRADE-F12-Nekontaktovať',
+      `oversized career attempt ${attempt} must retain applicant data`);
+  }
+  page.off('request', countOversizedPosts);
+  assert.equal(oversizedPosts, 0, 'repeated oversized CV rejection must stay local and make no POST');
+  assert.equal((await pglite.query('SELECT id FROM career_applications')).rowCount, 0);
   const pdf = Buffer.from('%PDF-1.4\n1 0 obj <</Type /Catalog>> endobj\n%%EOF\n');
   await form.locator('input[name="cv"]').setInputFiles({ name: 'test-f12-cv.pdf', mimeType: 'application/pdf', buffer: pdf });
   const submissionId = await form.locator('input[name="submissionId"]').inputValue();
@@ -994,12 +1017,19 @@ async function runCareerRetryChecks(page, pglite, appOrigin, tempRoot) {
   }
   if (firstRouteError) throw firstRouteError;
   await page.waitForFunction(() => document.querySelector('.career-form-message')?.classList.contains('is-error'), null, { timeout: 45_000 });
+  const careerMessage = form.locator('.career-form-message');
+  assert.equal(await careerMessage.getAttribute('tabindex'), '-1', 'career failure must remain programmatically focusable');
+  assert.equal(await careerMessage.evaluate((element) => document.activeElement === element), true,
+    'career failure must receive focus after pending state ends');
   assert.equal(firstResponse?.status, 200, `first career POST must persist: ${JSON.stringify(firstResponse)}`);
   assert.equal(firstResponse.body?.accepted, true);
   assert.equal(await form.locator('input[name="submissionId"]').inputValue(), submissionId, 'unknown result must keep the same submission identity');
   assert.equal(await form.locator('input[name="cv"]').evaluate((input) => input.files.length), 1, 'unknown result must retain the CV');
   await form.locator('button[type="submit"]').click();
   await page.waitForFunction(() => document.querySelector('.career-form-message')?.classList.contains('is-success'), null, { timeout: 45_000 });
+  assert.equal(await careerMessage.getAttribute('tabindex'), '-1', 'career success must remain programmatically focusable');
+  assert.equal(await careerMessage.evaluate((element) => document.activeElement === element), true,
+    'career success must receive focus after pending state ends');
   assert.notEqual(await form.locator('input[name="submissionId"]').inputValue(), submissionId, 'confirmed success must create a new ID for the next application');
   const rows = await pglite.query('SELECT id, cv_storage_driver, cv_storage_key, cv_sha256 FROM career_applications WHERE submission_id=$1', [submissionId]);
   assert.equal(rows.rowCount, 1, 'ambiguous first response and retry must create exactly one application');
@@ -1223,6 +1253,7 @@ async function runCareerDirectCvChecks(page, pglite, fake, appOrigin) {
 async function runRooferSubmissionChecks(page, pglite, appOrigin) {
   const response = await page.goto(`${appOrigin}/strechari/`, { waitUntil: 'domcontentloaded', timeout: 45_000 });
   assert.equal(response?.status(), 200, 'roofer page must render in the isolated local app');
+  await page.waitForLoadState('networkidle');
   const form = page.locator('.roofer-registration-form');
   const fill = async () => {
     await form.locator('select[name="businessType"]').selectOption('szco');
@@ -1349,6 +1380,39 @@ async function runTestimonialReceiptChecks(page, pglite, appOrigin) {
   assert.equal(await page.locator('meta[property="og:url"]').getAttribute('content'), 'https://likvidacia-eternitu.sk/recenzie/');
   assert.ok((await page.title()).includes('Recenzie zákazníkov'));
   assert.ok((await page.locator('meta[name="description"]').getAttribute('content'))?.trim());
+  await page.waitForLoadState('networkidle');
+
+  const publicForm = page.locator('.testimonial-public-form');
+  const publicMessage = publicForm.locator('.testimonial-public-message');
+  await publicForm.locator('input[name="customerName"]').fill('Izolovaná chyba');
+  await publicForm.locator('input[name="customerEmail"]').fill('review-focus@example.invalid');
+  await publicForm.locator('textarea[name="text"]').fill('Izolovaná skúška opakovanej chyby formulára, nikdy nezverejniť.');
+  await publicForm.locator('input[name="consentPublication"]').check();
+  let clientErrorPosts = 0;
+  await page.route('**/api/testimonial', async (route) => {
+    clientErrorPosts += 1;
+    await route.fulfill({
+      status: 503,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: false, message: 'Izolovaná chyba odoslania.' }),
+    });
+  });
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const responsePromise = page.waitForResponse((received) =>
+      received.url() === `${appOrigin}/api/testimonial` && received.request().method() === 'POST');
+    await publicForm.locator('button[type="submit"]').click();
+    assert.equal((await responsePromise).status(), 503);
+    await page.waitForFunction(() => {
+      const message = document.querySelector('.testimonial-public-message');
+      return message?.classList.contains('is-error') && document.activeElement === message;
+    });
+    assert.equal(await publicMessage.getAttribute('tabindex'), '-1', `testimonial error attempt ${attempt} must be focusable`);
+    assert.equal(await publicMessage.innerText(), 'Izolovaná chyba odoslania.');
+    assert.equal(await publicForm.locator('input[name="customerName"]').inputValue(), 'Izolovaná chyba',
+      'testimonial failure must retain the form fields');
+  }
+  assert.equal(clientErrorPosts, 2, 'the same testimonial error must refocus after every settled attempt');
+  await page.unroute('**/api/testimonial');
 
   const submissionId = randomUUID();
   const form = new FormData();
@@ -1388,7 +1452,7 @@ async function runTestimonialReceiptChecks(page, pglite, appOrigin) {
   const changed = `${payload}.${signature.startsWith('A') ? 'B' : 'A'}${signature.slice(1)}`;
   await page.goto(`${appOrigin}/recenzie/?referencia_receipt=${encodeURIComponent(changed)}`, { waitUntil: 'domcontentloaded' });
   assert.equal(await page.getByText(successText, { exact: true }).count(), 0, 'a tampered receipt cannot confirm a review');
-  return { testimonialStored: stored.rowCount, nativeRedirect: response.status, forgedSuccess: false };
+  return { testimonialStored: stored.rowCount, nativeRedirect: response.status, forgedSuccess: false, clientErrorFocusAttempts: clientErrorPosts };
 }
 
 async function runPublicSeoCrawl(page, appOrigin) {
@@ -2961,6 +3025,12 @@ async function runHarness() {
     await page.evaluate(() => { window.__astanaPreSubmit = new FormData(document.querySelector('.lead-form')); });
     await page.locator('.lead-form button[type="submit"]').click();
     await page.waitForFunction(() => document.querySelector('.form-status')?.classList.contains('is-error'), null, { timeout: 90_000 });
+    if (!historicalClient) {
+      const leadResult = page.locator('.form-status');
+      assert.equal(await leadResult.getAttribute('tabindex'), '-1', 'lead failure must remain programmatically focusable');
+      assert.equal(await leadResult.evaluate((element) => document.activeElement === element), true,
+        'lead failure must receive focus while the retryable form data stays intact');
+    }
     const submissionId = await page.locator('#submissionId').inputValue();
     assert.match(submissionId, /^[0-9a-f-]{36}$/i, 'the browser must generate the ID on first submit');
     assert.equal(submissionId, oldSubmissionId, 'reupload retry must keep the old form identity');
@@ -2981,6 +3051,8 @@ async function runHarness() {
       const successText = await page.locator('.form-status').innerText();
       assert.match(successText, /Potvrdenie emailom ešte overujeme/, 'an omitted emailSent field must not claim customer mail was sent');
       assert.doesNotMatch(successText, /Potvrdenie sme poslali/, 'accepted lead does not prove that an email was sent');
+      assert.equal(await page.locator('.form-status').evaluate((element) => document.activeElement === element), true,
+        'lead success must receive focus after the retry is confirmed');
     }
     assert.equal(leadPostCount, 2, 'one browser submit and one retry expected');
     if (historicalClient) {
