@@ -1,8 +1,12 @@
-import { site } from './site';
+import { serviceDocumentationOutcome, site } from './site';
 
 export type FaqItem = {
   question: string;
   answer: string;
+  relatedLink?: {
+    href: string;
+    label: string;
+  };
 };
 
 export type ServicePageContent = {
@@ -45,6 +49,10 @@ export const coreFaqs: FaqItem[] = [
     question: 'Môžem eternit odstrániť svojpomocne?',
     answer:
       'Pri materiáloch s možným obsahom azbestu nejde iba o zloženie krytiny. Treba riešiť bezpečnú manipuláciu, balenie, odvoz ako nebezpečný odpad a doklady o likvidácii.',
+    relatedLink: {
+      href: '/postup/',
+      label: 'Pozrite si odborný postup',
+    },
   },
   {
     question: 'Čo potrebujem pre cenovú ponuku?',
@@ -60,20 +68,41 @@ export const coreFaqs: FaqItem[] = [
     question: 'Od čoho závisí cena?',
     answer:
       'Cenu ovplyvňuje najmä výmera, typ materiálu, výška objektu, prístup, lokalita, rozsah dokumentácie a objem odpadu. Preto pripravujeme individuálnu cenovú ponuku.',
+    relatedLink: {
+      href: '/cena-likvidacie-azbestu/',
+      label: 'Ako sa tvorí orientačná cena',
+    },
   },
   {
     question: 'Aké doklady dostanem?',
     answer:
       'Po ukončení zákazky dostanete potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu a typu práce. Cieľom je, aby ste mali preukázateľný doklad o legálnej likvidácii.',
+    relatedLink: {
+      href: '/postup/',
+      label: 'Čo sa deje od dopytu po odovzdanie dokladov',
+    },
   },
   {
     question: 'Pôsobíte po celom Slovensku?',
     answer: `${site.legalName} zabezpečuje likvidáciu azbestu a eternitu po celom Slovensku podľa rozsahu zákazky a dostupných termínov.`,
+    relatedLink: {
+      href: '/kde-posobime/',
+      label: 'Ako plánujeme práce po celom Slovensku',
+    },
   },
 ];
 
 export const faqPageItems: FaqItem[] = [
   ...coreFaqs,
+  {
+    question: 'Treba na práce povolenie od RÚVZ?',
+    answer:
+      'Pri plánovanom odstraňovaní azbestu držiteľ oprávnenia písomne oznamuje práce príslušnému RÚVZ najmenej 30 dní vopred a predkladá požadované podklady. Ide o oznámenie, nie o žiadosť o povolenie. Konkrétny postup pripravíme podľa stavby.',
+    relatedLink: {
+      href: '/postup/',
+      label: 'Pozrite si postup pred začiatkom prác',
+    },
+  },
   {
     question: 'Riešite aj malé strechy?',
     answer:
@@ -125,7 +154,7 @@ export const servicePages: Record<string, ServicePageContent> = {
     h1: 'Likvidácia azbestu po celom Slovensku',
     eyebrow: 'Služba',
     quickAnswer:
-      'Likvidácia azbestu je odborný postup, pri ktorom sa azbestový materiál bezpečne stabilizuje, demontuje, zabalí, odvezie ako nebezpečný odpad a následne sa zákazníkovi odovzdá potvrdenie o legálnej likvidácii.',
+      `Likvidácia azbestu je odborný postup, pri ktorom sa azbestový materiál bezpečne stabilizuje, demontuje, zabalí a odvezie ako nebezpečný odpad. Zákazníkovi sa následne odovzdá ${serviceDocumentationOutcome}.`,
     lead:
       'ASTANA zabezpečuje odbornú likvidáciu azbestu vrátane cenovej ponuky, potrebnej dokumentácie, demontáže, balenia, odvozu a dokladov podľa konkrétnej zákazky.',
     sections: [
@@ -161,11 +190,11 @@ export const servicePages: Record<string, ServicePageContent> = {
     slug: '/likvidacia-eternitu/',
     title: 'Likvidácia eternitu zo striech | Bezpečne a legálne | ASTANA',
     description:
-      'Likvidácia eternitu zo striech rodinných domov, garáží, hál a hospodárskych budov. Demontáž, balenie, odvoz a potvrdenie o likvidácii.',
+      'Likvidácia eternitu zo striech rodinných domov, garáží, hál a hospodárskych budov. Demontáž, balenie, odvoz a dohodnuté doklady podľa zákazky.',
     h1: 'Likvidácia eternitu zo striech',
     eyebrow: 'Služba',
     quickAnswer:
-      'Likvidácia eternitu je odborné odstránenie strešných alebo obkladových dosiek, ktoré môžu obsahovať azbest. Bezpečný postup zahŕňa stabilizáciu materiálu, opatrnú demontáž bez zbytočného lámania, balenie ako nebezpečný odpad, odvoz na určené miesto a potvrdenie o legálnej likvidácii.',
+      `Likvidácia eternitu je odborné odstránenie strešných alebo obkladových dosiek, ktoré môžu obsahovať azbest. Bezpečný postup zahŕňa stabilizáciu materiálu, opatrnú demontáž bez zbytočného lámania, balenie ako nebezpečný odpad a odvoz na určené miesto. Zákazníkovi sa odovzdá ${serviceDocumentationOutcome}.`,
     lead:
       'Eternit sa nemá zbytočne lámať, rezať ani zhadzovať. ASTANA rieši kontrolovanú demontáž, balenie, odvoz a dokumentáciu podľa konkrétnej strechy alebo objektu.',
     sections: [
@@ -202,6 +231,13 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Poprad | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Poprade a okolí. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
     localNote: 'Poprad je sídlom ASTANY. Pri dopyte uveďte obec, približnú výmeru, stav materiálu a preferovaný termín, aby sme vedeli naplánovať ďalší postup.',
+    coverageHeading: 'Poprad a širšie okolie',
+    coverageAreas: ['Poprad', 'Svit', 'Vysoké Tatry', 'Kežmarok', 'Levoča'],
+    requestChecklist: [
+      'obec alebo adresu objektu a približnú výmeru v m2',
+      'či je materiál na streche, fasáde alebo už bezpečne uložený',
+      'preferovaný termín a informáciu, či po demontáži nadväzuje strechár',
+    ],
   },
   {
     slug: 'kosice',
@@ -210,6 +246,13 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Košice | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Košiciach a Košickom kraji vrátane dokumentácie, demontáže, balenia, odvozu a dokladov.',
     localNote: 'Pri dopyte z Košíc a okolia uveďte presnú obec, prístup k objektu a prípadné časové obmedzenia. Pomôže to posúdiť logistiku výjazdu.',
+    coverageHeading: 'Košický kraj',
+    coverageAreas: ['Gelnica', 'Košice I–IV', 'Košice-okolie', 'Michalovce', 'Rožňava', 'Sobrance', 'Spišská Nová Ves', 'Trebišov'],
+    requestChecklist: [
+      'presnú obec alebo okres, aby sme vedeli posúdiť trasu výjazdu',
+      'možnosť príjazdu pracovného vozidla a prístup k objektu',
+      'časové obmedzenia a požadovanú nadväznosť ďalších prác',
+    ],
   },
   {
     slug: 'presov',
@@ -218,14 +261,28 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Prešov | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Prešove a Prešovskom kraji. Na ponuku stačí m2 a lokalita; fotky sú voliteľné.',
     localNote: 'Prešov a okolie obsluhujeme z nášho sídla v Poprade. Pošlite približnú výmeru a informáciu, či potrebujete práce zladiť so strechárom.',
+    coverageHeading: 'Prešovský kraj',
+    coverageAreas: ['Bardejov', 'Humenné', 'Kežmarok', 'Levoča', 'Medzilaborce', 'Poprad', 'Prešov', 'Sabinov', 'Snina', 'Stará Ľubovňa', 'Stropkov', 'Svidník', 'Vranov nad Topľou'],
+    requestChecklist: [
+      'obec alebo okres a typ objektu',
+      'približnú výmeru a stav azbestocementového materiálu',
+      'či treba termín demontáže koordinovať s pokrývačmi',
+    ],
   },
   {
     slug: 'zilina',
     name: 'Žilina',
     area: 'Žiline a Žilinskom kraji',
     title: 'Likvidácia azbestu a eternitu Žilina | ASTANA',
-    description: 'Likvidácia azbestu a eternitu v Žiline a Žilinskom kraji. Demontáž, balenie, odvoz a potvrdenie o likvidácii.',
+    description: 'Likvidácia azbestu a eternitu v Žiline a Žilinskom kraji. Demontáž, balenie, odvoz a dohodnuté doklady podľa zákazky.',
     localNote: 'Pri dopyte zo Žiliny a okolia popíšte prístup na pozemok, približný sklon strechy a to, či má po odstránení nadväzovať pokládka novej krytiny.',
+    coverageHeading: 'Žilinský kraj',
+    coverageAreas: ['Bytča', 'Čadca', 'Dolný Kubín', 'Kysucké Nové Mesto', 'Liptovský Mikuláš', 'Martin', 'Námestovo', 'Ružomberok', 'Turčianske Teplice', 'Tvrdošín', 'Žilina'],
+    requestChecklist: [
+      'presnú obec a informáciu o prístupe na pozemok',
+      'približný sklon, výšku a výmeru strechy',
+      'či má po odstránení bezprostredne nadväzovať nová krytina',
+    ],
   },
   {
     slug: 'banska-bystrica',
@@ -234,6 +291,13 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Banská Bystrica | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Banskej Bystrici a okolí. Cenová ponuka podľa výmery, prístupu, lokality a typu materiálu.',
     localNote: 'Pri dopyte z Banskobystrického kraja uveďte konkrétnu obec, približnú výmeru a prístup k objektu. Podľa týchto údajov pripravíme posúdenie ďalšieho postupu.',
+    coverageHeading: 'Banskobystrický kraj',
+    coverageAreas: ['Banská Bystrica', 'Banská Štiavnica', 'Brezno', 'Detva', 'Krupina', 'Lučenec', 'Poltár', 'Revúca', 'Rimavská Sobota', 'Veľký Krtíš', 'Zvolen', 'Žarnovica', 'Žiar nad Hronom'],
+    requestChecklist: [
+      'konkrétnu obec alebo okres a typ objektu',
+      'približnú výmeru a miesto, kde sa materiál nachádza',
+      'popis príjazdu k objektu a priestoru na bezpečnú manipuláciu',
+    ],
   },
   {
     slug: 'bratislava',
@@ -242,6 +306,13 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Bratislava | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Bratislave a Bratislavskom kraji vrátane podkladov, odvozu a potvrdenia.',
     localNote: 'Pri dopyte z Bratislavy uveďte typ objektu, možnosti prístupu a prípadné obmedzenia v čase alebo pri parkovaní.',
+    coverageHeading: 'Bratislavský kraj',
+    coverageAreas: ['Bratislava I–V', 'Malacky', 'Pezinok', 'Senec'],
+    requestChecklist: [
+      'mestskú časť alebo obec a typ objektu',
+      'možnosť príjazdu a parkovania pracovného vozidla',
+      'prípadné časové alebo prevádzkové obmedzenia pri objekte',
+    ],
   },
   {
     slug: 'nitra',
@@ -250,6 +321,13 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Nitra | ASTANA',
     description: 'Likvidácia azbestu a eternitu v Nitre a Nitrianskom kraji. Bezpečná demontáž, balenie, odvoz a doklady.',
     localNote: 'Pri dopyte z Nitrianskeho kraja napíšte, či je materiál ešte na streche alebo už zložený. Fotky z viacerých strán sú voliteľné a pomôžu ponuku spresniť.',
+    coverageHeading: 'Nitriansky kraj',
+    coverageAreas: ['Komárno', 'Levice', 'Nitra', 'Nové Zámky', 'Šaľa', 'Topoľčany', 'Zlaté Moravce'],
+    requestChecklist: [
+      'obec alebo okres a približnú výmeru',
+      'či je materiál ešte na objekte alebo už zložený',
+      'prístup k materiálu; voliteľné fotky z viacerých strán pomôžu ponuku spresniť',
+    ],
   },
   {
     slug: 'trnava',
@@ -258,6 +336,28 @@ export const locationPages = [
     title: 'Likvidácia azbestu a eternitu Trnava | ASTANA',
     description: 'Odborná likvidácia azbestu a eternitu v Trnave a Trnavskom kraji. Ponuka podľa m2, lokality a prístupu; fotky sú voliteľné.',
     localNote: 'Pri dopyte z Trnavy a okolia opíšte prístup vozidla k objektu a uveďte, či potrebujete termín zladiť s prácou strechárov.',
+    coverageHeading: 'Trnavský kraj',
+    coverageAreas: ['Dunajská Streda', 'Galanta', 'Hlohovec', 'Piešťany', 'Senica', 'Skalica', 'Trnava'],
+    requestChecklist: [
+      'obec alebo okres a približnú výmeru',
+      'prístup pracovného vozidla k objektu',
+      'či treba demontáž termínovo zladiť s pokrývačmi',
+    ],
+  },
+  {
+    slug: 'trencin',
+    name: 'Trenčín',
+    area: 'Trenčíne a Trenčianskom kraji',
+    title: 'Likvidácia azbestu a eternitu Trenčín | ASTANA',
+    description: 'Odborná likvidácia azbestu a eternitu v Trenčíne a Trenčianskom kraji. Ponuka podľa výmery, prístupu a rozsahu zákazky.',
+    localNote: 'Pri dopyte z Trenčianskeho kraja uveďte konkrétnu obec, stav materiálu a prístup k objektu. Ak po demontáži nadväzuje pokládka novej krytiny, napíšte aj plánovaný termín strechára.',
+    coverageHeading: 'Trenčiansky kraj',
+    coverageAreas: ['Bánovce nad Bebravou', 'Ilava', 'Myjava', 'Nové Mesto nad Váhom', 'Partizánske', 'Považská Bystrica', 'Prievidza', 'Púchov', 'Trenčín'],
+    requestChecklist: [
+      'konkrétnu obec alebo okres a približnú výmeru',
+      'stav materiálu a možnosti bezpečného prístupu',
+      'plánovaný termín strechára, ak má hneď nadväzovať nová krytina',
+    ],
   },
 ] as const;
 

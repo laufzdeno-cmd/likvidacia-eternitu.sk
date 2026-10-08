@@ -17,7 +17,8 @@ test('public visual audit covers every customer-facing template family and break
 
   const expectedRoutes = [
     '/', '/cena-likvidacie-azbestu/', '/realizacie/', '/kariera/', '/strechari/', '/postup/', '/kontakt/',
-    '/likvidacia-azbestu/', '/likvidacia-eternitu/', '/likvidacia-azbestu-poprad/', '/kde-posobime/', '/faq/',
+    '/likvidacia-azbestu/', '/likvidacia-eternitu/', '/likvidacia-azbestu-poprad/',
+    '/likvidacia-azbestu-trencin/', '/kde-posobime/', '/faq/',
     '/o-firme/', '/poradna/', '/poradna/kolko-stoji-likvidacia-azbestu/', '/recenzie/',
     '/spolupracujuci-strechari/', '/ochrana-osobnych-udajov/', '/podmienky-pouzivania/', '/cookies/',
   ];

@@ -1,3 +1,5 @@
+import { serviceDocumentationOutcome } from '../content/site';
+
 export const homeContentVersion = '2026-05-23-proof-cleanup-v10';
 
 export const homeContentDefaults = {
@@ -5,7 +7,7 @@ export const homeContentDefaults = {
   heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
   heroClaim: 'Pošlite nám približnú výmeru a obec. O ďalší postup sa postaráme my.',
   heroText:
-    'Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii.',
+    `Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie, odvoz aj ${serviceDocumentationOutcome}.`,
   quoteKicker: 'Rýchla cenová ponuka',
   quoteTitle: 'Jednoduchý formulár',
   quoteIntro: 'Stačí približná výmera, lokalita a kontakt. Ozveme sa do 24 hodín.',

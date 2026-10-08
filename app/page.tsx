@@ -948,6 +948,7 @@ export default async function HomePage() {
           <a href="/likvidacia-azbestu-banska-bystrica/">Banská Bystrica</a>
           <a href="/likvidacia-azbestu-nitra/">Nitra</a>
           <a href="/likvidacia-azbestu-trnava/">Trnava</a>
+          <a href="/likvidacia-azbestu-trencin/">Trenčín</a>
         </div>
         <div>
           <h2>Právne</h2>

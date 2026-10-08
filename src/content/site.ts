@@ -55,6 +55,9 @@ export const companyAddressLine = `${site.address.street}, ${site.address.postal
 export const phoneLink = `tel:${site.phoneHref}`;
 export const emailLink = `mailto:${site.email}`;
 
+export const serviceDocumentationOutcome =
+  'potvrdenie alebo dokumentácia po legálnej likvidácii podľa rozsahu zákazky';
+
 export const serviceOffer = [
   'cenová ponuka podľa výmery, lokality a typu materiálu',
   'potrebné podklady a dokumentácia podľa konkrétnej zákazky',
@@ -62,7 +65,7 @@ export const serviceOffer = [
   'bezpečná demontáž bez zbytočného lámania a zhadzovania',
   'balenie azbestového odpadu do určených obalov',
   'odvoz odpadu na určené miesto',
-  'potvrdenie alebo dokumentácia po legálnej likvidácii',
+  serviceDocumentationOutcome,
 ] as const;
 
 export const ownerTodos = [

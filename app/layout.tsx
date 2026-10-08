@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { site } from '@/src/content/site';
+import { serviceDocumentationOutcome, site } from '@/src/content/site';
 import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import { buildOrganizationJsonLd } from './seo-json-ld';
 import '../src/global-bundle.css';
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(site.website),
   title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
   description:
-    'Odborná likvidácia azbestu a eternitu po celom Slovensku. ASTANA zabezpečí dokumentáciu, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii odpadu.',
+    `Odborná likvidácia azbestu a eternitu po celom Slovensku. ASTANA zabezpečí dokumentáciu, demontáž, balenie, odvoz a ${serviceDocumentationOutcome}.`,
   keywords: 'likvidácia azbestu, likvidácia eternitu, odstránenie azbestu, cena likvidácie azbestu, nebezpečný odpad',
   authors: [{ name: site.legalName }],
   openGraph: {
@@ -18,13 +18,13 @@ export const metadata: Metadata = {
     siteName: 'Likvidácia azbestu a eternitu ASTANA',
     title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
     description:
-      'ASTANA zabezpečuje dokumentáciu, demontáž, balenie, odvoz a potvrdenie o legálnej likvidácii.',
+      `ASTANA zabezpečuje dokumentáciu, demontáž, balenie, odvoz a ${serviceDocumentationOutcome}.`,
     images: ['/og/homepage.jpg'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Likvidácia azbestu a eternitu po celom Slovensku | ASTANA',
-    description: 'Cenová ponuka podľa výmery, lokality a typu materiálu. Dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
+    description: 'Cenová ponuka podľa výmery, lokality a typu materiálu. Dokumentácia, demontáž, balenie, odvoz a dohodnuté doklady.',
     images: ['/og/homepage.jpg'],
   },
   robots: {

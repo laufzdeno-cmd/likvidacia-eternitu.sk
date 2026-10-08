@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict';
+import { execFile } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { chromium } from 'playwright';
 import { renderPriceOfferPdf, renderPriceOfferPdfHtml } from '../src/server/price-offer-pdf';
 import type { PriceOffer, PriceOfferSettings } from '../src/server/types';
 
 const outputDir = path.join(process.cwd(), 'tmp', 'pdfs');
 const outputPath = path.join(outputDir, 'price-offer-boundary-test.pdf');
+const execFileAsync = promisify(execFile);
 
 function words(seed: string, maxLength: number) {
   return `${seed} `.repeat(Math.ceil(maxLength / (seed.length + 1))).slice(0, maxLength).trim();
@@ -87,6 +90,55 @@ const settings = {
   },
 } satisfies PriceOfferSettings;
 
+async function inspectPdfStructure(pdf: Buffer) {
+  const pdfInfoExecutable = process.env.PDFINFO_PATH?.trim() || 'pdfinfo';
+  const runPdfInfo = async (args: string[]) => {
+    try {
+      const { stdout, stderr } = await execFileAsync(pdfInfoExecutable, args, {
+        encoding: 'utf8',
+        maxBuffer: 8 * 1024 * 1024,
+      });
+      assert.equal(String(stderr).trim(), '', `pdfinfo nahlásil chybu štruktúry: ${String(stderr).trim()}`);
+      return String(stdout);
+    } catch (error) {
+      throw new Error(
+        'Štrukturálna PDF kontrola vyžaduje lokálny nástroj pdfinfo (Poppler); test nevykonáva sieťové volania.',
+        { cause: error },
+      );
+    }
+  };
+
+  const summary = await runPdfInfo(['-enc', 'UTF-8', outputPath]);
+  assert.match(summary, /^Title:\s+Cenová ponuka č\. 20269999 \| ASTANA, s\.r\.o\.$/m);
+  assert.match(summary, /^Tagged:\s+yes$/mi);
+  assert.match(summary, /^Pages:\s+2$/mi);
+  assert.match(summary, /^Page size:.*\(A4\)$/mi);
+
+  const pdfSource = pdf.toString('latin1');
+  assert.match(pdfSource, /\/Lang\s*\(sk\)/, 'PDF katalóg neobsahuje slovenský jazyk /Lang (sk).');
+  assert.match(pdfSource, /\/StructTreeRoot\b/, 'PDF katalóg neobsahuje /StructTreeRoot.');
+  assert.match(pdfSource, /\/Outlines\b/, 'PDF neobsahuje outline vytvorený z nadpisov dokumentu.');
+
+  const structure = await runPdfInfo(['-struct-text', '-enc', 'UTF-8', outputPath]);
+  const normalizedStructure = structure.toLocaleLowerCase('sk-SK');
+  const readingOrderMarkers = [
+    'CENOVÁ PONUKA',
+    'Objekt:',
+    'Dobrý deň,',
+    'Položka',
+    'V cene je zahrnuté',
+    'Obchodné podmienky',
+    'Táto cenová ponuka platí do:',
+    'S cenovou ponukou súhlasíme',
+  ];
+  let previousIndex = -1;
+  for (const marker of readingOrderMarkers) {
+    const markerIndex = normalizedStructure.indexOf(marker.toLocaleLowerCase('sk-SK'), previousIndex + 1);
+    assert.ok(markerIndex > previousIndex, `Čítacie poradie PDF neobsahuje marker „${marker}“ v očakávanom poradí.`);
+    previousIndex = markerIndex;
+  }
+}
+
 async function main() {
   const html = renderPriceOfferPdfHtml(offer, settings);
   const browser = await chromium.launch({ headless: true });
@@ -165,6 +217,7 @@ async function main() {
   const pdf = await renderPriceOfferPdf(offer, settings);
   assert.ok(pdf.length > 10_000, 'Vygenerovaný PDF súbor je neočakávane malý.');
   await writeFile(outputPath, pdf);
+  await inspectPdfStructure(pdf);
   console.log(outputPath);
 }
 

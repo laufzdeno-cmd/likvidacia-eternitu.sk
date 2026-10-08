@@ -1854,7 +1854,8 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
     ['home', '/'], ['price', '/cena-likvidacie-azbestu/'], ['realizations', '/realizacie/'],
     ['career', '/kariera/'], ['roofers', '/strechari/'], ['process', '/postup/'], ['contact', '/kontakt/'],
     ['service-asbestos', '/likvidacia-azbestu/'], ['service-eternit', '/likvidacia-eternitu/'],
-    ['region', '/likvidacia-azbestu-poprad/'], ['coverage', '/kde-posobime/'], ['faq', '/faq/'],
+    ['region', '/likvidacia-azbestu-poprad/'], ['region-trencin', '/likvidacia-azbestu-trencin/'],
+    ['coverage', '/kde-posobime/'], ['faq', '/faq/'],
     ['about', '/o-firme/'], ['advice', '/poradna/'],
     ['article', '/poradna/kolko-stoji-likvidacia-azbestu/'], ['reviews', '/recenzie/'],
     ['partner-roofers', '/spolupracujuci-strechari/'], ['privacy', '/ochrana-osobnych-udajov/'],
@@ -1957,7 +1958,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
       }
       assert.ok(Math.max(metrics.document, metrics.body) <= metrics.viewport + 1,
         `${route} overflows horizontally at ${viewport.width}px: ${JSON.stringify(metrics)}`);
-      if (['career', 'realizations', 'process'].includes(name) && viewport.width <= 760) {
+      if ((['career', 'realizations', 'process'].includes(name) || name.startsWith('region-')) && viewport.width <= 760) {
         assert.equal(await page.locator('.whatsapp-btn').evaluate((button) => getComputedStyle(button).display), 'none',
           `${route} floating WhatsApp must not cover the mobile primary action at ${viewport.width}px`);
       }
@@ -2118,7 +2119,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
         }
       }
       measured.push(`${name}:${viewport.width}x${viewport.height}`);
-      if (['home', 'price', 'career', 'realizations', 'roofers', 'process'].includes(name) && [320, 390, 1440].includes(viewport.width)) {
+      if (['home', 'price', 'career', 'realizations', 'roofers', 'process', 'region-trencin'].includes(name) && [320, 390, 1440].includes(viewport.width)) {
         const screenshotResponse = await page.goto(`${appOrigin}${route === '/' ? '' : route}`, {
           waitUntil: 'networkidle',
           timeout: 45_000,

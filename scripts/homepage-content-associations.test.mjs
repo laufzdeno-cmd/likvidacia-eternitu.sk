@@ -28,7 +28,7 @@ test('homepage hero claim and supporting text have distinct jobs', () => {
   assert.doesNotMatch(homepage, /heroClaim:\s*['`]/);
   assert.doesNotMatch(homepage, /heroText:\s*['`]/);
   assert.match(defaults, /heroClaim: 'Pošlite nám približnú výmeru a obec\. O ďalší postup sa postaráme my\.'/);
-  assert.match(defaults, /heroText:\s*'Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie, odvoz aj potvrdenie o legálnej likvidácii\.'/);
+  assert.match(defaults, /heroText:\s*`Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie, odvoz aj \$\{serviceDocumentationOutcome\}\.\`/);
 });
 
 test('homepage evidence describes the six attached realization cards accurately', () => {
@@ -103,7 +103,7 @@ test('regional quick answer uses grammatical location text once in the visible p
 
 test('homepage and public footer link to every existing regional page', () => {
   const footer = readFileSync(new URL('../app/public-layout.tsx', import.meta.url), 'utf8');
-  const regions = ['poprad', 'kosice', 'presov', 'zilina', 'bratislava', 'banska-bystrica', 'nitra', 'trnava'];
+  const regions = ['poprad', 'kosice', 'presov', 'zilina', 'bratislava', 'banska-bystrica', 'nitra', 'trnava', 'trencin'];
   for (const region of regions) {
     const link = new RegExp(`href="/likvidacia-azbestu-${region}/"`);
     assert.match(homepage, link, `homepage odkazuje na ${region}`);

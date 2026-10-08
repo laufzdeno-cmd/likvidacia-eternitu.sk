@@ -176,6 +176,11 @@ export function FaqSection({ faqs, title = 'Časté otázky' }: { faqs: readonly
         <details key={item.question}>
           <summary>{item.question}</summary>
           <p>{item.answer}</p>
+          {item.relatedLink ? (
+            <p className="seo-faq-related-link">
+              <a href={item.relatedLink.href}>{item.relatedLink.label}</a>
+            </p>
+          ) : null}
         </details>
       ))}
     </section>
@@ -316,6 +321,9 @@ export function LocationPage({
     title: string;
     description: string;
     localNote: string;
+    coverageHeading: string;
+    coverageAreas: readonly string[];
+    requestChecklist: readonly string[];
   };
 }) {
   const path = `/likvidacia-azbestu-${location.slug}/`;
@@ -328,7 +336,7 @@ export function LocationPage({
   ];
 
   return (
-    <PublicPageShell breadcrumb={{ name: h1, path }}>
+    <PublicPageShell breadcrumb={{ name: h1, path }} hideWhatsappOnMobile>
       <main className="seo-page">
         <JsonLd data={[buildServiceJsonLd(h1, quickAnswer, path), buildFaqJsonLd(faqs)]} />
         <section className="seo-hero">
@@ -348,6 +356,22 @@ export function LocationPage({
             výjazdu preveríme údaje o stavbe a dohodneme s vami logistiku.
           </p>
           <p><a href="/kde-posobime/">Ako plánujeme výjazdy po Slovensku</a></p>
+        </section>
+        <section className="seo-section seo-grid-2" aria-label={`Praktické informácie pre ${location.coverageHeading}`}>
+          <article>
+            <h2>Dopyty z územia: {location.coverageHeading}</h2>
+            <p>
+              Dopyty posudzujeme aj z týchto okresov alebo blízkych miest: {location.coverageAreas.join(', ')}.
+              Zoznam vyjadruje územie pôsobnosti, nie miestne pobočky ani potvrdené realizácie.
+            </p>
+          </article>
+          <article>
+            <h2>Čo uviesť pre realistickú ponuku</h2>
+            <ul>
+              {location.requestChecklist.map((item) => <li key={item}>{item}</li>)}
+            </ul>
+            <p>Ak niektorý údaj neviete, pošlite odhad. Fotografie sú voliteľné.</p>
+          </article>
         </section>
         <ProcessSteps title="Ako prebieha objednávka" />
         <section className="seo-section">

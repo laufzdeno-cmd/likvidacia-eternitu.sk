@@ -100,6 +100,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
 <head>
   <meta charset="UTF-8">
   <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>Cenová ponuka č. ${escapeHtml(offer.number)} | ASTANA, s.r.o.</title>
   <style>
     :root {
       --navy: #263451;
@@ -129,6 +130,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .gold-line { width: 58px; height: 3px; margin: 8px 0 7px; background: var(--burgundy); }
     .tagline { color: var(--muted); font-size: 10.67px; letter-spacing: 0.05em; text-transform: uppercase; }
     .header-contact { text-align: right; color: #64748B; font-size: 10.67px; line-height: 1.55; }
+    .header-company { font-weight: 700; }
     .accent { height: 4px; background: var(--burgundy); }
     .document-title { padding: 28px 40px 20px; display: table; width: 100%; }
     .document-title-left, .document-title-right { display: table-cell; vertical-align: top; }
@@ -163,7 +165,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .section-title { margin: 0 0 12px; color: var(--navy); font-size: 13px; font-weight: 700; text-transform: uppercase; border-bottom: 2px solid var(--navy); padding-bottom: 6px; }
     .terms p { margin: 0 0 13px; color: var(--gray); font-size: 11px; line-height: 1.7; }
     .terms-note { margin: 0 0 14px; padding: 10px 14px; background: var(--soft); border-left: 3px solid var(--gold); border-radius: 0 6px 6px 0; }
-    .terms-note strong { display: block; margin-bottom: 5px; color: var(--navy); font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .terms-note-heading { display: block; margin-bottom: 5px; color: var(--navy); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
     .terms-note p { margin: 0; font-size: 10.67px; line-height: 1.45; overflow-wrap: anywhere; }
     .two-boxes { padding: 8px 40px 0; display: table; width: 100%; border-spacing: 0; }
     .box-wrap { display: table-cell; width: 50%; vertical-align: top; }
@@ -202,7 +204,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .page--compact .included-item { font-size: 10.67px; line-height: 1.35; }
     .page--terms-note .terms { padding-top: 17px; }
     .page--terms-note .terms p { margin-bottom: 8px; font-size: 10.67px; line-height: 1.5; }
-    .page--terms-note .terms-note strong, .page--terms-note .terms-note p { font-size: 10.67px; }
+    .page--terms-note .terms-note-heading, .page--terms-note .terms-note p { font-size: 10.67px; }
     .page--terms-note .two-boxes { padding-top: 4px; }
     .page--terms-note .approval { margin-top: 16px; }
   </style>
@@ -219,7 +221,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
         <div class="tagline">likvidácia a odvoz nebezpečného odpadu</div>
       </div>
       <div class="top-header-cell header-contact">
-        <strong>${escapeHtml(c.name)}</strong><br>
+        <span class="header-company">${escapeHtml(c.name)}</span><br>
         ${escapeHtml(c.street)}, ${escapeHtml(c.city)} ${escapeHtml(c.postalCode)}<br>
         tel: ${escapeHtml(c.phone)}<br>
         IČO: ${escapeHtml(c.ico)} | DIČ: ${escapeHtml(c.dic)}<br>
@@ -302,8 +304,8 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     <div class="slim-header">ASTANA, s.r.o. — Cenová ponuka č. ${escapeHtml(offer.number)} — ${dateSk(offer.createdAt)}</div>
     <main class="terms">
       <h2 class="section-title">Obchodné podmienky</h2>
-      ${longOfferNote ? `<div class="terms-note"><strong>Poznámka k cenovej ponuke</strong><p>${escapeHtml(offerNote)}</p></div>` : ''}
-      ${longTransportRoute ? `<div class="terms-note"><strong>Účtovaná trasa dopravy</strong><p>${escapeHtml(transportRoute)}</p></div>` : ''}
+      ${longOfferNote ? `<div class="terms-note"><span class="terms-note-heading">Poznámka k cenovej ponuke</span><p>${escapeHtml(offerNote)}</p></div>` : ''}
+      ${longTransportRoute ? `<div class="terms-note"><span class="terms-note-heading">Účtovaná trasa dopravy</span><p>${escapeHtml(transportRoute)}</p></div>` : ''}
       <p>Rozsah služieb a jednotlivé účtované položky sú uvedené v cenovej kalkulácii. Uvedená cena vychádza z odhadovanej výmery; pri odlišnom skutočnom množstve sa môže po dohode upraviť.</p>
       <p>Plánované práce vopred písomne oznamujeme príslušnému RÚVZ; nejde o žiadosť o povolenie. Potvrdenie RÚVZ nie je záverečným dokladom. Potrebné doklady Vám odovzdáme po dokončení zákazky.</p>
       <p>Potvrdenie cenovej ponuky objednávkou žiadame najmenej 30 dní pred začiatkom realizačných prác. Pri plánovanom odstraňovaní azbestu zo stavby držiteľ oprávnenia písomne oznamuje práce príslušnému orgánu verejného zdravotníctva najmenej 30 dní vopred vrátane požadovaných podkladov; nejde o žiadosť o povolenie. Pre mimoriadne havarijné alebo živelné udalosti platí osobitný režim.${offer.includeDocumentation && !offer.documentationPromotion ? ` V prípade zrušenia objednávky si spoločnosť ASTANA, s.r.o. vyhradzuje právo účtovať dohodnutú dokumentáciu vo výške ${moneyPdf(offer.documentationFeeWithoutVat)} €.` : ''}</p>
@@ -360,9 +362,15 @@ async function renderHtmlToPdf(html: string) {
       const pdf = await page.pdf({
         format: 'A4',
         printBackground: true,
+        tagged: true,
+        outline: true,
         margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
       });
-      return Buffer.from(pdf);
+      const productionPdf = Buffer.from(pdf);
+      if (!productionPdf.includes('/StructTreeRoot')) {
+        throw new Error('Produkčný PDF renderer nevytvoril požadovanú tagovanú štruktúru.');
+      }
+      return productionPdf;
     }
 
     const { chromium } = await import('playwright');
@@ -372,6 +380,8 @@ async function renderHtmlToPdf(html: string) {
     const pdf = await page.pdf({
       format: 'A4',
       printBackground: true,
+      tagged: true,
+      outline: true,
       margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
     });
     return Buffer.from(pdf);

@@ -1,4 +1,5 @@
 import { getAzbestReference } from '@/src/data/azbestReferences';
+import { ResponsiveImage } from '@/src/components/responsive-image';
 import { site, phoneLink } from '@/src/content/site';
 import type { FaqItem } from '@/src/content/seo-content';
 import { buildPageMetadata, InternalLinks } from '../seo-components';
@@ -142,7 +143,14 @@ export default function ProcessPage() {
             </div>
           </div>
           <figure className="postup-process-hero-media">
-            <img src={heroPhoto.jpg} alt={heroPhoto.alt} width="1600" height="1200" fetchPriority="high" decoding="async" />
+            <ResponsiveImage
+              image={heroPhoto}
+              loading="eager"
+              fetchPriority="high"
+              width={1600}
+              height={1200}
+              sizes="(max-width: 820px) calc(100vw - 28px), (max-width: 1228px) 47vw, 545px"
+            />
             <figcaption>Reálna fotografia práce ASTANA na streche</figcaption>
           </figure>
         </section>
@@ -170,7 +178,13 @@ export default function ProcessPage() {
                 {'proof' in step ? <p className="postup-process-proof">{step.proof}</p> : null}
                 {'image' in step ? (
                   <figure className="postup-process-step-media">
-                    <img src={step.image.jpg} alt={step.image.alt} width="1600" height="1200" loading="lazy" decoding="async" />
+                    <ResponsiveImage
+                      image={step.image}
+                      loading="lazy"
+                      width={1600}
+                      height={1200}
+                      sizes="(max-width: 820px) calc(100vw - 28px), (max-width: 1228px) calc(50vw - 32px), 582px"
+                    />
                   </figure>
                 ) : null}
                 {'cta' in step ? <a className="postup-process-inline-cta" href="/#dopyt">Vyplniť cenový dopyt</a> : null}
@@ -222,7 +236,13 @@ export default function ProcessPage() {
             ))}
           </div>
           <figure className="postup-process-wide-proof">
-            <img src={sitePhoto.jpg} alt={sitePhoto.alt} width="1600" height="1200" loading="lazy" decoding="async" />
+            <ResponsiveImage
+              image={sitePhoto}
+              loading="lazy"
+              width={1600}
+              height={1200}
+              sizes="(max-width: 760px) calc(100vw - 28px), 720px"
+            />
             <figcaption>Kontrolované pracovisko a pripravený postup na streche</figcaption>
           </figure>
         </section>
