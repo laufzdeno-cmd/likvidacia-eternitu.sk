@@ -88,6 +88,7 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.match(matrix, /\| S08 \| PASS local current \|/);
   assert.match(matrix, /\| U05 \| PASS local current \|/);
   assert.match(matrix, /\| U01 \| PASS local current \|/);
+  assert.match(matrix, /\| U02 \| PASS local current \|/);
   assert.match(matrix, /\| U04 \| PASS local current \|/);
   assert.match(matrix, /\| U07 \| PASS local current \|/);
   assert.match(matrix, /\| U08 \| PASS local current \|/);

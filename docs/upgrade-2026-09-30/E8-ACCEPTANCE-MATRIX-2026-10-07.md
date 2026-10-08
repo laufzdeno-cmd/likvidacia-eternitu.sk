@@ -92,7 +92,7 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 | ID | Stav | Dôkaz / otvorený bod |
 |---|---|---|
 | U01 | PASS local current | Aktuálna izolovaná matica má 220/220 viewport stavov bez horizontálneho pretečenia alebo chybového prekrytia; consent timeout/retry navyše prešiel na 320 × 568 px. |
-| U02 | PARTIAL | Primárne CTA je konzistentné; finálny obchodný sign-off hlavného príbehu ešte chýba. |
+| U02 | PASS local current | Audit ôsmich hlavných šablón potvrdil jeden významovo správny prvotný cieľ. Kariéra má v desktopovej aj mobilnej hlavičke a v hero vlastné CTA „Chcem sa prihlásiť“ na `#prihlasit-sa`; ostatné kupujúce šablóny si zachovali ponukové CTA. Cielené testy, 220-stavová matica a nezávislý produktový review prešli. Podrobnosti: [U02 audit](U02-PRIMARY-CTA-AUDIT-2026-10-08.md). |
 | U03 | PARTIAL | Prvé polia a ďalší krok sú krátke a funkčné; overenie so skutočnými používateľmi patrí U10. |
 | U04 | PASS local current | Dizajnový systém a route CSS sú zjednotené; aktuálna matica 20 trás/220 stavov a cielené kontroly novších rezov nenašli konkrétnu P1–P3 chybu. Stagingová matica, produkčný Chrome/Opera/fyzický mobil a finálna 100 % obchodná akceptácia zostávajú samostatnou release bránou. |
 | U05 | PASS local current | Aktuálna Lighthouse matica má Accessibility 100/100 na všetkých piatich trasách a browser regresie pokrývajú kontrast, fokus, reduced-motion aj 200 % zoom. Fyzická čítačka obrazovky zostáva v U09 otvorená. |
@@ -119,4 +119,4 @@ Lokálne je technicky preukázaných **12/14 funkčných kritérií**. Podľa ú
 
 ## Rozhodnutie
 
-Aktuálny aplikačný zdroj je uložený ako checkpoint `5587258c`, consent QA dôkaz ako `439f75dc`, plná lokálna vizuálna matica bola zopakovaná na čistom commite `088ac8f3` a aktuálna S08 matica 5 × 3 na čistom commite `c882d5eb`. Projekt napriek tomu ešte nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U02–U03/U09–U10, skutočný oddelený Staging, stagingová matica, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04/O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.
+Aktuálny aplikačný zdroj je uložený ako checkpoint `5587258c`, consent QA dôkaz ako `439f75dc`, plná lokálna vizuálna matica bola zopakovaná na čistom commite `088ac8f3`, aktuálna S08 matica 5 × 3 na čistom commite `c882d5eb` a úzky U02 CTA checkpoint je `59149a47`. Projekt napriek tomu ešte nie je hotový ani schválený na produkciu. Blokujú ho najmä S01/S09, G03–G06/G08–G11, F01/F03/F04/F08/F12, U03/U09–U10, skutočný oddelený Staging, stagingová matica, finálna kontrola Chrome/Opera a fyzického mobilu, 100 % obchodná a vizuálna akceptácia a zostávajúce O04/O06/O08–O10. Žiadny z týchto bodov sa nesmie označiť PASS iba na základe Lighthouse skóre alebo automatického testu.

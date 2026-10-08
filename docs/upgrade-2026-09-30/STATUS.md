@@ -1746,3 +1746,9 @@ K staršiemu checkpointu samostatného pracovníka notifikácií: finálna read-
 - Kompletná logická sada prešla **369/369 MJS + 32/32 TypeScript**, databázové integrácie **8/8**. Izolovaný produkčný build nad jednorazovou PostgreSQL 17 prešiel **99/99 trás**, 32 statických SEO URL, dynamické realizácie/recenzie a route CSS/JS izoláciu; BUILD_ID `kU2ps9Dzy-l05aYdXXEIC`, `productionAccess:false`, dočasná databáza zastavená a odstránená.
 - Nezávislý obchodno-vizuálny kontrolór po dvoch opravených nálezoch vydal **PASS**. Bezpečnostný diff scan `5663c1b9-2716-46fe-9fc8-717cc00f27cd` pokryl **28/28** zmenených súborov bez P1–P3 nálezu. Trvalo uložený `VISUAL-EVIDENCE-SUMMARY-452c4f75.json` viaže 220-stavový výsledok na presný commit, strom, trasu/viewport maticu a SHA-256 pôvodného manifestu.
 - Produkcia, Vercel aliasy a premenné, produkčná DB/Blob, formuláre, emaily a reklamné účty sa nemenili. Vetva je oproti `origin/main` 75 commitov vpred a 24 commitov pozadu; pred vydaním je preto povinné bezpečné zdrojové zosúladenie, oddelený Staging a nové release-matched overenie.
+
+### U02 — jednoznačné primárne CTA na kariére (8. 10. 2026)
+
+- Audit ôsmich verejných šablón našiel jednu konkrétnu odchýlku: Kariéra v hlavičke preberala zákaznícke CTA na cenovú ponuku. Desktopová aj mobilná hlavička teraz vedú uchádzača na `#prihlasit-sa` textom „Chcem sa prihlásiť“ a rovnaké hero CTA má primárny vizuálny štýl. Ostatné stránky si zachovali ponukové CTA.
+- Cielený kontraktný test **2/2 PASS**, typová kontrola **PASS** a celá verejná matica **20 trás × 11 viewportov = 220/220 PASS**; 25 snímok, 0 formulárov, 0 hydration chýb a 0 externých browser originov. Nezávislý produktový kontrolór vrátil **PASS**.
+- Kontrolovaný checkpoint je `59149a474ae7061b85281a7a2e17c65a518d0680`, strom `6d4d8025bab9720b8746f130087b1d8056036028`. U02 je lokálne uzatvorené; staging, produkcia, U10 a celková obchodno-vizuálna akceptácia zostávajú samostatné brány.
