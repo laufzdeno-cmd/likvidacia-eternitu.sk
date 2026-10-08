@@ -246,6 +246,158 @@ export function releaseEvidenceMetrics(unitLog, buildLog) {
   };
 }
 
+export function databaseEvidenceMetrics(databaseLog) {
+  const fields = ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo'];
+  const summary = Object.fromEntries(fields.map((field) => {
+    const matches = [...databaseLog.matchAll(new RegExp(`^ℹ ${field} (\\d+)$`, 'gm'))];
+    if (matches.length !== 1) throw new Error(`DB integration log musí obsahovať práve jeden súhrn ${field}.`);
+    return [field, Number(matches[0][1])];
+  }));
+  if (summary.tests !== 12 || summary.pass !== 12) {
+    throw new Error('DB integration log nepotvrdzuje presne 12/12 testov.');
+  }
+  if (['fail', 'cancelled', 'skipped', 'todo'].some((field) => summary[field] !== 0)) {
+    throw new Error('DB integration log obsahuje neúspešný alebo neúplný test.');
+  }
+  requireMatch(databaseLog, /PASS: staging bootstrap is transactional, idempotent and concurrency-safe on disposable PostgreSQL\./,
+    'DB integration log nepotvrdzuje staging bootstrap.');
+  requireMatch(databaseLog, /PASS: local Meta consent tombstone and create\/revoke race; no network or production access\./,
+    'DB integration log nepotvrdzuje Meta consent race.');
+  requireMatch(databaseLog, /PASS: isolated Meta CAPI outbox; no real fetch, form, email or production action\./,
+    'DB integration log nepotvrdzuje izolovaný Meta CAPI outbox.');
+  return {
+    tests: summary.tests,
+    stagingBootstrap: 'PASS',
+    metaConsentRace: 'PASS',
+    metaCapiOutbox: 'PASS',
+  };
+}
+
+export function cleanupEvidenceMetrics(log, label = 'Dôkazový') {
+  const requireExactlyOne = (pattern, message) => {
+    const matches = [...log.matchAll(pattern)];
+    if (matches.length !== 1) throw new Error(message);
+  };
+  requireExactlyOne(/^server stopped$/gm, `${label} log nepotvrdzuje práve jedno zastavenie PostgreSQL.`);
+  requireExactlyOne(
+    /^PASS: jednorazový PostgreSQL bol zastavený a jeho projektové tmp dáta odstránené\.$/gm,
+    `${label} log nepotvrdzuje odstránenie jednorazovej databázy.`,
+  );
+  requireExactlyOne(
+    /^Cleanup PASS: owned temp root removed: <USER_PROFILE>[\\/]AppData[\\/]Local[\\/]Temp[\\/]astana-photo-intake-[A-Za-z0-9_-]+$/gm,
+    `${label} log nepotvrdzuje odstránenie vlastného dočasného rootu.`,
+  );
+  return {
+    temporaryDatabaseStopped: true,
+    temporaryDatabaseRemoved: true,
+    temporaryRootRemoved: true,
+  };
+}
+
+export function lighthouseEvidenceMetrics(lighthouseLog) {
+  const buildResults = [];
+  for (const line of lighthouseLog.split(/\r?\n/)) {
+    const candidate = line.trim();
+    if (!candidate.startsWith('{') || !candidate.endsWith('}')) continue;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed?.result === 'PASS' && parsed?.mode === 'isolated-full-production-build') buildResults.push(parsed);
+    } catch {
+      // Other command output may contain braces without being the build result.
+    }
+  }
+  if (buildResults.length !== 1) {
+    throw new Error('Lighthouse log musí obsahovať práve jeden výsledok izolovaného produkčného buildu.');
+  }
+  const buildResult = buildResults[0];
+  if (buildResult.productionAccess !== false) throw new Error('Lighthouse build nemá vypnutý produkčný prístup.');
+  const expectedSeoAudits = ['seo-rendered-metadata-check.mjs', 'seo-rendered-content-check.mjs'];
+  const buildIds = expectedSeoAudits.map((name) => {
+    const matches = Array.isArray(buildResult.seoAudits)
+      ? buildResult.seoAudits.filter((audit) => audit?.name === name && typeof audit?.output === 'string')
+      : [];
+    if (matches.length !== 1) throw new Error(`Lighthouse build musí obsahovať práve jeden SEO audit ${name}.`);
+    return requireMatch(
+      matches[0].output,
+      /PASS: build ([^;\r\n]+);/,
+      `Lighthouse SEO audit ${name} nepotvrdzuje BUILD_ID.`,
+    )[1];
+  });
+  if (new Set(buildIds).size !== 1) throw new Error('Lighthouse SEO audity nepotvrdzujú zhodný BUILD_ID.');
+  const buildId = buildIds[0];
+  const lighthouse = buildResult.lighthouseS08;
+  if (lighthouse?.result !== 'PASS' || lighthouse?.originKind !== 'isolated-loopback') {
+    throw new Error('Lighthouse výsledok nie je PASS na izolovanom loopback origin.');
+  }
+  if (lighthouse.lighthouseVersion !== '13.5.0' || lighthouse.runsPerPage !== 3) {
+    throw new Error('Lighthouse výsledok nepoužíva očakávanú verziu a tri behy na stránku.');
+  }
+  const expectedPages = [
+    ['homepage', '/'],
+    ['price', '/cena-likvidacie-azbestu/'],
+    ['realizations', '/realizacie/'],
+    ['article', '/poradna/co-je-eternit-a-kedy-obsahuje-azbest/'],
+    ['career', '/kariera/'],
+  ];
+  if (!Array.isArray(lighthouse.results)
+    || lighthouse.results.length !== expectedPages.length
+    || lighthouse.results.some((page, index) => page?.key !== expectedPages[index][0]
+      || page?.path !== expectedPages[index][1])) {
+    throw new Error('Lighthouse výsledok nemá presnú päťstránkovú maticu.');
+  }
+  const thresholds = lighthouse.thresholds || {};
+  if (thresholds.medianPerformance !== 90 || thresholds.medianAccessibility !== 90
+    || thresholds.medianSeo !== 90 || thresholds.medianLcpMs !== 2500 || thresholds.medianCls !== 0.1) {
+    throw new Error('Lighthouse výsledok nemá uzamknuté akceptačné prahy.');
+  }
+  const pages = lighthouse.results.map((page) => {
+    if (!Array.isArray(page.runs) || page.runs.length !== 3 || page.pass !== true) {
+      throw new Error(`Lighthouse stránka ${page?.key || 'unknown'} nemá tri úspešné behy.`);
+    }
+    for (const [index, run] of page.runs.entries()) {
+      if (run.run !== index + 1) throw new Error(`Lighthouse stránka ${page.key} nemá očakávané poradie behov.`);
+      if (![run.performance, run.accessibility, run.seo, run.lcpMs, run.cls].every(Number.isFinite)) {
+        throw new Error(`Lighthouse stránka ${page.key} obsahuje neúplný beh.`);
+      }
+    }
+    const median = (field) => page.runs.map((run) => run[field]).sort((left, right) => left - right)[1];
+    const computed = {
+      medianPerformance: median('performance'),
+      medianAccessibility: median('accessibility'),
+      medianSeo: median('seo'),
+      medianLcpMs: median('lcpMs'),
+      medianCls: median('cls'),
+    };
+    for (const [field, value] of Object.entries(computed)) {
+      if (page[field] !== value) throw new Error(`Lighthouse stránka ${page.key} má nezhodný vypočítaný medián ${field}.`);
+    }
+    if (computed.medianPerformance < thresholds.medianPerformance
+      || computed.medianAccessibility < thresholds.medianAccessibility
+      || computed.medianSeo < thresholds.medianSeo
+      || computed.medianLcpMs > thresholds.medianLcpMs
+      || computed.medianCls > thresholds.medianCls) {
+      throw new Error(`Lighthouse stránka ${page.key} nesplnila prahy.`);
+    }
+    return {
+      key: page.key,
+      path: page.path,
+      runCount: page.runs.length,
+      ...computed,
+      pass: page.pass,
+    };
+  });
+  return {
+    buildId,
+    lighthouseVersion: lighthouse.lighthouseVersion,
+    originKind: lighthouse.originKind,
+    runsPerPage: lighthouse.runsPerPage,
+    pageCount: pages.length,
+    runCount: pages.reduce((sum, page) => sum + page.runCount, 0),
+    thresholds,
+    pages,
+  };
+}
+
 async function main() {
   const candidateRoot = path.resolve(argument('--candidate-root'));
   const expectedCommit = argument('--candidate-sha').toLowerCase();
@@ -270,6 +422,7 @@ async function main() {
   const commandSpecs = [
     ['unit', 'npm.cmd', ['run', 'test:unit']],
     ['typecheck', 'npm.cmd', ['run', 'typecheck']],
+    ['databaseIntegration', 'npm.cmd', ['run', 'test:db-integration']],
     ['productionBuild', 'powershell.exe', [
       '-NoProfile',
       '-ExecutionPolicy',
@@ -277,6 +430,15 @@ async function main() {
       '-File',
       path.join(candidateRoot, 'scripts', 'run-isolated-postgres.ps1'),
       '-ProductionBuild',
+    ]],
+    ['lighthouseBuild', 'powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy',
+      'Bypass',
+      '-File',
+      path.join(candidateRoot, 'scripts', 'run-isolated-postgres.ps1'),
+      '-ProductionBuild',
+      '-Lighthouse',
     ]],
   ];
   const commands = [];
@@ -295,23 +457,30 @@ async function main() {
   }
 
   const unitLog = await readFile(path.join(outputDirectory, 'unit.txt'), 'utf8');
+  const databaseLog = await readFile(path.join(outputDirectory, 'databaseIntegration.txt'), 'utf8');
   const buildLog = await readFile(path.join(outputDirectory, 'productionBuild.txt'), 'utf8');
+  const lighthouseLog = await readFile(path.join(outputDirectory, 'lighthouseBuild.txt'), 'utf8');
   const metrics = releaseEvidenceMetrics(unitLog, buildLog);
-  requireMatch(buildLog, /server stopped/, 'Build log nepotvrdzuje zastavenie PostgreSQL.');
-  requireMatch(buildLog, /PASS: jednorazov.*PostgreSQL bol zastaven/i, 'Build log nepotvrdzuje úspešné čistenie testovacej DB.');
+  const databaseIntegration = databaseEvidenceMetrics(databaseLog);
+  const lighthouse = lighthouseEvidenceMetrics(lighthouseLog);
+  const buildCleanup = cleanupEvidenceMetrics(buildLog, 'Build');
+  const lighthouseCleanup = cleanupEvidenceMetrics(lighthouseLog, 'Lighthouse');
+  if (JSON.stringify(buildCleanup) !== JSON.stringify(lighthouseCleanup)) {
+    throw new Error('Build a Lighthouse nepotvrdzujú rovnaký cleanup kontrakt.');
+  }
 
   const evidence = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     recordedAt: new Date().toISOString(),
     testedSourceCommit: expectedCommit,
     testedSourceTree: candidateTree,
     result: 'PASS',
     ...metrics,
+    databaseIntegration,
+    lighthouse,
     typecheck: 'PASS',
     productionAccess: false,
-    temporaryDatabaseStopped: true,
-    temporaryDatabaseRemoved: true,
-    temporaryRootRemoved: true,
+    ...buildCleanup,
     commands: commands.map(({ name, command, args, startedAt, endedAt, exitCode, logPath, logSha256, trackedLogSha256 }) => ({
       name,
       command,

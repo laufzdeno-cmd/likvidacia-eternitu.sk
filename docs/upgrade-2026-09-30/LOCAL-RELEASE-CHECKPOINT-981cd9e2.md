@@ -12,7 +12,7 @@ Tento dokument sumarizuje iba lokálne dôkazy presného zdrojového kandidáta.
 
 ## Nemenný buildový dôkaz
 
-Manifest a jeho tri kanonicky hashované logy preukazujú:
+Manifest a jeho päť kanonicky hashovaných logov preukazujú:
 
 | Kontrola | Výsledok |
 |---|---:|
@@ -24,14 +24,14 @@ Manifest a jeho tri kanonicky hashované logy preukazujú:
 | Statické SEO obsahové URL | 33/33 |
 | Dynamické realizácie a recenzie | PASS |
 | Route CSS/JS izolácia | PASS |
-| BUILD_ID | `lWI95S1bOK2o9OCwQhuvJ` |
+| BUILD_ID | `qyjRW_FqUHWMLXDEmLfal` |
 | Prístup k produkcii | `false` |
 | Jednorazová PostgreSQL zastavená a odstránená | áno |
 | Vlastný dočasný root odstránený | áno |
 
 ## Databázové integrácie
 
-Samostatný beh `npm.cmd run test:db-integration` na tom istom zdroji prešiel **12/12** scenármi. Pokryl PostgreSQL/PGlite schému a migrácie, atomickú väzbu dopytu, súkromných príloh a outboxu, idempotenciu a rollback, cenové ponuky, TOTP a súbehy. Navyše prešli:
+Kanonicky hashovaný beh `npm.cmd run test:db-integration` na tom istom zdroji prešiel **12/12** scenármi. Pokryl PostgreSQL/PGlite schému a migrácie, atomickú väzbu dopytu, súkromných príloh a outboxu, idempotenciu a rollback, cenové ponuky, TOTP a súbehy. Navyše prešli:
 
 - transakčný a súbehovo bezpečný staging bootstrap,
 - lokálny Meta consent create/revoke/tombstone race,
@@ -46,17 +46,17 @@ Na tom istom zdrojovom commite prešiel izolovaný produkčný build s PostgreSQ
 
 | Trasa | Performance | Accessibility | SEO | LCP | CLS |
 |---|---:|---:|---:|---:|---:|
-| Homepage | 96 | 100 | 100 | 2 475 ms | 0 |
-| Orientačná cena | 98 | 100 | 100 | 2 365 ms | 0 |
-| Realizácie | 97 | 100 | 100 | 2 474 ms | 0 |
-| Článok | 98 | 100 | 100 | 2 443 ms | 0 |
-| Kariéra | 98 | 100 | 100 | 2 445 ms | 0 |
+| Homepage | 92 | 100 | 100 | 2 474 ms | 0 |
+| Orientačná cena | 98 | 100 | 100 | 2 356 ms | 0 |
+| Realizácie | 97 | 100 | 100 | 2 480 ms | 0 |
+| Článok | 98 | 100 | 100 | 2 438 ms | 0 |
+| Kariéra | 98 | 100 | 100 | 2 434 ms | 0 |
 
-Lighthouse BUILD_ID bol `xzZqqUE3ZYdFdTbEBYV3M`. `productionAccess:false`; jednorazová databáza aj vlastné dočasné dáta boli po behu odstránené. Rozdiel BUILD_ID oproti nemennému manifestu je očakávaný, pretože ide o samostatný čistý build toho istého Git tree.
+Lighthouse BUILD_ID bol `0rHswONNpBd8aIky79rY1`. `productionAccess:false`; jednorazová databáza aj vlastné dočasné dáta boli po behu odstránené. Výsledky všetkých 15 behov, uzamknuté prahy a hash Lighthouse logu sú súčasťou toho istého manifestu. Rozdiel BUILD_ID oproti aplikačnému buildu `qyjRW_FqUHWMLXDEmLfal` je očakávaný, pretože ide o druhý čistý build toho istého Git tree.
 
 ## Nezávislá kontrola
 
-Nezávislý read-only kontrolór presného rezu `981cd9e2` vydal **PASS**. Overil, že lokálny Meta test zostáva v `NODE_ENV=test` bez produkčnej DB, že produkcia bez `CONVERSION_EVENT_SECRET` zlyhá bezpečne, PGlite nevytvorí Meta outbox bez tajomstva a že test nevytvára lokálne JSON úložisko.
+Nezávislý read-only kontrolór aplikačného rezu `981cd9e2` vydal **PASS**. Overil, že lokálny Meta test zostáva v `NODE_ENV=test` bez produkčnej DB, že produkcia bez `CONVERSION_EVENT_SECRET` zlyhá bezpečne, PGlite nevytvorí Meta outbox bez tajomstva a že test nevytvára lokálne JSON úložisko. Následný samostatný re-review rozšíreného päťlogového dôkazového balíka po sprísnení BUILD_ID, presných URL, prepočtu mediánov a cleanup dôkazov vydal tiež **PASS**.
 
 ## Hranice dôkazu
 

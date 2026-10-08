@@ -1,14 +1,92 @@
 {
-  "schemaVersion": 3,
-  "recordedAt": "2026-10-08T20:26:27.630Z",
+  "schemaVersion": 4,
+  "recordedAt": "2026-10-08T20:57:59.774Z",
   "testedSourceCommit": "981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1",
   "testedSourceTree": "3198f4d10255700c61a409ace6a7e3295a53ca8b",
   "result": "PASS",
-  "buildId": "lWI95S1bOK2o9OCwQhuvJ",
+  "buildId": "qyjRW_FqUHWMLXDEmLfal",
   "unitMjsCount": 428,
   "unitTypeScriptCount": 35,
   "generatedRouteCount": 100,
   "staticSeoUrlCount": 33,
+  "databaseIntegration": {
+    "tests": 12,
+    "stagingBootstrap": "PASS",
+    "metaConsentRace": "PASS",
+    "metaCapiOutbox": "PASS"
+  },
+  "lighthouse": {
+    "buildId": "0rHswONNpBd8aIky79rY1",
+    "lighthouseVersion": "13.5.0",
+    "originKind": "isolated-loopback",
+    "runsPerPage": 3,
+    "pageCount": 5,
+    "runCount": 15,
+    "thresholds": {
+      "medianPerformance": 90,
+      "medianAccessibility": 90,
+      "medianSeo": 90,
+      "medianLcpMs": 2500,
+      "medianCls": 0.1
+    },
+    "pages": [
+      {
+        "key": "homepage",
+        "path": "/",
+        "runCount": 3,
+        "medianPerformance": 92,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2474,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "price",
+        "path": "/cena-likvidacie-azbestu/",
+        "runCount": 3,
+        "medianPerformance": 98,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2356,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "realizations",
+        "path": "/realizacie/",
+        "runCount": 3,
+        "medianPerformance": 97,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2480,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "article",
+        "path": "/poradna/co-je-eternit-a-kedy-obsahuje-azbest/",
+        "runCount": 3,
+        "medianPerformance": 98,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2438,
+        "medianCls": 0,
+        "pass": true
+      },
+      {
+        "key": "career",
+        "path": "/kariera/",
+        "runCount": 3,
+        "medianPerformance": 98,
+        "medianAccessibility": 100,
+        "medianSeo": 100,
+        "medianLcpMs": 2434,
+        "medianCls": 0,
+        "pass": true
+      }
+    ]
+  },
   "typecheck": "PASS",
   "productionAccess": false,
   "temporaryDatabaseStopped": true,
@@ -22,12 +100,12 @@
         "run",
         "test:unit"
       ],
-      "startedAt": "2026-10-08T20:23:32.759Z",
-      "endedAt": "2026-10-08T20:25:36.589Z",
+      "startedAt": "2026-10-08T20:48:16.329Z",
+      "endedAt": "2026-10-08T20:50:21.803Z",
       "exitCode": 0,
       "logPath": "docs/upgrade-2026-09-30/evidence/981cd9e2/unit.txt",
-      "logSha256": "c318afcc98ab53eea22a20e3bf1475636a0d35a1dfa09cc2ed347e7c59adda35",
-      "trackedLogSha256": "c318afcc98ab53eea22a20e3bf1475636a0d35a1dfa09cc2ed347e7c59adda35"
+      "logSha256": "d92524af027e9dc953104920dbb7450bb96c6adcf15b9d051e9043f7277f7027",
+      "trackedLogSha256": "d92524af027e9dc953104920dbb7450bb96c6adcf15b9d051e9043f7277f7027"
     },
     {
       "name": "typecheck",
@@ -36,12 +114,26 @@
         "run",
         "typecheck"
       ],
-      "startedAt": "2026-10-08T20:25:36.593Z",
-      "endedAt": "2026-10-08T20:25:38.919Z",
+      "startedAt": "2026-10-08T20:50:21.809Z",
+      "endedAt": "2026-10-08T20:50:29.026Z",
       "exitCode": 0,
       "logPath": "docs/upgrade-2026-09-30/evidence/981cd9e2/typecheck.txt",
-      "logSha256": "aaee6a7dbe8acc8432d1ba96444c3d7dffdd9f92a691e5f2e8c434920078a461",
-      "trackedLogSha256": "aaee6a7dbe8acc8432d1ba96444c3d7dffdd9f92a691e5f2e8c434920078a461"
+      "logSha256": "375cfa0f1a52713287512cadbad370078e41690b4ab4608ac763b5a0dd2c75c3",
+      "trackedLogSha256": "375cfa0f1a52713287512cadbad370078e41690b4ab4608ac763b5a0dd2c75c3"
+    },
+    {
+      "name": "databaseIntegration",
+      "command": "npm.cmd",
+      "args": [
+        "run",
+        "test:db-integration"
+      ],
+      "startedAt": "2026-10-08T20:50:29.027Z",
+      "endedAt": "2026-10-08T20:50:45.409Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/981cd9e2/databaseIntegration.txt",
+      "logSha256": "8fd70980afdf26952cf3cbe43125d4d1a567c368ea21080676e9aec422b721d4",
+      "trackedLogSha256": "8fd70980afdf26952cf3cbe43125d4d1a567c368ea21080676e9aec422b721d4"
     },
     {
       "name": "productionBuild",
@@ -54,12 +146,31 @@
         "<CANDIDATE_ROOT>\\scripts\\run-isolated-postgres.ps1",
         "-ProductionBuild"
       ],
-      "startedAt": "2026-10-08T20:25:38.921Z",
-      "endedAt": "2026-10-08T20:26:27.626Z",
+      "startedAt": "2026-10-08T20:50:45.411Z",
+      "endedAt": "2026-10-08T20:52:06.647Z",
       "exitCode": 0,
       "logPath": "docs/upgrade-2026-09-30/evidence/981cd9e2/productionBuild.txt",
-      "logSha256": "e1025b28b29871dccde03dbafcd28cfeeeb3649929ee6ae17c78c4be5d744142",
-      "trackedLogSha256": "e1025b28b29871dccde03dbafcd28cfeeeb3649929ee6ae17c78c4be5d744142"
+      "logSha256": "5f7f60b8225dc070e8446d25feb43e1fc6164a69250a4f790df47bc61c44d30e",
+      "trackedLogSha256": "5f7f60b8225dc070e8446d25feb43e1fc6164a69250a4f790df47bc61c44d30e"
+    },
+    {
+      "name": "lighthouseBuild",
+      "command": "powershell.exe",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "<CANDIDATE_ROOT>\\scripts\\run-isolated-postgres.ps1",
+        "-ProductionBuild",
+        "-Lighthouse"
+      ],
+      "startedAt": "2026-10-08T20:52:06.650Z",
+      "endedAt": "2026-10-08T20:57:59.764Z",
+      "exitCode": 0,
+      "logPath": "docs/upgrade-2026-09-30/evidence/981cd9e2/lighthouseBuild.txt",
+      "logSha256": "a1e8819a9f0dbdd3af3b752efa2bfa3c6f6c4c0a742d83ab8c2da41c143a2828",
+      "trackedLogSha256": "a1e8819a9f0dbdd3af3b752efa2bfa3c6f6c4c0a742d83ab8c2da41c143a2828"
     }
   ],
   "releaseStatus": {

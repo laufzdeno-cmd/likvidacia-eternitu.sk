@@ -18,18 +18,25 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   ]);
   const evidence = JSON.parse(rawEvidence);
   const baselineVisual = JSON.parse(rawBaselineVisual);
-  const { releaseEvidenceMetrics, safeChildEnvironment, sanitizeLog } = await import('./capture-local-release-evidence.mjs');
+  const {
+    cleanupEvidenceMetrics,
+    databaseEvidenceMetrics,
+    lighthouseEvidenceMetrics,
+    releaseEvidenceMetrics,
+    safeChildEnvironment,
+    sanitizeLog,
+  } = await import('./capture-local-release-evidence.mjs');
   const candidateTree = execFileSync('git', ['show', '-s', '--format=%T', candidateCommit], {
     encoding: 'utf8',
     windowsHide: true,
   }).trim();
 
-  assert.equal(evidence.schemaVersion, 3);
+  assert.equal(evidence.schemaVersion, 4);
   assert.equal(evidence.testedSourceCommit, candidateCommit);
   assert.equal(evidence.testedSourceTree, candidateTree);
   assert.equal(evidence.testedSourceTree, '3198f4d10255700c61a409ace6a7e3295a53ca8b');
   assert.equal(evidence.result, 'PASS');
-  assert.equal(evidence.buildId, 'lWI95S1bOK2o9OCwQhuvJ');
+  assert.equal(evidence.buildId, 'qyjRW_FqUHWMLXDEmLfal');
   assert.equal(evidence.generatedRouteCount, 100);
   assert.equal(evidence.staticSeoUrlCount, 33);
   assert.equal(evidence.unitMjsCount, 428);
@@ -41,7 +48,9 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.equal(evidence.temporaryRootRemoved, true);
   assert.ok(Number.isFinite(Date.parse(evidence.recordedAt)));
 
-  assert.deepEqual(evidence.commands.map(({ name }) => name), ['unit', 'typecheck', 'productionBuild']);
+  assert.deepEqual(evidence.commands.map(({ name }) => name), [
+    'unit', 'typecheck', 'databaseIntegration', 'productionBuild', 'lighthouseBuild',
+  ]);
   const logs = new Map();
   for (const command of evidence.commands) {
     assert.equal(command.exitCode, 0);
@@ -119,12 +128,91 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(logs.get('productionBuild'), /server stopped/);
   assert.match(logs.get('productionBuild'), /PASS: jednorazov.*PostgreSQL bol zastaven/i);
   assert.deepEqual(releaseEvidenceMetrics(logs.get('unit'), logs.get('productionBuild')), {
-    buildId: 'lWI95S1bOK2o9OCwQhuvJ',
+    buildId: 'qyjRW_FqUHWMLXDEmLfal',
     unitMjsCount: 428,
     unitTypeScriptCount: 35,
     generatedRouteCount: 100,
     staticSeoUrlCount: 33,
   });
+  assert.deepEqual(databaseEvidenceMetrics(logs.get('databaseIntegration')), evidence.databaseIntegration);
+  assert.deepEqual(lighthouseEvidenceMetrics(logs.get('lighthouseBuild')), evidence.lighthouse);
+  assert.deepEqual(cleanupEvidenceMetrics(logs.get('productionBuild'), 'Build'), {
+    temporaryDatabaseStopped: true,
+    temporaryDatabaseRemoved: true,
+    temporaryRootRemoved: true,
+  });
+  assert.deepEqual(cleanupEvidenceMetrics(logs.get('lighthouseBuild'), 'Lighthouse'), {
+    temporaryDatabaseStopped: true,
+    temporaryDatabaseRemoved: true,
+    temporaryRootRemoved: true,
+  });
+  assert.deepEqual(evidence.databaseIntegration, {
+    tests: 12,
+    stagingBootstrap: 'PASS',
+    metaConsentRace: 'PASS',
+    metaCapiOutbox: 'PASS',
+  });
+  assert.equal(evidence.lighthouse.buildId, '0rHswONNpBd8aIky79rY1');
+  assert.equal(evidence.lighthouse.lighthouseVersion, '13.5.0');
+  assert.equal(evidence.lighthouse.originKind, 'isolated-loopback');
+  assert.equal(evidence.lighthouse.pageCount, 5);
+  assert.equal(evidence.lighthouse.runCount, 15);
+  assert.equal(evidence.lighthouse.runsPerPage, 3);
+  assert.deepEqual(evidence.lighthouse.pages.map(({ key }) => key), [
+    'homepage', 'price', 'realizations', 'article', 'career',
+  ]);
+  assert.ok(evidence.lighthouse.pages.every((page) => page.pass === true && page.runCount === 3));
+  assert.match(logs.get('lighthouseBuild'), /"productionAccess":false/);
+  assert.match(logs.get('lighthouseBuild'), /server stopped/);
+  assert.match(logs.get('lighthouseBuild'), /PASS: jednorazov.*PostgreSQL bol zastaven/i);
+  assert.match(logs.get('lighthouseBuild'), /^Cleanup PASS: owned temp root removed:/m);
+  assert.throws(
+    () => cleanupEvidenceMetrics(
+      logs.get('lighthouseBuild').replace(/^Cleanup PASS: owned temp root removed:.*$/m, ''),
+      'Lighthouse',
+    ),
+    /nepotvrdzuje odstránenie vlastného dočasného rootu/,
+  );
+  const mutateLighthouseBuildResult = (mutator) => {
+    let mutated = 0;
+    const output = logs.get('lighthouseBuild').split(/\r?\n/).map((line) => {
+      const candidate = line.trim();
+      if (!candidate.startsWith('{') || !candidate.endsWith('}')) return line;
+      try {
+        const parsed = JSON.parse(candidate);
+        if (parsed?.result !== 'PASS' || parsed?.mode !== 'isolated-full-production-build') return line;
+        mutator(parsed);
+        mutated += 1;
+        return JSON.stringify(parsed);
+      } catch {
+        return line;
+      }
+    }).join('\n');
+    assert.equal(mutated, 1);
+    return output;
+  };
+  assert.throws(
+    () => lighthouseEvidenceMetrics(mutateLighthouseBuildResult((result) => {
+      result.seoAudits.find(({ name }) => name === 'seo-rendered-content-check.mjs').output =
+        result.seoAudits.find(({ name }) => name === 'seo-rendered-content-check.mjs').output.replace(
+          evidence.lighthouse.buildId,
+          'DIFFERENT_BUILD',
+        );
+    })),
+    /nepotvrdzujú zhodný BUILD_ID/,
+  );
+  assert.throws(
+    () => lighthouseEvidenceMetrics(mutateLighthouseBuildResult((result) => {
+      result.lighthouseS08.results[0].path = '/nespravna-cesta/';
+    })),
+    /presnú päťstránkovú maticu/,
+  );
+  assert.throws(
+    () => lighthouseEvidenceMetrics(mutateLighthouseBuildResult((result) => {
+      result.lighthouseS08.results[0].medianPerformance += 1;
+    })),
+    /nezhodný vypočítaný medián medianPerformance/,
+  );
   const currentBuildResult = {
     result: 'PASS',
     mode: 'isolated-full-production-build',
@@ -220,7 +308,7 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(matrix, /\*\*428\/428 MJS \+ 35\/35 TypeScript PASS\*\*/);
   assert.match(matrix, /\*\*100\/100\*\* trás/);
   assert.match(matrix, new RegExp(evidence.buildId));
-  assert.match(matrix, /manifest s hashmi úplných logov/i);
+  assert.match(matrix, /manifest s hashmi všetkých piatich úplných logov/i);
   assert.match(matrix, /čistom dôkazovom commite `088ac8f3`/);
   assert.match(matrix, /220\/220 stavov/);
   assert.match(matrix, /zdrojovom kandidáte `981cd9e2`/);
@@ -241,8 +329,14 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.deepEqual(documentedAllowlist, actualAllowlist);
   assert.match(runbook, /dva platné JPG\/PNG\/WebP súbory, každý \*\*väčší ako 6 MB\*\*/);
   assert.match(runbook, /SHA-256[\s\S]*anonymné otvorenie musí byť odmietnuté/);
-  assert.match(runbook, /`failed`, `unknown`, expirovaný claim, zákaz automatického resend/);
-  assert.match(runbook, /kariérny formulár so súkromným CV/);
+  assert.match(runbook, /Zápis výsledku a auditu musí byť atomický/);
+  assert.match(runbook, /Potvrdené doručenie sa nikdy neposiela znova/);
+  assert.match(runbook, /ďalší nejednoznačný výsledok musí zachovať `unknown`/);
+  assert.match(runbook, /bez dôkazu zostáva `unknown` nevyriešené/);
+  assert.match(runbook, /obnovu chýbajúceho CV alebo e-mailu bez duplicity/);
+  assert.match(runbook, /obaja príjemcovia potvrdene nedoručení/);
+  assert.match(runbook, /retry iba konkrétnemu potvrdene nedoručenému adresátovi/);
+  assert.match(runbook, /bez automatickej ponuky alebo kontaktovania uchádzača/);
   for (const cronPath of [
     '/api/cron/backup/',
     '/api/cron/notifications/',
