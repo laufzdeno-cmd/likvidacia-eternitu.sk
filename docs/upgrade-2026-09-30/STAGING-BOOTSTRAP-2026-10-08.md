@@ -29,6 +29,7 @@ Normalizácia databázového endpointu odstraňuje Neon `-pooler`, koncovú DNS 
 - Dve kontroly pôvodne blokované Windows sandboxom (loopback proxy a headless Edge) boli zopakované mimo tejto izolácie: **2/2 PASS**.
 - Nezávislý kontrolór najprv našiel krížové priradenie produkčných Blob rolí a dve ekvivalentné podoby databázovej identity. Po oprave a pridaní regresií vydal **PASS**.
 - Jednorazový databázový bootstrap bol overený nad dočasným PostgreSQL: opakovanie rovnakého markeru, súbeh, konflikt dvoch markerov aj vynútený rollback po zápise: **PASS**.
+- Nezávislý re-review bootstrapu po odstránení URL/TLS prepísania a doplnení reálneho PostgreSQL dôkazu vydal **PASS bez zostávajúcej konkrétnej vady**. Presný lokálny release kandidát `11683a62` následne prešiel 401/401 MJS + 35/35 TypeScript testov, typovou kontrolou a izolovaným buildom 99/99 trás; manifest je v [LOCAL-BUILD-EVIDENCE-11683a62.json](LOCAL-BUILD-EVIDENCE-11683a62.json).
 
 ## Zostávajúca externá brána
 

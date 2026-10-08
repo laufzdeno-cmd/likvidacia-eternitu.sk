@@ -96,12 +96,24 @@ export function sanitizeLog(value, candidateRoot) {
   let sanitized = replacePathVariants(value, candidateRoot, '<CANDIDATE_ROOT>');
   sanitized = replacePathVariants(sanitized, projectRoot, '<PROJECT_ROOT>');
   sanitized = replacePathVariants(sanitized, process.env.USERPROFILE, '<USER_PROFILE>');
+  sanitized = replacePathVariants(
+    sanitized,
+    process.env.ProgramFiles ? path.join(process.env.ProgramFiles, 'PostgreSQL', '17', 'bin') : '',
+    '<POSTGRES_BIN>',
+  );
   sanitized = replaceLiteral(sanitized, process.env.USERNAME, '<LOCAL_USER>');
+  sanitized = sanitized.replace(
+    /^PASS: jednorazov.*PostgreSQL bol zastaven.*$/gmu,
+    'PASS: jednorazový PostgreSQL bol zastavený a jeho projektové tmp dáta odstránené.',
+  );
   for (const [key, secret] of Object.entries(process.env)) {
     if (!sensitiveEnvironmentName.test(key)) continue;
     if (secret && secret.length >= 8 && sanitized.includes(secret)) {
       throw new Error(`Výstup obsahuje hodnotu chránenej premennej ${key}.`);
     }
+  }
+  if (sanitized.includes('\uFFFD')) {
+    throw new Error('Výstup obsahuje poškodené UTF-8 znaky.');
   }
   return sanitized;
 }

@@ -1,5 +1,13 @@
 # Stav a poradie práce
 
+## Aktuálny presný release dôkaz a stagingová bezpečnosť (8. 10. 2026)
+
+- Presne otestovaný zdrojový kandidát je `11683a6202fa7a18d8182e87e67bef7d5d5a8589` (tree `5b4506bae4e2a9f0b9fe12e2f6a110ebb44597da`); runtime aplikačný checkpoint je `eb56a40b` a stagingový bezpečnostný checkpoint `f8bb7849`.
+- Izolovaný čistý checkout prešiel **401/401 MJS + 35/35 TypeScript testov**, typovou kontrolou a úplným Next.js 16.4.0 produkčným buildom **99/99 trás**. Build `yRQZD1h0REteI_nOw5QZW` prešiel oboma SEO kontrolami na 32 statických URL, dynamickými realizáciami/recenziami a route CSS/JS izoláciou; `productionAccess:false`, jednorazová PostgreSQL aj vlastné dočasné dáta boli odstránené.
+- Dôkazový manifest [LOCAL-BUILD-EVIDENCE-11683a62.json](LOCAL-BUILD-EVIDENCE-11683a62.json) viaže presný commit a tree na tri úplné kanonicky hashované logy. Logy neobsahujú lokálne absolútne cesty, používateľské meno ani hodnoty tajomstiev.
+- Bezpečný bootstrap stagingovej databázy používa transakciu, advisory lock, idempotentný marker, konflikt odlišného markeru a rollback. Vzdialené TLS sa overuje proti presnému parsovanému hostu a URL parametre, ktoré môžu prepísať cieľ alebo certifikát, sa odmietajú. Reálny PostgreSQL/PGlite dôkaz pokryl rovnaký marker, súbeh, konflikt aj vynútený rollback; nezávislý kontrolór po oprave vydal **PASS**.
+- Vlastné Vercel prostredie `staging` a samostatná Neon databáza existujú, ale databáza ani dva Private Blob stores zatiaľ nie sú pripojené, marker nebol vytvorený a kandidát nebol nasadený. Produkcia, alias, formulár, email, Blob ani reklamné účty sa pri tejto bráne nemenili. Ďalší externý krok vyžaduje výslovné potvrdenie na pripojenie stagingových zdrojov.
+
 ## Aktuálny lokálny prevádzkový checkpoint (8. 10. 2026)
 
 - Commity `9419c3e5`, `bfd9ebef` a `367e5e14` pridávajú do superadmin kontroly systému bezpečný prehľad pripravenosti serverových konverzií, automatických kilometrov, retencie fotografií dopytov, retencie životopisov a tímového príjmu fotografií. Zobrazuje iba pevné stavové texty, nikdy hodnoty hesiel, tokenov, URL databázy ani osobné údaje.

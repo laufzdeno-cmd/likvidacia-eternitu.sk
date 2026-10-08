@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-const candidateCommit = '0dbf77a155d4e53215db455518f91a186fb131e4';
+const candidateCommit = '11683a6202fa7a18d8182e87e67bef7d5d5a8589';
 const candidateShortSha = candidateCommit.slice(0, 8);
 
 test('acceptance evidence binds the tested source candidate to immutable local logs', async () => {
@@ -22,16 +22,16 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     windowsHide: true,
   }).trim();
 
-  assert.equal(evidence.schemaVersion, 2);
+  assert.equal(evidence.schemaVersion, 3);
   assert.equal(evidence.testedSourceCommit, candidateCommit);
   assert.equal(evidence.testedSourceTree, candidateTree);
-  assert.equal(evidence.testedSourceTree, '0f4040464d079fc16cb609d5833f99123ee77f64');
+  assert.equal(evidence.testedSourceTree, '5b4506bae4e2a9f0b9fe12e2f6a110ebb44597da');
   assert.equal(evidence.result, 'PASS');
-  assert.equal(evidence.buildId, 'xhh9WDTgWXRDvD2Dg80S-');
+  assert.equal(evidence.buildId, 'yRQZD1h0REteI_nOw5QZW');
   assert.equal(evidence.generatedRouteCount, 99);
   assert.equal(evidence.staticSeoUrlCount, 32);
-  assert.equal(evidence.unitMjsCount, 397);
-  assert.equal(evidence.unitTypeScriptCount, 34);
+  assert.equal(evidence.unitMjsCount, 401);
+  assert.equal(evidence.unitTypeScriptCount, 35);
   assert.equal(evidence.typecheck, 'PASS');
   assert.equal(evidence.productionAccess, false);
   assert.equal(evidence.temporaryDatabaseStopped, true);
@@ -56,6 +56,8 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     assert.notEqual(spawnSync('git', ['check-ignore', '-q', '--', command.logPath]).status, 0,
       `${command.name} evidence log must be tracked by a normal git add`);
     assert.doesNotMatch(log, /C:(?:\\+|\/)Users|C:(?:\\+|\/)WEB|\bZdeno\b/i);
+    assert.doesNotMatch(log, /C:(?:\\+|\/)Program Files/i);
+    assert.doesNotMatch(log, /\uFFFD/);
     logs.set(command.name, log);
   }
 
@@ -81,6 +83,22 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     JSON.stringify(pathSample),
   ].join('\n'), pathSample);
   assert.doesNotMatch(sanitizedPaths, /C:(?:\\+|\/)WEB/i);
+  const postgresBin = process.env.ProgramFiles
+    ? `${process.env.ProgramFiles}\\PostgreSQL\\17\\bin\\postgres.exe`
+    : '';
+  if (postgresBin) {
+    assert.match(sanitizeLog(postgresBin, pathSample), /<POSTGRES_BIN>\\postgres\.exe/);
+  }
+  const replacementCharacter = String.fromCodePoint(0xfffd);
+  const damagedCleanupLine = `PASS: jednorazov${replacementCharacter}${replacementCharacter} PostgreSQL bol zastaven${replacementCharacter}${replacementCharacter} a jeho projektov${replacementCharacter}c tmp d${replacementCharacter}${replacementCharacter}ta odstr${replacementCharacter}${replacementCharacter}nen${replacementCharacter}c.`;
+  assert.match(
+    sanitizeLog(damagedCleanupLine, pathSample),
+    /PASS: jednorazový PostgreSQL bol zastavený a jeho projektové tmp dáta odstránené\./,
+  );
+  assert.throws(
+    () => sanitizeLog(`iný poškodený znak ${replacementCharacter}`, pathSample),
+    /poškodené UTF-8/,
+  );
   assert.doesNotMatch(rawEvidence, /C:(?:\\+|\/)WEB|C:(?:\\+|\/)Users/i);
 
   assert.match(generator, /env: safeChildEnvironment\(\)/);
@@ -89,7 +107,7 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(generator, /`\$\{command\.name\}\.txt`/);
   assert.match(generator, /candidateDeployment: 'NOT_VERIFIED'/);
 
-  assert.match(logs.get('unit'), /ℹ tests 397[\s\S]*ℹ pass 397[\s\S]*ℹ tests 34[\s\S]*ℹ pass 34/);
+  assert.match(logs.get('unit'), /ℹ tests 401[\s\S]*ℹ pass 401[\s\S]*ℹ tests 35[\s\S]*ℹ pass 35/);
   assert.match(logs.get('typecheck'), /> tsc --noEmit/);
   assert.doesNotMatch(logs.get('typecheck'), /error TS\d+/);
   assert.match(logs.get('productionBuild'), /"result":"PASS"/);
@@ -105,10 +123,10 @@ test('acceptance evidence binds the tested source candidate to immutable local l
     production: 'NOT_VERIFIED',
   });
 
-  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `0dbf77a1`/);
-  assert.match(matrix, /runtime aplikačný checkpoint je `367e5e14`/);
-  assert.match(matrix, /admin QA checkpoint je `c7c2059e`/i);
-  assert.match(matrix, /\*\*397\/397 MJS \+ 34\/34 TypeScript PASS\*\*/);
+  assert.match(matrix, /Otestovaný zdrojový kandidát je commit `11683a62`/);
+  assert.match(matrix, /runtime aplikačný checkpoint je `eb56a40b`/);
+  assert.match(matrix, /stagingový bezpečnostný checkpoint je `f8bb7849`/i);
+  assert.match(matrix, /\*\*401\/401 MJS \+ 35\/35 TypeScript PASS\*\*/);
   assert.match(matrix, /\*\*99\/99\*\* trás/);
   assert.match(matrix, new RegExp(evidence.buildId));
   assert.match(matrix, /manifest s hashmi úplných logov/i);
