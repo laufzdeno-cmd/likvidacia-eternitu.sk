@@ -1,6 +1,14 @@
 # Stav a poradie práce
 
-## Aktuálny lokálny checkpoint — zosúladenie 24 zmien z `origin/main` (8. 10. 2026)
+## Aktuálny lokálny aplikačný a QA checkpoint (8. 10. 2026)
+
+- Aplikačný checkpoint je `5587258c` (tree `c391dfe3…`); QA checkpoint s izolovaným mobilným browser dôkazom je `439f75dc` (tree `f3933874…`). `origin/main` je po kontrolovanom merge `e539ee5b` predkom kandidáta a merge zachoval presne strom prvého rodiča.
+- Celá jednotková/kontraktná sada: **389/389 MJS + 34/34 TypeScript PASS**. Izolovaný Next.js 16.4.0 produkčný build aplikačného checkpointu: **99/99 trás**, 32 statických SEO URL, dynamické realizácie/recenzie a route izolácia PASS; BUILD_ID `MCh2KF31jp2mdDfBbZhIH`, `productionAccess:false`, jednorazová PostgreSQL zastavená a odstránená.
+- Odvolanie marketingového súhlasu má jeden 8-sekundový limit pre fetch aj čítanie odpovede, po nejasnom stave ostáva fail-closed a umožní čistý retry. Browser dôkaz na 320 × 568 px prešiel klávesnicovým opakovaním, bez reálneho POST a bez externého originu.
+- Bezpečnostný diff scan `c93c78ce-787d-4f57-844d-766a59044e24` pokryl 5/5 nových súborov, úplné pokrytie, **0 nálezov**. Plná verejná vizuálna matica 220/220 ostáva presným baseline commitu `452c4f75`; na aktuálnom QA checkpointe sa zopakoval iba zmenený consent scenár, preto sa historický výsledok nevydáva za nový úplný vizuálny audit.
+- Produkcia, Vercel alias, formuláre, emaily, Blob a reklamné účty sa nemenili. Staging, aktuálny Vercel/IAM, produkčné inboxy, fyzické Chrome/Opera/mobil a finálna 100 % obchodno-vizuálna akceptácia zostávajú externými bránami.
+
+## Zosúladenie 24 zmien z `origin/main` (8. 10. 2026)
 
 - Všetkých 24 commitov, ktoré boli dostupné iba na `origin/main`, bolo samostatne porovnaných s aktuálnym kandidátom. Väčšina správania bola zachovaná alebo nahradená širšou implementáciou; nepodložené marketingové čísla sa zámerne neobnovili.
 - Tri skutočné medzery boli uzavreté v commite `4d0b6bfb`: historická neznáma výmera sa už nikde netvári ako `0 m²`, stará URL `/overene-informacie/` smeruje 308 na `/o-firme/` a opätovné povolenie marketingu je bezpečné aj pri súbehu kariet, oneskorených odpovediach a blokovanom úložisku.

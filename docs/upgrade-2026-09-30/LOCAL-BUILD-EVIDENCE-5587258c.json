@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-08T11:13:53+02:00",
+  "applicationCommit": "5587258cc20c740d54bd57cb7cce5badd4166c03",
+  "applicationTree": "c391dfe3ea8022a15ee019daf9e1be7073fc6bb4",
+  "qaCommit": "439f75dcae5b6f536cfcd6ca04204903eccdf4ee",
+  "qaTree": "f3933874879d7ed0bdd0c1b4706f48eee071f148",
+  "result": "PASS",
+  "buildId": "MCh2KF31jp2mdDfBbZhIH",
+  "generatedRouteCount": 99,
+  "staticSeoUrlCount": 32,
+  "unitMjsCount": 389,
+  "unitTypeScriptCount": 34,
+  "productionAccess": false,
+  "temporaryDatabaseStopped": true,
+  "temporaryDatabaseRemoved": true,
+  "originMainAncestor": true,
+  "originMainRevision": "d314826537c6b94cb019164fc19140d10a014669",
+  "divergenceMeasuredAtCommit": "439f75dcae5b6f536cfcd6ca04204903eccdf4ee",
+  "originMainDivergence": {
+    "candidateOnlyCommits": 87,
+    "originMainOnlyCommits": 0
+  },
+  "browserReview": {
+    "consentTimeoutRecovery": "PASS",
+    "viewport": "320x568",
+    "timeoutFailClosed": true,
+    "keyboardRetry": true,
+    "realPosts": 0,
+    "blockedBrowserOrigins": 0,
+    "fullPublicVisualBaseline": "INHERITED_NOT_RERUN",
+    "baselineEvidence": "docs/upgrade-2026-09-30/VISUAL-EVIDENCE-SUMMARY-452c4f75.json",
+    "production": "NOT_VERIFIED"
+  },
+  "securityDiffScan": {
+    "scanId": "c93c78ce-787d-4f57-844d-766a59044e24",
+    "baseRevision": "e539ee5b4b45ffd606d9d9cb09e4bd7b16a64f94",
+    "headRevision": "439f75dcae5b6f536cfcd6ca04204903eccdf4ee",
+    "changedFilesReviewed": 5,
+    "coverage": "complete",
+    "reportableFindings": 0
+  },
+  "historicalVisualBaseline": {
+    "commit": "452c4f75c7ab0f976d6e4b19099afdb9aa1428b7",
+    "viewportStates": 220,
+    "status": "PASS_AT_BASELINE_ONLY"
+  },
+  "releaseGuardTests": {
+    "count": 12,
+    "result": "PASS"
+  },
+  "releaseGuardExecution": "WAITING_FOR_CURRENT_VERCEL_IAM_AND_EXPLICIT_RELEASE_ARGUMENTS",
+  "staging": "NOT_VERIFIED",
+  "production": "NOT_VERIFIED"
+}

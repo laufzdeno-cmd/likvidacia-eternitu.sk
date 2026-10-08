@@ -2,7 +2,7 @@
 
 Dátum kontroly: 8. 10. 2026 (Europe/Bratislava)
 
-Kontrolovaný lokálny checkpoint je `4d0b6bfbe6597a8bbdfb67a4101922ee35e8c387`, Git tree `8e5ac8cc61b7d40a4b3ed82b5274210af0dacf73`. Porovnanie začalo na lokálnom základe `9fbe758f`; opravy medzier sú v `4d0b6bfb`. Kontrola bola zdrojová a lokálna. Produkcia, Vercel alias, živé formuláre, schránky, Blob ani reklamné účty sa nepoužili.
+Obsahový checkpoint zosúladenia je `4d0b6bfbe6597a8bbdfb67a4101922ee35e8c387`, Git tree `8e5ac8cc61b7d40a4b3ed82b5274210af0dacf73`. Porovnanie začalo na lokálnom základe `9fbe758f`; opravy medzier sú v `4d0b6bfb`. Kontrolovaný merge ancestry vznikol v `e539ee5b` proti `origin/main` na commite `d314826537c6b94cb019164fc19140d10a014669`: jeho strom `d2087a49eff288f31c5cbab6f10ad6c0fb8ad7c3` je presne rovnaký ako strom prvého rodiča, takže merge nezmenil prijatý obsah. Na tomto merge checkpointe bol obojstranný rozdiel 85 commitov iba v kandidátovi a 0 iba na `origin/main`; na neskoršom QA checkpointe `439f75dc` je to 87 a 0. Kontrola bola zdrojová a lokálna. Produkcia, Vercel alias, živé formuláre, schránky, Blob ani reklamné účty sa nepoužili.
 
 ## Metóda
 
@@ -53,6 +53,6 @@ Každý z 24 commitov dostupných iba na `origin/main` bol porovnaný so súčas
 
 ## Zostávajúca Git a release hranica
 
-Obsahových 24 commitov je semanticky zosúladených, ale vetvy ešte nemajú spoločnú aktuálnu históriu: obojstranný rozdiel pri kontrole tvorilo 83 commitov iba v kandidátovi a 24 commitov iba na `origin/main`. Pred release treba vytvoriť kontrolovaný merge ancestry bez zmeny prijatého stromu, overiť jeho presný tree hash a zopakovať release guard. Toto nie je oprávnenie na produkčný deploy.
+Obsahových 24 commitov je semanticky aj historicky zosúladených. Kontrolovaný merge `e539ee5b` zachoval presne strom prvého rodiča a `origin/main` je jeho predkom. Testy release guardu po merge prešli 12/12. Samotný ostrý release guard sa zámerne nespúšťal: vyžaduje aktuálne potvrdenie Vercel IAM a presné schválené argumenty kandidátskeho aj rollback deploymentu. Toto nie je oprávnenie na produkčný deploy.
 
 Stále otvorené externé brány: aktuálny Vercel/IAM a staged release, skutočné doručenie oboch e-mailov, živý formulár bez/s fotografiou, súkromný Blob, fyzické Chrome/Opera/mobilné zariadenie, GSC/Bing/GBP a majiteľom potvrdené firemné/právne/cenové dôkazy a verejné realizácie.
