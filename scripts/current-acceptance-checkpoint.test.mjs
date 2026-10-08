@@ -83,7 +83,8 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.staging, 'NOT_VERIFIED');
   assert.equal(current.production, 'NOT_VERIFIED');
 
-  assert.match(matrix, /aplikačný checkpoint je commit `d0b1730a`/);
+  assert.match(matrix, /aplikačný checkpoint je commit `35867597`/);
+  assert.match(matrix, /kompatibilnému checkpointu `d0b1730a`/);
   assert.match(matrix, /consent QA checkpoint je `439f75dc`/);
   assert.match(matrix, /\*\*393\/393 MJS \+ 34\/34 TypeScript PASS\*\*/);
   assert.match(matrix, /\*\*99\/99\*\* trás/);

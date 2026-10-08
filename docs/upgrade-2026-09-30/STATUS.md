@@ -1,5 +1,13 @@
 # Stav a poradie práce
 
+## Aktuálny lokálny formulárový checkpoint (8. 10. 2026)
+
+- Aktuálny aplikačný checkpoint je `358675979d2725c618f53122d13782105298df2e` (tree `e9b79858512e0df7876087b8f1407fb755ab4a5f`). Pracovný strom bol po uložení aplikačnej zmeny čistý.
+- Najnovší rez uzatvára fokus výsledku po každom úspechu, chybe, timeoute alebo neoveriteľnom stave dopytu, kariéry a referencie. Opakovaná rovnaká chyba dostane nový identifikátor pokusu; rovnaké nadlimitné CV odmietnuté dvakrát po sebe zakaždým presunie fokus, zachová údaje a vykoná 0 POST.
+- Aktuálne dôkazy: **8/8 cielených kontraktov**, **393/393 MJS + 34/34 TypeScript**, typová kontrola a tri izolované browser toky **PASS**. Dopytový tok vytvoril 1 lokálny lead, 1 zákazku, 2 súkromné prílohy a 2 čakajúce outbox položky; kariérny tok bezpečne uložil 1 žiadosť so súkromným CV; referencia overila dve po sebe idúce rovnaké chyby. Všetky behy mali 0 odoslaných emailov a 0 externých browser originov.
+- Nezávislý produktový kontrolór po oprave opakovanej chyby CV vydal **PASS bez zostávajúcej konkrétnej vady**. Najnovší technický kontrolór nebol dostupný pre vyčerpaný limit svojho vlákna; predchádzajúci technický PASS a bezpečnostný scan zostávajú platné pre nezmenené serverové/API/DB/upload/SMTP plochy.
+- Posledný úplný izolovaný produkčný build **99/99** patrí kompatibilnému aplikačnému checkpointu `d0b1730a`; novší rez mení iba klientsky fokus a jeho testy. Produkcia, Vercel alias, formuláre, emaily, Blob, produkčná databáza a reklamné účty sa nemenili.
+
 ## Aktuálny lokálny aplikačný a QA checkpoint (8. 10. 2026)
 
 - Aplikačný checkpoint je `5587258c` (tree `c391dfe3…`); QA checkpoint s izolovaným mobilným browser dôkazom je `439f75dc` (tree `f3933874…`). `origin/main` je po kontrolovanom merge `e539ee5b` predkom kandidáta a merge zachoval presne strom prvého rodiča.
