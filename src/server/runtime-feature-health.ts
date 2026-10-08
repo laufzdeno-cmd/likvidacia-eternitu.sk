@@ -1,6 +1,7 @@
 import { careerCvRetentionBound } from './career-cv-retention-binding';
 import { leadBlobRetentionBound } from './lead-blob-retention-binding';
 import { isMetaCapiConfigured } from './meta-capi-config';
+import { getOpsAlertConfiguration } from './ops-alert-policy';
 import {
   photoIntakeRetentionRequested,
   privatePhotoIntakeEnabled,
@@ -60,6 +61,19 @@ function photoIntakeState(environment: RuntimeEnvironment): RuntimeFeatureState 
   return { level: 'disabled', label: 'Vypnutý', detail: 'Tímový príjem fotografií nie je produkčne nakonfigurovaný.' };
 }
 
+function operationsAlertState(environment: RuntimeEnvironment): RuntimeFeatureState {
+  const configuration = getOpsAlertConfiguration(environment);
+  if (configuration.status === 'disabled') {
+    return { level: 'disabled', label: 'Vypnuté', detail: 'Externé upozornenia na poruchy doručovania nie sú zapnuté.' };
+  }
+  if (configuration.status === 'misconfigured') {
+    return { level: 'warning', label: 'Neúplná konfigurácia', detail: 'Upozornenia zostávajú bezpečne vypnuté, kým nebude platný webhook a podpisový kľúč.' };
+  }
+  return scheduledWorkerReady(environment)
+    ? { level: 'ok', label: 'Pripravené', detail: 'Poruchy doručovania a následné obnovenie sa hlásia podpísaným webhookom bez osobných údajov.' }
+    : { level: 'warning', label: 'Čaká na worker', detail: 'Webhook je pripravený, ale plánované kontroly nemajú autorizáciu.' };
+}
+
 export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = process.env) {
   const metaReady = isMetaCapiConfigured(environment);
   const workerReady = scheduledWorkerReady(environment);
@@ -81,5 +95,6 @@ export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = proces
         ? { level: 'warning', label: 'Čaká na worker', detail: 'Produkčná väzba je overená, ale plánované mazanie nemá autorizáciu.' }
         : { level: 'disabled', label: 'Bezpečne vypnutá', detail: 'Automatické mazanie životopisov nemá úplnú overenú produkčnú väzbu.' },
     photoIntake: photoIntakeState(environment),
+    operationsAlert: operationsAlertState(environment),
   } satisfies Record<string, RuntimeFeatureState>;
 }

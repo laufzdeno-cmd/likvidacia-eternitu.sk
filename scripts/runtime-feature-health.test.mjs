@@ -37,6 +37,10 @@ function readyEnvironment() {
     PHOTO_INTAKE_RETENTION_ENABLED: 'true',
     PHOTO_INTAKE_ENABLED: 'true',
     PHOTO_UPLOAD_SESSION_SECRET: 'x'.repeat(32),
+    OPS_ALERT_ENABLED: 'true',
+    OPS_ALERT_WEBHOOK_URL: 'https://alerts.example.test/hooks/astana',
+    OPS_ALERT_SIGNING_SECRET: 'ops-alert-test-secret-that-is-long-enough',
+    OPS_ALERT_REPEAT_MINUTES: '60',
   };
   environment.LEAD_BLOB_RETENTION_BINDING_SHA256 = binding([
     environment.VERCEL_PROJECT_ID,
@@ -101,6 +105,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
     'LEAD_BLOB_RETENTION_BINDING_SHA256',
     'CAREER_CV_RETENTION_BINDING_SHA256',
     'PHOTO_UPLOAD_SESSION_SECRET',
+    'OPS_ALERT_SIGNING_SECRET',
   ]) delete environment[key];
 
   const health = getRuntimeFeatureHealth(environment);
@@ -109,6 +114,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
   assert.equal(health.leadRetention.level, 'disabled');
   assert.equal(health.careerRetention.level, 'disabled');
   assert.equal(health.photoIntake.level, 'warning');
+  assert.equal(health.operationsAlert.level, 'warning');
   const serialized = JSON.stringify(health);
   for (const secret of Object.values(environment)) {
     if (secret && secret.length >= 16) assert.doesNotMatch(serialized, new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -135,6 +141,7 @@ test('runtime feature health reports only exact complete production bindings as 
   assert.equal(missingWorkerAuthorization.leadRetention.level, 'warning');
   assert.equal(missingWorkerAuthorization.careerRetention.level, 'warning');
   assert.equal(missingWorkerAuthorization.photoIntake.level, 'warning');
+  assert.equal(missingWorkerAuthorization.operationsAlert.level, 'warning');
   assert.equal(missingWorkerAuthorization.routeDistance.level, 'ok');
 
   const whitespaceWorkerAuthorization = getRuntimeFeatureHealth({ ...environment, CRON_SECRET: 'cron-secret ' });
@@ -160,6 +167,7 @@ test('runtime feature health reports only exact complete production bindings as 
   assert.notEqual(stagingHealth.leadRetention.level, 'ok');
   assert.notEqual(stagingHealth.careerRetention.level, 'ok');
   assert.notEqual(stagingHealth.photoIntake.level, 'ok');
+  assert.notEqual(stagingHealth.operationsAlert.level, 'ok');
 });
 
 test('super-admin health page renders only bounded readiness labels', async () => {
@@ -173,5 +181,6 @@ test('super-admin health page renders only bounded readiness labels', async () =
   assert.match(page, /health\.features\.leadRetention/);
   assert.match(page, /health\.features\.careerRetention/);
   assert.match(page, /health\.features\.photoIntake/);
+  assert.match(page, /health\.features\.operationsAlert/);
   assert.doesNotMatch(page, /process\.env|DATABASE_URL|SMTP_PASS|READ_WRITE_TOKEN|SESSION_SECRET/);
 });

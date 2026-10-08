@@ -85,6 +85,11 @@ export default async function AdminHealthPage() {
             <strong>{health.features.photoIntake.label}</strong>
             <small>{health.features.photoIntake.detail}</small>
           </article>
+          <article className={featureClass(health.features.operationsAlert.level)}>
+            <span>Upozornenia na doručovanie</span>
+            <strong>{health.features.operationsAlert.label}</strong>
+            <small>{health.features.operationsAlert.detail}</small>
+          </article>
         </div>
       </section>
 

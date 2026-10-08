@@ -481,6 +481,8 @@ test('dedicated lead-email cron is authenticated, bounded, outbox-only, and resp
   assert.match(leadEmailDeliveryCron, /evaluateLeadEmailWorkerHealth\(\{/);
   assert.match(leadEmailDeliveryCron, /attention: workerHealth\.attention/);
   assert.match(leadEmailDeliveryCron, /status: workerHealth\.status/);
+  assert.match(leadEmailDeliveryCron, /dispatchOpsAlert\(\{[\s\S]{0,180}worker: 'lead_email_delivery'/);
+  assert.match(leadEmailDeliveryCron, /reasonCodes: \['worker_exception'\]/);
   assert.doesNotMatch(leadEmailDeliveryCron, /oldestAttentionLeadId/);
   assert.match(leadEmailDeliveryCron, /await markStaleLeadEmailClaimsUnknown\(\)/);
   assert.ok(leadEmailDeliveryCron.indexOf('await markStaleLeadEmailClaimsUnknown()') < leadEmailDeliveryCron.indexOf('await listPendingLeadEmailDeliveries('));

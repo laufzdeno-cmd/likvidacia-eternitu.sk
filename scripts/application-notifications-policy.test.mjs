@@ -34,6 +34,8 @@ test('application notification recovery has its own frequent protected worker wh
   assert.match(route, /applicationNotifications\.health\.unknown === 0/);
   assert.match(route, /const ok = applicationNotifications\.errors === 0/);
   assert.match(route, /status: applicationNotifications\.errors > 0 \? 500 : ok \? 200 : 503/);
+  assert.match(route, /dispatchOpsAlert\(\{[\s\S]{0,180}worker: 'application_notifications'/);
+  assert.match(route, /reasonCodes: \['worker_exception'\]/);
   const mail = await readFile(new URL('src/server/mail.ts', repo), 'utf8');
   assert.match(mail, /transporter\(options: \{ applicationNotification\?: boolean \} = \{\}\)/);
   assert.match(mail, /connectionTimeout: 10_000,[\s\S]*greetingTimeout: 10_000,[\s\S]*socketTimeout: 20_000/);

@@ -12,6 +12,8 @@ import {
 import { leadDeliveryMode } from '@/src/server/astana-local-relay';
 import { evaluateLeadEmailWorkerHealth } from '@/src/server/lead-email-worker-health';
 import { hasLeadEmailTransportConfiguration, hasUsableLeadSmtpConfiguration, sendLeadEmailToRecipient, sendLeadEmails } from '@/src/server/mail';
+import { dispatchOpsAlert } from '@/src/server/ops-alert-dispatch';
+import type { OpsAlertReasonCode } from '@/src/server/ops-alert-policy';
 
 export const runtime = 'nodejs';
 
@@ -78,7 +80,19 @@ export async function GET(request: Request) {
     await markStaleLeadEmailClaimsUnknown();
     const mode = leadDeliveryMode();
     if (!hasLeadEmailTransportConfiguration(mode)) {
-      return NextResponse.json({ ok: false, code: 'LEAD_EMAIL_TRANSPORT_NOT_CONFIGURED', outbox: await getLeadEmailOutboxHealth() }, { status: 503 });
+      const outbox = await getLeadEmailOutboxHealth();
+      const operationsAlert = await dispatchOpsAlert({
+        worker: 'lead_email_delivery',
+        state: 'unhealthy',
+        reasonCodes: ['transport_not_configured'],
+        metrics: outbox,
+      });
+      return NextResponse.json({
+        ok: false,
+        code: 'LEAD_EMAIL_TRANSPORT_NOT_CONFIGURED',
+        outbox,
+        operationsAlert: operationsAlert.status,
+      }, { status: 503 });
     }
     const pairsOnly = mode === 'local_relay' || (mode === 'smtp_then_local_relay' && !hasUsableLeadSmtpConfiguration());
     const pendingDeliveries = await listPendingLeadEmailDeliveries(LOOKAHEAD_LIMIT, pairsOnly);
@@ -109,6 +123,32 @@ export async function GET(request: Request) {
       pendingWithoutSingleRecipientTransport,
       attention,
     });
+    const reasonCodes: OpsAlertReasonCode[] = [];
+    if (errors > 0) reasonCodes.push('run_errors');
+    if (unresolved > 0) reasonCodes.push('unresolved_delivery');
+    if (deferred > 0) reasonCodes.push('deferred_delivery');
+    if (pendingWithoutSingleRecipientTransport) reasonCodes.push('single_recipient_transport_unavailable');
+    if (workerHealth.attention.overduePending > 0) reasonCodes.push('overdue_pending');
+    if (workerHealth.attention.staleSending > 0) reasonCodes.push('stale_sending');
+    if (workerHealth.attention.failed > 0) reasonCodes.push('failed_delivery');
+    if (workerHealth.attention.unknown > 0) reasonCodes.push('unknown_delivery');
+    const operationsAlert = await dispatchOpsAlert({
+      worker: 'lead_email_delivery',
+      state: workerHealth.ok ? 'healthy' : 'unhealthy',
+      reasonCodes,
+      metrics: {
+        errors,
+        unresolved,
+        deferred,
+        pending: workerHealth.attention.pending,
+        overdue_pending: workerHealth.attention.overduePending,
+        sending: workerHealth.attention.sending,
+        stale_sending: workerHealth.attention.staleSending,
+        failed: workerHealth.attention.failed,
+        unknown: workerHealth.attention.unknown,
+        oldest_unresolved_age_minutes: workerHealth.attention.oldestUnresolvedAgeMinutes ?? 0,
+      },
+    });
     return NextResponse.json({
       ok: workerHealth.ok,
       considered: pendingDeliveries.length,
@@ -119,9 +159,21 @@ export async function GET(request: Request) {
       errors,
       outbox,
       attention: workerHealth.attention,
+      operationsAlert: operationsAlert.status,
     }, { status: workerHealth.status });
   } catch {
     // Keep the response safe for callers and monitoring systems.
-    return NextResponse.json({ ok: false, error: 'Lead email delivery worker failed', code: 'LEAD_EMAIL_WORKER_FAILED' }, { status: 500 });
+    const operationsAlert = await dispatchOpsAlert({
+      worker: 'lead_email_delivery',
+      state: 'unhealthy',
+      reasonCodes: ['worker_exception'],
+      metrics: {},
+    });
+    return NextResponse.json({
+      ok: false,
+      error: 'Lead email delivery worker failed',
+      code: 'LEAD_EMAIL_WORKER_FAILED',
+      operationsAlert: operationsAlert.status,
+    }, { status: 500 });
   }
 }

@@ -114,6 +114,15 @@ import { summarizeLeadAttribution } from './lead-attribution-report';
 import { persistAcceptedLeadAnalyticsBatch } from './analytics-recovery';
 import { careerCvUploadContentTypes, isCareerCvUploadPath, validateCareerCvReservation } from './career-cv-policy';
 import type { ApplicationRecipientResult } from './application-notification-policy';
+import {
+  opsAlertMetricKeys,
+  opsAlertReasonCodes,
+  type OpsAlertAuditSummary,
+  type OpsAlertClaim,
+  type OpsAlertState,
+  type OpsAlertTransition,
+  type OpsAlertWorker,
+} from './ops-alert-policy';
 import { deploymentDatabaseAccessBlocked, isVerifiedIsolatedStaging, isVerifiedLocalBuildHarness, runtimeSchemaInitializationAllowed, stagingDatabaseMarkerMatches } from './preview-safety';
 import { mergeLatestTestClassifications } from './local-lead-test-classification';
 import { assertDatabaseConfiguredForRuntime, databasePoolConfig, normalizeDatabaseUrl } from './database-config';
@@ -123,6 +132,22 @@ import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { validatePriceOfferNote } from '../lib/price-offer-note';
 import { priceOfferUpdateLifecycle } from '../lib/price-offer-state';
 import { MAX_BUSINESS_FINANCE_CENTS, projectBusinessJobFinance } from '../lib/business-billing';
+
+type OpsAlertStateRecord = {
+  id: string;
+  workerKey: OpsAlertWorker;
+  observedState: OpsAlertState;
+  observedFingerprint: string;
+  lastDeliveredState?: OpsAlertState;
+  lastDeliveredFingerprint: string;
+  lastDeliveredAt?: string;
+  claimId?: string;
+  claimTransition?: OpsAlertTransition;
+  claimState?: OpsAlertState;
+  claimFingerprint: string;
+  claimedUntil?: string;
+  updatedAt: string;
+};
 
 type LocalDb = {
   leads: Lead[];
@@ -150,6 +175,7 @@ type LocalDb = {
   careerApplications: CareerApplication[];
   siteContent: SiteContentItem[];
   analyticsEvents: AnalyticsEvent[];
+  opsAlertStates: OpsAlertStateRecord[];
   adminSettings: Record<string, string>;
 };
 
@@ -636,6 +662,28 @@ async function initializeSchema() {
     );
     CREATE INDEX IF NOT EXISTS audit_price_offer_number_idx ON audit_logs ((changes->>'number'))
       WHERE entity_type = 'business_job' AND action IN ('price_offer_created', 'price_offer_updated');
+
+    CREATE TABLE IF NOT EXISTS ops_alert_states (
+      id uuid NOT NULL UNIQUE,
+      worker_key text PRIMARY KEY CHECK (worker_key IN ('lead_email_delivery', 'application_notifications')),
+      observed_state text NOT NULL CHECK (observed_state IN ('healthy', 'unhealthy')),
+      observed_fingerprint text NOT NULL DEFAULT '',
+      last_delivered_state text CHECK (last_delivered_state IS NULL OR last_delivered_state IN ('healthy', 'unhealthy')),
+      last_delivered_fingerprint text NOT NULL DEFAULT '',
+      last_delivered_at timestamptz,
+      claim_id uuid,
+      claim_transition text CHECK (claim_transition IS NULL OR claim_transition IN ('degraded', 'repeated', 'recovered')),
+      claim_state text CHECK (claim_state IS NULL OR claim_state IN ('healthy', 'unhealthy')),
+      claim_fingerprint text NOT NULL DEFAULT '',
+      claimed_until timestamptz,
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CHECK (
+        (claim_id IS NULL AND claim_transition IS NULL AND claim_state IS NULL AND claimed_until IS NULL)
+        OR
+        (claim_id IS NOT NULL AND claim_transition IS NOT NULL AND claim_state IS NOT NULL AND claimed_until IS NOT NULL)
+      )
+    );
+    CREATE INDEX IF NOT EXISTS ops_alert_states_claim_idx ON ops_alert_states (claimed_until) WHERE claim_id IS NOT NULL;
 
     CREATE TABLE IF NOT EXISTS testimonial_consent_history (
       id uuid PRIMARY KEY,
@@ -1730,6 +1778,18 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     careerApplications: data.careerApplications ?? [],
     siteContent: data.siteContent ?? [],
     analyticsEvents: data.analyticsEvents ?? [],
+    opsAlertStates: (data.opsAlertStates ?? []).filter((item) => (
+      (item.workerKey === 'lead_email_delivery' || item.workerKey === 'application_notifications')
+      && (item.observedState === 'healthy' || item.observedState === 'unhealthy')
+    )).map((item) => ({
+      ...item,
+      observedFingerprint: String(item.observedFingerprint ?? '').slice(0, 64),
+      lastDeliveredFingerprint: String(item.lastDeliveredFingerprint ?? '').slice(0, 64),
+      claimFingerprint: String(item.claimFingerprint ?? '').slice(0, 64),
+      updatedAt: Number.isFinite(Date.parse(String(item.updatedAt)))
+        ? new Date(String(item.updatedAt)).toISOString()
+        : new Date(0).toISOString(),
+    })),
     adminSettings: data.adminSettings ?? {},
   };
 }
@@ -2100,6 +2160,7 @@ async function readLocalDb(): Promise<LocalDb> {
       careerApplications: [],
       siteContent: [],
       analyticsEvents: [],
+      opsAlertStates: [],
       adminSettings: {},
     };
     await writeLocalDb(empty);
@@ -2158,6 +2219,11 @@ async function writeLocalDb(data: LocalDb, options: { purgeLeadAuditId?: string 
         if (persisted?.cancelledAt) continue;
         durableInvoices.set(invoice.id, invoice);
       }
+      const durableOpsAlertStates = new Map(existingDb.opsAlertStates.map((item) => [item.workerKey, item]));
+      for (const alertState of data.opsAlertStates) {
+        const persisted = durableOpsAlertStates.get(alertState.workerKey);
+        if (!persisted || alertState.updatedAt >= persisted.updatedAt) durableOpsAlertStates.set(alertState.workerKey, alertState);
+      }
       const durableData = {
         ...data,
         leads: durableLeads,
@@ -2168,6 +2234,7 @@ async function writeLocalDb(data: LocalDb, options: { purgeLeadAuditId?: string 
         auditLogs: durableAuditLogs,
         testimonialConsentHistory: uniqueById(existingDb.testimonialConsentHistory, data.testimonialConsentHistory)
           .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt)),
+        opsAlertStates: [...durableOpsAlertStates.values()],
         analyticsEvents: [...acceptedLeadEvents, ...otherEvents],
       };
       await writeFile(/*turbopackIgnore: true*/ tempPath, JSON.stringify(durableData, null, 2), 'utf8');
@@ -3821,6 +3888,310 @@ export async function getLeadEmailOutboxAttention() {
     oldestUnresolvedAt: row.oldest_unresolved_at ? new Date(String(row.oldest_unresolved_at)).toISOString() : null,
     oldestAttentionLeadId: row.oldest_attention_lead_id ? String(row.oldest_attention_lead_id) : null,
   };
+}
+
+type ClaimOpsAlertInput = {
+  worker: OpsAlertWorker;
+  state: OpsAlertState;
+  fingerprint: string;
+  repeatAfterMinutes: number;
+  now: string;
+};
+
+function opsAlertTransition(
+  lastDeliveredState: OpsAlertState | undefined,
+  lastDeliveredAt: string | undefined,
+  uncertainClaimState: OpsAlertState | undefined,
+  desiredState: OpsAlertState,
+  timestamp: string,
+  repeatAfterMinutes: number,
+): OpsAlertTransition | undefined {
+  if (desiredState === 'healthy') {
+    return lastDeliveredState === 'unhealthy' || uncertainClaimState === 'unhealthy' ? 'recovered' : undefined;
+  }
+  if (uncertainClaimState === 'healthy') return 'degraded';
+  if (lastDeliveredState !== 'unhealthy') return 'degraded';
+  const lastDeliveredMs = lastDeliveredAt ? Date.parse(lastDeliveredAt) : Number.NaN;
+  const nowMs = Date.parse(timestamp);
+  return !Number.isFinite(lastDeliveredMs) || nowMs - lastDeliveredMs >= repeatAfterMinutes * 60_000
+    ? 'repeated'
+    : undefined;
+}
+
+function validOpsAlertClaimInput(input: ClaimOpsAlertInput) {
+  return (input.worker === 'lead_email_delivery' || input.worker === 'application_notifications')
+    && (input.state === 'healthy' || input.state === 'unhealthy')
+    && /^[a-f0-9]{64}$/.test(input.fingerprint)
+    && Number.isFinite(Date.parse(input.now))
+    && Number.isSafeInteger(input.repeatAfterMinutes)
+    && input.repeatAfterMinutes >= 15
+    && input.repeatAfterMinutes <= 1440;
+}
+
+function clearOpsAlertClaim(state: OpsAlertStateRecord) {
+  state.claimId = undefined;
+  state.claimTransition = undefined;
+  state.claimState = undefined;
+  state.claimFingerprint = '';
+  state.claimedUntil = undefined;
+}
+
+function safeOpsAlertAuditSummary(summary: OpsAlertAuditSummary) {
+  const allowedReasons = new Set<string>(opsAlertReasonCodes);
+  const allowedMetrics = new Set<string>(opsAlertMetricKeys);
+  const reasonCodes = [...new Set(summary.reasonCodes.filter((reason) => allowedReasons.has(reason)))].sort();
+  const metrics = Object.fromEntries(Object.entries(summary.metrics)
+    .filter(([key]) => allowedMetrics.has(key))
+    .slice(0, 20)
+    .map(([key, value]) => [key, Number.isFinite(value) ? Math.min(1_000_000_000, Math.max(0, Math.trunc(value))) : 0]));
+  return { reasonCodes, metrics };
+}
+
+export async function claimOpsAlert(input: ClaimOpsAlertInput): Promise<OpsAlertClaim | null> {
+  if (!validOpsAlertClaimInput(input)) throw new Error('Invalid operations alert claim.');
+  await ensureSchema();
+  const db = getPool();
+  const claimId = randomUUID();
+  const claimedUntil = new Date(Date.parse(input.now) + 5 * 60_000).toISOString();
+
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      let state = local.opsAlertStates.find((item) => item.workerKey === input.worker);
+      if (!state) {
+        state = {
+          id: randomUUID(),
+          workerKey: input.worker,
+          observedState: input.state,
+          observedFingerprint: input.fingerprint,
+          lastDeliveredFingerprint: '',
+          claimFingerprint: '',
+          updatedAt: input.now,
+        };
+        local.opsAlertStates.push(state);
+      }
+      if (state.claimId && state.claimedUntil && state.claimedUntil > input.now) return null;
+
+      if (state.claimId && state.claimTransition && state.claimState === input.state && state.claimFingerprint === input.fingerprint) {
+        state.observedState = input.state;
+        state.observedFingerprint = input.fingerprint;
+        state.claimedUntil = claimedUntil;
+        state.updatedAt = input.now;
+        await writeLocalDb(local);
+        return {
+          claimId: state.claimId,
+          worker: input.worker,
+          state: input.state,
+          transition: state.claimTransition,
+          fingerprint: input.fingerprint,
+        };
+      }
+
+      const transition = opsAlertTransition(
+        state.lastDeliveredState,
+        state.lastDeliveredAt,
+        state.claimState,
+        input.state,
+        input.now,
+        input.repeatAfterMinutes,
+      );
+      const reusableClaim = state.claimId
+        && state.claimTransition === transition
+        && state.claimState === input.state
+        && state.claimFingerprint === input.fingerprint
+        ? state.claimId
+        : undefined;
+      state.observedState = input.state;
+      state.observedFingerprint = input.fingerprint;
+      state.updatedAt = input.now;
+      if (!transition) {
+        clearOpsAlertClaim(state);
+        await writeLocalDb(local);
+        return null;
+      }
+
+      state.claimId = reusableClaim ?? claimId;
+      state.claimTransition = transition;
+      state.claimState = input.state;
+      state.claimFingerprint = input.fingerprint;
+      state.claimedUntil = claimedUntil;
+      await writeLocalDb(local);
+      return { claimId: state.claimId, worker: input.worker, state: input.state, transition, fingerprint: input.fingerprint };
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO ops_alert_states (id, worker_key, observed_state, observed_fingerprint, updated_at)
+       VALUES ($1,$2,$3,$4,$5) ON CONFLICT (worker_key) DO NOTHING`,
+      [randomUUID(), input.worker, input.state, input.fingerprint, input.now],
+    );
+    const locked = await client.query('SELECT * FROM ops_alert_states WHERE worker_key = $1 FOR UPDATE', [input.worker]);
+    const row = locked.rows[0];
+    if (!row) throw new Error('Operations alert state is unavailable.');
+    if (row.claim_id && row.claimed_until && new Date(String(row.claimed_until)).toISOString() > input.now) {
+      await client.query('COMMIT');
+      return null;
+    }
+    if (row.claim_id && row.claim_transition && String(row.claim_state || '') === input.state
+      && String(row.claim_fingerprint || '') === input.fingerprint) {
+      await client.query(
+        `UPDATE ops_alert_states SET observed_state=$2, observed_fingerprint=$3, claimed_until=$4, updated_at=$5
+         WHERE worker_key=$1 AND claim_id=$6`,
+        [input.worker, input.state, input.fingerprint, claimedUntil, input.now, String(row.claim_id)],
+      );
+      await client.query('COMMIT');
+      return {
+        claimId: String(row.claim_id),
+        worker: input.worker,
+        state: input.state,
+        transition: String(row.claim_transition) as OpsAlertTransition,
+        fingerprint: input.fingerprint,
+      };
+    }
+    const transition = opsAlertTransition(
+      row.last_delivered_state ? String(row.last_delivered_state) as OpsAlertState : undefined,
+      row.last_delivered_at ? new Date(String(row.last_delivered_at)).toISOString() : undefined,
+      row.claim_state ? String(row.claim_state) as OpsAlertState : undefined,
+      input.state,
+      input.now,
+      input.repeatAfterMinutes,
+    );
+    const reusableClaim = row.claim_id
+      && String(row.claim_transition || '') === transition
+      && String(row.claim_state || '') === input.state
+      && String(row.claim_fingerprint || '') === input.fingerprint
+      ? String(row.claim_id)
+      : undefined;
+    if (!transition) {
+      await client.query(
+        `UPDATE ops_alert_states SET observed_state=$2, observed_fingerprint=$3,
+           claim_id=NULL, claim_transition=NULL, claim_state=NULL, claim_fingerprint='', claimed_until=NULL, updated_at=$4
+         WHERE worker_key=$1`,
+        [input.worker, input.state, input.fingerprint, input.now],
+      );
+      await client.query('COMMIT');
+      return null;
+    }
+    await client.query(
+      `UPDATE ops_alert_states SET observed_state=$2, observed_fingerprint=$3, claim_id=$4,
+         claim_transition=$5, claim_state=$2, claim_fingerprint=$3, claimed_until=$6, updated_at=$7
+       WHERE worker_key=$1`,
+      [input.worker, input.state, input.fingerprint, reusableClaim ?? claimId, transition, claimedUntil, input.now],
+    );
+    await client.query('COMMIT');
+    return { claimId: reusableClaim ?? claimId, worker: input.worker, state: input.state, transition, fingerprint: input.fingerprint };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function completeOpsAlert(input: {
+  worker: OpsAlertWorker;
+  claimId: string;
+  deliveredAt: string;
+  summary: OpsAlertAuditSummary;
+}) {
+  if (!uuidPattern.test(input.claimId) || !Number.isFinite(Date.parse(input.deliveredAt))) return false;
+  await ensureSchema();
+  const db = getPool();
+  const summary = safeOpsAlertAuditSummary(input.summary);
+
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const state = local.opsAlertStates.find((item) => item.workerKey === input.worker && item.claimId === input.claimId);
+      if (!state?.claimTransition || !state.claimState) return false;
+      const transition = state.claimTransition;
+      const deliveredState = state.claimState;
+      state.lastDeliveredState = deliveredState;
+      state.lastDeliveredFingerprint = state.claimFingerprint;
+      state.lastDeliveredAt = input.deliveredAt;
+      state.updatedAt = input.deliveredAt;
+      clearOpsAlertClaim(state);
+      local.auditLogs.unshift({
+        id: randomUUID(),
+        entityType: 'system',
+        entityId: state.id,
+        action: 'ops_alert_delivered',
+        actorEmail: 'system:ops-alert',
+        changes: { worker: input.worker, transition, state: deliveredState, ...summary },
+        createdAt: input.deliveredAt,
+      });
+      await writeLocalDb(local);
+      return true;
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const completed = await client.query(
+      `WITH claimed AS (
+         SELECT id, worker_key, claim_transition, claim_state, claim_fingerprint
+         FROM ops_alert_states WHERE worker_key=$1 AND claim_id=$2 FOR UPDATE
+       ), updated AS (
+         UPDATE ops_alert_states AS state SET last_delivered_state=claimed.claim_state,
+           last_delivered_fingerprint=claimed.claim_fingerprint, last_delivered_at=$3,
+           claim_id=NULL, claim_transition=NULL, claim_state=NULL, claim_fingerprint='', claimed_until=NULL, updated_at=$3
+         FROM claimed WHERE state.worker_key=claimed.worker_key
+         RETURNING claimed.id, claimed.claim_transition, claimed.claim_state
+       ) SELECT * FROM updated`,
+      [input.worker, input.claimId, input.deliveredAt],
+    );
+    if (completed.rowCount !== 1) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    const row = completed.rows[0];
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'system',$2,'ops_alert_delivered','system:ops-alert',$3::jsonb,$4)`,
+      [randomUUID(), row.id, JSON.stringify({
+        worker: input.worker,
+        transition: row.claim_transition,
+        state: row.claim_state,
+        ...summary,
+      }), input.deliveredAt],
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function releaseOpsAlertClaim(worker: OpsAlertWorker, claimId: string) {
+  if (!uuidPattern.test(claimId)) return false;
+  await ensureSchema();
+  const db = getPool();
+  const updatedAt = now();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const state = local.opsAlertStates.find((item) => item.workerKey === worker && item.claimId === claimId);
+      if (!state) return false;
+      clearOpsAlertClaim(state);
+      state.updatedAt = updatedAt;
+      await writeLocalDb(local);
+      return true;
+    });
+  }
+  const result = await db.query(
+    `UPDATE ops_alert_states SET claim_id=NULL, claim_transition=NULL, claim_state=NULL,
+       claim_fingerprint='', claimed_until=NULL, updated_at=$3
+     WHERE worker_key=$1 AND claim_id=$2`,
+    [worker, claimId, updatedAt],
+  );
+  return result.rowCount === 1;
 }
 
 const confirmedLeadEmailNonDelivery = 'Administrátor potvrdil nedoručenie; opakované odoslanie vyžaduje samostatný pokyn.';
