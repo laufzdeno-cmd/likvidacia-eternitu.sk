@@ -16,7 +16,7 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   ]);
   const evidence = JSON.parse(rawEvidence);
   const baselineVisual = JSON.parse(rawBaselineVisual);
-  const { safeChildEnvironment, sanitizeLog } = await import('./capture-local-release-evidence.mjs');
+  const { releaseEvidenceMetrics, safeChildEnvironment, sanitizeLog } = await import('./capture-local-release-evidence.mjs');
   const candidateTree = execFileSync('git', ['show', '-s', '--format=%T', candidateCommit], {
     encoding: 'utf8',
     windowsHide: true,
@@ -116,6 +116,95 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(logs.get('productionBuild'), /"productionAccess":false/);
   assert.match(logs.get('productionBuild'), /server stopped/);
   assert.match(logs.get('productionBuild'), /PASS: jednorazov.*PostgreSQL bol zastaven/i);
+  assert.deepEqual(releaseEvidenceMetrics(logs.get('unit'), logs.get('productionBuild')), {
+    buildId: 'yRQZD1h0REteI_nOw5QZW',
+    unitMjsCount: 401,
+    unitTypeScriptCount: 35,
+    generatedRouteCount: 99,
+    staticSeoUrlCount: 32,
+  });
+  const currentBuildResult = {
+    result: 'PASS',
+    mode: 'isolated-full-production-build',
+    output: 'Generating static pages using 9 workers (0/100)\nGenerating static pages using 9 workers (100/100)',
+    seoAudits: [
+      { name: 'seo-rendered-metadata-check.mjs', output: 'PASS: build CURRENT_BUILD; na 33 verejných statických stránkach' },
+      { name: 'seo-rendered-content-check.mjs', output: 'PASS: build CURRENT_BUILD; na 33 statických indexovateľných stránkach' },
+    ],
+    productionAccess: false,
+  };
+  const completeUnitLog = [
+    'ℹ tests 425',
+    'ℹ pass 425',
+    'ℹ fail 0',
+    'ℹ cancelled 0',
+    'ℹ skipped 0',
+    'ℹ todo 0',
+    'ℹ tests 35',
+    'ℹ pass 35',
+    'ℹ fail 0',
+    'ℹ cancelled 0',
+    'ℹ skipped 0',
+    'ℹ todo 0',
+  ].join('\n');
+  assert.deepEqual(releaseEvidenceMetrics(
+    completeUnitLog,
+    `historický šum: PASS: build OLD_BUILD; Generating static pages using 7 workers (99/99)\n${JSON.stringify(currentBuildResult)}`,
+  ), {
+    buildId: 'CURRENT_BUILD',
+    unitMjsCount: 425,
+    unitTypeScriptCount: 35,
+    generatedRouteCount: 100,
+    staticSeoUrlCount: 33,
+  });
+  assert.throws(
+    () => releaseEvidenceMetrics(
+      completeUnitLog,
+      JSON.stringify({
+        ...currentBuildResult,
+        seoAudits: [
+          currentBuildResult.seoAudits[0],
+          { name: 'seo-rendered-content-check.mjs', output: 'PASS: build CURRENT_BUILD; na 32 statických indexovateľných stránkach' },
+        ],
+      }),
+    ),
+    /zhodný počet statických SEO URL/,
+  );
+  assert.throws(
+    () => releaseEvidenceMetrics(
+      completeUnitLog,
+      JSON.stringify({ ...currentBuildResult, seoAudits: [...currentBuildResult.seoAudits, currentBuildResult.seoAudits[0]] }),
+    ),
+    /práve jeden SEO audit seo-rendered-metadata-check\.mjs/,
+  );
+  assert.throws(
+    () => releaseEvidenceMetrics(
+      completeUnitLog,
+      JSON.stringify({
+        ...currentBuildResult,
+        seoAudits: [
+          currentBuildResult.seoAudits[0],
+          { name: 'seo-rendered-content-check.mjs', output: 'PASS: build DIFFERENT_BUILD; na 33 statických indexovateľných stránkach' },
+        ],
+      }),
+    ),
+    /zhodný BUILD_ID/,
+  );
+  assert.throws(
+    () => releaseEvidenceMetrics(
+      completeUnitLog.replace('ℹ pass 425', 'ℹ pass 424').replace('ℹ skipped 0', 'ℹ skipped 1'),
+      JSON.stringify(currentBuildResult),
+    ),
+    /všetky testy prešli/,
+  );
+  assert.throws(
+    () => releaseEvidenceMetrics(
+      completeUnitLog.replace('ℹ fail 0', 'ℹ fail 1'),
+      JSON.stringify(currentBuildResult),
+    ),
+    /neúspešné, zrušené, preskočené alebo nedokončené testy/,
+  );
+  assert.doesNotMatch(generator, /testCounts\.includes\(401\)|generatedRouteCount: 99|staticSeoUrlCount: 32|unitMjsCount: 401/);
 
   assert.deepEqual(evidence.releaseStatus, {
     candidateDeployment: 'NOT_VERIFIED',

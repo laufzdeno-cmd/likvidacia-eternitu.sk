@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireSuperAdmin } from '@/src/server/auth';
+import { csvCell } from '@/src/server/csv';
 import { addAuditLog, listBusinessFinanceEvidence } from '@/src/server/db';
 
 export const dynamic = 'force-dynamic';
-
-function cell(value: unknown) {
-  const text = String(value ?? '');
-  return `"${text.replaceAll('"', '""')}"`;
-}
 
 export async function GET(request: NextRequest) {
   const admin = await requireSuperAdmin();
@@ -33,7 +29,7 @@ export async function GET(request: NextRequest) {
     ? ['číslo faktúry', 'ID zákazky', 'vystavená', 'splatnosť', 'suma bez DPH', 'DPH %', 'suma s DPH', 'stav', 'dátum storna', 'dôvod storna']
     : ['ID udalosti', 'ID zákazky', 'ID faktúry', 'dátum udalosti', 'typ udalosti', 'suma', 'spôsob', 'referencia', 'storno pôvodnej udalosti', 'dôvod opravy'];
   await addAuditLog('system', 'business_finance', 'business_finance_exported', admin.email, { type, year: year || 'all', resultCount: rows.length });
-  const csv = [header, ...rows].map((row) => row.map(cell).join(';')).join('\n');
+  const csv = [header, ...rows].map((row) => row.map(csvCell).join(';')).join('\n');
   return new NextResponse(`\uFEFF${csv}`, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',

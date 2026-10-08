@@ -1,7 +1,7 @@
 # U02 — audit prvotného cieľa verejných šablón
 
-Stav: **PASS local current**  
-Kontrolovaný commit: `59149a474ae7061b85281a7a2e17c65a518d0680`  
+Stav: **PASS local current**
+Kontrolovaný commit: `59149a474ae7061b85281a7a2e17c65a518d0680`
 Kontrolovaný strom: `6d4d8025bab9720b8746f130087b1d8056036028`
 
 ## Výsledok

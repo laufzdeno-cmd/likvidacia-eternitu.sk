@@ -37,6 +37,9 @@ test('financial exports stay separate and require super-admin', async () => {
   assert.match(route, /=== 'payments' \? 'payments'/);
   assert.match(route, /business_finance_exported/);
   assert.match(route, /Cache-Control': 'private, no-store'/);
+  assert.match(route, /import \{ csvCell \} from '@\/src\/server\/csv'/);
+  assert.match(route, /row\.map\(csvCell\)/);
+  assert.doesNotMatch(route, /function cell\(/);
 });
 
 test('admin copy does not present estimates as payments or accounting profit', async () => {

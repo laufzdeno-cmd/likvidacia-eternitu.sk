@@ -171,6 +171,81 @@ function requireMatch(value, pattern, message) {
   return match;
 }
 
+export function releaseEvidenceMetrics(unitLog, buildLog) {
+  const summaryFields = ['tests', 'pass', 'fail', 'cancelled', 'skipped', 'todo'];
+  const unitSummaries = Object.fromEntries(summaryFields.map((field) => [
+    field,
+    [...unitLog.matchAll(new RegExp(`^ℹ ${field} (\\d+)$`, 'gm'))].map((match) => Number(match[1])),
+  ]));
+  if (summaryFields.some((field) => unitSummaries[field].length !== 2)) {
+    throw new Error('Unit log nepotvrdzuje obe úplné testovacie sady.');
+  }
+  const testCounts = unitSummaries.tests;
+  for (const index of [0, 1]) {
+    const tests = testCounts[index];
+    if (!Number.isInteger(tests) || tests < 1 || unitSummaries.pass[index] !== tests) {
+      throw new Error('Unit log nepotvrdzuje, že všetky testy prešli.');
+    }
+    if (['fail', 'cancelled', 'skipped', 'todo'].some((field) => unitSummaries[field][index] !== 0)) {
+      throw new Error('Unit log obsahuje neúspešné, zrušené, preskočené alebo nedokončené testy.');
+    }
+  }
+
+  const buildResults = [];
+  for (const line of buildLog.split(/\r?\n/)) {
+    const candidate = line.trim();
+    if (!candidate.startsWith('{') || !candidate.endsWith('}')) continue;
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed?.result === 'PASS' && parsed?.mode === 'isolated-full-production-build') buildResults.push(parsed);
+    } catch {
+      // Other command output may contain braces without being the build result.
+    }
+  }
+  if (buildResults.length !== 1) {
+    throw new Error('Build log musí obsahovať práve jeden výsledok izolovaného produkčného buildu.');
+  }
+  const buildResult = buildResults[0];
+  if (typeof buildResult.output !== 'string' || buildResult.productionAccess !== false) {
+    throw new Error('Výsledok buildu nemá bezpečný očakávaný kontrakt.');
+  }
+  const generatedRouteCount = Number(requireMatch(
+    buildResult.output,
+    /Generating static pages using \d+ workers \((\d+)\/\1\)/,
+    'Build log nepotvrdzuje dokončený počet trás.',
+  )[1]);
+  const expectedSeoAudits = ['seo-rendered-metadata-check.mjs', 'seo-rendered-content-check.mjs'];
+  const seoResults = expectedSeoAudits.map((name) => {
+    const matches = Array.isArray(buildResult.seoAudits)
+      ? buildResult.seoAudits.filter((audit) => audit?.name === name && typeof audit?.output === 'string')
+      : [];
+    if (matches.length !== 1) throw new Error(`Build log musí obsahovať práve jeden SEO audit ${name}.`);
+    const output = matches[0].output;
+    return {
+      buildId: requireMatch(output, /PASS: build ([^;\r\n]+);/, `SEO audit ${name} nepotvrdzuje BUILD_ID.`)[1],
+      staticSeoUrlCount: Number(requireMatch(
+        output,
+        /\bna (\d+) (?:verejných )?statických(?: indexovateľných)? stránkach/,
+        `SEO audit ${name} nepotvrdzuje počet statických URL.`,
+      )[1]),
+    };
+  });
+  if (new Set(seoResults.map(({ staticSeoUrlCount }) => staticSeoUrlCount)).size !== 1) {
+    throw new Error('Build log nepotvrdzuje zhodný počet statických SEO URL v oboch auditoch.');
+  }
+  if (new Set(seoResults.map(({ buildId }) => buildId)).size !== 1) {
+    throw new Error('Build log nepotvrdzuje zhodný BUILD_ID v oboch SEO auditoch.');
+  }
+
+  return {
+    buildId: seoResults[0].buildId,
+    unitMjsCount: testCounts[0],
+    unitTypeScriptCount: testCounts[1],
+    generatedRouteCount,
+    staticSeoUrlCount: seoResults[0].staticSeoUrlCount,
+  };
+}
+
 async function main() {
   const candidateRoot = path.resolve(argument('--candidate-root'));
   const expectedCommit = argument('--candidate-sha').toLowerCase();
@@ -221,12 +296,7 @@ async function main() {
 
   const unitLog = await readFile(path.join(outputDirectory, 'unit.txt'), 'utf8');
   const buildLog = await readFile(path.join(outputDirectory, 'productionBuild.txt'), 'utf8');
-  const testCounts = [...unitLog.matchAll(/ℹ tests (\d+)/g)].map((match) => Number(match[1]));
-  if (!testCounts.includes(401) || !testCounts.includes(35)) throw new Error('Log nepotvrdzuje 401 MJS a 35 TypeScript testov.');
-  requireMatch(buildLog, /"result":"PASS"/, 'Build log nepotvrdzuje PASS.');
-  requireMatch(buildLog, /Generating static pages using 7 workers \(99\/99\)/, 'Build log nepotvrdzuje 99/99 trás.');
-  const buildId = requireMatch(buildLog, /PASS: build ([^;\r\n]+);/, 'Build log neobsahuje BUILD_ID.')[1];
-  requireMatch(buildLog, /"productionAccess":false/, 'Build log nepotvrdzuje productionAccess:false.');
+  const metrics = releaseEvidenceMetrics(unitLog, buildLog);
   requireMatch(buildLog, /server stopped/, 'Build log nepotvrdzuje zastavenie PostgreSQL.');
   requireMatch(buildLog, /PASS: jednorazov.*PostgreSQL bol zastaven/i, 'Build log nepotvrdzuje úspešné čistenie testovacej DB.');
 
@@ -236,11 +306,7 @@ async function main() {
     testedSourceCommit: expectedCommit,
     testedSourceTree: candidateTree,
     result: 'PASS',
-    buildId,
-    generatedRouteCount: 99,
-    staticSeoUrlCount: 32,
-    unitMjsCount: 401,
-    unitTypeScriptCount: 35,
+    ...metrics,
     typecheck: 'PASS',
     productionAccess: false,
     temporaryDatabaseStopped: true,
