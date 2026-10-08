@@ -22,6 +22,7 @@ function readyEnvironment() {
     META_CAPI_ACCESS_TOKEN: 'meta-token',
     META_GRAPH_API_VERSION: 'v99.0',
     CONVERSION_EVENT_SECRET: 'conversion-secret',
+    CRON_SECRET: 'cron-secret',
     GOOGLE_MAPS_API_KEY: 'maps-key',
     PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'private-photo-token',
     PHOTO_INTAKE_PRIVATE_STORE_VERIFIED: 'true',
@@ -47,6 +48,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
   const environment = readyEnvironment();
   for (const key of [
     'CONVERSION_EVENT_SECRET',
+    'CRON_SECRET',
     'GOOGLE_MAPS_API_KEY',
     'LEAD_BLOB_RETENTION_BINDING_SHA256',
     'CAREER_CV_RETENTION_BINDING_SHA256',
@@ -79,6 +81,13 @@ test('runtime feature health reports only exact complete production bindings as 
     PHOTO_INTAKE_RETENTION_BINDING_SHA256: '0'.repeat(64),
   });
   assert.equal(wrongPhotoBinding.photoIntake.level, 'warning');
+
+  const missingWorkerAuthorization = getRuntimeFeatureHealth({ ...environment, CRON_SECRET: '' });
+  assert.equal(missingWorkerAuthorization.conversion.level, 'warning');
+  assert.equal(missingWorkerAuthorization.leadRetention.level, 'warning');
+  assert.equal(missingWorkerAuthorization.careerRetention.level, 'warning');
+  assert.equal(missingWorkerAuthorization.photoIntake.level, 'warning');
+  assert.equal(missingWorkerAuthorization.routeDistance.level, 'ok');
 });
 
 test('super-admin health page renders only bounded readiness labels', async () => {
