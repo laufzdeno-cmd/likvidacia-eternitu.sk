@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { getRuntimeFeatureHealth } from '../src/server/runtime-feature-health.ts';
 import {
+  deploymentDatabaseIdentity,
   deploymentResourceFingerprint,
   deploymentRequestBlocked,
   isVerifiedIsolatedStaging,
@@ -55,8 +56,8 @@ function verifiedStagingEnvironment() {
   const productionResources = {
     database: 'postgresql://production.invalid/astana',
     databaseResourceId: 'neon-production/branch-production/astana',
-    blob: 'vercel_blob_rw_production',
-    photoBlob: 'vercel_blob_rw_photo_production',
+    blobStoreId: 'production',
+    photoBlobStoreId: 'photoproduction',
   };
   const environment = {
     ...readyEnvironment(),
@@ -64,15 +65,17 @@ function verifiedStagingEnvironment() {
     VERCEL_TARGET_ENV: 'staging',
     DATABASE_URL: 'postgresql://staging.invalid/astana',
     DATABASE_RESOURCE_ID: 'neon-staging/branch-staging/astana',
-    BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_staging',
-    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_photo_staging',
+    BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_staging_secret',
+    BLOB_RESOURCE_ID: 'staging',
+    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_photostaging_secret',
+    PHOTO_INTAKE_BLOB_RESOURCE_ID: 'photostaging',
     STAGING_WRITE_ENABLED: 'true',
     STAGING_MAIL_OVERRIDE_TO: 'qa@example.test',
     STAGING_DATABASE_MARKER: 'b'.repeat(64),
-    PRODUCTION_DATABASE_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.database),
+    PRODUCTION_DATABASE_IDENTITY_FINGERPRINT_SHA256: deploymentResourceFingerprint(deploymentDatabaseIdentity(productionResources.database)),
     PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.databaseResourceId),
-    PRODUCTION_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.blob),
-    PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.photoBlob),
+    PRODUCTION_BLOB_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.blobStoreId),
+    PRODUCTION_PHOTO_INTAKE_BLOB_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.photoBlobStoreId),
   };
   environment.LEAD_BLOB_RETENTION_BINDING_SHA256 = binding([
     environment.VERCEL_PROJECT_ID,

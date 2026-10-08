@@ -9,15 +9,17 @@ export type DeploymentSafetyEnvironment = Partial<Pick<NodeJS.ProcessEnv,
   | 'DATABASE_URL'
   | 'DATABASE_RESOURCE_ID'
   | 'BLOB_READ_WRITE_TOKEN'
+  | 'BLOB_RESOURCE_ID'
   | 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN'
+  | 'PHOTO_INTAKE_BLOB_RESOURCE_ID'
   | 'STAGING_WRITE_ENABLED'
   | 'STAGING_MAIL_OVERRIDE_TO'
   | 'STAGING_DATABASE_MARKER'
   | 'STAGING_RESOURCE_BINDING_SHA256'
-  | 'PRODUCTION_DATABASE_FINGERPRINT_SHA256'
+  | 'PRODUCTION_DATABASE_IDENTITY_FINGERPRINT_SHA256'
   | 'PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256'
-  | 'PRODUCTION_BLOB_FINGERPRINT_SHA256'
-  | 'PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256'
+  | 'PRODUCTION_BLOB_RESOURCE_ID_FINGERPRINT_SHA256'
+  | 'PRODUCTION_PHOTO_INTAKE_BLOB_RESOURCE_ID_FINGERPRINT_SHA256'
   | 'ASTANA_HARNESS_CHILD'
   | 'ASTANA_HARNESS_FULL_BUILD'
   | 'ASTANA_ISOLATED_PG_RUN_TOKEN'
@@ -42,14 +44,45 @@ export function deploymentResourceFingerprint(value: string | undefined) {
   return sha256(value?.trim() ?? '');
 }
 
+export function deploymentDatabaseIdentity(value: string | undefined) {
+  try {
+    const parsed = new URL(value?.trim() ?? '');
+    if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') return '';
+    const targetOverrideKeys = new Set(['host', 'hostaddr', 'port', 'service', 'servicefile', 'socket']);
+    for (const key of parsed.searchParams.keys()) {
+      if (targetOverrideKeys.has(key.toLowerCase())) return '';
+    }
+    const hostname = parsed.hostname.trim().toLowerCase().replace(/\.$/, '').replace(/-pooler(?=\.)/, '');
+    if (!hostname) return '';
+    const port = parsed.port || '5432';
+    const database = decodeURIComponent(parsed.pathname).replace(/^\/+/, '');
+    if (!database || database.includes('/')) return '';
+    return `${hostname}:${port}/${database}`;
+  } catch {
+    return '';
+  }
+}
+
+export function vercelBlobStoreId(value: string | undefined) {
+  const token = value?.trim() ?? '';
+  const parts = token.split('_');
+  if (parts.length < 5 || parts[0] !== 'vercel' || parts[1] !== 'blob' || parts[2] !== 'rw') return '';
+  return /^[a-z0-9]+$/i.test(parts[3] ?? '') ? parts[3].toLowerCase() : '';
+}
+
 export function stagingResourceBinding(environment: DeploymentSafetyEnvironment = process.env) {
+  const databaseIdentity = deploymentDatabaseIdentity(environment.DATABASE_URL);
+  const leadBlobStoreId = vercelBlobStoreId(environment.BLOB_READ_WRITE_TOKEN);
+  const photoBlobStoreId = vercelBlobStoreId(environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN);
   return sha256(JSON.stringify([
     environment.VERCEL_PROJECT_ID?.trim() ?? '',
     environment.VERCEL_TARGET_ENV?.trim() ?? '',
-    environment.DATABASE_URL?.trim() ?? '',
+    databaseIdentity,
     environment.DATABASE_RESOURCE_ID?.trim() ?? '',
-    environment.BLOB_READ_WRITE_TOKEN?.trim() ?? '',
-    environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN?.trim() ?? '',
+    leadBlobStoreId,
+    environment.BLOB_RESOURCE_ID?.trim().toLowerCase() ?? '',
+    photoBlobStoreId,
+    environment.PHOTO_INTAKE_BLOB_RESOURCE_ID?.trim().toLowerCase() ?? '',
     environment.STAGING_DATABASE_MARKER?.trim().toLowerCase() ?? '',
     singleEmail(environment.STAGING_MAIL_OVERRIDE_TO),
   ]));
@@ -85,20 +118,35 @@ export function isVerifiedLocalBuildHarness(environment: DeploymentSafetyEnviron
 /** Staging writes are enabled only for an explicitly bound, non-production resource set. */
 export function isVerifiedIsolatedStaging(environment: DeploymentSafetyEnvironment = process.env) {
   if (!isCustomStagingTarget(environment) || environment.STAGING_WRITE_ENABLED !== 'true') return false;
-  if (!environment.VERCEL_PROJECT_ID?.trim() || !environment.DATABASE_URL?.trim() || !environment.DATABASE_RESOURCE_ID?.trim() || !environment.BLOB_READ_WRITE_TOKEN?.trim() || !environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN?.trim()) return false;
+  if (!environment.VERCEL_PROJECT_ID?.trim() || !environment.DATABASE_URL?.trim() || !environment.DATABASE_RESOURCE_ID?.trim() || !environment.BLOB_READ_WRITE_TOKEN?.trim() || !environment.BLOB_RESOURCE_ID?.trim() || !environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN?.trim() || !environment.PHOTO_INTAKE_BLOB_RESOURCE_ID?.trim()) return false;
   if (!/^[a-f0-9]{64}$/i.test(environment.STAGING_DATABASE_MARKER?.trim() ?? '')) return false;
   if (!singleEmail(environment.STAGING_MAIL_OVERRIDE_TO)) return false;
+  const databaseIdentity = deploymentDatabaseIdentity(environment.DATABASE_URL);
+  const leadBlobStoreId = vercelBlobStoreId(environment.BLOB_READ_WRITE_TOKEN);
+  const photoBlobStoreId = vercelBlobStoreId(environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN);
+  if (!databaseIdentity || !leadBlobStoreId || !photoBlobStoreId || leadBlobStoreId === photoBlobStoreId) return false;
+  if (leadBlobStoreId !== environment.BLOB_RESOURCE_ID.trim().toLowerCase()) return false;
+  if (photoBlobStoreId !== environment.PHOTO_INTAKE_BLOB_RESOURCE_ID.trim().toLowerCase()) return false;
   if (!safeHexEqual(environment.STAGING_RESOURCE_BINDING_SHA256, stagingResourceBinding(environment))) return false;
 
-  const resourcePairs = [
-    [environment.PRODUCTION_DATABASE_FINGERPRINT_SHA256, environment.DATABASE_URL],
+  const databaseResourcePairs = [
+    [environment.PRODUCTION_DATABASE_IDENTITY_FINGERPRINT_SHA256, databaseIdentity],
     [environment.PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256, environment.DATABASE_RESOURCE_ID],
-    [environment.PRODUCTION_BLOB_FINGERPRINT_SHA256, environment.BLOB_READ_WRITE_TOKEN],
-    [environment.PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256, environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN],
   ] as const;
-  return resourcePairs.every(([productionFingerprint, stagingValue]) => {
+  if (!databaseResourcePairs.every(([productionFingerprint, stagingValue]) => {
     const normalized = productionFingerprint?.trim().toLowerCase() ?? '';
     return /^[a-f0-9]{64}$/.test(normalized) && !safeHexEqual(normalized, deploymentResourceFingerprint(stagingValue));
+  })) return false;
+
+  const productionBlobFingerprints = [
+    environment.PRODUCTION_BLOB_RESOURCE_ID_FINGERPRINT_SHA256,
+    environment.PRODUCTION_PHOTO_INTAKE_BLOB_RESOURCE_ID_FINGERPRINT_SHA256,
+  ];
+  return productionBlobFingerprints.every((productionFingerprint) => {
+    const normalized = productionFingerprint?.trim().toLowerCase() ?? '';
+    return /^[a-f0-9]{64}$/.test(normalized)
+      && !safeHexEqual(normalized, deploymentResourceFingerprint(leadBlobStoreId))
+      && !safeHexEqual(normalized, deploymentResourceFingerprint(photoBlobStoreId));
   });
 }
 

@@ -1,5 +1,7 @@
 # Vercel read-only snapshot — 8. 10. 2026
 
+> Tento dokument zachytáva bodový stav pred vytvorením izolovaných zdrojov. Následne bolo vytvorené prázdne vlastné prostredie `staging` a nepripojená databáza `astana-staging-db`; aktuálny stav a bezpečnostná hranica sú v [staging bootstrap dôkaze](STAGING-BOOTSTRAP-2026-10-08.md).
+
 ## Rozsah a bezpečnostná hranica
 
 Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel CLI doplnila 8. 10. 2026 čerstvá kontrola prihláseného Vercel dashboardu v Opere. Vercel MCP bol prihlásený pod iným účtom a lokálny CLI po reštarte nebol dostupný, preto sa ich chyby `404/403` nepoužili ako dôkaz o stave projektu. Nevytvoril sa deployment, nezmenil alias, premenná, databáza, Blob, cron ani oprávnenie. Hodnoty premenných sa neodkrývali, nečítali, neukladali a tento dokument neobsahuje ich časti.
@@ -17,7 +19,7 @@ Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel
 - Najnovší zobrazený Preview je `dpl_3N29jpHnqFQ4ML3nVVp5shyni2nn`, stav **READY**, vytvorený 5. 10. 2026 o 10:50 SELČ.
 - Dashboard potvrdil iba tri existujúce prostredia: Production sleduje vetvu `main`, Preview zahŕňa všetky nepriradené vetvy a Development je dostupné cez CLI. Projekt má v pláne zahrnuté jedno vlastné prostredie bez príplatku, ale žiadne vlastné prostredie ani Staging zatiaľ nie je vytvorené.
 - Preview prostredie má priradené rovnaké názvy databázových, Blob a SMTP väzieb ako Production (`DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, relay premenné).
-- Chýbajú všetky vlastné stagingové väzby vyžadované aplikáciou: `STAGING_WRITE_ENABLED`, stabilná identita a marker staging DB, stagingové odtlačky DB/Blob, produkčné kontrolné odtlačky a jediný testovací príjemca.
+- Chýbajú všetky vlastné stagingové väzby vyžadované aplikáciou: `STAGING_WRITE_ENABLED`, stabilná identita a marker staging DB, deklarované ID oboch samostatných Blob úložísk, produkčné kontrolné odtlačky identít zdrojov a jediný testovací príjemca.
 - Preto bežný Preview nie je bezpečné zapisovateľné testovacie prostredie. Lokálny kandidát má otestované fail-closed blokovanie, ale zdrojový SHA živého Preview nebol sprístupnený a prítomnosť tejto ochrany na ňom je **NOT VERIFIED**. Na tomto Preview sa preto nesmie vykonať dopyt, upload, CRM zápis ani e-mailová akceptácia.
 
 ## Produkčné konfiguračné medzery

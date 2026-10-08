@@ -6,6 +6,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   deploymentDatabaseAccessBlocked,
+  deploymentDatabaseIdentity,
   deploymentRequestBlocked,
   deploymentResourceFingerprint,
   isVerifiedLocalBuildHarness,
@@ -14,6 +15,7 @@ import {
   stagingDatabaseMarkerMatches,
   stagingResourceBinding,
   type DeploymentSafetyEnvironment,
+  vercelBlobStoreId,
 } from '../src/server/preview-safety';
 import { resolveOutboundEmailRecipient } from '../src/server/mail';
 import { isAstanaLocalRelayConfigured, leadDeliveryMode } from '../src/server/astana-local-relay';
@@ -28,8 +30,8 @@ const vercelConfig = JSON.parse(readFileSync(new URL('../vercel.json', import.me
 const productionResources = {
   database: 'postgresql://production.invalid/astana',
   databaseResourceId: 'neon-project-production/branch-production/astana',
-  blob: 'vercel_blob_rw_production',
-  photoBlob: 'vercel_blob_rw_photo_production',
+  blobStoreId: 'production',
+  photoBlobStoreId: 'photoproduction',
 };
 
 function isolatedStagingEnvironment(): DeploymentSafetyEnvironment {
@@ -41,15 +43,17 @@ function isolatedStagingEnvironment(): DeploymentSafetyEnvironment {
     VERCEL_PROJECT_ID: 'prj_astana',
     DATABASE_URL: 'postgresql://staging.invalid/astana',
     DATABASE_RESOURCE_ID: 'neon-project-staging/branch-staging/astana',
-    BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_staging',
-    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_photo_staging',
+    BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_staging_secret',
+    BLOB_RESOURCE_ID: 'staging',
+    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_photostaging_secret',
+    PHOTO_INTAKE_BLOB_RESOURCE_ID: 'photostaging',
     STAGING_WRITE_ENABLED: 'true',
     STAGING_MAIL_OVERRIDE_TO: 'qa@example.test',
     STAGING_DATABASE_MARKER: 'b'.repeat(64),
-    PRODUCTION_DATABASE_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.database),
+    PRODUCTION_DATABASE_IDENTITY_FINGERPRINT_SHA256: deploymentResourceFingerprint(deploymentDatabaseIdentity(productionResources.database)),
     PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.databaseResourceId),
-    PRODUCTION_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.blob),
-    PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.photoBlob),
+    PRODUCTION_BLOB_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.blobStoreId),
+    PRODUCTION_PHOTO_INTAKE_BLOB_RESOURCE_ID_FINGERPRINT_SHA256: deploymentResourceFingerprint(productionResources.photoBlobStoreId),
     NEXT_PUBLIC_SITE_URL: 'https://likvidacia-eternitu.sk',
   };
   environment.STAGING_RESOURCE_BINDING_SHA256 = stagingResourceBinding(environment);
@@ -163,16 +167,28 @@ test('full-build database access is limited to the owned loopback harness', () =
 test('Staging binding fails closed for every missing, altered, or production-shared resource', () => {
   const valid = isolatedStagingEnvironment();
   assert.equal(isVerifiedIsolatedStaging(valid), true);
-  for (const key of ['VERCEL', 'VERCEL_TARGET_ENV', 'VERCEL_PROJECT_ID', 'DATABASE_URL', 'DATABASE_RESOURCE_ID', 'BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN', 'STAGING_WRITE_ENABLED', 'STAGING_MAIL_OVERRIDE_TO', 'STAGING_DATABASE_MARKER', 'STAGING_RESOURCE_BINDING_SHA256', 'PRODUCTION_DATABASE_FINGERPRINT_SHA256', 'PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256', 'PRODUCTION_BLOB_FINGERPRINT_SHA256', 'PRODUCTION_PHOTO_INTAKE_BLOB_FINGERPRINT_SHA256'] as const) {
+  for (const key of ['VERCEL', 'VERCEL_TARGET_ENV', 'VERCEL_PROJECT_ID', 'DATABASE_URL', 'DATABASE_RESOURCE_ID', 'BLOB_READ_WRITE_TOKEN', 'BLOB_RESOURCE_ID', 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_BLOB_RESOURCE_ID', 'STAGING_WRITE_ENABLED', 'STAGING_MAIL_OVERRIDE_TO', 'STAGING_DATABASE_MARKER', 'STAGING_RESOURCE_BINDING_SHA256', 'PRODUCTION_DATABASE_IDENTITY_FINGERPRINT_SHA256', 'PRODUCTION_DATABASE_RESOURCE_ID_FINGERPRINT_SHA256', 'PRODUCTION_BLOB_RESOURCE_ID_FINGERPRINT_SHA256', 'PRODUCTION_PHOTO_INTAKE_BLOB_RESOURCE_ID_FINGERPRINT_SHA256'] as const) {
     assert.equal(isVerifiedIsolatedStaging({ ...valid, [key]: undefined }), false, key);
   }
   assert.equal(isVerifiedIsolatedStaging({ ...valid, STAGING_MAIL_OVERRIDE_TO: 'a@example.test,b@example.test' }), false);
   assert.equal(isVerifiedIsolatedStaging({ ...valid, STAGING_DATABASE_MARKER: 'short' }), false);
   assert.equal(isVerifiedIsolatedStaging({ ...valid, DATABASE_URL: `${valid.DATABASE_URL}-changed` }), false);
+  assert.equal(isVerifiedIsolatedStaging({ ...valid, BLOB_READ_WRITE_TOKEN: 'not-a-vercel-blob-token' }), false);
+  assert.equal(isVerifiedIsolatedStaging({ ...valid, BLOB_RESOURCE_ID: 'differentstore' }), false);
+  const sharedStores = {
+    ...valid,
+    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: valid.BLOB_READ_WRITE_TOKEN,
+    PHOTO_INTAKE_BLOB_RESOURCE_ID: valid.BLOB_RESOURCE_ID,
+  };
+  sharedStores.STAGING_RESOURCE_BINDING_SHA256 = stagingResourceBinding(sharedStores);
+  assert.equal(isVerifiedIsolatedStaging(sharedStores), false);
   for (const sharedResource of [
     { DATABASE_URL: productionResources.database },
-    { BLOB_READ_WRITE_TOKEN: productionResources.blob },
-    { PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: productionResources.photoBlob },
+    { DATABASE_RESOURCE_ID: productionResources.databaseResourceId },
+    { BLOB_READ_WRITE_TOKEN: `vercel_blob_rw_${productionResources.blobStoreId}_secret`, BLOB_RESOURCE_ID: productionResources.blobStoreId },
+    { BLOB_READ_WRITE_TOKEN: `vercel_blob_rw_${productionResources.photoBlobStoreId}_secret`, BLOB_RESOURCE_ID: productionResources.photoBlobStoreId },
+    { PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: `vercel_blob_rw_${productionResources.blobStoreId}_secret`, PHOTO_INTAKE_BLOB_RESOURCE_ID: productionResources.blobStoreId },
+    { PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: `vercel_blob_rw_${productionResources.photoBlobStoreId}_secret`, PHOTO_INTAKE_BLOB_RESOURCE_ID: productionResources.photoBlobStoreId },
   ]) {
     const shared = { ...valid, ...sharedResource };
     shared.STAGING_RESOURCE_BINDING_SHA256 = stagingResourceBinding(shared);
@@ -192,6 +208,15 @@ test('Staging binding fails closed for every missing, altered, or production-sha
   }
   assert.equal(stagingDatabaseMarkerMatches(valid.STAGING_DATABASE_MARKER, valid), true);
   assert.equal(stagingDatabaseMarkerMatches('c'.repeat(64), valid), false);
+});
+
+test('Staging identities are derived without exposing secret credentials', () => {
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@ep-safe-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require'), 'ep-safe.eu-central-1.aws.neon.tech:5432/neondb');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@ep-safe.eu-central-1.aws.neon.tech./prod%75ction'), 'ep-safe.eu-central-1.aws.neon.tech:5432/production');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/db?host=production.invalid'), '');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/one%2Ftwo'), '');
+  assert.equal(vercelBlobStoreId('vercel_blob_rw_store123_rotatable-secret'), 'store123');
+  assert.equal(vercelBlobStoreId('invalid-token'), '');
 });
 
 test('verified Staging rewrites every SMTP envelope recipient and disables the local relay', () => {
