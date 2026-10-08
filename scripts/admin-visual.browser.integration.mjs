@@ -51,6 +51,7 @@ const allRoutes = [
   ['/admin/reviews/request/?result=saved&attempt=visual-saved', 'review-request-saved'],
   ['/admin/nastavenia/', 'nastavenia'],
   ['/admin/analytics/', 'analytics'],
+  ['/admin/health/', 'health'],
 ];
 const routes = process.argv.includes('--review-only')
   ? allRoutes.filter(([, slug]) => slug.startsWith('review-request'))
