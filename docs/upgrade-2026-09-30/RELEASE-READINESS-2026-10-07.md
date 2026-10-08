@@ -1,6 +1,6 @@
 # Release readiness — produkčný snapshot 7. 10. a lokálne uzavretie 8. 10. 2026
 
-> Aktuálna lokálna vrstva: aplikačný checkpoint `5587258c`, QA checkpoint `439f75dc`. Izolovaný build aplikácie má BUILD_ID `MCh2KF31jp2mdDfBbZhIH`, 99/99 trás, 32 statických SEO URL, 389/389 MJS a 34/34 TypeScript testov. Úzky mobilný browser test odvolania marketingového súhlasu prešiel bez reálneho POST a bez externého originu. Bezpečnostný scan `c93c78ce-787d-4f57-844d-766a59044e24` pokryl 5/5 nových súborov s nulou nálezov. Plná 220-stavová vizuálna matica ostáva historickým baseline commitu `452c4f75`; na aktuálnom QA checkpointe nebola celá zopakovaná. Produkčný snapshot nižšie je stále bodový stav zo 7. 10. a nepreukazuje dnešný Vercel stav.
+> Aktuálna lokálna vrstva: aplikačný checkpoint `5587258c`, consent QA checkpoint `439f75dc` a čistý vizuálny dôkazový commit `088ac8f3`. Izolovaný build aplikácie má BUILD_ID `MCh2KF31jp2mdDfBbZhIH`, 99/99 trás, 32 statických SEO URL, 389/389 MJS a 34/34 TypeScript testov. Mobilný browser test odvolania marketingového súhlasu prešiel bez reálneho POST a bez externého originu. Bezpečnostný scan `c93c78ce-787d-4f57-844d-766a59044e24` pokryl 5/5 nových súborov s nulou nálezov. Plná vizuálna matica bola zopakovaná: 20 trás × 11 stavov = 220/220 PASS, 25 snímok, 0 formulárov, 0 hydratácií a 0 externých originov. Produkčný snapshot nižšie je stále bodový stav zo 7. 10. a nepreukazuje dnešný Vercel stav.
 
 ## Rozsah kontroly
 
