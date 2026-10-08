@@ -2,11 +2,12 @@
 
 ## Aktuálny lokálny formulárový checkpoint (8. 10. 2026)
 
+- Presný checkpoint `c18f6f545628a8a6713b1098131efb4c1c85e3ef` (tree `2f96e42f9994b09128db82d525d1146ab0134551`) prešiel úplným izolovaným produkčným buildom **99/99 trás**, oboma SEO kontrolami na 32 statických URL, dynamickými realizáciami/recenziami, starým 308 presmerovaním a route CSS/JS izoláciou. BUILD_ID `bVLQq_0VJpnqv3VPx66dc`; `productionAccess:false`; jednorazová PostgreSQL aj vlastné dočasné dáta boli odstránené.
 - Aktuálny aplikačný checkpoint je `358675979d2725c618f53122d13782105298df2e` (tree `e9b79858512e0df7876087b8f1407fb755ab4a5f`). Pracovný strom bol po uložení aplikačnej zmeny čistý.
 - Najnovší rez uzatvára fokus výsledku po každom úspechu, chybe, timeoute alebo neoveriteľnom stave dopytu, kariéry a referencie. Opakovaná rovnaká chyba dostane nový identifikátor pokusu; rovnaké nadlimitné CV odmietnuté dvakrát po sebe zakaždým presunie fokus, zachová údaje a vykoná 0 POST.
 - Aktuálne dôkazy: **8/8 cielených kontraktov**, **393/393 MJS + 34/34 TypeScript**, typová kontrola a tri izolované browser toky **PASS**. Dopytový tok vytvoril 1 lokálny lead, 1 zákazku, 2 súkromné prílohy a 2 čakajúce outbox položky; kariérny tok bezpečne uložil 1 žiadosť so súkromným CV; referencia overila dve po sebe idúce rovnaké chyby. Všetky behy mali 0 odoslaných emailov a 0 externých browser originov.
 - Nezávislý produktový kontrolór po oprave opakovanej chyby CV vydal **PASS bez zostávajúcej konkrétnej vady**. Najnovší technický kontrolór nebol dostupný pre vyčerpaný limit svojho vlákna; predchádzajúci technický PASS a bezpečnostný scan zostávajú platné pre nezmenené serverové/API/DB/upload/SMTP plochy.
-- Posledný úplný izolovaný produkčný build **99/99** patrí kompatibilnému aplikačnému checkpointu `d0b1730a`; novší rez mení iba klientsky fokus a jeho testy. Produkcia, Vercel alias, formuláre, emaily, Blob, produkčná databáza a reklamné účty sa nemenili.
+- Celá jednotková/kontraktná sada bola zopakovaná nad presným checkpointom `c18f6f54`: **393/393 MJS + 34/34 TypeScript PASS**. Produkcia, Vercel alias, formuláre, emaily, Blob, produkčná databáza a reklamné účty sa nemenili.
 
 ## Aktuálny lokálny aplikačný a QA checkpoint (8. 10. 2026)
 
