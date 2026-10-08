@@ -29,9 +29,9 @@ test('každý článok poradne má vlastné FAQ zhodné pre čitateľa aj štruk
   assert.match(articlePage, /<FaqSection faqs=\{faqs\}/);
 });
 
-test('každý článok má viditeľnú zodpovednosť, dátum kontroly a tematické oficiálne zdroje', async () => {
-  assert.match(articleEditorial.reviewedAt, /^\d{4}-\d{2}-\d{2}$/);
-  assert.ok(articleEditorial.reviewedLabel.length > 8);
+test('každý článok má viditeľnú zodpovednosť, dátum aktualizácie a tematické oficiálne zdroje', async () => {
+  assert.match(articleEditorial.contentUpdatedAt, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(articleEditorial.contentUpdatedLabel.length > 8);
 
   const methodologyOnly = new Set([
     'kolko-stoji-likvidacia-azbestu',
@@ -52,7 +52,9 @@ test('každý článok má viditeľnú zodpovednosť, dátum kontroly a tematick
 
     const rendered = renderToStaticMarkup(createElement(ArticleEditorialSection, { slug: article.slug }));
     assert.match(rendered, new RegExp(site.legalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-    assert.match(rendered, new RegExp(`datetime="${articleEditorial.reviewedAt}"`, 'i'));
+    assert.match(rendered, new RegExp(`datetime="${articleEditorial.contentUpdatedAt}"`, 'i'));
+    assert.match(rendered, /Obsah sme naposledy aktualizovali/);
+    assert.doesNotMatch(rendered, /vecná a redakčná kontrola|odborná kontrola/i);
     for (const source of editorial.sources) {
       assert.ok(rendered.includes(`href="${source.url}"`), `${article.slug} must render ${source.url}`);
     }
@@ -67,10 +69,10 @@ test('každý článok má viditeľnú zodpovednosť, dátum kontroly a tematick
       path: `/poradna/${article.slug}/`,
       articleBody: article.body.map(([, text]) => text).join('\n\n'),
       image: article.image,
-      dateModified: articleEditorial.reviewedAt,
+      dateModified: articleEditorial.contentUpdatedAt,
       citations: editorial.sources.map((source) => source.url),
     });
-    assert.equal(structured.dateModified, articleEditorial.reviewedAt);
+    assert.equal(structured.dateModified, articleEditorial.contentUpdatedAt);
     assert.equal(structured.author['@id'], `${site.website}/#organization`);
     assert.deepEqual('citation' in structured ? structured.citation : [], editorial.sources.map((source) => source.url));
   }

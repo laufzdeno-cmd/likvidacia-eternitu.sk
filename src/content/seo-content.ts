@@ -508,8 +508,8 @@ export type ArticleEditorialSource = {
 };
 
 export const articleEditorial = {
-  reviewedAt: '2026-10-07',
-  reviewedLabel: '7. októbra 2026',
+  contentUpdatedAt: '2026-10-08',
+  contentUpdatedLabel: '8. októbra 2026',
   scopeNote:
     'Oficiálne zdroje podporujú zdravotné, právne a odpadové tvrdenia. Praktické údaje k výmere, fotkám a cenovej ponuke vychádzajú z pracovného postupu ASTANA a nenahrádzajú individuálne posúdenie konkrétnej stavby.',
   methodologyNote:

@@ -395,8 +395,8 @@ export function ArticleEditorialSection({ slug }: { slug: (typeof articles)[numb
       <p className="eyebrow">Zodpovednosť a zdroje</p>
       <h2 id="article-editorial-title">Kto zodpovedá za obsah</h2>
       <p className="seo-lead">
-        Za obsah zodpovedá <strong>{site.legalName}</strong> Posledná vecná a redakčná kontrola:{' '}
-        <time dateTime={articleEditorial.reviewedAt}>{articleEditorial.reviewedLabel}</time>.
+        Za publikovaný obsah zodpovedá <strong>{site.legalName}</strong> Obsah sme naposledy aktualizovali{' '}
+        <time dateTime={articleEditorial.contentUpdatedAt}>{articleEditorial.contentUpdatedLabel}</time>.
       </p>
       <p>{articleEditorial.scopeNote}</p>
       {editorial.sources.length ? (
@@ -441,7 +441,7 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
             path,
             articleBody: article.body.map(([, text]) => text).join('\n\n'),
             image: article.image,
-            dateModified: articleEditorial.reviewedAt,
+            dateModified: articleEditorial.contentUpdatedAt,
             citations: editorial.sources.map((source) => source.url),
           }),
           buildFaqJsonLd(faqs),

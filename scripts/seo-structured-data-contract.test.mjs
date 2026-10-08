@@ -46,12 +46,18 @@ test('advice articles emit Article JSON-LD sourced from visible article content'
   assert.match(seoJsonLd, /author: \{ '@id': organizationId \}/);
   assert.match(seoJsonLd, /publisher: \{ '@id': organizationId \}/);
   assert.match(seoComponents, /image: article\.image/);
-  assert.match(seoComponents, /dateModified: articleEditorial\.reviewedAt/);
+  assert.match(seoComponents, /dateModified: articleEditorial\.contentUpdatedAt/);
   assert.match(seoComponents, /citations: editorial\.sources\.map/);
   assert.match(seoJsonLd, /image: absoluteUrl\(image\)/);
   assert.match(seoJsonLd, /dateModified/);
   assert.match(seoJsonLd, /citations\.length \? \{ citation: citations \} : \{\}/);
   assert.doesNotMatch(seoJsonLd, /datePublished/, 'neoverený dátum prvého publikovania sa nesmie vymýšľať');
+});
+
+test('article trust copy distinguishes content updates from unproven expert review', () => {
+  assert.match(seoContent, /contentUpdatedAt: '\d{4}-\d{2}-\d{2}'/);
+  assert.match(seoComponents, /Obsah sme naposledy aktualizovali/);
+  assert.doesNotMatch(seoComponents, /vecná a redakčná kontrola|odborná kontrola/i);
 });
 
 test('company identity is represented by one linked Organization and ProfessionalService entity', () => {
