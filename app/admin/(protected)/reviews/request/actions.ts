@@ -1,6 +1,8 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { createReviewRequest, getSiteContentMap, updateReviewRequestStatus, upsertSiteContentValues } from '@/src/server/db';
 import type { ReviewRequestStatus } from '@/src/server/types';
@@ -23,12 +25,15 @@ export async function createReviewRequestAction(formData: FormData) {
   const objectType = String(formData.get('objectType') || '').trim();
   const realizationDate = String(formData.get('realizationDate') || '').trim();
   const googleReviewLink = String(formData.get('googleReviewLink') || '').trim();
+  const sentConfirmed = formData.get('sentConfirmed') === 'on';
 
-  if (!customerName || !phone || !googleReviewLink) return;
+  if (!customerName || !phone || !googleReviewLink || !sentConfirmed) {
+    redirect(`/admin/reviews/request/?result=invalid&attempt=${randomUUID()}`);
+  }
 
   await upsertSiteContentValues({ googleReviewLink }, actorEmail);
   const message = `Dobrý deň ${customerName}, ďakujeme za dôveru pri likvidácii azbestu${location ? ` v ${location}` : ''}. Ak ste boli spokojní, veľmi by nám pomohla recenzia na Google — trvá 2 minúty: ${googleReviewLink}\nĎakujeme, tím ASTANA`;
-  await createReviewRequest({
+  const reviewRequest = await createReviewRequest({
     customerName,
     phone: normalizePhone(phone),
     location,
@@ -37,9 +42,11 @@ export async function createReviewRequestAction(formData: FormData) {
     googleReviewLink,
     message,
     createdBy: actorEmail,
+    status: 'sent',
   });
 
   revalidatePath('/admin/reviews/request');
+  redirect(`/admin/reviews/request/?result=saved&attempt=${reviewRequest.id}`);
 }
 
 export async function updateReviewRequestStatusAction(formData: FormData) {

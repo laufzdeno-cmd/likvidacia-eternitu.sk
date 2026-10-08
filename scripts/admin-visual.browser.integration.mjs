@@ -33,7 +33,7 @@ const deniedOrigins = [];
 const nonGetRequests = [];
 let database, socket, browser, child;
 
-const routes = [
+const allRoutes = [
   ['/admin/dashboard/', 'dashboard'],
   ['/admin/dopyty/', 'dopyty'],
   [`/admin/dopyty/${syntheticIds.lead}/`, 'dopyt-detail'],
@@ -46,9 +46,15 @@ const routes = [
   ['/admin/kariera/', 'kariera'],
   [`/admin/kariera/${syntheticIds.career}/`, 'kariera-detail'],
   ['/admin/realizacie/fotky/', 'fotky'],
+  ['/admin/reviews/request/', 'review-request'],
+  ['/admin/reviews/request/?result=invalid&attempt=visual-invalid', 'review-request-invalid'],
+  ['/admin/reviews/request/?result=saved&attempt=visual-saved', 'review-request-saved'],
   ['/admin/nastavenia/', 'nastavenia'],
   ['/admin/analytics/', 'analytics'],
 ];
+const routes = process.argv.includes('--review-only')
+  ? allRoutes.filter(([, slug]) => slug.startsWith('review-request'))
+  : allRoutes;
 
 const viewports = [
   { width: 1440, height: 1000, name: 'desktop', screenshot: true },
@@ -279,6 +285,13 @@ try {
       const response = await page.goto(origin + routePath, { waitUntil: 'networkidle', timeout: 60_000 });
       assert.equal(response?.status(), 200, `${routePath} musí v izolovanom admine odpovedať 200.`);
       assert.equal(await page.locator('h1').count(), 1, `${routePath} musí mať práve jeden H1.`);
+      if (slug === 'review-request-invalid' || slug === 'review-request-saved') {
+        const expectedRole = slug === 'review-request-invalid' ? 'alert' : 'status';
+        const resultMessage = page.locator(`[role="${expectedRole}"]`).first();
+        await resultMessage.waitFor({ state: 'visible' });
+        assert.equal(await resultMessage.evaluate((element) => document.activeElement === element), true,
+          `${routePath} musí po internom presmerovaní zaostriť výsledok.`);
+      }
       const metrics = await page.evaluate(() => {
         const root = document.documentElement;
         const rectOf = (element) => {

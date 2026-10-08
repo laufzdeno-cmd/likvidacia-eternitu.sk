@@ -65,7 +65,7 @@ test('roofer registration has a 30-second abort and no automatic native retry', 
   assert.match(publicClient, /Bez úprav môžete skúsiť odoslanie znova bez založenia duplicitnej registrácie/);
   assert.match(publicClient, /ak údaje zmeníte, pôjde o novú registráciu/);
   assert.match(publicClient, /const payload = new FormData\(rooferRegistrationForm\);[\s\S]{0,700}fields\.forEach\(\(field\) => \{ field\.disabled = true; \}\)/);
-  assert.match(publicClient, /const onRooferRegistrationEdit = \(\) => \{[\s\S]{0,260}setRooferRegistrationId\(\)/);
+  assert.match(publicClient, /if \(!rooferRegistrationMayHaveSaved \|\| rooferRegistrationSubmitting\) return;[\s\S]{0,120}setRooferRegistrationId\(\)/);
   assert.doesNotMatch(publicClient, /HTMLFormElement\.prototype\.submit\.call\(rooferRegistrationForm\)/);
 });
 

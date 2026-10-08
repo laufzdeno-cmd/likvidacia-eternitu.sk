@@ -2,6 +2,29 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+test('roofer grouped choices keep errors beside the focused repair control', async () => {
+  const [page, client, styles, browserHarness] = await Promise.all([
+    readFile(new URL('../app/strechari/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/landing-client.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/strechari/roofer-route.css', import.meta.url), 'utf8'),
+    readFile(new URL('./lead-private-blob-browser.integration.mjs', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(page, /id="roofer-regions-error" role="alert" hidden/);
+  assert.match(page, /id="roofer-specializations-error" role="alert" hidden/);
+  assert.match(page, /aria-describedby="roofer-regions-error"/);
+  assert.match(page, /aria-describedby="roofer-specializations-error"/);
+  assert.match(page, /className="roofer-registration-status" role="status" aria-live="polite" tabIndex=\{-1\}/);
+  assert.match(client, /rooferRegionsError\.hidden = false/);
+  assert.match(client, /rooferSpecializationsError\.hidden = false/);
+  assert.match(client, /rooferRegistrationStatus\.setAttribute\('role', 'alert'\)/);
+  assert.match(client, /rooferRegistrationStatus\.focus\(\)/);
+  assert.match(styles, /\.roofer-field-error\[hidden\]\{display:none\}/);
+  assert.match(browserHarness, /runRooferLocalValidationCheck/);
+  assert.match(browserHarness, /region error stays visible beside the focused choice at 320 px/);
+  assert.match(browserHarness, /specialization error stays visible beside the focused choice at 320 px/);
+});
+
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
 test('career form keeps an atomic live region mounted and exposes busy, alert and success focus states', async () => {
@@ -13,7 +36,22 @@ test('career form keeps an atomic live region mounted and exposes busy, alert an
   assert.match(source, /aria-live=\{messageIsError \? 'assertive' : 'polite'\}/);
   assert.match(source, /aria-atomic="true"/);
   assert.match(source, /if \(isSuccess\) messageRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(source, /const submissionData = new FormData\(form\);[\s\S]*setIsSubmitting\(true\)/);
+  assert.match(source, /name="cv"[\s\S]*disabled=\{isSubmitting\}/);
+  assert.match(source, /name="gdpr"[^>]*disabled=\{isSubmitting\}/);
   assert.doesNotMatch(source, /\{message \? <p[^>]*career-form-message/);
+});
+
+test('enhanced mobile lead form owns validation while no-JavaScript keeps native validation', async () => {
+  const [page, client] = await Promise.all([
+    readFile(new URL('../app/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/homepage-critical-client.tsx', import.meta.url), 'utf8'),
+  ]);
+
+  assert.doesNotMatch(page, /<form className="lead-form"[^>]*noValidate/);
+  assert.match(client, /const initializeMobileFormSteps = \(\) => \{[\s\S]{0,180}form\.noValidate = true/);
+  assert.match(client, /if \(!form\.checkValidity\(\)\)[\s\S]*renderFormStep\(\)[\s\S]*showValidationSummary\(invalid\)[\s\S]*invalid\[0\]\?\.focus\(\)/);
+  assert.match(client, /control\.name === 'gdpr'[\s\S]*Potvrďte súhlas so spracovaním údajov na vybavenie cenovej ponuky\./);
 });
 
 test('testimonial form times out after 30 seconds, announces progress and always leaves pending state', async () => {

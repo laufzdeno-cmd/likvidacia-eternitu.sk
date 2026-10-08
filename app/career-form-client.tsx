@@ -75,6 +75,7 @@ export default function CareerFormClient() {
       setIsAccepted(false);
       return;
     }
+    const submissionData = new FormData(form);
     setIsSubmitting(true);
     setMessage('Odosielame vašu žiadosť…');
     setIsSuccess(false);
@@ -84,7 +85,6 @@ export default function CareerFormClient() {
     const timeout = window.setTimeout(() => controller.abort(), directUpload ? 120_000 : 30_000);
     let applicationAccepted = false;
     try {
-      const submissionData = new FormData(form);
       const identity = await fingerprintSubmission(submissionData, cv);
       let activeSubmissionId = submissionIdRef.current;
       if (lastAttempt.current && lastAttempt.current.fingerprint !== identity.fingerprint) {
@@ -202,35 +202,35 @@ export default function CareerFormClient() {
         <label>Webová stránka<input name="companyWebsite" tabIndex={-1} autoComplete="new-password" disabled data-submit-disabled /></label>
       </div>
       <div className={`career-form-grid ${styles.formGrid}`}>
-        <label>Meno a priezvisko *<input name="fullName" autoComplete="name" required /></label>
-        <label>Telefón *<input name="phone" type="tel" autoComplete="tel" required /></label>
-        <label className={`career-form-wide ${styles.formWide}`}>Email *<input name="email" type="email" autoComplete="email" required /></label>
-        <label>Mesto alebo okres *<input name="city" autoComplete="address-level2" required /></label>
+        <label>Meno a priezvisko *<input name="fullName" autoComplete="name" required disabled={isSubmitting} /></label>
+        <label>Telefón *<input name="phone" type="tel" autoComplete="tel" required disabled={isSubmitting} /></label>
+        <label className={`career-form-wide ${styles.formWide}`}>Email *<input name="email" type="email" autoComplete="email" required disabled={isSubmitting} /></label>
+        <label>Mesto alebo okres *<input name="city" autoComplete="address-level2" required disabled={isSubmitting} /></label>
         <label>Chcem spolupracovať ako *
-          <select name="cooperationType" defaultValue="szco" required>
+          <select name="cooperationType" defaultValue="szco" required disabled={isSubmitting}>
             <option value="szco">živnostník / SZČO</option><option value="crew">partia živnostníkov</option><option value="other">iná forma</option>
           </select>
         </label>
         <label className={`career-form-wide ${styles.formWide}`}>Kde viete pracovať? *
-          <input name="workRegions" placeholder="napr. celé Slovensko alebo Poprad a okolie" required />
+          <input name="workRegions" placeholder="napr. celé Slovensko alebo Poprad a okolie" required disabled={isSubmitting} />
           <small>Pracujeme po celom Slovensku. Z Popradu vyrážame skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na svoju prácu.</small>
         </label>
         <label>Máte už skúsenosť s azbestom? *
-          <select name="hasAsbestosExperience" value={hasAsbestosExperience} onChange={(event) => setHasAsbestosExperience(event.target.value as 'yes' | 'no' | '')} required>
+          <select name="hasAsbestosExperience" value={hasAsbestosExperience} onChange={(event) => setHasAsbestosExperience(event.target.value as 'yes' | 'no' | '')} required disabled={isSubmitting}>
             <option value="" disabled>Vyberte možnosť</option>
             <option value="yes">áno</option>
             <option value="no">nie</option>
           </select>
         </label>
-        {hasAsbestosExperience === 'yes' ? <label className={`career-form-wide ${styles.formWide}`}>S čím konkrétne máte skúsenosť pri azbeste? *<textarea name="asbestosExperience" rows={3} placeholder="napr. demontáž eternitu, balenie, ochranné pomôcky, dokumentácia…" required /></label> : null}
-        <label className={`career-form-wide ${styles.formWide}`}>Čo viete robiť a aké máte ďalšie pracovné skúsenosti? <textarea name="experience" rows={3} placeholder="napr. demontáže, strechy, práca vo výške, vedenie partie, obsluha techniky…" /></label>
-        <label className={`career-form-wide ${styles.formWide}`}>Poznámka <textarea name="note" rows={3} placeholder="Kedy vám môžeme zavolať, počet ľudí v partii, vybavenie…" /></label>
-        <label className={`career-form-wide career-file-field ${styles.formWide} ${styles.fileField}`}>Životopis (dobrovoľný)<input name="cv" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" /><small>PDF, DOC alebo DOCX do 5 MB. Súbor je súkromný a vidí ho len ASTANA pri posúdení žiadosti.</small></label>
+        {hasAsbestosExperience === 'yes' ? <label className={`career-form-wide ${styles.formWide}`}>S čím konkrétne máte skúsenosť pri azbeste? *<textarea name="asbestosExperience" rows={3} placeholder="napr. demontáž eternitu, balenie, ochranné pomôcky, dokumentácia…" required disabled={isSubmitting} /></label> : null}
+        <label className={`career-form-wide ${styles.formWide}`}>Čo viete robiť a aké máte ďalšie pracovné skúsenosti? <textarea name="experience" rows={3} placeholder="napr. demontáže, strechy, práca vo výške, vedenie partie, obsluha techniky…" disabled={isSubmitting} /></label>
+        <label className={`career-form-wide ${styles.formWide}`}>Poznámka <textarea name="note" rows={3} placeholder="Kedy vám môžeme zavolať, počet ľudí v partii, vybavenie…" disabled={isSubmitting} /></label>
+        <label className={`career-form-wide career-file-field ${styles.formWide} ${styles.fileField}`}>Životopis (dobrovoľný)<input name="cv" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={isSubmitting} /><small>PDF, DOC alebo DOCX do 5 MB. Súbor je súkromný a vidí ho len ASTANA pri posúdení žiadosti.</small></label>
       </div>
       <div className={`career-checks ${styles.checks}`}>
-        <label><input name="hasTradeLicense" type="checkbox" required /> Môžem pracovať ako živnostník alebo samostatná partia. *</label>
-        <label><input name="workAtHeights" type="checkbox" required /> Mám skúsenosť s prácou vo výške. *</label>
-        <label><input name="gdpr" type="checkbox" required /> Súhlasím so spracovaním údajov pre účely výberu spolupráce podľa <a href="/ochrana-osobnych-udajov/" target="_blank" rel="noreferrer">ochrany osobných údajov</a>. *</label>
+        <label><input name="hasTradeLicense" type="checkbox" required disabled={isSubmitting} /> Môžem pracovať ako živnostník alebo samostatná partia. *</label>
+        <label><input name="workAtHeights" type="checkbox" required disabled={isSubmitting} /> Mám skúsenosť s prácou vo výške. *</label>
+        <label><input name="gdpr" type="checkbox" required disabled={isSubmitting} /> Súhlasím so spracovaním údajov pre účely výberu spolupráce podľa <a href="/ochrana-osobnych-udajov/" target="_blank" rel="noreferrer">ochrany osobných údajov</a>. *</label>
       </div>
       <button className={`button button-primary career-submit ${styles.submit}`} type="submit" disabled={isSubmitting || !submissionId}>{isSubmitting ? 'Odosielame…' : 'Poslať krátku žiadosť'}</button>
       <p className={`career-form-help ${styles.formHelp}`}>Bez životopisu je to v poriadku. Ozveme sa vám telefonicky alebo e-mailom.</p>

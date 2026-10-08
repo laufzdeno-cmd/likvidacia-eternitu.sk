@@ -20,6 +20,8 @@ export default function LandingClient() {
     const status = document.querySelector<HTMLElement>('.form-status');
     const testimonialStatus = document.querySelector<HTMLElement>('.testimonial-form-status');
     const rooferRegistrationStatus = document.querySelector<HTMLElement>('.roofer-registration-status');
+    const rooferRegionsError = document.querySelector<HTMLElement>('#roofer-regions-error');
+    const rooferSpecializationsError = document.querySelector<HTMLElement>('#roofer-specializations-error');
     const stickyCta = document.querySelector<HTMLElement>('.mobile-sticky-cta');
     const whatsappButton = document.querySelector<HTMLElement>('.whatsapp-btn');
     const quoteSection = document.getElementById('dopyt');
@@ -426,6 +428,14 @@ export default function LandingClient() {
     };
 
     const onRooferRegistrationEdit = () => {
+      if (rooferRegionsError && rooferRegistrationForm?.querySelector('input[name="serviceRegions[]"]:checked')) {
+        rooferRegionsError.textContent = '';
+        rooferRegionsError.hidden = true;
+      }
+      if (rooferSpecializationsError && rooferRegistrationForm?.querySelector('input[name="specializations[]"]:checked')) {
+        rooferSpecializationsError.textContent = '';
+        rooferSpecializationsError.hidden = true;
+      }
       if (!rooferRegistrationMayHaveSaved || rooferRegistrationSubmitting) return;
       setRooferRegistrationId();
       rooferRegistrationMayHaveSaved = false;
@@ -438,6 +448,8 @@ export default function LandingClient() {
       if (rooferRegistrationStatus) {
         rooferRegistrationStatus.textContent = '';
         rooferRegistrationStatus.classList.remove('is-success', 'is-error');
+        rooferRegistrationStatus.setAttribute('role', 'status');
+        rooferRegistrationStatus.setAttribute('aria-live', 'polite');
       }
       if (!rooferRegistrationForm.checkValidity()) {
         rooferRegistrationForm.reportValidity();
@@ -445,18 +457,18 @@ export default function LandingClient() {
       }
       const selectedRegions = rooferRegistrationForm.querySelectorAll<HTMLInputElement>('input[name="serviceRegions[]"]:checked');
       if (!selectedRegions.length) {
-        if (rooferRegistrationStatus) {
-          rooferRegistrationStatus.textContent = 'Vyberte aspoň jeden kraj, v ktorom pracujete.';
-          rooferRegistrationStatus.classList.add('is-error');
+        if (rooferRegionsError) {
+          rooferRegionsError.textContent = 'Vyberte aspoň jeden kraj, v ktorom pracujete.';
+          rooferRegionsError.hidden = false;
         }
         rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="serviceRegions[]"]')?.focus();
         return;
       }
       const selectedSpecializations = rooferRegistrationForm.querySelectorAll<HTMLInputElement>('input[name="specializations[]"]:checked');
       if (!selectedSpecializations.length) {
-        if (rooferRegistrationStatus) {
-          rooferRegistrationStatus.textContent = 'Vyberte aspoň jednu špecializáciu.';
-          rooferRegistrationStatus.classList.add('is-error');
+        if (rooferSpecializationsError) {
+          rooferSpecializationsError.textContent = 'Vyberte aspoň jednu špecializáciu.';
+          rooferSpecializationsError.hidden = false;
         }
         rooferRegistrationForm.querySelector<HTMLInputElement>('input[name="specializations[]"]')?.focus();
         return;
@@ -500,6 +512,7 @@ export default function LandingClient() {
           rooferRegistrationStatus.textContent =
             result.message || 'Ďakujeme! Registráciu sme prijali a najprv si ju interne skontrolujeme.';
           rooferRegistrationStatus.classList.add('is-success');
+          rooferRegistrationStatus.focus();
         }
         trackAnalytics('roofer_registration_success', { form: 'roofer_registration' });
       } catch (error) {
@@ -508,6 +521,9 @@ export default function LandingClient() {
             ? 'Odpoveď servera neprišla do 30 sekúnd. Údaje zostali vo formulári. Bez úprav môžete skúsiť odoslanie znova bez založenia duplicitnej registrácie; ak údaje zmeníte, pôjde o novú registráciu.'
             : error instanceof Error ? error.message : 'Registráciu sa nepodarilo odoslať.';
           rooferRegistrationStatus.classList.add('is-error');
+          rooferRegistrationStatus.setAttribute('role', 'alert');
+          rooferRegistrationStatus.setAttribute('aria-live', 'assertive');
+          rooferRegistrationStatus.focus();
         }
       } finally {
         window.clearTimeout(timeoutId);

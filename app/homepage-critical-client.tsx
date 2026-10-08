@@ -376,7 +376,9 @@ export default function initializeHomepageCriticalClient({
       error.id = errorId;
       error.className = 'field-error';
       error.textContent = control.validity.valueMissing
-        ? `Doplňte pole „${fieldLabel(control)}“.`
+        ? control.name === 'gdpr'
+          ? 'Potvrďte súhlas so spracovaním údajov na vybavenie cenovej ponuky.'
+          : `Doplňte pole „${fieldLabel(control)}“.`
         : control.validationMessage || `Skontrolujte pole „${fieldLabel(control)}“.`;
       const container = control.closest('.field, .consent') || control.parentElement;
       container?.insertAdjacentElement('afterend', error);
@@ -465,6 +467,7 @@ export default function initializeHomepageCriticalClient({
 
     const initializeMobileFormSteps = () => {
       if (!form || formStages.length < 2 || form.querySelector('[data-form-step-next]')) return;
+      form.noValidate = true;
       formStages.forEach((stage, index) => {
         const controls = document.createElement('div');
         controls.className = 'form-step-controls';

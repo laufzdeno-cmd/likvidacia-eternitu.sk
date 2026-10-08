@@ -2383,6 +2383,45 @@ async function runPublicNavigationChecks(page, appOrigin) {
   return { interactions: 8, campaignAttribution: true, consentDeniedCampaignParametersForwarded: false, analyticsPosts: campaignPosts.length + 2, formsSubmitted: 0 };
 }
 
+async function runRooferLocalValidationCheck(page, appOrigin) {
+  await page.setViewportSize({ width: 320, height: 568 });
+  const response = await page.goto(`${appOrigin}/strechari/`, { waitUntil: 'networkidle' });
+  assert.equal(response?.status(), 200, 'roofer validation page must render');
+  const form = page.locator('.roofer-registration-form');
+  await form.locator('select[name="businessType"]').selectOption('szco');
+  await form.locator('input[name="companyName"]').fill('Lokálna kontrola formulára');
+  await form.locator('input[name="contactPerson"]').fill('Test bez odoslania');
+  await form.locator('input[name="phone"]').fill('+421900000000');
+  await form.locator('input[name="email"]').fill('local-validation@example.invalid');
+  await form.locator('input[name="canBuildRoofTruss"][value="no"]').check();
+  await form.locator('input[name="privacyConsent"]').check();
+
+  await form.locator('button[type="submit"]').click();
+  const regionError = page.locator('#roofer-regions-error');
+  const firstRegion = form.locator('input[name="serviceRegions[]"]').first();
+  await regionError.waitFor({ state: 'visible' });
+  assert.equal(await firstRegion.evaluate((element) => document.activeElement === element), true,
+    'missing region focuses the first repair control');
+  assert.equal(await regionError.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.top >= 0 && rect.bottom <= innerHeight;
+  }), true, 'region error stays visible beside the focused choice at 320 px');
+
+  await firstRegion.check();
+  await form.locator('button[type="submit"]').click();
+  const specializationError = page.locator('#roofer-specializations-error');
+  const firstSpecialization = form.locator('input[name="specializations[]"]').first();
+  await specializationError.waitFor({ state: 'visible' });
+  assert.equal(await firstSpecialization.evaluate((element) => document.activeElement === element), true,
+    'missing specialization focuses the first repair control');
+  assert.equal(await specializationError.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return rect.top >= 0 && rect.bottom <= innerHeight;
+  }), true, 'specialization error stays visible beside the focused choice at 320 px');
+
+  return { viewport: '320x568', regionErrorVisible: true, specializationErrorVisible: true, formsSent: 0 };
+}
+
 async function runConsentedLeadConversionCheck(page, pglite, appOrigin, authSecret) {
   await page.goto(appOrigin, { waitUntil: 'networkidle' });
   await page.getByRole('button', { name: 'Prijať všetky' }).click();
@@ -2620,6 +2659,7 @@ async function runHarness() {
     } else if (visualOnly) {
       const visualRun = await runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp);
       const { evidenceManifest, ...visual } = visualRun;
+      const rooferValidation = await runRooferLocalValidationCheck(page, appOrigin);
       const navigation = await runPublicNavigationChecks(page, appOrigin);
       assert.equal(browserDenied.length, 0, `visual audit tried an external origin: ${browserDenied.join(', ')}`);
       assert.deepEqual(browserNonGetBlocked, [
@@ -2645,7 +2685,7 @@ async function runHarness() {
         await writeFile(evidenceManifest.path, `${JSON.stringify(finalizedManifest, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
       }
       resultSummary = {
-        result: 'PASS', ...visual, navigation,
+        result: 'PASS', ...visual, rooferValidation, navigation,
         blockedNonGetRequests: browserNonGetBlocked.length,
         blockedBrowserOrigins: browserDenied.length,
       };
@@ -2657,9 +2697,10 @@ async function runHarness() {
       resultSummary = { result: 'PASS', ...consentTimeout, blockedBrowserOrigins: browserDenied.length };
       passed = true;
     } else if (navigationOnly) {
+      const rooferValidation = await runRooferLocalValidationCheck(page, appOrigin);
       const navigation = await runPublicNavigationChecks(page, appOrigin);
       assert.equal(browserDenied.length, 0, `navigation audit tried an external origin: ${browserDenied.join(', ')}`);
-      resultSummary = { result: 'PASS', navigation, blockedBrowserOrigins: browserDenied.length };
+      resultSummary = { result: 'PASS', rooferValidation, navigation, blockedBrowserOrigins: browserDenied.length };
       passed = true;
     } else if (conversionOnly) {
       const conversion = await runConsentedLeadConversionCheck(page, pglite, appOrigin, authSecret);

@@ -250,17 +250,18 @@ export default function RoofersPage() {
                 <span>3</span>
                 <div><strong>Kde chcete prijímať zákazky</strong><small>Vyberte všetky kraje, v ktorých reálne viete zákazku zobrať</small></div>
               </div>
-              <fieldset>
+              <fieldset aria-describedby="roofer-regions-error">
                 <legend>Regióny pôsobenia *</legend>
+                <p className="roofer-field-error" id="roofer-regions-error" role="alert" hidden></p>
                 <div className="roofer-checkbox-grid">
                   {regions.map((region) => (
                     <label key={region}>
-                      <input type="checkbox" name="serviceRegions[]" value={region} />
+                      <input type="checkbox" name="serviceRegions[]" value={region} aria-describedby="roofer-regions-error" />
                       <span>{region}</span>
                     </label>
                   ))}
                   <label className="roofer-checkbox-card-wide">
-                    <input type="checkbox" name="serviceRegions[]" value="Celé Slovensko" data-all-regions />
+                    <input type="checkbox" name="serviceRegions[]" value="Celé Slovensko" data-all-regions aria-describedby="roofer-regions-error" />
                     <span>Celé Slovensko</span>
                   </label>
                 </div>
@@ -270,12 +271,13 @@ export default function RoofersPage() {
                 <span>4</span>
                 <div><strong>Na aké strechy a krytiny sa špecializujete</strong><small>Označte všetko, čo bežne realizujete</small></div>
               </div>
-              <fieldset>
+              <fieldset aria-describedby="roofer-specializations-error">
                 <legend>Preferované krytiny a práce *</legend>
+                <p className="roofer-field-error" id="roofer-specializations-error" role="alert" hidden></p>
                 <div className="roofer-checkbox-grid roofer-checkbox-grid-specializations">
                   {['Betónová krytina', 'Pálená škridla', 'Plechová krytina', 'Plochá / rovná strecha', 'Iné'].map((specialization) => (
                     <label key={specialization}>
-                      <input type="checkbox" name="specializations[]" value={specialization} data-specialization={specialization} />
+                      <input type="checkbox" name="specializations[]" value={specialization} data-specialization={specialization} aria-describedby="roofer-specializations-error" />
                       <span>{specialization}</span>
                     </label>
                   ))}
@@ -326,7 +328,7 @@ export default function RoofersPage() {
 
               <button className="button button-primary" type="submit">Chcem byť medzi odporúčanými strechármi</button>
               <p className="roofer-form-microcopy">Registrácia vás k ničomu nezaväzuje. Najprv si údaje skontrolujeme a ozveme sa vám.</p>
-              <p className="roofer-registration-status" role="status" aria-live="polite"></p>
+              <p className="roofer-registration-status" role="status" aria-live="polite" tabIndex={-1}></p>
             </form>
           </div>
         </section>

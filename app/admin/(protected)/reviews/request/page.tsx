@@ -1,6 +1,6 @@
 import { listReviewRequests } from '@/src/server/db';
 import { createReviewRequestAction, getStoredGoogleReviewLink, updateReviewRequestStatusAction } from './actions';
-import ReviewRequestTools from './review-request-tools';
+import ReviewRequestTools, { ReviewRequestResult, ReviewRequestSubmit } from './review-request-tools';
 import type { ReviewRequestStatus } from '@/src/server/types';
 
 const statusLabels: Record<ReviewRequestStatus, string> = {
@@ -8,8 +8,11 @@ const statusLabels: Record<ReviewRequestStatus, string> = {
   review_received: 'recenzia prijatá',
 };
 
-export default async function ReviewRequestPage() {
+export default async function ReviewRequestPage({ searchParams }: { searchParams?: Promise<{ result?: string; attempt?: string }> }) {
   const [requests, googleLink] = await Promise.all([listReviewRequests(), getStoredGoogleReviewLink()]);
+  const query = await searchParams;
+  const result = query?.result === 'invalid' || query?.result === 'saved' ? query.result : undefined;
+  const attempt = query?.attempt || '';
 
   return (
     <main className="admin-page">
@@ -23,11 +26,14 @@ export default async function ReviewRequestPage() {
       <section className="admin-card">
         <h2>Vygenerovať WhatsApp správu</h2>
         <p>Google odkaz sa po uložení zapamätá ako konfigurácia pre ďalšie žiadosti.</p>
+        {result ? <ReviewRequestResult result={result} attempt={attempt} /> : null}
         <form action={createReviewRequestAction}>
           <ReviewRequestTools defaultLink={googleLink} />
-          <button className="admin-primary-button" type="submit">
-            Uložiť do histórie
-          </button>
+          <label className="admin-form-wide">
+            <input name="sentConfirmed" type="checkbox" required />
+            Správu som zákazníkovi skutočne odoslal cez WhatsApp alebo iným dohodnutým kanálom.
+          </label>
+          <ReviewRequestSubmit />
         </form>
       </section>
 
