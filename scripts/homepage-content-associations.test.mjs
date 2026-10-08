@@ -124,5 +124,5 @@ test('regional service pages offer an internal path to verified work examples', 
 test('realization photos keep their individual factual alt text', () => {
   assert.doesNotMatch(photoReferences, /neutralAltByCategory/);
   assert.match(photoReferences, /asset\(7, 'Strešná konštrukcia po demontáži',[\s\S]*'Strešná konštrukcia po odstránení azbestocementovej krytiny'/);
-  assert.match(photoReferences, /\n\s*alt,\n\s*title,/);
+  assert.match(photoReferences, /\r?\n\s*alt,\r?\n\s*title,/);
 });

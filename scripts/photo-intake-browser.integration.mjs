@@ -444,7 +444,7 @@ async function createTempProject(tempRoot, headersOnly = false, includeSeoAudit 
     }
   }
   const mediaRoutePath = path.join(tempRoot, 'app', 'api', 'photo-intake', 'media', '[id]', 'route.ts');
-  const mediaRoute = await readFile(mediaRoutePath, 'utf8');
+  const mediaRoute = (await readFile(mediaRoutePath, 'utf8')).replaceAll('\r\n', '\n');
   assert.ok(mediaRoute.includes("} catch {\n    return new NextResponse('Súkromnú fotografiu sa nepodarilo načítať', { status: 503 });"));
   await writeFile(mediaRoutePath, mediaRoute.replace(
     "} catch {\n    return new NextResponse('Súkromnú fotografiu sa nepodarilo načítať', { status: 503 });",

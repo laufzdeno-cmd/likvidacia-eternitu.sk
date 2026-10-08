@@ -146,7 +146,7 @@ test('homepage presentation is route-scoped and absent from the final shared pol
 });
 
 test('late homepage mobile guards preserve the original one-column cascade', () => {
-  const deferredCss = readFileSync('public/assets/home-below-fold.css', 'utf8');
+  const deferredCss = readFileSync('public/assets/home-below-fold.css', 'utf8').replaceAll('\r\n', '\n');
   const deferredRoot = postcss.parse(deferredCss, { from: 'public/assets/home-below-fold.css' });
   const initialFaqGrid = deferredCss.indexOf('.faq-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))');
   const finalWhyDesktop = deferredCss.lastIndexOf('.why-card-grid{width:100%!important;grid-template-columns:repeat(3,minmax(0,1fr))!important');
