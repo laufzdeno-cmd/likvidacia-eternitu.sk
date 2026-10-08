@@ -1,5 +1,12 @@
 # Stav a poradie práce
 
+## G09 — produkčný prístup AI botov (9. 10. 2026)
+
+- Read-only Vercel Firewall → Traffic za zobrazených posledných 24 hodín potvrdil na produkčnom hoste 607 požiadaviek `OAI-AdsBot/1.0`, 177 `OAI-SearchBot/1.0` a 109 `ChatGPT-User/1.0`. Presný filter `allow` + celý OAI-SearchBot user-agent + request path preukázal aj 6 povolených požiadaviek na `/` a 5 na `/robots.txt`.
+- Aktuálna syntetická kontrola s rovnakým user-agentom vrátila pre obe verejné cesty HTTP 200 bez presmerovania. Kombinácia tohto živého firewall dôkazu, lokálneho robots/crawl kontraktu a existujúceho GSC baseline uzatvára G09 ako **PASS current production evidence**. Nepotvrdzuje citovanie, odporúčanie ani nasadenie kandidáta `31157118`.
+- Kontrola nič nezmenila: firewall pravidlá, Bot Protection, deployment, Vercel premenné, formuláre, databáza, Blob aj email ostali bez zásahu. IP adresy a osobné údaje sa do dôkazu neukladajú. Presný rozsah: [G09 bot access snapshot](G09-BOT-ACCESS-SNAPSHOT-2026-10-09.md).
+- GEO skóre tým stúpa zo 40 na **50/100** a vážený stav projektu zo 61,1 na **63,6/100**. Automatický kontrakt teraz overuje jedinú aktuálnu 55-riadkovú maticu, počty PASS aj výpočet skóre, aby sa historická matica alebo staré percento znovu nepoužili ako aktuálny stav.
+
 ## Aktuálny lokálny O06 checkpoint — bezpečné prevádzkové alarmy (9. 10. 2026)
 
 - Commit `49609256` pridáva predvolene vypnuté prevádzkové alarmy pre doručovanie dopytov a aplikačných notifikácií. Alarm vzniká iba z pevného zoznamu súhrnných dôvodov a metrík; neobsahuje e-mail, telefón, meno, identifikátor leadu, SMTP chybu, URL tajomstvo ani obsah správy.
