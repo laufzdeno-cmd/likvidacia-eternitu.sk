@@ -1,5 +1,14 @@
 # Stav a poradie práce
 
+## Aktuálny lokálny O06 checkpoint — bezpečné prevádzkové alarmy (9. 10. 2026)
+
+- Commit `49609256` pridáva predvolene vypnuté prevádzkové alarmy pre doručovanie dopytov a aplikačných notifikácií. Alarm vzniká iba z pevného zoznamu súhrnných dôvodov a metrík; neobsahuje e-mail, telefón, meno, identifikátor leadu, SMTP chybu, URL tajomstvo ani obsah správy.
+- Stav je trvalý a súbežne bezpečný v lokálnej aj PostgreSQL vetve. Pri výpadku databázy sa webhook neposiela. Nejasné sieťové doručenie zachová rovnaké `eventId`, päťminútový odstup a oba prechody `degraded`/`recovered`; potvrdený HTTP neúspech možno bezpečne skúsiť znova.
+- Webhook vyžaduje HTTPS a HMAC podpis. DNS musí vrátiť iba verejné adresy a produkčné spojenie je pripnuté na už overenú IP pri zachovanom TLS `servername` a kontrole certifikátu. DNS, spojenie, TLS aj odpoveď zdieľajú absolútny časový limit; telo odpovede sa po statuse okamžite zavrie.
+- Finálny rez prešiel **435/435 MJS + 35/35 TypeScript testami**, typovou kontrolou, `git diff --check`, **13/13 databázovými integráciami** a úplným izolovaným Next.js 16.4.0 produkčným buildom **100/100 trás**. Build `L9Rfk_H-tgHafBnx8iA_o` prešiel SEO kontrolou 33 statických URL, oboma dynamickými obsahovými trasami a route CSS/JS izoláciou; `productionAccess:false`, jednorazová PostgreSQL aj vlastné dočasné dáta boli odstránené.
+- Nezávislý read-only kontrolór v štyroch úzkych kolách našiel a regresne uzavrel DB-outage duplicity, nejasné doručenie, DNS rebinding, stratené recovery prechody a celkový timeout. Finálny re-review vydal **PASS bez zostávajúcej konkrétnej vady**.
+- Produkcia, Vercel premenné, webhook, formulár, SMTP, Blob ani alias sa nemenili. O06 zostáva **PARTIAL**, kým vlastník neurčí reálny alert kanál, primárneho človeka, zástupcu a eskalačný čas a kým sa worker neoverí na bezpečnom stagingu a následne v schválenom produkčnom release. Podrobný dôkaz: [O06 delivery alerts](O06-DELIVERY-ALERTS-2026-10-09.md).
+
 ## Aktuálny presný release dôkaz a stagingová bezpečnosť (8. 10. 2026)
 
 - Presne otestovaný zdrojový kandidát je `981cd9e2eb200a579f1c3eb705ee3bb6b95f83d1` (tree `3198f4d10255700c61a409ace6a7e3295a53ca8b`); runtime aplikačný checkpoint je `eb56a40b` a stagingový bezpečnostný checkpoint `f8bb7849`.
