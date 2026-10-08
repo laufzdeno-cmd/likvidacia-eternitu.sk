@@ -3,9 +3,11 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 test('current Vercel evidence keeps production, Preview and Staging claims separate', async () => {
-  const [snapshot, matrix] = await Promise.all([
+  const [snapshot, matrix, bootstrap, runbook] = await Promise.all([
     readFile(new URL('../docs/upgrade-2026-09-30/VERCEL-READONLY-SNAPSHOT-2026-10-08.md', import.meta.url), 'utf8'),
     readFile(new URL('../docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/upgrade-2026-09-30/STAGING-BOOTSTRAP-2026-10-08.md', import.meta.url), 'utf8'),
+    readFile(new URL('../docs/upgrade-2026-09-30/STAGING-EXECUTION-RUNBOOK-2026-10-08.md', import.meta.url), 'utf8'),
   ]);
 
   assert.match(
@@ -53,4 +55,24 @@ test('current Vercel evidence keeps production, Preview and Staging claims separ
   assert.match(matrix, /\| O09 \| PASS local \/ production WAITING \|[^\n]*foto-intake/i);
   assert.match(matrix, /\| O10 \| PARTIAL \|[^\n]*Vercel/i);
   assert.match(matrix, /ochrana živého Preview sú \*\*NOT VERIFIED\*\*/);
+
+  assert.match(
+    bootstrap,
+    /Filter projektových premenných pre presný scope `staging` zobrazil \*\*No Environment Variables Added\*\*\. Toto tvrdenie sa vzťahuje iba na projektové premenné/,
+  );
+  assert.match(
+    bootstrap,
+    /automatické Vercel \*\*System Environment Variables\*\* sú zapnuté/,
+  );
+  assert.match(bootstrap, /autoritatívny detail oboch spojení uvádza presne \*\*Production, Preview, Development\*\*/);
+  assert.match(bootstrap, /Custom environment `staging` v ich scope nie je/);
+  assert.match(
+    bootstrap,
+    /Súhrnný zoznam Storage označuje[\s\S]*\*\*All Environments\*\*[\s\S]*ale autoritatívny detail oboch spojení uvádza presne \*\*Production, Preview, Development\*\*/,
+  );
+  assert.match(bootstrap, /System Environment Variables musia zostať zapnuté[\s\S]*`VERCEL_TARGET_ENV` a `VERCEL_PROJECT_ID`/);
+  assert.match(runbook, /detail spojenia produkčnej `astana-crm-db` aj `astana-lead-files-prod`[\s\S]*neobsahuje custom environment `staging`/);
+  assert.match(runbook, /detail \*\*Projects \/ Connections\*\*[\s\S]*presný environment scope `staging`/);
+  assert.match(runbook, /prekrytí environment scope produkčných a stagingových zdrojov/);
+  assert.doesNotMatch(bootstrap, /oba so scope \*\*All Environments\*\*/);
 });

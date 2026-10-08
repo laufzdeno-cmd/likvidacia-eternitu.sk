@@ -32,6 +32,8 @@ Pred prvým zápisom znovu potvrdiť:
 3. IAM/Production Protection a absenciu neznámeho deploy hooku.
 4. Čerstvý rollback deployment a jeho zdrojový SHA.
 5. Že lokálny súbor `.vercel/env-production-pull.local` sa nebude načítavať ani kopírovať do stagingu.
+6. Že detail spojenia produkčnej `astana-crm-db` aj `astana-lead-files-prod` uvádza iba **Production, Preview, Development** a neobsahuje custom environment `staging`; súhrnný štítok **All Environments** nestačí ako dôkaz scope.
+7. Že automatické Vercel System Environment Variables zostávajú zapnuté, aby guard dostal `VERCEL_TARGET_ENV` a `VERCEL_PROJECT_ID`; tento prepínač sa nesmie zamieňať so scope databázového alebo Blob spojenia.
 
 Vercel CLI musí mať presne pripnutú a vopred overenú verziu. Token môže byť iba v procesnej premennej; nikdy nie v argumente príkazu, chate, dôkazovom súbore alebo logu.
 
@@ -44,6 +46,8 @@ Po schválení pripojiť alebo vytvoriť iba pre custom environment `staging`:
 3. druhý, odlišný Private Blob store pre tímový photo-intake.
 
 Zakázané je použiť produkčnú databázu, `astana-lead-files-prod`, obyčajný Preview alebo rovnaký Blob store pre obe stagingové roly. Staging nedostane vlastnú verejnú doménu a produkčný alias sa nemení.
+
+Po každom spojení sa musí otvoriť jeho detail **Projects / Connections** a potvrdiť presný environment scope `staging`. Ak detail produkčného zdroja začne obsahovať `staging`, alebo stagingový zdroj obsahuje Production/Preview/Development, okamžite zastaviť ešte pred deploymentom. Súhrnný zoznam Storage nie je pre túto kontrolu dostatočný.
 
 ## 3. Staging-only konfigurácia
 
@@ -126,6 +130,6 @@ Po samostatnom čerstvom súhlase nasledujú presne označené testovacie toky:
 
 ## Stop podmienky
 
-Okamžite zastaviť pri nesprávnom projekte, targete, SHA, ne-READY stave, zhode stagingovej a produkčnej identity, konflikte markerov, viacnásobnom inboxe, aktívnom relayi, povolenom crone alebo neznámom výsledku deploymentu.
+Okamžite zastaviť pri nesprávnom projekte, targete, SHA, ne-READY stave, prekrytí environment scope produkčných a stagingových zdrojov, zhode stagingovej a produkčnej identity, konflikte markerov, viacnásobnom inboxe, aktívnom relayi, povolenom crone alebo neznámom výsledku deploymentu.
 
 Pri neznámom výsledku deployment neopakovať. Najprv ho dohľadať read-only. Produkčný promote je samostatná brána s novým súhlasom, novou kontrolou rollbacku a následným ostrým smoke testom.

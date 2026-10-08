@@ -10,11 +10,13 @@
 ## Čerstvé read-only potvrdenie po reštarte
 
 - Vercel dashboard znovu potvrdil vlastné prostredie `staging`: bez sledovania vetvy a bez vlastnej domény.
-- Filter projektových premenných pre presný scope `staging` zobrazil **No Environment Variables Added**. Nebola odkrytá ani zmenená žiadna hodnota.
-- V zozname pripojených Storage zdrojov zostávajú iba produkčné `astana-crm-db` a `astana-lead-files-prod`, oba so scope **All Environments**.
+- Filter projektových premenných pre presný scope `staging` zobrazil **No Environment Variables Added**. Toto tvrdenie sa vzťahuje iba na projektové premenné; automatické Vercel **System Environment Variables** sú zapnuté. Nebola odkrytá ani zmenená žiadna hodnota.
+- Súhrnný zoznam Storage označuje existujúce `astana-crm-db` a `astana-lead-files-prod` ako **All Environments**, ale autoritatívny detail oboch spojení uvádza presne **Production, Preview, Development**. Custom environment `staging` v ich scope nie je. Produkčná DB ani produkčný Blob preto nie sú cez tieto dve spojenia priradené stagingu.
 - Dialóg **Connect Database** zobrazuje `astana-staging-db` ako dostupnú databázu s aktívnym tlačidlom **Connect**, teda databáza stále nie je pripojená k projektu.
 - V projekte stále nie je pripojený žiadny stagingový Blob store; požadované dva oddelené Private Blob stores preto zostávajú nevytvorené.
 - Kontrola bola iba na čítanie. Nebol stlačený žiadny **Connect**, **Create Storage**, **Add Environment Variable**, **Save**, deploy ani formulárové tlačidlo.
+
+Vercel System Environment Variables musia zostať zapnuté, pretože bezpečnostný guard používa `VERCEL_TARGET_ENV` a `VERCEL_PROJECT_ID`. Podľa [oficiálnej dokumentácie Vercel](https://vercel.com/docs/environment-variables/system-environment-variables) tento prepínač sprístupňuje platformové identifikátory; nejde o dôkaz, že sú stagingu sprístupnené integračné tajomstvá. Izoláciu integračných zdrojov dokazuje až detail konkrétneho DB/Blob spojenia.
 
 ## Bezpečnostný kontrakt kandidáta
 
