@@ -85,3 +85,19 @@ test('future-dated finance events do not change current balances', async () => {
   assert.equal(result.invoiceBalances[0].status, 'OVERDUE');
   assert.equal(result.requiresReview, true);
 });
+
+test('future-dated invoices do not create current receivables', async () => {
+  const { projectBusinessJobFinance } = await import('../src/lib/business-billing.ts');
+  const futureInvoice = {
+    ...baseInvoice,
+    id: 'invoice-future',
+    invoiceNumber: 'F-FUTURE',
+    issuedOn: '2026-10-02',
+    dueOn: '2026-10-16',
+  };
+  const result = projectBusinessJobFinance([futureInvoice], [], '2026-10-01');
+  assert.equal(result.activeInvoicedCents, 0);
+  assert.equal(result.outstandingCents, 0);
+  assert.equal(result.invoiceBalances.length, 0);
+  assert.equal(result.requiresReview, true);
+});

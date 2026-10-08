@@ -14,8 +14,9 @@ export function projectBusinessJobFinance(
   const isCancellationEffective = (invoice: BusinessJobInvoice) => (
     Boolean(invoice.cancelledAt) && (!invoice.cancelledOn || invoice.cancelledOn <= today)
   );
-  const activeInvoices = invoices.filter((invoice) => !isCancellationEffective(invoice));
-  const cancelledInvoices = invoices.filter(isCancellationEffective);
+  const effectiveInvoices = invoices.filter((invoice) => invoice.issuedOn <= today);
+  const activeInvoices = effectiveInvoices.filter((invoice) => !isCancellationEffective(invoice));
+  const cancelledInvoices = effectiveInvoices.filter(isCancellationEffective);
   const activeInvoiceIds = new Set(activeInvoices.map((invoice) => invoice.id));
   const effectivePaymentEvents = paymentEvents.filter((event) => event.occurredOn <= today);
   const receipts = effectivePaymentEvents.filter((event) => event.eventType === 'RECEIPT');
@@ -98,6 +99,7 @@ export function projectBusinessJobFinance(
     unallocatedReceivedCents,
     overpaidCents,
     requiresReview: malformedReversal || paymentOnInactiveInvoice || netReceivedCents < 0
+      || invoices.some((invoice) => invoice.issuedOn > today)
       || paymentEvents.some((event) => event.occurredOn > today)
       || invoices.some((invoice) => Boolean(invoice.cancelledAt && invoice.cancelledOn && invoice.cancelledOn > today)),
     oldestDueOn,

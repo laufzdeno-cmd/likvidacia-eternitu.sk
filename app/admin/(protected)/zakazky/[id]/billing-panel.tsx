@@ -49,7 +49,7 @@ function InvoiceCancellationForm({ jobId, invoice, csrfToken, operationId, today
     <input type="hidden" name="jobId" value={jobId} />
     <input type="hidden" name="invoiceId" value={invoice.id} />
     <input type="hidden" name="operationId" value={operationId} />
-    <label>Dátum storna<input name="cancelledOn" type="date" defaultValue={today} min={invoice.issuedOn} required /></label>
+    <label>Dátum storna<input name="cancelledOn" type="date" defaultValue={today} min={invoice.issuedOn} max={today} required /></label>
     <label>Dôvod<select name="reasonCode" required defaultValue=""><option value="" disabled>Vyberte dôvod</option>{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     <label className="admin-checkbox"><input type="checkbox" name="confirm" value="yes" required /> Potvrdzujem storno faktúry bez vymazania histórie.</label>
     <SubmitButton destructive>Stornovať faktúru</SubmitButton>
@@ -66,7 +66,7 @@ function PaymentReversalForm({ jobId, receipt, csrfToken, operationId, today }: 
     <input type="hidden" name="jobId" value={jobId} />
     <input type="hidden" name="receiptId" value={receipt.id} />
     <input type="hidden" name="operationId" value={operationId} />
-    <label>Dátum storna<input name="occurredOn" type="date" defaultValue={today} min={receipt.occurredOn} required /></label>
+    <label>Dátum storna<input name="occurredOn" type="date" defaultValue={today} min={receipt.occurredOn} max={today} required /></label>
     <label>Dôvod<select name="reasonCode" required defaultValue=""><option value="" disabled>Vyberte dôvod</option>{reasonOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
     <label className="admin-checkbox"><input type="checkbox" name="confirm" value="yes" required /> Potvrdzujem storno úhrady novou opravnou udalosťou.</label>
     <SubmitButton destructive>Stornovať úhradu</SubmitButton>
@@ -81,15 +81,15 @@ export default function BillingPanel({ jobId, finance, canWrite, archived, csrfT
   const [invoiceState, invoiceAction] = useActionState(recordBusinessInvoiceAction, initialState);
   const [paymentState, paymentAction] = useActionState(recordBusinessPaymentAction, initialState);
   const hasEvidence = finance.invoices.length > 0 || finance.paymentEvents.length > 0;
-  const activeInvoices = finance.invoices.filter((invoice) => !invoice.cancelledAt);
   const balancesByInvoice = new Map(finance.invoiceBalances.map((balance) => [balance.invoiceId, balance]));
+  const activeInvoices = finance.invoices.filter((invoice) => !invoice.cancelledAt && invoice.issuedOn <= today && balancesByInvoice.has(invoice.id));
   const invoicesById = new Map(finance.invoices.map((invoice) => [invoice.id, invoice]));
   const reversedReceiptIds = new Set(finance.paymentEvents.filter((event) => event.eventType === 'REVERSAL').map((event) => event.reversalOf));
-  const activeReceipts = finance.paymentEvents.filter((event) => event.eventType === 'RECEIPT' && !reversedReceiptIds.has(event.id));
+  const activeReceipts = finance.paymentEvents.filter((event) => event.eventType === 'RECEIPT' && event.occurredOn <= today && !reversedReceiptIds.has(event.id));
 
   const invoiceCorrection = (invoice: BusinessJobInvoice) => {
     const blockedByPayment = activeReceipts.some((event) => event.invoiceId === invoice.id);
-    return canWrite && !invoice.cancelledAt
+    return canWrite && !invoice.cancelledAt && invoice.issuedOn <= today
       ? <details className="admin-finance-correction"><summary>Opraviť záznam</summary><InvoiceCancellationForm jobId={jobId} invoice={invoice} csrfToken={csrfToken} operationId={operationIds.invoiceCancellation[invoice.id]} today={today} blockedByPayment={blockedByPayment} /></details>
       : '—';
   };
@@ -124,7 +124,7 @@ export default function BillingPanel({ jobId, finance, canWrite, archived, csrfT
         <h3>Zaevidovať vystavenú faktúru</h3>
         <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="jobId" value={jobId} /><input type="hidden" name="operationId" value={operationIds.invoice} />
         <label>Číslo faktúry<input name="invoiceNumber" maxLength={80} required /></label>
-        <div className="admin-form-inline"><label>Dátum vystavenia<input name="issuedOn" type="date" defaultValue={today} required /></label><label>Dátum splatnosti<input name="dueOn" type="date" defaultValue={dueOn} /></label></div>
+        <div className="admin-form-inline"><label>Dátum vystavenia<input name="issuedOn" type="date" defaultValue={today} max={today} required /></label><label>Dátum splatnosti<input name="dueOn" type="date" defaultValue={dueOn} /></label></div>
         <div className="admin-form-inline"><label>Suma bez DPH<input name="amountWithoutVat" type="text" inputMode="decimal" placeholder="0,00" required /></label><label>DPH %<input name="vatRate" type="text" inputMode="decimal" defaultValue="23" required /></label></div>
         <SubmitButton>Zaevidovať vystavenú faktúru</SubmitButton><ActionMessage state={invoiceState} />
       </form>
@@ -133,7 +133,7 @@ export default function BillingPanel({ jobId, finance, canWrite, archived, csrfT
         <h3>Zaevidovať prijatú úhradu</h3>
         <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="jobId" value={jobId} /><input type="hidden" name="operationId" value={operationIds.payment} />
         <label>Priradiť k faktúre<select name="invoiceId" defaultValue=""><option value="">Nepriradená úhrada</option>{activeInvoices.map((invoice) => <option key={invoice.id} value={invoice.id}>{invoice.invoiceNumber} · {money.format(invoice.amountWithVatCents / 100)}</option>)}</select></label>
-        <div className="admin-form-inline"><label>Dátum prijatia<input name="occurredOn" type="date" defaultValue={today} required /></label><label>Prijatá suma<input name="amount" type="text" inputMode="decimal" placeholder="0,00" required /></label></div>
+        <div className="admin-form-inline"><label>Dátum prijatia<input name="occurredOn" type="date" defaultValue={today} max={today} required /></label><label>Prijatá suma<input name="amount" type="text" inputMode="decimal" placeholder="0,00" required /></label></div>
         <label>Spôsob úhrady<select name="method" defaultValue="BANK_TRANSFER">{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label>Referencia / variabilný symbol<input name="reference" maxLength={80} autoComplete="off" /><small>Nezadávajte prihlasovacie ani bankové bezpečnostné údaje.</small></label>
         <SubmitButton>Zaevidovať prijatú úhradu</SubmitButton><ActionMessage state={paymentState} />

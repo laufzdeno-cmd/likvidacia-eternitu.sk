@@ -46,6 +46,11 @@ function invoiceInput(operationId, invoiceNumber = '2026-TEST-001') {
 
 try {
   const job = await createJob('Finance');
+  await assert.rejects(recordBusinessInvoice(job.id, {
+    ...invoiceInput(randomUUID(), '2026-TEST-FUTURE'),
+    issuedOn: '2999-01-01',
+    dueOn: '2999-01-15',
+  }, actor), /budúcnosti/);
   const operationId = randomUUID();
   const [first, retry] = await Promise.all([
     recordBusinessInvoice(job.id, invoiceInput(operationId), actor),

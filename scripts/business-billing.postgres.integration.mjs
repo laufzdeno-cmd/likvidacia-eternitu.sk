@@ -56,6 +56,11 @@ try {
   db = await import('../src/server/db.ts');
 
   const job = await createJob('Postgres finance');
+  await assert.rejects(db.recordBusinessInvoice(job.id, {
+    ...invoiceInput(randomUUID(), 'PG-2026-FUTURE'),
+    issuedOn: '2999-01-01',
+    dueOn: '2999-01-15',
+  }, actor), /budúcnosti/);
   const operationId = randomUUID();
   const [first, retry] = await Promise.all([
     db.recordBusinessInvoice(job.id, invoiceInput(operationId, 'PG-2026-001'), actor),

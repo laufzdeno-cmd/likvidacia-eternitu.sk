@@ -6603,7 +6603,7 @@ export async function recordBusinessInvoice(
   requireFinanceUuid(input.operationId, 'Operácia');
   const invoiceNumber = input.invoiceNumber.trim().replace(/\s+/g, ' ');
   if (!invoiceNumber || invoiceNumber.length > 80) throw new Error('Číslo faktúry je povinné a môže mať najviac 80 znakov.');
-  requireFinanceDate(input.issuedOn, 'Dátum vystavenia');
+  requireFinanceEventDate(input.issuedOn, 'Dátum vystavenia');
   if (input.dueOn) requireFinanceDate(input.dueOn, 'Dátum splatnosti');
   if (input.dueOn && input.dueOn < input.issuedOn) throw new Error('Dátum splatnosti nemôže byť pred dátumom vystavenia.');
   requireFinanceCents(input.amountWithoutVatCents, 'Suma bez DPH');
