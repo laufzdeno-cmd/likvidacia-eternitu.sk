@@ -1,5 +1,13 @@
 # Stav a poradie práce
 
+## Aktuálny lokálny checkpoint — zosúladenie 24 zmien z `origin/main` (8. 10. 2026)
+
+- Všetkých 24 commitov, ktoré boli dostupné iba na `origin/main`, bolo samostatne porovnaných s aktuálnym kandidátom. Väčšina správania bola zachovaná alebo nahradená širšou implementáciou; nepodložené marketingové čísla sa zámerne neobnovili.
+- Tri skutočné medzery boli uzavreté v commite `4d0b6bfb`: historická neznáma výmera sa už nikde netvári ako `0 m²`, stará URL `/overene-informacie/` smeruje 308 na `/o-firme/` a opätovné povolenie marketingu je bezpečné aj pri súbehu kariet, oneskorených odpovediach a blokovanom úložisku.
+- Finálny rez prešiel **388/388 MJS + 34/34 TypeScript**, databázové integrácie **12/12** plus oba Meta integračné scenáre, TypeScript a `git diff --check`. Izolovaný produkčný build prešiel **99/99** trás, 32 statických SEO URL a dynamické realizácie/recenzie pri `productionAccess:false`.
+- Dvaja nezávislí kontrolóri vydali PASS. Bezpečnostný scan `d990c521-b0be-4715-b5c3-86acc272a126` skontroloval 20 zmenených súborov s nulou nálezov.
+- Presná matica každého historického commitu je v [ORIGIN-MAIN-RECONCILIATION-2026-10-08.md](ORIGIN-MAIN-RECONCILIATION-2026-10-08.md). Produkcia sa nemenila. Pred release zostáva kontrolované spojenie Git histórie, staged deployment, externé účty a schválené ostré testy.
+
 ## Aktuálny lokálny checkpoint — interná evidencia faktúr a úhrad (8. 10. 2026)
 
 - Commity `f8829fb0` a `332dc0e3` pridávajú do detailu zákazky auditovateľnú evidenciu faktúr, prijatých úhrad, reverzných opráv a stornovaní a uzatvárajú dátumovú integritu. Dashboard, ročný prehľad a exporty už odlišujú obchodný odhad od fakturovaných, prijatých, zostávajúcich, omeškaných a stornovaných súm.
