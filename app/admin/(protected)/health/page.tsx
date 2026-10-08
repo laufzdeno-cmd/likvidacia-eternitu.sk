@@ -5,6 +5,12 @@ function healthClass(ok: boolean) {
   return ok ? 'health-ok' : 'health-warn';
 }
 
+function featureClass(level: 'ok' | 'warning' | 'disabled') {
+  if (level === 'ok') return 'health-ok';
+  if (level === 'warning') return 'health-caution';
+  return 'health-warn';
+}
+
 export default async function AdminHealthPage() {
   await requireSuperAdmin();
   const health = await getSystemHealth();
@@ -44,6 +50,42 @@ export default async function AdminHealthPage() {
           <strong>{health.buildCommit.slice(0, 8)}</strong>
           <small>{health.buildCommit}</small>
         </article>
+      </section>
+
+      <section className="admin-card">
+        <div className="admin-section-heading">
+          <div>
+            <p>Bez zobrazenia hesiel a tokenov</p>
+            <h2>Pripravenosť produkčných funkcií</h2>
+          </div>
+        </div>
+        <div className="admin-stat-grid health-grid">
+          <article className={featureClass(health.features.conversion.level)}>
+            <span>Serverové meranie dopytov</span>
+            <strong>{health.features.conversion.label}</strong>
+            <small>{health.features.conversion.detail}</small>
+          </article>
+          <article className={featureClass(health.features.routeDistance.level)}>
+            <span>Automatické kilometre v ponuke</span>
+            <strong>{health.features.routeDistance.label}</strong>
+            <small>{health.features.routeDistance.detail}</small>
+          </article>
+          <article className={featureClass(health.features.leadRetention.level)}>
+            <span>Retencia fotografií dopytu</span>
+            <strong>{health.features.leadRetention.label}</strong>
+            <small>{health.features.leadRetention.detail}</small>
+          </article>
+          <article className={featureClass(health.features.careerRetention.level)}>
+            <span>Retencia životopisov</span>
+            <strong>{health.features.careerRetention.label}</strong>
+            <small>{health.features.careerRetention.detail}</small>
+          </article>
+          <article className={featureClass(health.features.photoIntake.level)}>
+            <span>Tímový príjem fotografií</span>
+            <strong>{health.features.photoIntake.label}</strong>
+            <small>{health.features.photoIntake.detail}</small>
+          </article>
+        </div>
       </section>
 
       <section className="admin-card">

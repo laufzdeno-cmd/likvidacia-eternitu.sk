@@ -6,23 +6,11 @@ import {
   settleClaimedMetaCapiEvent,
 } from './db';
 import type { MetaCapiDeliveryOutcome, MetaCapiDispatchInput } from './types';
+import { isMetaCapiConfigured, readMetaCapiConfig } from './meta-capi-config';
 
-type MetaCapiConfig = {
-  pixelId: string;
-  accessToken: string;
-  apiVersion: string;
-};
+export { isMetaCapiConfigured } from './meta-capi-config';
 
 type MetaCapiFetch = typeof fetch;
-
-function readMetaCapiConfig(): MetaCapiConfig | null {
-  const pixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || '';
-  const accessToken = process.env.META_CAPI_ACCESS_TOKEN?.trim() || '';
-  const apiVersion = process.env.META_GRAPH_API_VERSION?.trim() || '';
-  const conversionEventSecret = process.env.CONVERSION_EVENT_SECRET?.trim() || '';
-  if (!/^\d{5,32}$/.test(pixelId) || !accessToken || !/^v\d+\.\d+$/.test(apiVersion) || !conversionEventSecret) return null;
-  return { pixelId, accessToken, apiVersion };
-}
 
 function sha256(value: string) {
   return createHash('sha256').update(value).digest('hex');
@@ -65,10 +53,6 @@ async function metaAcceptedAtLeastOneEvent(response: Response) {
   } catch {
     return false;
   }
-}
-
-export function isMetaCapiConfigured() {
-  return Boolean(readMetaCapiConfig());
 }
 
 export async function sendMetaLeadEvent(

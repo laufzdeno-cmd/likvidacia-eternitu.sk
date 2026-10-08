@@ -9,6 +9,7 @@ import { isApplicationNotificationEvidenceValid } from './application-notificati
 import { canManuallyRetryLeadEmail, isLeadSmtpConfigured } from './mail';
 import { isAstanaLocalRelayConfigured, leadDeliveryMode } from './astana-local-relay';
 import { describeLeadMailHealth } from './lead-mail-health';
+import { getRuntimeFeatureHealth } from './runtime-feature-health';
 import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
 import { isValidIsoCalendarDate } from '../lib/date-only';
 import { priceOfferNumberYear } from '../lib/price-offer-number-year';
@@ -12712,6 +12713,7 @@ export async function getSystemHealth() {
       detail: smtpConfigured ? 'SMTP nastavenie je pripravené; spojenie sa ešte neoverilo.' : 'SMTP nastavenie nie je úplné alebo povolené.',
     },
     leadMail: describeLeadMailHealth(deliveryMode, smtpAttemptConfigured, false, relayConfigured),
+    features: getRuntimeFeatureHealth(),
     allowedOrigins: process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk',
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk',
     buildCommit: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || 'lokálne / nezistené',

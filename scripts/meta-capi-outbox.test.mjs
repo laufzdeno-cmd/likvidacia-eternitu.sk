@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const db = readFileSync(new URL('../src/server/db.ts', import.meta.url), 'utf8');
 const transport = readFileSync(new URL('../src/server/meta-conversions-api.ts', import.meta.url), 'utf8');
+const config = readFileSync(new URL('../src/server/meta-capi-config.ts', import.meta.url), 'utf8');
 const cron = readFileSync(new URL('../app/api/cron/meta-capi/route.ts', import.meta.url), 'utf8');
 
 test('Meta CAPI outbox is consent-gated and atomic with the accepted lead transaction', () => {
@@ -74,6 +75,10 @@ test('cron is Node-only, fail-closed on CRON_SECRET and returns generic errors',
   assert.match(cron, /process\.env\.CRON_SECRET/);
   assert.match(cron, /timingSafeEqual/);
   assert.match(cron, /META_CAPI_WORKER_FAILED/);
-  assert.match(transport, /process\.env\.CONVERSION_EVENT_SECRET/);
+  assert.match(transport, /readMetaCapiConfig\(\)/);
+  assert.match(config, /environment\.NEXT_PUBLIC_META_PIXEL_ID/);
+  assert.match(config, /environment\.META_CAPI_ACCESS_TOKEN/);
+  assert.match(config, /environment\.META_GRAPH_API_VERSION/);
+  assert.match(config, /environment\.CONVERSION_EVENT_SECRET/);
   assert.doesNotMatch(cron, /email|phone|fullName|accessToken/);
 });

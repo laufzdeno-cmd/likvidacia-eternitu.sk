@@ -1,26 +1,14 @@
 import { BlobNotFoundError, del, head } from '@vercel/blob';
-import { createHash, timingSafeEqual } from 'node:crypto';
 import {
   claimExpiredCareerCvUploads,
   completeCareerCvUploadDeletion,
   mayDeleteClaimedCareerCvUpload,
 } from '@/src/server/db';
+import { careerCvRetentionBound } from '@/src/server/career-cv-retention-binding';
+
+export { careerCvRetentionBound } from '@/src/server/career-cv-retention-binding';
 
 type PrivateBlobOperations = { head: typeof head; del: typeof del };
-
-export function careerCvRetentionBound() {
-  if (process.env.CAREER_CV_RETENTION_DELETE_ENABLED !== '1' ||
-      process.env.CAREER_CV_PRIVATE_STORE_CONFIRMED !== '1') return false;
-  if (process.env.VERCEL === '1' && process.env.VERCEL_ENV !== 'production') return false;
-  if (process.env.NODE_ENV === 'production' && process.env.VERCEL_ENV !== 'production') return false;
-  const projectId = process.env.VERCEL_PROJECT_ID || '';
-  const databaseUrl = process.env.DATABASE_URL || '';
-  const blobToken = process.env.BLOB_READ_WRITE_TOKEN || '';
-  const expected = process.env.CAREER_CV_RETENTION_BINDING_SHA256 || '';
-  if (!projectId || !databaseUrl || !blobToken || !/^[0-9a-f]{64}$/i.test(expected)) return false;
-  const actual = createHash('sha256').update(JSON.stringify([projectId, databaseUrl, blobToken]), 'utf8').digest();
-  return timingSafeEqual(actual, Buffer.from(expected, 'hex'));
-}
 
 function expectedPrivateBlob(url: string, pathname: string) {
   try {
