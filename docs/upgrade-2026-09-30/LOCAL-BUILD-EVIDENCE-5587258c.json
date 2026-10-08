@@ -1,12 +1,14 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-08T11:20:00+02:00",
+  "recordedAt": "2026-10-08T11:29:43+02:00",
   "applicationCommit": "5587258cc20c740d54bd57cb7cce5badd4166c03",
   "applicationTree": "c391dfe3ea8022a15ee019daf9e1be7073fc6bb4",
   "qaCommit": "439f75dcae5b6f536cfcd6ca04204903eccdf4ee",
   "qaTree": "f3933874879d7ed0bdd0c1b4706f48eee071f148",
   "visualEvidenceCommit": "088ac8f3a0f83211a9337a7cdbb8565620e531fe",
   "visualEvidenceTree": "033816e5f6fb61056a500b0e7aee026b2b7aa887",
+  "performanceEvidenceCommit": "c882d5eb563940fc88caeef96a071c465a2b4626",
+  "performanceEvidenceTree": "499fea32ab0e72754ce8f26b24be845221e9e7a9",
   "result": "PASS",
   "buildId": "MCh2KF31jp2mdDfBbZhIH",
   "generatedRouteCount": 99,
@@ -18,9 +20,9 @@
   "temporaryDatabaseRemoved": true,
   "originMainAncestor": true,
   "originMainRevision": "d314826537c6b94cb019164fc19140d10a014669",
-  "divergenceMeasuredAtCommit": "088ac8f3a0f83211a9337a7cdbb8565620e531fe",
+  "divergenceMeasuredAtCommit": "c882d5eb563940fc88caeef96a071c465a2b4626",
   "originMainDivergence": {
-    "candidateOnlyCommits": 88,
+    "candidateOnlyCommits": 89,
     "originMainOnlyCommits": 0
   },
   "browserReview": {
@@ -41,6 +43,24 @@
     "temporaryRootRemoved": true,
     "baselineEvidence": "docs/upgrade-2026-09-30/VISUAL-EVIDENCE-SUMMARY-452c4f75.json",
     "production": "NOT_VERIFIED"
+  },
+  "lighthouseS08": {
+    "result": "PASS",
+    "buildId": "Wyp6vsSNT67wymqcXaMyB",
+    "lighthouseVersion": "13.5.0",
+    "originKind": "isolated-loopback",
+    "routes": 5,
+    "runsPerRoute": 3,
+    "totalRuns": 15,
+    "medianPerformanceRange": [97, 98],
+    "accessibility": 100,
+    "seo": 100,
+    "medianLcpMsRange": [2351, 2467],
+    "maximumMedianCls": 0,
+    "temporaryDatabaseStopped": true,
+    "temporaryDatabaseRemoved": true,
+    "temporaryRootRemoved": true,
+    "productionAccess": false
   },
   "securityDiffScan": {
     "scanId": "c93c78ce-787d-4f57-844d-766a59044e24",

@@ -6,6 +6,7 @@
 - Celá jednotková/kontraktná sada: **389/389 MJS + 34/34 TypeScript PASS**. Izolovaný Next.js 16.4.0 produkčný build aplikačného checkpointu: **99/99 trás**, 32 statických SEO URL, dynamické realizácie/recenzie a route izolácia PASS; BUILD_ID `MCh2KF31jp2mdDfBbZhIH`, `productionAccess:false`, jednorazová PostgreSQL zastavená a odstránená.
 - Odvolanie marketingového súhlasu má jeden 8-sekundový limit pre fetch aj čítanie odpovede, po nejasnom stave ostáva fail-closed a umožní čistý retry. Browser dôkaz na 320 × 568 px prešiel klávesnicovým opakovaním, bez reálneho POST a bez externého originu.
 - Bezpečnostný diff scan `c93c78ce-787d-4f57-844d-766a59044e24` pokryl 5/5 nových súborov, úplné pokrytie, **0 nálezov**. Plná verejná vizuálna matica bola následne zopakovaná na čistom dôkazovom commite `088ac8f3`: **20 trás × 11 stavov = 220/220 PASS**, 25 snímok, 0 formulárov, 0 hydration chýb a 0 externých originov; dočasný testovací root bol odstránený.
+- Aktuálna S08 matica bola spustená na čistom dôkazovom commite `c882d5eb`, BUILD_ID `Wyp6vsSNT67wymqcXaMyB`: **5 trás × 3 mobilné behy, 15/15 PASS**. Mediány Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 351–2 467 ms**, CLS **0**. Išlo iba o izolovanú loopback origin; produkčný prístup bol vypnutý a jednorazová PostgreSQL aj testovací root boli odstránené.
 - Produkcia, Vercel alias, formuláre, emaily, Blob a reklamné účty sa nemenili. Staging, aktuálny Vercel/IAM, produkčné inboxy, fyzické Chrome/Opera/mobil a finálna 100 % obchodno-vizuálna akceptácia zostávajú externými bránami.
 
 ## Zosúladenie 24 zmien z `origin/main` (8. 10. 2026)
@@ -46,7 +47,7 @@
 
 Aktuálna úplná matica je v [E8-ACCEPTANCE-MATRIX-2026-10-07.md](E8-ACCEPTANCE-MATRIX-2026-10-07.md). Staršia `E8-ACCEPTANCE-MATRIX.md` zostáva iba historickým dôkazom pre predchádzajúci commit.
 
-Najnovší samostatný build aktuálneho právneho/GEO zdrojového rezu `PbffkjJF2blfWHCZP2t5Z` prešiel 96/96 trás a obe SEO kontroly. Posledná päťstránková S08 matica 5 × 3 patrí bezprostredne predchádzajúcemu buildu `y1TYexOpsKdspjTfymDsp`: Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 284–2 451 ms**, CLS **0**. Následná úprava iba zužuje serverové rozpoznávanie starých CMS otázok a nemení aktuálny render; Lighthouse sa jej napriek tomu nepripisuje ako nový beh. Staršie nižšie uvedené merania sú chronologická história.
+Aktuálny S08 dôkaz patrí čistému commitu `c882d5eb` a buildu `Wyp6vsSNT67wymqcXaMyB`: 5 trás × 3 behy, Performance **97–98**, Accessibility **100**, SEO **100**, LCP **2 351–2 467 ms**, CLS **0**. Staršie nižšie uvedené merania zostávajú chronologickou históriou a nenahrádzajú tento aktuálny dôkaz.
 
 ## Aktuálny release dashboard – nahrádza historické „11 %“ (7. 10. 2026)
 
@@ -61,7 +62,7 @@ Staršie percento 11 % bolo odvodené z iného kontrolného zoznamu a pri dnešn
 | Nemenný aplikačný SHA | **PASS lokálne** | kontrolovaný aplikačný checkpoint je commit `918477e5`; následná zmena iba aktualizuje auditnú dokumentáciu |
 | Kompletný vizuálny audit administrácie | **PASS lokálne** | 14 chránených trás × 13 viewportov = 182 stavov; automatická aj ručná kontrola reprezentatívnych snímok, nezávislý kontrolór PASS |
 | Bezpečnostný stav závislostí | **PASS lokálne** | Next.js 16.4.0, Sharp 0.35.5, Nodemailer 10.0.15 a opravené transitívne balíky; `npm audit` 0 zraniteľností; build, obrázky, SMTP mocky a súkromný Blob tok PASS |
-| S08 / Core Web Vitals | **PASS lokálne** | Lighthouse build `y1TYexOpsKdspjTfymDsp`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 284–2 451 ms a CLS 0; novší source build `PbffkjJF2blfWHCZP2t5Z` má samostatný build/SEO PASS bez pripísania nového Lighthouse behu |
+| S08 / Core Web Vitals | **PASS lokálne aktuálne** | Lighthouse build `Wyp6vsSNT67wymqcXaMyB` na čistom commite `c882d5eb`; 5 trás × 3 mobilné behy: Performance 97–98, Accessibility 100, SEO 100, LCP 2 351–2 467 ms a CLS 0; produkčné poľné dáta zostávajú post-release bránou |
 | Produkčný dopyt bez fotky a s fotkou | **OTVORENÉ** | vyžaduje čerstvé schválenie, lebo vytvorí skutočný lead a e-maily |
 | Celý tok cenovej ponuky, PDF a e-mailu | **OTVORENÉ** | lokálne kontrakty prešli, ale kompletný schválený produkčný tok nie |
 | Chrome/Opera a fyzický mobil | **OTVORENÉ** | chýba finálna akceptácia na reálnych zariadeniach |

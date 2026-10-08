@@ -19,6 +19,8 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.qaTree, 'f3933874879d7ed0bdd0c1b4706f48eee071f148');
   assert.equal(current.visualEvidenceCommit, '088ac8f3a0f83211a9337a7cdbb8565620e531fe');
   assert.equal(current.visualEvidenceTree, '033816e5f6fb61056a500b0e7aee026b2b7aa887');
+  assert.equal(current.performanceEvidenceCommit, 'c882d5eb563940fc88caeef96a071c465a2b4626');
+  assert.equal(current.performanceEvidenceTree, '499fea32ab0e72754ce8f26b24be845221e9e7a9');
   assert.equal(current.result, 'PASS');
   assert.equal(current.buildId, 'MCh2KF31jp2mdDfBbZhIH');
   assert.equal(current.generatedRouteCount, 99);
@@ -30,8 +32,8 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.temporaryDatabaseRemoved, true);
   assert.equal(current.originMainAncestor, true);
   assert.equal(current.originMainRevision, 'd314826537c6b94cb019164fc19140d10a014669');
-  assert.equal(current.divergenceMeasuredAtCommit, current.visualEvidenceCommit);
-  assert.deepEqual(current.originMainDivergence, { candidateOnlyCommits: 88, originMainOnlyCommits: 0 });
+  assert.equal(current.divergenceMeasuredAtCommit, current.performanceEvidenceCommit);
+  assert.deepEqual(current.originMainDivergence, { candidateOnlyCommits: 89, originMainOnlyCommits: 0 });
   assert.ok(Date.parse(current.recordedAt) > Date.parse('2026-10-08T11:03:26+02:00'),
     'evidence record must be created after the security scan completed');
   assert.equal(current.browserReview.consentTimeoutRecovery, 'PASS');
@@ -49,6 +51,17 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.equal(current.browserReview.fullMatrixBlockedBrowserOrigins, 0);
   assert.equal(current.browserReview.temporaryRootRemoved, true);
   assert.equal(current.browserReview.production, 'NOT_VERIFIED');
+  assert.equal(current.lighthouseS08.result, 'PASS');
+  assert.equal(current.lighthouseS08.buildId, 'Wyp6vsSNT67wymqcXaMyB');
+  assert.equal(current.lighthouseS08.routes, 5);
+  assert.equal(current.lighthouseS08.runsPerRoute, 3);
+  assert.equal(current.lighthouseS08.totalRuns, 15);
+  assert.deepEqual(current.lighthouseS08.medianPerformanceRange, [97, 98]);
+  assert.equal(current.lighthouseS08.accessibility, 100);
+  assert.equal(current.lighthouseS08.seo, 100);
+  assert.deepEqual(current.lighthouseS08.medianLcpMsRange, [2351, 2467]);
+  assert.equal(current.lighthouseS08.maximumMedianCls, 0);
+  assert.equal(current.lighthouseS08.productionAccess, false);
   assert.equal(current.securityDiffScan.scanId, 'c93c78ce-787d-4f57-844d-766a59044e24');
   assert.equal(current.securityDiffScan.changedFilesReviewed, 5);
   assert.equal(current.securityDiffScan.coverage, 'complete');
@@ -70,8 +83,10 @@ test('acceptance evidence distinguishes the current application and QA checkpoin
   assert.match(matrix, new RegExp(current.securityDiffScan.scanId));
   assert.match(matrix, /čistom dôkazovom commite `088ac8f3`/);
   assert.match(matrix, /220\/220 stavov/);
-  assert.match(matrix, /\| S08 \| PASS baseline \|/);
-  assert.match(matrix, /\| U05 \| PASS baseline \/ targeted current \|/);
+  assert.match(matrix, /čistom commite `c882d5eb`/);
+  assert.match(matrix, new RegExp(current.lighthouseS08.buildId));
+  assert.match(matrix, /\| S08 \| PASS local current \|/);
+  assert.match(matrix, /\| U05 \| PASS local current \|/);
   assert.match(matrix, /\| U01 \| PASS local current \|/);
   assert.match(matrix, /\| U04 \| PASS local current \|/);
   assert.match(matrix, /\| U07 \| PASS local current \|/);
