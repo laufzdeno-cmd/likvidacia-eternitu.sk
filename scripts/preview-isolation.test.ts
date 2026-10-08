@@ -214,6 +214,10 @@ test('Staging identities are derived without exposing secret credentials', () =>
   assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@ep-safe-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require'), 'ep-safe.eu-central-1.aws.neon.tech:5432/neondb');
   assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@ep-safe.eu-central-1.aws.neon.tech./prod%75ction'), 'ep-safe.eu-central-1.aws.neon.tech:5432/production');
   assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/db?host=production.invalid'), '');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/db?sslmode=disable'), '');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/db?ssl=0'), '');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/db?sslmode=require&uselibpqcompat=true'), '');
+  assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/db?sslrootcert=C%3A%5Cunsafe.pem'), '');
   assert.equal(deploymentDatabaseIdentity('postgresql://user:secret@safe.invalid/one%2Ftwo'), '');
   assert.equal(vercelBlobStoreId('vercel_blob_rw_store123_rotatable-secret'), 'store123');
   assert.equal(vercelBlobStoreId('invalid-token'), '');

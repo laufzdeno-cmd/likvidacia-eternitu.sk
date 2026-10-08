@@ -19,17 +19,19 @@ Stagingové zápisy zostávajú fail-closed, kým nie sú súčasne splnené vš
 - kryptografická väzba celého súboru zdrojov a jediný testovací e-mailový príjemca,
 - vypnutý lokálny relay a zablokované všetky cron trasy.
 
-Normalizácia databázového endpointu odstraňuje Neon `-pooler`, koncovú DNS bodku a ekvivalentné percentové kódovanie názvu databázy. Query parametre schopné prepísať cieľ databázy sú odmietnuté. Oba stagingové Blob store ID sa porovnávajú s oboma produkčnými Blob identitami, takže nie je možné obísť ochranu krížovým priradením rolí.
+Normalizácia databázového endpointu odstraňuje Neon `-pooler`, koncovú DNS bodku a ekvivalentné percentové kódovanie názvu databázy. Query parametre schopné prepísať cieľ databázy aj nezabezpečené režimy TLS sú odmietnuté. Oba stagingové Blob store ID sa porovnávajú s oboma produkčnými Blob identitami, takže nie je možné obísť ochranu krížovým priradením rolí.
 
 ## Overenie aktuálneho diffu
 
 - Cielené staging/origin/runtime testy: **18/18 PASS**.
 - TypeScript kontrola: **PASS**.
-- Plný unit balík: **396/396 vykonateľných kontrol PASS**; jeden Windows junction test bol korektne preskočený, pretože platforma nepovolila vytvorenie junction bez zvýšených oprávnení.
+- Plný unit balík po pridaní bootstrap regresií: **436/436 kontrol PASS** mimo obmedzeného Windows sandboxu.
 - Dve kontroly pôvodne blokované Windows sandboxom (loopback proxy a headless Edge) boli zopakované mimo tejto izolácie: **2/2 PASS**.
 - Nezávislý kontrolór najprv našiel krížové priradenie produkčných Blob rolí a dve ekvivalentné podoby databázovej identity. Po oprave a pridaní regresií vydal **PASS**.
+- Jednorazový databázový bootstrap bol overený nad dočasným PostgreSQL: opakovanie rovnakého markeru, súbeh, konflikt dvoch markerov aj vynútený rollback po zápise: **PASS**.
 
 ## Zostávajúca externá brána
 
 Ďalší krok zapisuje nové prístupové údaje do Vercelu, preto sa vykoná až po výslovnom potvrdení používateľa: pripojiť `astana-staging-db` iba k prostrediu `staging`, vytvoriť a pripojiť dva samostatné Private Blob stores iba k tomuto prostrediu a následne nakonfigurovať marker, resource ID, bezpečné odtlačky a jediný testovací inbox. Produkcia sa tým nemení.
 
+Po úplnom nastavení stagingových premenných sa databázový marker vytvorí jednorazovým skriptom `scripts/bootstrap-staging-database.ts`. Skript vyžaduje výslovné potvrdenie project ID aj database resource ID, znovu overí celý staging binding, používa parameterizovaný zápis v transakcii a nikdy neprepíše už existujúci odlišný marker. Nevytvára aplikačnú schému ani žiadne obchodné údaje.

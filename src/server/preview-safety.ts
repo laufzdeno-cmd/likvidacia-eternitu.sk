@@ -49,9 +49,13 @@ export function deploymentDatabaseIdentity(value: string | undefined) {
     const parsed = new URL(value?.trim() ?? '');
     if (parsed.protocol !== 'postgres:' && parsed.protocol !== 'postgresql:') return '';
     const targetOverrideKeys = new Set(['host', 'hostaddr', 'port', 'service', 'servicefile', 'socket']);
+    const tlsOverrideKeys = new Set(['ssl', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat']);
     for (const key of parsed.searchParams.keys()) {
-      if (targetOverrideKeys.has(key.toLowerCase())) return '';
+      const normalizedKey = key.toLowerCase();
+      if (targetOverrideKeys.has(normalizedKey) || tlsOverrideKeys.has(normalizedKey)) return '';
     }
+    const sslMode = parsed.searchParams.get('sslmode')?.trim().toLowerCase();
+    if (sslMode && !['require', 'verify-ca', 'verify-full'].includes(sslMode)) return '';
     const hostname = parsed.hostname.trim().toLowerCase().replace(/\.$/, '').replace(/-pooler(?=\.)/, '');
     if (!hostname) return '';
     const port = parsed.port || '5432';
