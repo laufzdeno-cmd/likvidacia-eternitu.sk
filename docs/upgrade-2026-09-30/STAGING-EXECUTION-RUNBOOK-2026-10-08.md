@@ -4,14 +4,14 @@ Tento dokument je vykonávací checklist pre poslednú bezpečnú bránu pred pr
 
 ## Nemenný kandidát
 
-- Zdroj určený na staging deploy: `31157118a05f9f903963f57182b957fe4e0347e9`.
-- Otestovaný tree: `f957ecb0edeb43fe927714e0440d7d6d990c8204`.
+- Zdroj určený na staging deploy: `9a201efbb68ed1c5b20c9e8c98d0166c2abe5cd2`.
+- Otestovaný tree: `8977d39f91204c8944a32388d3bec933a0fbad27`.
 - Chránený baseline: `8b8775d05ca638d6a602829e7527b573be3321c9`.
-- Manifest: [LOCAL-BUILD-EVIDENCE-31157118.json](LOCAL-BUILD-EVIDENCE-31157118.json).
-- Súhrn aktuálneho lokálneho release dôkazu: [LOCAL-RELEASE-CHECKPOINT-31157118.md](LOCAL-RELEASE-CHECKPOINT-31157118.md).
+- Manifest: [LOCAL-BUILD-EVIDENCE-9a201efb.json](LOCAL-BUILD-EVIDENCE-9a201efb.json).
+- Súhrn aktuálneho lokálneho release dôkazu: [LOCAL-RELEASE-CHECKPOINT-9a201efb.md](LOCAL-RELEASE-CHECKPOINT-9a201efb.md).
 - Novšie commity sú iba dôkazové alebo dokumentačné. Nesmú nahradiť presne otestovaný zdroj bez nového nemenného manifestu pre ich vlastný commit a tree.
 
-Pred deployom sa vytvorí izolovaný Git worktree na novej vetve `codex/astana-staging-31157118`. Pokračovať možno iba pri presnom SHA, prázdnom pracovnom stave a správnom `.vercel/project.json` pre projekt `likvidacia-eternitu-sk`.
+Pred deployom sa vytvorí izolovaný Git worktree na novej vetve `codex/astana-staging-9a201efb`. Pokračovať možno iba pri presnom SHA, prázdnom pracovnom stave a správnom `.vercel/project.json` pre projekt `likvidacia-eternitu-sk`.
 
 ## Povinné potvrdenie pred externou zmenou
 
@@ -95,10 +95,16 @@ app/admin/(protected)/health/page.tsx
 app/admin/(protected)/zakazky/export-financie/route.ts
 app/api/cron/application-notifications/route.ts
 app/api/cron/lead-email-delivery/route.ts
+app/api/lead-upload/route.ts
+app/api/lead/route.ts
+app/api/testimonial/route.ts
 app/seo-components.tsx
 docs/upgrade-2026-09-30/E8-ACCEPTANCE-MATRIX-2026-10-07.md
+docs/upgrade-2026-09-30/G09-BOT-ACCESS-SNAPSHOT-2026-10-09.md
+docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-31157118.json
 docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-981cd9e2.json
 docs/upgrade-2026-09-30/LOCAL-BUILD-EVIDENCE-bd61a709.json
+docs/upgrade-2026-09-30/LOCAL-RELEASE-CHECKPOINT-31157118.md
 docs/upgrade-2026-09-30/LOCAL-RELEASE-CHECKPOINT-981cd9e2.md
 docs/upgrade-2026-09-30/LOCAL-RESPONSIVE-INTERACTION-PREFLIGHT-2026-10-08.md
 docs/upgrade-2026-09-30/O06-DELIVERY-ALERTS-2026-10-09.md
@@ -109,6 +115,11 @@ docs/upgrade-2026-09-30/STAGING-EXECUTION-RUNBOOK-2026-10-08.md
 docs/upgrade-2026-09-30/STATUS.md
 docs/upgrade-2026-09-30/U02-PRIMARY-CTA-AUDIT-2026-10-08.md
 docs/upgrade-2026-09-30/VERCEL-READONLY-SNAPSHOT-2026-10-08.md
+docs/upgrade-2026-09-30/evidence/31157118/databaseIntegration.txt
+docs/upgrade-2026-09-30/evidence/31157118/lighthouseBuild.txt
+docs/upgrade-2026-09-30/evidence/31157118/productionBuild.txt
+docs/upgrade-2026-09-30/evidence/31157118/typecheck.txt
+docs/upgrade-2026-09-30/evidence/31157118/unit.txt
 docs/upgrade-2026-09-30/evidence/981cd9e2/databaseIntegration.txt
 docs/upgrade-2026-09-30/evidence/981cd9e2/lighthouseBuild.txt
 docs/upgrade-2026-09-30/evidence/981cd9e2/productionBuild.txt
@@ -120,6 +131,7 @@ docs/upgrade-2026-09-30/evidence/bd61a709/unit.txt
 package.json
 public/data/company.json
 public/llms.txt
+scripts/acceptance-matrix-score.test.mjs
 scripts/application-notifications-policy.test.mjs
 scripts/article-faq-content.test.ts
 scripts/business-billing-actions.contract.test.mjs
@@ -134,10 +146,15 @@ scripts/ops-alert-dispatch.test.mjs
 scripts/ops-alert-local-state.integration.mjs
 scripts/ops-alert-postgres.integration.mjs
 scripts/owner-signoff-checklist.test.mjs
+scripts/photo-intake-browser.integration.mjs
+scripts/project-dependency-root.mjs
+scripts/project-dependency-root.test.mjs
 scripts/realization-evidence-inventory.test.mjs
 scripts/release-guardrails.test.mjs
+scripts/run-isolated-postgres.ps1
 scripts/runtime-feature-health.test.mjs
 scripts/seo-structured-data-contract.test.mjs
+scripts/testimonial-policy.test.mjs
 src/content/seo-content.ts
 src/server/db.ts
 src/server/ops-alert-dispatch.ts
@@ -145,7 +162,7 @@ src/server/ops-alert-policy.ts
 src/server/runtime-feature-health.ts
 ```
 
-Guard musí potvrdiť expected head `31157118…`, release vetvu, baseline `8b8775d0…`, rollback SHA/deployment a čerstvo skontrolovanú IAM hranicu.
+Guard musí potvrdiť expected head `9a201efb…`, release vetvu, baseline `8b8775d0…`, rollback SHA/deployment a čerstvo skontrolovanú IAM hranicu.
 
 ## 6. Deploy iba do custom stagingu
 
@@ -156,7 +173,7 @@ Po stave READY sa deployment overí cez `scripts/deploy-reviewed-release.mjs --s
 - správny Vercel projekt,
 - target `staging`,
 - stav READY,
-- presný Git SHA `31157118a05f9f903963f57182b957fe4e0347e9`.
+- presný Git SHA `9a201efbb68ed1c5b20c9e8c98d0166c2abe5cd2`.
 
 ## 7. Akceptácia stagingu
 
