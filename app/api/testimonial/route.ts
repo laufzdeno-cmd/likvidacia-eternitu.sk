@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'node:crypto';
-import { isIP } from 'node:net';
 import { z } from 'zod';
 import { consumeApiRateLimit, createTestimonial } from '@/src/server/db';
 import { publicTestimonialConsentVersion } from '@/src/lib/testimonial-consent';
 import { testimonialPublicContentHash } from '@/src/server/testimonial-policy';
 import { bindPublicTestimonialConsent } from '@/src/lib/testimonial-consent';
 import { createTestimonialReceiptToken, testimonialReceiptSecret } from '@/src/server/testimonial-receipt';
+import { trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -24,20 +24,12 @@ const testimonialSchema = z.object({
   website: z.string().trim().max(1000).optional().or(z.literal('')),
 });
 
-function clientIp(request: NextRequest) {
-  const realIp = request.headers.get('x-real-ip')?.trim();
-  if (realIp && isIP(realIp)) return realIp;
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map((value) => value.trim()).filter(Boolean);
-  const proxyIp = forwarded?.at(-1);
-  return proxyIp && isIP(proxyIp) ? proxyIp : 'unknown';
-}
-
 async function rateLimited(request: NextRequest) {
   const secret = process.env.AUTH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-auth-secret-change-me');
   if (!secret) throw new Error('AUTH_SECRET is required for testimonial rate limiting.');
   const now = Date.now();
   const windowStartedAt = new Date(Math.floor(now / requestWindowMs) * requestWindowMs);
-  const key = createHmac('sha256', secret).update(`testimonial-public:v1:${clientIp(request)}`).digest('hex');
+  const key = createHmac('sha256', secret).update(`testimonial-public:v1:${trustedRateLimitClientIp(request.headers)}`).digest('hex');
   return consumeApiRateLimit(key, windowStartedAt, maxRequestsPerWindow);
 }
 

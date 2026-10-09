@@ -1,13 +1,13 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { head } from '@vercel/blob';
 import { createHmac } from 'node:crypto';
-import { isIP } from 'node:net';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { consumeApiRateLimit, markLeadUploadDraftUploaded, reserveLeadUploadDraft } from '@/src/server/db';
 import { allowedFileTypes, maxLeadFileSize } from '@/src/server/validation';
 import { isValidLeadSubmissionId } from '@/src/lib/lead-submission-id.mjs';
 import { isTrustedVercelDeploymentOrigin } from '@/src/server/public-request-origin';
+import { trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -28,20 +28,12 @@ const uploadPayloadSchema = z.object({
 const uploadTokenWindowMs = 10 * 60_000;
 const maxTokensPerWindow = 40;
 
-function clientIp(request: NextRequest) {
-  const realIp = request.headers.get('x-real-ip')?.trim();
-  if (realIp && isIP(realIp)) return realIp;
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map((value) => value.trim()).filter(Boolean);
-  const proxyIp = forwarded?.at(-1);
-  return proxyIp && isIP(proxyIp) ? proxyIp : 'unknown';
-}
-
 async function rateLimited(request: NextRequest) {
   const secret = process.env.AUTH_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-dev-auth-secret-change-me');
   if (!secret) throw new Error('AUTH_SECRET is required for upload-token rate limiting.');
   const now = Date.now();
   const windowStartedAt = new Date(Math.floor(now / uploadTokenWindowMs) * uploadTokenWindowMs);
-  const key = createHmac('sha256', secret).update(`lead-upload:${clientIp(request)}`).digest('hex');
+  const key = createHmac('sha256', secret).update(`lead-upload:${trustedRateLimitClientIp(request.headers)}`).digest('hex');
   return consumeApiRateLimit(key, windowStartedAt, maxTokensPerWindow);
 }
 
@@ -76,15 +68,8 @@ export async function POST(request: NextRequest) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return NextResponse.json({ error: 'Nahrávanie fotiek nie je momentálne dostupné.' }, { status: 503 });
   }
-  let body: HandleUploadBody;
-  try {
-    body = await request.json() as HandleUploadBody;
-  } catch {
-    return NextResponse.json({ error: 'Neplatná požiadavka na nahratie.' }, { status: 400 });
-  }
-
-  const uploadType = (body as { type?: string }).type;
-  if (uploadType === 'blob.generate-client-token') {
+  const callbackSignature = request.headers.get('x-vercel-signature')?.trim();
+  if (!callbackSignature) {
     if (!request.headers.get('origin') || !originAllowed(request)) {
       return NextResponse.json({ error: 'Neplatný pôvod požiadavky.' }, { status: 403 });
     }
@@ -96,6 +81,17 @@ export async function POST(request: NextRequest) {
       console.error('Lead photo upload rate limit unavailable', error);
       return NextResponse.json({ error: 'Nahrávanie fotiek je momentálne nedostupné.' }, { status: 503 });
     }
+  }
+  let body: HandleUploadBody;
+  try {
+    body = await request.json() as HandleUploadBody;
+  } catch {
+    return NextResponse.json({ error: 'Neplatná požiadavka na nahratie.' }, { status: 400 });
+  }
+
+  const uploadType = (body as { type?: string }).type;
+  if (uploadType === 'blob.generate-client-token') {
+    if (callbackSignature) return NextResponse.json({ error: 'Neplatná požiadavka na nahratie.' }, { status: 400 });
   } else if (uploadType !== 'blob.upload-completed') {
     return NextResponse.json({ error: 'Neplatný typ požiadavky na nahratie.' }, { status: 400 });
   }

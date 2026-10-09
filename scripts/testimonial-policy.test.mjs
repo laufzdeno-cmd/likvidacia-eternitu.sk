@@ -184,7 +184,8 @@ test('public testimonial throttle uses the shared Postgres limiter and only an H
   assert.doesNotMatch(route, /new Map\s*</);
   assert.match(route, /consumeApiRateLimit/);
   assert.match(route, /createHmac\('sha256', secret\)/);
-  assert.match(route, /isIP\(/);
+  assert.match(route, /trustedRateLimitClientIp\(request\.headers\)/);
+  assert.doesNotMatch(route, /function clientIp|x-real-ip|x-forwarded-for/);
   assert.match(route, /originAllowed\(request\)/);
   assert.match(route, /parsed\.data\.website/);
   assert.match(route, /submissionId: z\.string\(\)\.uuid/);

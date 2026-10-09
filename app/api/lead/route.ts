@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlobNotFoundError, get, head } from '@vercel/blob';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
-import { isIP } from 'node:net';
 import { z } from 'zod';
 import { addAuditLog, claimLeadEmailOutbox, consumeApiRateLimit, createLeadSubmission, getExistingLeadSubmission, getLeadSubmissionForRetry, hasConfirmedLeadEmail, LeadSubmissionConflictError, markLeadUploadDraftUploaded, recordAcceptedLeadAnalytics, recordLeadEmailRecipientResult, supersedeLeadUploadDraft, trackUnreservedLegacyLeadPhoto } from '@/src/server/db';
 import { collectSubmittedLeadPhotos, validateLeadFileMetadata, validateLeadImageBytes, validateUploadedLeadFile } from '@/src/server/file-validation';
@@ -18,6 +17,7 @@ import type { PendingMetaLead } from '@/src/lib/marketing-consent';
 import { isValidLeadSubmissionId } from '@/src/lib/lead-submission-id.mjs';
 import type { LeadFile } from '@/src/server/types';
 import { isTrustedVercelDeploymentOrigin } from '@/src/server/public-request-origin';
+import { trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -57,18 +57,10 @@ async function cleanUnlinkedMultipartFiles(submissionId: string, files: Awaited<
   }
 }
 
-function clientIp(request: NextRequest) {
-  const realIp = request.headers.get('x-real-ip')?.trim();
-  if (realIp && isIP(realIp)) return realIp;
-  const forwarded = request.headers.get('x-forwarded-for')?.split(',').map((value) => value.trim()).filter(Boolean);
-  const proxyIp = forwarded?.at(-1);
-  return proxyIp && isIP(proxyIp) ? proxyIp : 'unknown';
-}
-
 async function rateLimited(request: NextRequest) {
   const now = Date.now();
   const windowStartedAt = new Date(Math.floor(now / rateLimitWindowMs) * rateLimitWindowMs);
-  const ip = clientIp(request);
+  const ip = trustedRateLimitClientIp(request.headers);
   if (process.env.NODE_ENV !== 'production') {
     const bucket = localBuckets.get(ip);
     if (!bucket || bucket.resetAt < now) {

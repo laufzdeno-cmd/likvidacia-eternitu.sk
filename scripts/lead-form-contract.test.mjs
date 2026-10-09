@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
+import { trustedRateLimitClientIp } from '../src/server/shared-rate-limit.ts';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const rooferPage = read('../app/strechari/page.tsx');
@@ -135,6 +136,50 @@ test('shared rate-limit identities are HMACed, namespaced and use fixed windows'
   assert.match(sharedRateLimit, /A trusted Vercel client IP header is required/);
 });
 
+test('public quote limits trust only the Vercel-controlled client address in production', () => {
+  for (const route of [leadRoute, leadUploadRoute]) {
+    assert.match(route, /trustedRateLimitClientIp\(request\.headers\)/);
+    assert.doesNotMatch(route, /function clientIp|x-real-ip|x-forwarded-for/);
+  }
+
+  const originalNodeEnv = process.env.NODE_ENV;
+  try {
+    process.env.NODE_ENV = 'production';
+    assert.equal(
+      trustedRateLimitClientIp(new Headers({ 'x-vercel-forwarded-for': '203.0.113.17, 192.0.2.5' })),
+      '203.0.113.17',
+    );
+    assert.throws(
+      () => trustedRateLimitClientIp(new Headers({ 'x-real-ip': '198.51.100.9' })),
+      /trusted Vercel client IP/,
+    );
+    assert.throws(
+      () => trustedRateLimitClientIp(new Headers({ 'x-forwarded-for': '198.51.100.10' })),
+      /trusted Vercel client IP/,
+    );
+    assert.throws(
+      () => trustedRateLimitClientIp(new Headers({
+        'x-vercel-forwarded-for': 'not-an-ip',
+        'x-forwarded-for': '198.51.100.10',
+      })),
+      /trusted Vercel client IP/,
+    );
+    assert.throws(
+      () => trustedRateLimitClientIp(new Headers()),
+      /trusted Vercel client IP/,
+    );
+
+    process.env.NODE_ENV = 'test';
+    assert.equal(
+      trustedRateLimitClientIp(new Headers({ 'x-forwarded-for': '198.51.100.10' })),
+      '198.51.100.10',
+    );
+  } finally {
+    if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalNodeEnv;
+  }
+});
+
 test('a successful roofer registration rotates the ID before the next form submission', () => {
   const submitHandler = publicClient.slice(
     publicClient.indexOf('const onRooferRegistrationSubmit'),
@@ -253,9 +298,13 @@ test('photo remove controls stay locked while asynchronous fingerprinting uses a
 });
 
 test('signed Blob completion callbacks do not consume client-token rate limits', () => {
-  assert.ok(leadUploadRoute.indexOf('const uploadType =') < leadUploadRoute.indexOf('if (await rateLimited(request))'));
-  assert.match(leadUploadRoute, /if \(uploadType === 'blob\.generate-client-token'\) \{[\s\S]{0,500}if \(await rateLimited\(request\)\)/);
-  assert.match(leadUploadRoute, /createHmac\('sha256', secret\)\.update\(`lead-upload:\$\{clientIp\(request\)\}`\)/);
+  const signatureRead = leadUploadRoute.indexOf("request.headers.get('x-vercel-signature')");
+  const rateCheck = leadUploadRoute.indexOf('if (await rateLimited(request))');
+  const bodyParse = leadUploadRoute.indexOf('body = await request.json()');
+  assert.ok(signatureRead >= 0 && signatureRead < rateCheck && rateCheck < bodyParse);
+  assert.match(leadUploadRoute, /if \(!callbackSignature\) \{[\s\S]{0,700}if \(await rateLimited\(request\)\)/);
+  assert.match(leadUploadRoute, /if \(uploadType === 'blob\.generate-client-token'\) \{[\s\S]{0,180}if \(callbackSignature\) return NextResponse\.json/);
+  assert.match(leadUploadRoute, /createHmac\('sha256', secret\)\.update\(`lead-upload:\$\{trustedRateLimitClientIp\(request\.headers\)\}`\)/);
   assert.match(leadUploadRoute, /return consumeApiRateLimit\(key, windowStartedAt, maxTokensPerWindow\)/);
   assert.doesNotMatch(leadUploadRoute, /new Map\(/);
   assert.match(database, /export async function consumeApiRateLimit\([\s\S]{0,400}ON CONFLICT \(bucket_key, window_started_at\) DO UPDATE[\s\S]{0,140}hit_count = api_rate_limit_buckets\.hit_count \+ 1/);
@@ -333,7 +382,7 @@ test('all server-side multipart attachments enter the private draft manifest bef
 });
 
 test('lead and upload token quotas use separate purpose-specific HMAC buckets', () => {
-  assert.match(leadUploadRoute, /lead-upload:\$\{clientIp\(request\)\}/);
+  assert.match(leadUploadRoute, /lead-upload:\$\{trustedRateLimitClientIp\(request\.headers\)\}/);
   assert.match(leadRoute, /lead-submit:\$\{ip\}/);
   assert.notEqual('lead-upload:ip-hash', 'lead-submit:ip-hash');
 });
