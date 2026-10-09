@@ -6,6 +6,7 @@ import {
 } from '@/src/lib/analytics-client';
 import { publishAcceptedLeadConversion } from '@/src/lib/ad-conversion-tracking.mjs';
 import { leadPhotoUploadErrorMessage } from '@/src/lib/lead-upload-error';
+import { withLeadPhotoUploadDeadline } from '@/src/lib/lead-photo-upload-deadline';
 import { leadPhotoContentType, leadPhotoExtension } from '@/src/lib/lead-photo-content-type';
 import { settleLeadPhotoUploadBatch } from '@/src/lib/lead-photo-upload-batch';
 import { createLeadFormSnapshot, fingerprintLeadPhoto, fingerprintLeadUploadGroup } from '@/src/lib/lead-form-snapshot';
@@ -576,8 +577,7 @@ export default function initializeHomepageCriticalClient({
         }
         const controller = new AbortController();
         controllers.push(controller);
-        const timeoutId = window.setTimeout(() => controller.abort(), 120_000);
-        const promise = uploadLeadPhoto(state.pathname, file, {
+        const upload = uploadLeadPhoto(state.pathname, file, {
           access: 'private',
           contentType,
           handleUploadUrl: '/api/lead-upload/',
@@ -592,6 +592,7 @@ export default function initializeHomepageCriticalClient({
           multipart: file.size > 5 * 1024 * 1024,
           abortSignal: controller.signal,
         }).then((blob) => ({ pathname: blob.pathname, originalName: file.name, submissionId }));
+        const promise = withLeadPhotoUploadDeadline(upload, () => controller.abort(), 120_000);
         state.promise = promise;
         uploadedFilesByFingerprint.set(fileFingerprint, state);
         try {
@@ -604,8 +605,6 @@ export default function initializeHomepageCriticalClient({
             state.replacedPathname = state.pathname;
           }
           throw new Error(leadPhotoUploadErrorMessage(error, file.name, controller.signal.aborted));
-        } finally {
-          window.clearTimeout(timeoutId);
         }
       });
       return settleLeadPhotoUploadBatch(uploads, () => {

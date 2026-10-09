@@ -226,7 +226,7 @@ test('quote retry reuses unchanged uploaded blobs and rotates the ID when custom
   assert.match(homepageClient, /cached\?\.submissionId === submissionId && cached\.promise\) return cached\.promise/);
   assert.match(homepageClient, /cached\?\.submissionId === submissionId\s*\?\s*cached\s*:/);
   assert.match(homepageClient, /abortSignal: controller\.signal/);
-  assert.match(homepageClient, /setTimeout\(\(\) => controller\.abort\(\), 120_000\)/);
+  assert.match(homepageClient, /withLeadPhotoUploadDeadline\(upload, \(\) => controller\.abort\(\), 120_000\)/);
   assert.match(homepageClient, /replacesPathname: state\.replacedPathname/);
   assert.match(homepageClient, /replacesPathnames: state\.previousPathnames/);
   assert.match(homepageClient, /fileFingerprint: uploadGroup/);

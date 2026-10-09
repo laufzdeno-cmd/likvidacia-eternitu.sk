@@ -12,6 +12,7 @@ import {
   isVerifiedLocalBuildHarness,
   isVerifiedIsolatedStaging,
   runtimeSchemaInitializationAllowed,
+  signedBlobCompletionCallbackAllowed,
   stagingDatabaseMarkerMatches,
   stagingResourceBinding,
   type DeploymentSafetyEnvironment,
@@ -65,6 +66,7 @@ const previewEnvironment: DeploymentSafetyEnvironment = {
 };
 const liveProductionEnvironment: DeploymentSafetyEnvironment = {
   NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'production', VERCEL_TARGET_ENV: 'production',
+  VERCEL_URL: 'release.vercel.app',
   NEXT_PUBLIC_SITE_URL: 'https://likvidacia-eternitu.sk',
 };
 
@@ -114,6 +116,17 @@ test('Preview and staged Production refuse writes; only canonical live Productio
   assert.equal(deploymentRequestBlocked(previewEnvironment, 'GET', '/api/lead/receipt/', 'preview.vercel.app'), false);
   assert.equal(deploymentRequestBlocked(previewEnvironment, 'GET', '/admin/login/', 'preview.vercel.app'), false);
   assert.equal(deploymentRequestBlocked({ NODE_ENV: 'development' }, 'POST', '/api/lead/', 'localhost'), false);
+});
+
+test('only signed Blob completion callbacks reach their exact immutable Production deployment', () => {
+  const signature = 'a'.repeat(64);
+  assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/lead-upload/', 'release.vercel.app', signature), true);
+  assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/kariera/cv-upload/', 'release.vercel.app', signature), false);
+  assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/photo-intake/upload/', 'release.vercel.app', signature), false);
+  assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/lead-upload/', 'other.vercel.app', signature), false);
+  assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/lead-upload/', 'release.vercel.app', 'forged'), false);
+  assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/lead/', 'release.vercel.app', signature), false);
+  assert.equal(signedBlobCompletionCallbackAllowed(previewEnvironment, 'POST', '/api/lead-upload/', 'preview.vercel.app', signature), false);
 });
 
 test('database and runtime schema access follow the isolated environment state machine', () => {
@@ -274,6 +287,8 @@ test('a production-mode process without a verified Vercel identity cannot open t
 test('Next proxy covers all API and admin endpoints without affecting public assets', () => {
   assert.match(proxySource, /matcher:\s*\['\/api\/:path\*', '\/admin\/:path\*', '\/spolupraca\/fotky\/:path\*', '\/dopyt-prijaty\/:path\*'\]/);
   assert.match(proxySource, /deploymentRequestBlocked\(process\.env, request\.method, request\.nextUrl\.pathname, request\.nextUrl\.hostname\)/);
+  assert.match(proxySource, /signedBlobCompletionCallbackAllowed\(/);
+  assert.match(proxySource, /!signedBlobCallback && deploymentRequestBlocked\(/);
 });
 
 test('plaintext admin password is never accepted as a production credential', () => {

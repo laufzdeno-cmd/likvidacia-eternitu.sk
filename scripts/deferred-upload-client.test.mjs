@@ -8,6 +8,7 @@ test('public upload clients load the Blob SDK only after a file upload is requir
   const homepage = read('app/homepage-critical-client.tsx');
   const career = read('app/career-form-client.tsx');
   const uploadErrors = read('src/lib/lead-upload-error.ts');
+  const uploadDeadline = read('src/lib/lead-photo-upload-deadline.ts');
 
   for (const source of [homepage, career]) {
     assert.doesNotMatch(source, /^import \{ upload \} from '@vercel\/blob\/client';/m);
@@ -21,6 +22,9 @@ test('public upload clients load the Blob SDK only after a file upload is requir
   const leadUploadModule = readFileSync('src/lib/lead-photo-browser-upload.ts', 'utf8');
   assert.match(leadUploadModule, /import \{ upload \} from '@vercel\/blob\/client'/);
   assert.match(leadUploadModule, /export const uploadLeadPhoto = upload/);
+  assert.match(homepage, /withLeadPhotoUploadDeadline\(upload, \(\) => controller\.abort\(\), 120_000\)/);
+  assert.match(uploadDeadline, /reject\(new LeadPhotoUploadDeadlineError\(\)\)/,
+    'a browser or SDK upload that ignores AbortSignal must still release the form');
   assert.ok(
     career.indexOf("await import('@vercel/blob/client')") > career.indexOf('if (!completed || completed.result?.uploadMissing)'),
     'career must not load the upload client until a direct CV upload is actually needed',

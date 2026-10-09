@@ -1,8 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { deploymentRequestBlocked } from './src/server/preview-safety';
+import { deploymentRequestBlocked, signedBlobCompletionCallbackAllowed } from './src/server/preview-safety';
 
 export function proxy(request: NextRequest) {
-  if (deploymentRequestBlocked(process.env, request.method, request.nextUrl.pathname, request.nextUrl.hostname)) {
+  const signedBlobCallback = signedBlobCompletionCallbackAllowed(
+    process.env,
+    request.method,
+    request.nextUrl.pathname,
+    request.nextUrl.hostname,
+    request.headers.get('x-vercel-signature'),
+  );
+  if (!signedBlobCallback && deploymentRequestBlocked(process.env, request.method, request.nextUrl.pathname, request.nextUrl.hostname)) {
     return NextResponse.json(
       { error: 'Testovacia verzia neprijíma odoslania, kým nemá oddelené úložisko.' },
       {

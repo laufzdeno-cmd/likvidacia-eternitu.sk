@@ -5,6 +5,7 @@ export type DeploymentSafetyEnvironment = Partial<Pick<NodeJS.ProcessEnv,
   | 'VERCEL'
   | 'VERCEL_ENV'
   | 'VERCEL_TARGET_ENV'
+  | 'VERCEL_URL'
   | 'VERCEL_PROJECT_ID'
   | 'DATABASE_URL'
   | 'DATABASE_RESOURCE_ID'
@@ -174,10 +175,36 @@ export function deploymentDatabaseAccessBlocked(environment: DeploymentSafetyEnv
 }
 
 const canonicalProductionHosts = new Set(['likvidacia-eternitu.sk', 'www.likvidacia-eternitu.sk']);
+const signedLeadBlobCallbackPath = '/api/lead-upload/';
 
 function isCanonicalProductionHost(hostname: string) {
   const normalized = hostname.trim().toLowerCase();
   return canonicalProductionHosts.has(normalized);
+}
+
+/**
+ * Vercel Blob signs upload-completion callbacks and targets the immutable
+ * deployment which minted the token. Only that deployment may bypass the
+ * staged-production write guard, and the route still cryptographically verifies
+ * the signature before touching storage or the database.
+ */
+export function signedBlobCompletionCallbackAllowed(
+  environment: DeploymentSafetyEnvironment,
+  method: string,
+  pathname: string,
+  hostname: string,
+  signature: string | null,
+) {
+  const deploymentHostname = environment.VERCEL_URL?.trim().toLowerCase() ?? '';
+  return environment.NODE_ENV === 'production'
+    && environment.VERCEL === '1'
+    && environment.VERCEL_ENV === 'production'
+    && environment.VERCEL_TARGET_ENV === 'production'
+    && method.toUpperCase() === 'POST'
+    && pathname === signedLeadBlobCallbackPath
+    && /^[a-f0-9]{64}$/i.test(signature?.trim() ?? '')
+    && Boolean(deploymentHostname)
+    && hostname.trim().toLowerCase() === deploymentHostname;
 }
 
 export function deploymentRequestBlocked(
