@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminEmail, setAdminSession, setPendingTwoFactor, verifyAdminCredentials, verifyGuestCsrf } from '@/src/server/auth';
-import { getAdminUserByEmail } from '@/src/server/db';
+import { authenticateAdminCredentials, setAdminSession, setPendingTwoFactor, verifyGuestCsrf } from '@/src/server/auth';
 import { isTwoFactorRequired } from '@/src/server/two-factor';
 import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
-import type { AdminUser } from '@/src/server/types';
 
 const loginWindowMs = 10 * 60_000;
 const maxLoginAttempts = 20;
@@ -27,25 +25,20 @@ export async function POST(request: NextRequest) {
     return new NextResponse('Prihlásenie je momentálne nedostupné. Skúste to o chvíľu znova.', { status: 503 });
   }
 
-  if (!(await verifyAdminCredentials(email, password))) {
+  const user = await authenticateAdminCredentials(email, password);
+  if (!user) {
     return NextResponse.redirect(new URL('/admin/login?error=1', request.url), { status: 303 });
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const dbUser = await getAdminUserByEmail(normalizedEmail);
-  const fallbackUser: Pick<AdminUser, 'email' | 'role' | 'twoFactorEnabled'> | null =
-    !dbUser && normalizedEmail === adminEmail().toLowerCase()
-      ? { email: normalizedEmail, role: 'SUPER_ADMIN', twoFactorEnabled: false }
-      : null;
-  const user = dbUser ?? fallbackUser;
-  if (user && (isTwoFactorRequired(user.role) || user.twoFactorEnabled)) {
-    await setPendingTwoFactor(normalizedEmail);
+  const normalizedEmail = user.email;
+  if (!user.localDevelopmentFallback && (isTwoFactorRequired(user.role) || user.twoFactorEnabled)) {
+    await setPendingTwoFactor(normalizedEmail, user.sessionEpoch);
     if (!user.twoFactorEnabled) {
       return NextResponse.redirect(new URL('/admin/2fa/setup', request.url), { status: 303 });
     }
     return NextResponse.redirect(new URL('/admin/2fa/verify', request.url), { status: 303 });
   }
 
-  await setAdminSession(normalizedEmail);
+  await setAdminSession(normalizedEmail, user.sessionEpoch);
   return NextResponse.redirect(new URL('/admin/dopyty', request.url), { status: 303 });
 }

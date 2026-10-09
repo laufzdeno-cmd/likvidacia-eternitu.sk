@@ -1346,7 +1346,7 @@ async function runHarness() {
     // harness-only admin session. Every side effect remains in isolated PGlite.
     const adminEmail = 'admin@local.test';
     const authSecret = env.AUTH_SECRET;
-    const adminPayload = Buffer.from(JSON.stringify({ email: adminEmail, iat: Date.now() })).toString('base64url');
+    const adminPayload = Buffer.from(JSON.stringify({ kind: 'admin-session', email: adminEmail, iat: Date.now(), epoch: 0 })).toString('base64url');
     const adminCookie = adminPayload + '.' + createHmac('sha256', authSecret).update(adminPayload).digest('base64url');
     const adminContext = await newContext();
     await adminContext.addCookies([{ name: 'astana_admin_session', value: adminCookie, url: appOrigin, httpOnly: true, sameSite: 'Lax' }]);

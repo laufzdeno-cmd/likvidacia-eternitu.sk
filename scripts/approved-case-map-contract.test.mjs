@@ -5,13 +5,14 @@ import test from 'node:test';
 const read = (relative) => readFile(new URL(relative, import.meta.url), 'utf8');
 
 test('approved case map is server-rendered only from the public allow-list and safe ZBGIS points', async () => {
-  const [route, homepage, component, styles, types, mapper] = await Promise.all([
+  const [route, homepage, component, styles, types, mapper, photoSelector] = await Promise.all([
     read('../app/realizacie/page.tsx'),
     read('../app/page.tsx'),
     read('../app/realizacie/approved-case-map.tsx'),
     read('../app/realizacie/approved-case-map.module.css'),
     read('../src/server/types.ts'),
     read('../src/lib/published-realization-locality-points.ts'),
+    read('../src/lib/published-realization-photos.ts'),
   ]);
 
   assert.match(route, /countPublishedRealizationCases, listPublishedRealizationCases, listPublishedRealizations/);
@@ -39,7 +40,10 @@ test('approved case map is server-rendered only from the public allow-list and s
   assert.match(component, /cases: readonly PublishedRealizationCase\[\]/);
   assert.match(component, /if \(cases\.length === 0\) return null/);
   assert.match(component, /mapPublishedRealizationLocalityPoints\(cases\)/);
-  assert.match(component, /`\/api\/realization-case-media\/\$\{encodeURIComponent\(imageId\)\}\/`/);
+  assert.match(component, /selectPublishedRealizationPhotos\(item\)/);
+  assert.match(photoSelector, /\.sort\(\(left, right\) => left\.sortOrder - right\.sortOrder\)/);
+  assert.match(photoSelector, /\.slice\(0, 3\)/);
+  assert.match(component, /`\/api\/realization-case-media\/\$\{encodeURIComponent\(photo\.id\)\}\/`/);
   assert.match(component, /sizes="\(max-width: 700px\) 100vw, \(max-width: 1100px\) 50vw, 33vw"/);
   assert.match(component, /srcSet=\{`\$\{imagePath\}\?w=360 360w, \$\{imagePath\}\?w=720 720w, \$\{imagePath\}\?w=1080 1080w`\}/);
   assert.match(component, /loading="lazy"/);
@@ -66,7 +70,7 @@ test('approved case map is server-rendered only from the public allow-list and s
   assert.match(component, /left: `\$\{\(cluster\.x \/ 720\) \* 100\}%`/);
   assert.match(component, /top: `\$\{\(cluster\.y \/ 420\) \* 100\}%`/);
   assert.match(component, /id=\{`realizacia-\$\{item\.id\}`\}/);
-  assert.match(types, /export type PublishedRealizationCase = Pick<RealizationCaseDraft,[\s\S]*?& \{ photoIds: string\[\]; publishedAt: string \}/);
+  assert.match(types, /export type PublishedRealizationCase = Pick<RealizationCaseDraft,[\s\S]*?photoIds: string\[\];[\s\S]*?photos: Array<\{ id: string; phase: 'before' \| 'during' \| 'after'; publicCaption: string; sortOrder: number \}>;[\s\S]*?publishedAt: string;/);
   assert.doesNotMatch(types.match(/export type PublishedRealizationCase = ([\s\S]*?);/)?.[1] ?? '', /publicationEvidence|businessJobId|updatedBy|GPS|email/i);
   assert.match(mapper, /item\.localityPrecision === 'municipality'/);
   assert.match(mapper, /item\.localityPrecision === 'district'/);

@@ -1,5 +1,50 @@
 # Stav a poradie práce
 
+## Vizuálne pripomienky majiteľa — 9. 10. 2026, 08:48
+
+- Na výslovný pokyn majiteľa sa po predchádzajúcom freeze upravila iba homepage: čitateľné názvy na tmavom pozadí, menšia kalkulačka bez duplicitnej obce a reálna fotografia hospodárskej budovy s vlnitou krytinou. Dopytový formulár a odosielanie ostali nezmenené.
+- Aktuálny izolovaný náhľad je [61779](http://127.0.0.1:61779/). Staršie URL nižšie sú historické. 49/49 cielených testov, typová kontrola a 18/18 browser matica PASS; kontrolór PASS kódu a následná vizuálna kontrola vrátane maximálnej ceny na 320 px.
+- Dôkazy a presný rozsah: [HOMEPAGE-VISUAL-CORRECTION-2026-10-09.md](HOMEPAGE-VISUAL-CORRECTION-2026-10-09.md). Bez nasadenia, bez reálnych formulárov, bez nového produkčného buildu. Schválenie vzhľadu majiteľom a ostatné projektové brány zostávajú otvorené; skóre celého projektu sa touto lokálnou opravou nemení.
+
+## Spoločný kandidát — finálne lokálne kontroly 9. 10. 2026
+
+- Aktuálne sa pracuje s HEAD `c12604501b8cf92ad9eddda9a56dd35bf3207948`
+  plus preskúmaným pracovným diffom. Staršie čisté commity nižšie sú história,
+  nie označenie aktuálneho stromu. Kód po opravách zostáva zmrazený.
+- Dokončené: zjednodušená homepage, kontrast odkazu na realizácie, spoločný
+  formulár ponúk, doprava a dokumentácia za 0 €, korektný stav ukladania,
+  prázdny dátum, vyhodnotenie strechára a úzke opravy prihlasovania/2FA
+  a lokálnej ochrany admin stavu.
+- Čerstvý izolovaný build **100/100 trás PASS**, 33 statických SEO URL
+  a samostatné dynamické realizácie/recenzie. BUILD_ID `ogtiw84wg3cDYS8oYQdcv`.
+  **15 Lighthouse behov**: mediány Performance **95–98**, Accessibility **100**,
+  SEO **100**, LCP **2 312–2 476 ms**, CLS **0**. Nejde o meranie ostrej domény.
+- Browser ponuky **12/12 PASS**; verejné stránky **18/18 PASS** pri 320/390/1440 px.
+  Databázy **13/13 + štyri následné integračné scenáre PASS**. MJS beh mal
+  466/467; po oprave jedinej zastaranej testovej asercie prešiel dotknutý
+  súbor **37/37** a presná TS časť **37/37**. Nejde o nový celý unit beh.
+  Presné hashy, história testov a všetky obmedzenia sú v
+  [aktuálnom checkpointe](CANDIDATE-CHECKPOINT-2026-10-09.md).
+- [Aktuálny náhľad](http://127.0.0.1:57189/) je lokálny, izolovaný a bez
+  odosielania. Starší server 64708 bol zastavený, súbory zachované.
+- Bezpečnostné opravy sú implementované, ale odmietnutý runtime simulačný
+  test sa neobchádzal a neoznačuje sa PASS. Dokladá to samostatný fix report.
+  Nasadenie ani ostrý test dopytov neprebehli. Najbližšia majiteľská brána
+  zostáva schválenie vzhľadu; release vyžaduje aj otvorené bezpečnostné
+  a stagingové dôkazy. Formálna akceptácia zostáva **63,6/100**.
+
+## Náhľad pred súhlasom majiteľa — 9. 10. 2026
+
+- Najnovší pokyn majiteľa má prednosť: najprv ukázať výsledný vzhľad, až potom môže schváliť nasadenie. V tejto etape sa nič nenasadzuje a nespúšťajú sa reálne formuláre ani e-maily.
+- Úvodná stránka bola podľa existujúceho plánu skrátená zo 14 na 9 hlavných sekcií. Kalkulačka nadväzuje priamo na dopyt, tri pôvodné fotografie vedú do samostatných realizácií, služba/postup/koordinácia so strechárom tvoria jeden blok. Staré navigačné kotvy zostali zachované.
+- Nezávislý kontrolór vydal PASS pre zmenu homepage: úplný formulár, dopytová sekcia, kalkulačka aj navigácia sú po normalizácii koncov riadkov totožné s predchádzajúcim kandidátom. Nie je to potvrdenie produkčného doručenia.
+- Odstránili sa iba osirelé homepage štýly zrušených blokov. Zdieľané štýly a funkčné pravidlá formulára zostali zachované. Aktuálne kontrastné pravidlo postupu je viazané na nový lokálny CSS modul.
+- Posledný úplný MJS beh: **462/462 PASS**; samostatný TypeScript beh: **37/37 PASS**. Po následnej čisto jazykovej oprave v predvolenom hero texte prešlo znova **22/22** dotknutých obsahových/homepage/kontrastných testov. Typová kontrola a `git diff --check` prešli. Staré testy vyžadujúce odstránené CSS triedy boli prevedené na aktívne selektory; ochrana kontrastu a trasovej izolácie sa nezrušila.
+- Verejná analytika lokálne opravuje odmietanie skutočných kampaňových payloadov a limituje čítanie tela požiadavky ešte pred uložením. Query parametre CTA sa neukladajú ako druhá kópia reklamných identifikátorov; pôvodné súhlasy a zákaz verejných konverzií ostali zachované. Finálnych 19 cielených testov PASS. Samostatný kontrolór odhalil hraničný dlhý odkaz; po oprave prešli regresné testy, druhý nezávislý PASS sa nepredstiera.
+- Izolovaný lokálny náhľad, jeho presná identita a browser dôkazy: [OWNER-PREVIEW-2026-10-09.md](OWNER-PREVIEW-2026-10-09.md). Náhľad používa predvolené texty a miestne fotografie, nie obsah produkčnej databázy; blokuje zápisové API, admin a externé požiadavky. Nie je staging deployment ani meranie produkčného výkonu.
+- Pracovný strom stále obsahuje aj predchádzajúce zmeny prihlasovania a ponúk. Nie sú týmto vizuálnym checkpointom automaticky schválené na produkciu. Čistý kandidát `9a201efb` a jeho staršie build/Lighthouse výsledky sa nevydávajú za dôkaz dnešného zmeneného stromu.
+- Formálne akceptačné skóre sa bez uzavretia príslušných brán nemení; lokálny počet testov nie je percento dokončenia projektu. Mapa realizácií nesmie obsahovať vymyslené lokality; jej verejné dôkazy stále vyžadujú schválené podklady.
+
 ## Vercel staging — čerstvé read-only potvrdenie (9. 10. 2026)
 
 - Prihlásený Vercel dashboard v Opere znovu potvrdil správny tím a projekt `likvidacia-eternitu-sk`. Vlastné prostredie `staging` existuje, ale stále nemá vetvu ani vlastnú doménu.

@@ -101,8 +101,14 @@ try {
     assert.deepEqual(workers.rows, [{ name: 'Robo upravený' }], 'First new migration must not refill a pre-existing partial roster.');
     const revisions = await inspectPool.query('SELECT count(*)::int AS count FROM astana_schema_revisions');
     assert.equal(revisions.rows[0].count, 1);
-    const admin = await inspectPool.query('SELECT role, active FROM admin_users WHERE lower(email) = $1', [bootstrapAdminEmail]);
-    assert.deepEqual(admin.rows, [{ role: 'OPERATOR', active: false }]);
+    const admin = await inspectPool.query('SELECT role, active, session_epoch FROM admin_users WHERE lower(email) = $1', [bootstrapAdminEmail]);
+    assert.deepEqual(admin.rows, [{ role: 'OPERATOR', active: false, session_epoch: '0' }]);
+    coldStart('new');
+    const adminAfterSecondStart = await inspectPool.query(
+      'SELECT role, active, session_epoch FROM admin_users WHERE lower(email) = $1',
+      [bootstrapAdminEmail],
+    );
+    assert.deepEqual(adminAfterSecondStart.rows, admin.rows, 'opakovaný cold start musí migráciu zachovať idempotentnú');
 
     const lead = await inspectPool.query('SELECT object_type, material_type, roofer, term, updated_at, deleted_at FROM leads WHERE id = $1', [leadId]);
     assert.equal(lead.rowCount, 1);

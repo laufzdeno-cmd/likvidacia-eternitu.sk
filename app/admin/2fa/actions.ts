@@ -3,8 +3,8 @@
 import { redirect } from 'next/navigation';
 import {
   clearPendingTwoFactor,
-  currentAdminEmail,
-  currentPendingTwoFactorEmail,
+  currentPendingTwoFactorUser,
+  currentTwoFactorSetupUser,
   setAdminSession,
   setPendingBackupCodes,
   verifyGuestCsrf,
@@ -13,7 +13,6 @@ import {
   consumeAdminUserBackupCode,
   consumeAdminUserTotpStep,
   enableAdminUserTwoFactor,
-  getAdminUserByEmail,
 } from '@/src/server/db';
 import {
   consumeBackupCode,
@@ -24,23 +23,18 @@ import {
   verifyTotpTimeStep,
 } from '@/src/server/two-factor';
 import { consumeSharedRateLimit } from '@/src/server/shared-rate-limit';
+import type { AdminUser } from '@/src/server/types';
 
 const twoFactorRateWindowMs = 10 * 60_000;
 const maxTwoFactorAttempts = 5;
 
-async function twoFactorEmail() {
-  return (await currentPendingTwoFactorEmail()) || (await currentAdminEmail());
-}
-
 export async function confirmTwoFactorSetupAction(formData: FormData) {
   await verifyGuestCsrf(formData);
-  const email = await twoFactorEmail();
-  if (!email) redirect('/admin/login');
-  const limitState = await twoFactorLimitState(email);
+  const user = await currentTwoFactorSetupUser();
+  if (!user?.active || !user.twoFactorSecret || user.twoFactorEnabled) redirect('/admin/login');
+  const limitState = await twoFactorLimitState(user.email);
   if (limitState === 'limited') redirect('/admin/2fa/setup?error=limited');
   if (limitState === 'unavailable') redirect('/admin/2fa/setup?error=unavailable');
-  const user = await getAdminUserByEmail(email);
-  if (!user?.active || !user.twoFactorSecret || user.twoFactorEnabled) redirect('/admin/login');
 
   const token = String(formData.get('token') || '');
   const timeStep = verifyTotpTimeStep(token, user.twoFactorSecret);
@@ -49,28 +43,25 @@ export async function confirmTwoFactorSetupAction(formData: FormData) {
   }
 
   const backupCodes = generateBackupCodes();
-  const enabled = await enableAdminUserTwoFactor(user.email, hashBackupCodes(backupCodes), timeStep, user.twoFactorSecret, user.email);
+  const enabled = await enableAdminUserTwoFactor(user.email, hashBackupCodes(backupCodes), timeStep, user.twoFactorSecret, user.email, user.sessionEpoch);
   if (!enabled) redirect('/admin/2fa/setup?error=1');
   await setPendingBackupCodes(backupCodes);
   await clearPendingTwoFactor();
-  await setAdminSession(user.email);
+  await setAdminSession(enabled.email, enabled.sessionEpoch);
   redirect('/admin/2fa/backup-codes');
 }
 
 export async function verifyTwoFactorLoginAction(formData: FormData) {
   await verifyGuestCsrf(formData);
-  const email = await currentPendingTwoFactorEmail();
-  if (!email) redirect('/admin/login');
-  const limitState = await twoFactorLimitState(email);
+  const user = await currentPendingTwoFactorUser();
+  if (!user?.active) redirect('/admin/login');
+  const limitState = await twoFactorLimitState(user.email);
   if (limitState === 'limited') redirect('/admin/2fa/verify?error=limited');
   if (limitState === 'unavailable') redirect('/admin/2fa/verify?error=unavailable');
-  const user = await getAdminUserByEmail(email);
-  if (!user?.active) redirect('/admin/login');
   if (!user.twoFactorEnabled || !user.twoFactorSecret) {
     if (isTwoFactorRequired(user.role)) redirect('/admin/2fa/setup');
     await clearPendingTwoFactor();
-    await setAdminSession(user.email);
-    redirect('/admin/dopyty');
+    redirect('/admin/login');
   }
 
   const token = String(formData.get('token') || '').trim();
@@ -78,15 +69,16 @@ export async function verifyTwoFactorLoginAction(formData: FormData) {
   const timeStep = verifyTotpTimeStep(token, user.twoFactorSecret);
   const isTotp = timeStep !== null;
 
+  let authenticatedUser: AdminUser | null = null;
   if (isTotp) {
-    const consumed = await consumeAdminUserTotpStep(user.email, user.twoFactorSecret, timeStep);
-    if (!consumed) redirect('/admin/2fa/verify?error=1');
+    authenticatedUser = await consumeAdminUserTotpStep(user.email, user.twoFactorSecret, timeStep, user.sessionEpoch);
+    if (!authenticatedUser) redirect('/admin/2fa/verify?error=1');
   } else if (remainingBackupCodes !== null) {
-    const consumed = await consumeAdminUserBackupCode(user.email, hashBackupCode(token), user.email);
-    if (!consumed) redirect('/admin/2fa/verify?error=1');
+    authenticatedUser = await consumeAdminUserBackupCode(user.email, hashBackupCode(token), user.email, user.sessionEpoch);
+    if (!authenticatedUser) redirect('/admin/2fa/verify?error=1');
   } else redirect('/admin/2fa/verify?error=1');
   await clearPendingTwoFactor();
-  await setAdminSession(user.email);
+  await setAdminSession(authenticatedUser.email, authenticatedUser.sessionEpoch);
   redirect('/admin/dopyty');
 }
 

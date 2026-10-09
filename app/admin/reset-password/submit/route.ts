@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminEmail, hashPassword, verifyGuestCsrf } from '@/src/server/auth';
-import { setAdminSetting } from '@/src/server/db';
+import { changeAdminUserPassword, getAdminUserByEmail } from '@/src/server/db';
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
@@ -20,10 +20,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL('/admin/reset-password?error=token', request.url), { status: 303 });
   }
 
-  if (newPassword.length < 8 || newPassword !== repeatPassword) {
+  if (newPassword.length < 12 || newPassword.length > 128 || newPassword !== repeatPassword) {
     return NextResponse.redirect(new URL('/admin/reset-password?error=password', request.url), { status: 303 });
   }
 
-  await setAdminSetting('admin_password_hash', hashPassword(newPassword), 'admin-password-reset');
+  const user = await getAdminUserByEmail(configuredEmail);
+  if (!user?.active) {
+    return NextResponse.redirect(new URL('/admin/reset-password?error=account', request.url), { status: 303 });
+  }
+  const changed = await changeAdminUserPassword(
+    configuredEmail,
+    hashPassword(newPassword),
+    user.sessionEpoch,
+    'admin-password-reset',
+  );
+  if (!changed) {
+    return NextResponse.redirect(new URL('/admin/reset-password?error=conflict', request.url), { status: 303 });
+  }
   return NextResponse.redirect(new URL('/admin/login?reset=1', request.url), { status: 303 });
 }

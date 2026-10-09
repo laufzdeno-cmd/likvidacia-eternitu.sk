@@ -2755,6 +2755,9 @@ body .admin-main .admin-page .admin-card,
   background: var(--astana-red) !important;
   color: #ffffff !important;
 }
+.price-offer-heading .admin-status-badge {
+  color: #ffffff !important;
+}
 .admin-row-link.is-orange:hover,
 .admin-row-link.is-plum:hover,
 .admin-sidebar form button:hover,
@@ -3116,4 +3119,28 @@ body .admin-main .admin-page .admin-card,
     width: 100% !important;
     justify-content: center;
   }
+}
+.admin-photo-meta-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.admin-photo-meta-form label {
+  display: grid;
+  gap: 4px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.admin-photo-meta-form input,
+.admin-photo-meta-form select {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }

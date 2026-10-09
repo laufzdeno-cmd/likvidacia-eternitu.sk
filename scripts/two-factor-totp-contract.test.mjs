@@ -8,19 +8,19 @@ test('TOTP login consumes its matched database time step before an admin session
   const action = await read('../app/admin/2fa/actions.ts');
   const login = action.slice(action.indexOf('export async function verifyTwoFactorLoginAction'));
   assert.match(login, /const timeStep = verifyTotpTimeStep\(token, user\.twoFactorSecret\);/);
-  assert.match(login, /const consumed = await consumeAdminUserTotpStep\(user\.email, user\.twoFactorSecret, timeStep\);\s*if \(!consumed\) redirect\('\/admin\/2fa\/verify\?error=1'\);/);
-  const consumeIndex = login.indexOf('consumeAdminUserTotpStep(user.email, user.twoFactorSecret, timeStep)');
+  assert.match(login, /authenticatedUser = await consumeAdminUserTotpStep\(user\.email, user\.twoFactorSecret, timeStep, user\.sessionEpoch\);\s*if \(!authenticatedUser\) redirect\('\/admin\/2fa\/verify\?error=1'\);/);
+  const consumeIndex = login.indexOf('consumeAdminUserTotpStep(user.email, user.twoFactorSecret, timeStep, user.sessionEpoch)');
   assert.ok(consumeIndex >= 0);
-  assert.ok(login.indexOf('await setAdminSession(user.email)', consumeIndex) > consumeIndex);
+  assert.ok(login.indexOf('await setAdminSession(authenticatedUser.email, authenticatedUser.sessionEpoch)', consumeIndex) > consumeIndex);
 });
 
 test('2FA setup is one-time and records the setup code step atomically with enabling', async () => {
   const action = await read('../app/admin/2fa/actions.ts');
   const db = await read('../src/server/db.ts');
   assert.match(action, /if \(!user\?\.active \|\| !user\.twoFactorSecret \|\| user\.twoFactorEnabled\) redirect\('\/admin\/login'\);/);
-  assert.match(action, /const enabled = await enableAdminUserTwoFactor\(user\.email, hashBackupCodes\(backupCodes\), timeStep, user\.twoFactorSecret, user\.email\);\s*if \(!enabled\) redirect\('\/admin\/2fa\/setup\?error=1'\);/);
+  assert.match(action, /const enabled = await enableAdminUserTwoFactor\(user\.email, hashBackupCodes\(backupCodes\), timeStep, user\.twoFactorSecret, user\.email, user\.sessionEpoch\);\s*if \(!enabled\) redirect\('\/admin\/2fa\/setup\?error=1'\);/);
   assert.match(db, /two_factor_last_used_step bigint NOT NULL DEFAULT -1/);
-  assert.match(db, /two_factor_last_used_step = \$3, two_factor_backup_code_hashes = \$1::jsonb[\s\S]*?two_factor_secret = \$4 AND two_factor_enabled = false AND two_factor_last_used_step < \$3/);
+  assert.match(db, /two_factor_last_used_step = \$3, two_factor_backup_code_hashes = \$1::jsonb,[\s\S]*?session_epoch = session_epoch \+ 1[\s\S]*?two_factor_secret = \$4 AND two_factor_enabled = false AND two_factor_last_used_step < \$3/);
 });
 
 test('lokálny JSON fallback serializuje všetky zmeny, ktoré môžu prepísať stav TOTP', async () => {
@@ -38,5 +38,53 @@ test('lokálny JSON fallback serializuje všetky zmeny, ktoré môžu prepísať
     const end = db.indexOf('\nexport async function ', start + 1);
     const body = db.slice(start, end < 0 ? db.length : end);
     assert.match(body, /withLocalLeadSubmissionLock/, `${name} local updates must share the serialized JSON write lock`);
+  }
+});
+
+test('admin and pending 2FA cookies are bound to the current database session epoch', async () => {
+  const auth = await read('../src/server/auth.ts');
+  const login = await read('../app/admin/login/submit/route.ts');
+  assert.match(auth, /type AdminSession = \{ kind: 'admin-session'; email: string; iat: number; epoch: number \}/);
+  assert.match(auth, /if \(decoded\.kind !== 'admin-session' \|\| !decoded\.email \|\| !decoded\.iat \|\| !Number\.isSafeInteger\(decoded\.epoch\)/);
+  assert.match(auth, /export async function currentAdminEmail\(\) \{\s*const user = await currentAdminUser\(\);\s*return user\?\.active \? user\.email : null;/);
+  assert.match(auth, /type PendingTwoFactor = \{ kind: 'pending-two-factor'; email: string; iat: number; epoch: number \}/);
+  assert.match(auth, /if \(pending\?\.kind !== 'pending-two-factor'/);
+  assert.match(auth, /JSON\.stringify\(\{ kind: 'admin-session', email, iat: Date\.now\(\), epoch \}\)/);
+  assert.match(auth, /cookieStore\.set\(pendingTwoFactorCookieName, encodeSignedJson\(\{\s*kind: 'pending-two-factor'/);
+  assert.match(auth, /getAdminUserByEmail\(pending\.email\)[\s\S]{0,180}adminSessionEpochMatchesUser\(pending\.epoch, user\.sessionEpoch\)/);
+  assert.match(login, /setPendingTwoFactor\(normalizedEmail, user\.sessionEpoch\)/);
+  assert.match(login, /setAdminSession\(normalizedEmail, user\.sessionEpoch\)/);
+  assert.doesNotMatch(auth, /hasConfiguredCredential/);
+});
+
+test('login and 2FA retain the verified account generation across async operations', async () => {
+  const auth = await read('../src/server/auth.ts');
+  const login = await read('../app/admin/login/submit/route.ts');
+  const action = await read('../app/admin/2fa/actions.ts');
+  const setup = await read('../app/admin/2fa/setup/page.tsx');
+  const db = await read('../src/server/db.ts');
+  assert.match(login, /const user = await authenticateAdminCredentials\(email, password\)/);
+  assert.doesNotMatch(login, /getAdminUserByEmail|verifyAdminCredentials/);
+  assert.match(login, /if \(!user\.localDevelopmentFallback && \(isTwoFactorRequired\(user\.role\) \|\| user\.twoFactorEnabled\)\)/);
+  const authenticate = auth.slice(auth.indexOf('export async function authenticateAdminCredentials('), auth.indexOf('export async function verifyAdminCredentials('));
+  assert.equal((authenticate.match(/getAdminUserByEmail\(/g) || []).length, 1);
+  assert.match(authenticate, /sessionEpoch: dbUser\.sessionEpoch/);
+  assert.match(authenticate, /sessionEpoch: dbUser\.sessionEpoch, localDevelopmentFallback: false/);
+  assert.match(authenticate, /process\.env\.NODE_ENV !== 'production'[\s\S]{0,250}localDevelopmentFallback: true/);
+  assert.match(authenticate, /verifyHash\(password, dbUser\.passwordHash\) \? user : null/);
+  assert.match(auth, /adminSessionEpochMatchesUser\(session\.sessionEpoch, user\.sessionEpoch\) \? user : null/);
+  assert.match(action, /const user = await currentPendingTwoFactorUser\(\)/);
+  assert.doesNotMatch(action, /getAdminUserByEmail|currentPendingTwoFactorEmail/);
+  assert.match(action, /if \(!user\.twoFactorEnabled \|\| !user\.twoFactorSecret\) \{\s*if \(isTwoFactorRequired\(user\.role\)\) redirect\('\/admin\/2fa\/setup'\);\s*await clearPendingTwoFactor\(\);\s*redirect\('\/admin\/login'\);/);
+  assert.match(setup, /setAdminUserTwoFactorSecret\(user\.email, generateTotpSecret\(\), user\.email, user\.sessionEpoch\)/);
+  for (const name of ['setAdminUserTwoFactorSecret', 'enableAdminUserTwoFactor', 'consumeAdminUserTotpStep', 'consumeAdminUserBackupCode']) {
+    const start = db.indexOf(`export async function ${name}(`);
+    const end = db.indexOf('\nexport async function ', start + 1);
+    const body = db.slice(start, end);
+    assert.match(body, /expectedSessionEpoch: number/);
+    assert.match(body, /Number\.isSafeInteger\(expectedSessionEpoch\)/);
+    assert.match(body, /normalizeAdminSessionEpoch\(user\.sessionEpoch\) !== expectedSessionEpoch/);
+    assert.match(body, /AND active = true/);
+    assert.match(body, /AND session_epoch = \$\d/);
   }
 });

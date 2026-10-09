@@ -41,7 +41,7 @@ class MockClassList {
   }
 }
 
-function createCalculator(area = '120') {
+function createCalculator(area = '120', withCity = true) {
   const input = Object.assign(new MockEventTarget(), { value: area });
   const cityInput = { value: '' };
   const quoteLink = new MockEventTarget();
@@ -65,7 +65,7 @@ function createCalculator(area = '120') {
         '[data-price-area-output]': areaOutput,
         '[data-price-min]': minOutput,
         '[data-price-max]': maxOutput,
-        '[data-price-city]': cityInput,
+        '[data-price-city]': withCity ? cityInput : null,
         '[data-price-quote]': quoteLink,
         '[data-price-transfer-status]': transferStatus,
       })[selector] || null;
@@ -226,5 +226,31 @@ test('blocked browser storage leaves the visitor on the price page with a manual
     else globalThis.document = previousDocument;
     if (previousWindow === undefined) delete globalThis.window;
     else globalThis.window = previousWindow;
+  }
+});
+
+test('homepage calculator without locality transfers area/material and preserves an existing inquiry city', () => {
+  const calc = createCalculator('200', false);
+  const fields = {
+    areaEstimate: { value: '' }, city: { value: 'Poprad' },
+    materialType: { value: '', options: [{ value: 'Vlnitý eternit' }] },
+    email: { value: 'existing@example.test' }, gdpr: { checked: false },
+  };
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    querySelectorAll: () => [calc.root],
+    querySelector: () => ({ querySelector: (selector) => fields[selector.match(/name="([^"]+)"/)?.[1]] || null }),
+  };
+  try {
+    const cleanup = initializePriceCalculators();
+    assertPrice(calc.minOutput.textContent, '1 600 €');
+    calc.quoteLink.dispatch('click');
+    assert.deepEqual([fields.areaEstimate.value, fields.materialType.value, fields.city.value], ['200', 'Vlnitý eternit', 'Poprad']);
+    assert.equal(fields.email.value, 'existing@example.test');
+    assert.equal(fields.gdpr.checked, false);
+    cleanup();
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
   }
 });

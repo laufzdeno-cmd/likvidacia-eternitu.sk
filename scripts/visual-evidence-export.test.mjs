@@ -17,7 +17,7 @@ test('visual evidence export is opt-in, path-bounded and lossless', () => {
   assert.match(source, /\.career-form-grid input:focus/);
   assert.match(source, /route: 'home'/);
   assert.match(source, /'\.hero', '\.hero-copy', '\.hero-photo', '\.hero-photo img', '\.quote-card'/);
-  assert.match(source, /'\.price-calculator-section', '\.included-group-card'/);
+  assert.match(source, /'\.price-calculator-section', '#preco', '#cena', '#azbest', '\.faq-grid'/);
   assert.match(source, /\{ width: 760, height: 900 \}, \{ width: 761, height: 900 \}/);
   assert.match(source, /flag: 'wx'/);
   assert.match(source, /type: 'png'/);

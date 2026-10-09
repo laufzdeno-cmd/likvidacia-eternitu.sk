@@ -2,6 +2,21 @@
 
 ## Najnovší lokálny checkpoint
 
+**Aktualizácia 9. 10. 2026, spoločný pracovný kandidát:** po nižšie archivovanom
+čistom commite vznikli ďalšie zmeny homepage, ponúk, analytiky a prihlasovania.
+Aktuálny HEAD je `c12604501b8cf92ad9eddda9a56dd35bf3207948` plus pracovný diff;
+nepripisujú sa mu automaticky staršie výsledky ani schválenie nasadenia.
+Čerstvý izolovaný build `ogtiw84wg3cDYS8oYQdcv` prešiel 100/100 trás,
+33 statických SEO URL, dynamickými realizáciami/recenziami a CSS/JS izoláciou.
+Výkonnostná matica má 15/15 behov, mediány Performance 95–98,
+Accessibility 100, SEO 100, LCP 2 312–2 476 ms a CLS 0.
+Verejný náhľad prešiel 18/18 stavmi, úzky admin ponukový tok 12/12.
+Detaily aktuálneho rezu: [CANDIDATE-CHECKPOINT-2026-10-09.md](CANDIDATE-CHECKPOINT-2026-10-09.md).
+Schválenie vzhľadu majiteľom, bezpečnostný runtime dôkaz a externé release
+brány zostávajú otvorené. Počty akceptovaných kritérií sa týmto dodatkom nemenia.
+
+### Archivovaný čistý kandidát — dôkaz sa vzťahuje iba na uvedený commit
+
 Otestovaný zdrojový kandidát je commit `9a201efb` a obsahuje aj prevádzkový checkpoint O06 `49609256`. Presný čistý kandidát prešiel **441/441 MJS + 35/35 TypeScript PASS**, typovou kontrolou a úplným izolovaným produkčným buildom **100/100** trás, SEO **33 statických URL**, dynamickými realizáciami/recenziami a route CSS/JS izoláciou; BUILD_ID `v52jbGAehJS1qmatCfYgB`, `productionAccess:false` a jednorazová DB aj vlastné dočasné dáta boli odstránené. Rovnaký zdroj prešiel aj 13/13 databázovými integráciami vrátane PostgreSQL prevádzkových alarmov O06 a výkonnostnou maticou 15/15 Lighthouse behov, ktoré sú spolu s unit, typecheck a build logom kanonicky hashované v jednom manifeste. Dôkazový parser odmieta chyby, preskočené alebo nedokončené testy, nezhodný BUILD_ID, nesprávne URL, sfalšované mediány, chýbajúci O06 marker aj chýbajúci cleanup; nezávislý kontrolór parsera vydal PASS. Bootstrap stagingovej databázy má transakčný advisory lock, idempotentný marker, odmietnutie konfliktu, rollback a striktne overené TLS. Plná verejná vizuálna akceptácia bola spustená na čistom dôkazovom commite `088ac8f3` a admin health rozšírenie prešlo na `c7c2059e` v 234/234 stavoch. Najnovší bezpečnostný rez zjednotil dôveryhodnú produkčnú identitu klienta pre verejné rate limity a po oprave poradia upload kontroly získal nezávislý read-only **PASS**. Produkcia je **NOT VERIFIED** a deploy, alias, formulár, email, Blob aj reklamný účet zostali bez zmeny. Dôkazový manifest, úplné kanonicky hashované logy a [lokálny release checkpoint](LOCAL-RELEASE-CHECKPOINT-9a201efb.md) sú uložené pri tomto kandidátovi; nemenia jeho otestovaný strom.
 
 Plná verejná vizuálna matica bola na čistom commite `088ac8f3` zopakovaná: 20 trás × 11 viewportov = 220/220 stavov, 25 snímok, reduced-motion, 200 % zoom, landscape, 0 odoslaných formulárov, 0 hydration chýb a 0 externých originov. Historický baseline `452c4f75` ostáva auditnou stopou, nie náhradou dnešného dôkazu. Stagingová a fyzická cross-browser matica sa musí zopakovať pred vydaním.

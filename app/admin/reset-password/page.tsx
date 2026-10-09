@@ -15,7 +15,11 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
     params?.error === 'token'
       ? 'Resetovací token alebo email nesedí.'
       : params?.error === 'password'
-        ? 'Nové heslo musí mať aspoň 8 znakov a obe hodnoty musia byť rovnaké.'
+        ? 'Nové heslo musí mať 12 až 128 znakov a obe hodnoty musia byť rovnaké.'
+        : params?.error === 'account'
+          ? 'Aktívny administrátorský účet sa nenašiel.'
+          : params?.error === 'conflict'
+            ? 'Účet sa medzitým zmenil. Obnovte stránku a skúste to znova.'
         : params?.error === 'csrf'
           ? 'Platnosť formulára vypršala. Skúste to znova.'
         : '';
@@ -39,11 +43,11 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
         </label>
         <label>
           Nové heslo
-          <input name="newPassword" type="password" autoComplete="new-password" minLength={8} required />
+          <input name="newPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required />
         </label>
         <label>
           Zopakovať nové heslo
-          <input name="repeatPassword" type="password" autoComplete="new-password" minLength={8} required />
+          <input name="repeatPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required />
         </label>
         <button className="button button-primary" type="submit">
           Nastaviť nové heslo

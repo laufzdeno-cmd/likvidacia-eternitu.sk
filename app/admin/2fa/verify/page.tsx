@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createGuestCsrfToken, currentPendingTwoFactorEmail } from '@/src/server/auth';
-import { getAdminUserByEmail } from '@/src/server/db';
+import { createGuestCsrfToken, currentPendingTwoFactorUser } from '@/src/server/auth';
 import { verifyTwoFactorLoginAction } from '../actions';
 
 export const metadata = {
@@ -9,9 +8,7 @@ export const metadata = {
 };
 
 export default async function TwoFactorVerifyPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
-  const email = await currentPendingTwoFactorEmail();
-  if (!email) redirect('/admin/login');
-  const user = await getAdminUserByEmail(email);
+  const user = await currentPendingTwoFactorUser();
   if (!user?.active) redirect('/admin/login');
   if (!user.twoFactorEnabled) redirect('/admin/2fa/setup');
   const params = await searchParams;

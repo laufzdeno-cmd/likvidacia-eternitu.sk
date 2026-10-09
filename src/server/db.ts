@@ -11,8 +11,9 @@ import { isAstanaLocalRelayConfigured, leadDeliveryMode } from './astana-local-r
 import { describeLeadMailHealth } from './lead-mail-health';
 import { getRuntimeFeatureHealth } from './runtime-feature-health';
 import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
-import { isValidIsoCalendarDate } from '../lib/date-only';
+import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '../lib/date-only';
 import { priceOfferNumberYear } from '../lib/price-offer-number-year';
+import { normalizeAdminSessionEpoch } from './admin-session-policy';
 import {
   shouldFallbackToDefaultSiteContent,
   shouldUseDefaultSiteContent,
@@ -969,9 +970,21 @@ async function initializeSchema() {
     CREATE TABLE IF NOT EXISTS realization_case_draft_media (
       draft_id uuid NOT NULL REFERENCES realization_case_drafts(id) ON DELETE CASCADE,
       media_id uuid NOT NULL REFERENCES realization_media_intake(id) ON DELETE CASCADE,
+      photo_phase text NOT NULL DEFAULT 'during' CHECK (photo_phase IN ('before', 'during', 'after')),
+      public_caption text NOT NULL DEFAULT '',
+      sort_order integer NOT NULL DEFAULT 0 CHECK (sort_order BETWEEN 0 AND 999),
       created_at timestamptz NOT NULL DEFAULT now(),
       PRIMARY KEY (draft_id, media_id)
     );
+    ALTER TABLE realization_case_draft_media ADD COLUMN IF NOT EXISTS photo_phase text NOT NULL DEFAULT 'during';
+    ALTER TABLE realization_case_draft_media ADD COLUMN IF NOT EXISTS public_caption text NOT NULL DEFAULT '';
+    ALTER TABLE realization_case_draft_media ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0;
+    ALTER TABLE realization_case_draft_media DROP CONSTRAINT IF EXISTS realization_case_draft_media_photo_phase_check;
+    ALTER TABLE realization_case_draft_media ADD CONSTRAINT realization_case_draft_media_photo_phase_check
+      CHECK (photo_phase IN ('before', 'during', 'after'));
+    ALTER TABLE realization_case_draft_media DROP CONSTRAINT IF EXISTS realization_case_draft_media_sort_order_check;
+    ALTER TABLE realization_case_draft_media ADD CONSTRAINT realization_case_draft_media_sort_order_check
+      CHECK (sort_order BETWEEN 0 AND 999);
     CREATE INDEX IF NOT EXISTS realization_case_drafts_updated_idx ON realization_case_drafts (updated_at DESC);
 
     CREATE TABLE IF NOT EXISTS roofers (
@@ -1226,6 +1239,7 @@ async function initializeSchema() {
       two_factor_enabled boolean NOT NULL DEFAULT false,
       two_factor_last_used_step bigint NOT NULL DEFAULT -1,
       two_factor_backup_code_hashes jsonb NOT NULL DEFAULT '[]'::jsonb,
+      session_epoch bigint NOT NULL DEFAULT 0,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
@@ -1233,6 +1247,7 @@ async function initializeSchema() {
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_factor_enabled boolean NOT NULL DEFAULT false;
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_factor_last_used_step bigint NOT NULL DEFAULT -1;
     ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS two_factor_backup_code_hashes jsonb NOT NULL DEFAULT '[]'::jsonb;
+    ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS session_epoch bigint NOT NULL DEFAULT 0;
 
     CREATE TABLE IF NOT EXISTS analytics_events (
       id uuid PRIMARY KEY,
@@ -1755,7 +1770,11 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     testimonialConsentHistory: data.testimonialConsentHistory ?? [],
     reviewRequests: data.reviewRequests ?? [],
     workers: data.workers ?? [],
-    adminUsers: (data.adminUsers ?? []).map((user) => ({ ...user, twoFactorLastUsedStep: Number(user.twoFactorLastUsedStep ?? -1) })),
+    adminUsers: (data.adminUsers ?? []).map((user) => ({
+      ...user,
+      twoFactorLastUsedStep: Number(user.twoFactorLastUsedStep ?? -1),
+      sessionEpoch: normalizeAdminSessionEpoch(user.sessionEpoch),
+    })),
     plannerActions: data.plannerActions ?? [],
     businessJobs: data.businessJobs ?? [],
     businessJobInvoices: data.businessJobInvoices ?? [],
@@ -2009,6 +2028,7 @@ function toAdminUser(row: Record<string, unknown>): AdminUser {
     twoFactorEnabled: Boolean(row.two_factor_enabled ?? row.twoFactorEnabled ?? false),
     twoFactorLastUsedStep: Number(row.two_factor_last_used_step ?? row.twoFactorLastUsedStep ?? -1),
     twoFactorBackupCodeHashes: backupHashes,
+    sessionEpoch: normalizeAdminSessionEpoch(row.session_epoch ?? row.sessionEpoch),
     createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt ?? now())).toISOString(),
   };
@@ -2173,7 +2193,11 @@ async function readLocalDb(): Promise<LocalDb> {
   }
 }
 
-async function writeLocalDb(data: LocalDb, options: { purgeLeadAuditId?: string } = {}) {
+async function writeLocalDb(data: LocalDb, options: {
+  purgeLeadAuditId?: string;
+  writeAdminUsers?: boolean;
+  adminSettingKey?: string;
+} = {}) {
   const persist = async () => {
     await mkdir(/*turbopackIgnore: true*/ path.dirname(localDbPath), { recursive: true });
     const tempPath = `${localDbPath}.${randomUUID()}.tmp`;
@@ -2226,6 +2250,13 @@ async function writeLocalDb(data: LocalDb, options: { purgeLeadAuditId?: string 
       }
       const durableData = {
         ...data,
+        // Only locked, fresh-read owners may replace authentication state.
+        // Ordinary snapshots must preserve complete records, including same-epoch changes.
+        adminUsers: options.writeAdminUsers ? data.adminUsers : existingDb.adminUsers,
+        adminSettings: {
+          ...existingDb.adminSettings,
+          ...(options.adminSettingKey ? { [options.adminSettingKey]: data.adminSettings[options.adminSettingKey] } : {}),
+        },
         leads: durableLeads,
         businessJobs: durableBusinessJobs,
         businessJobInvoices: [...durableInvoices.values()],
@@ -6274,34 +6305,42 @@ async function seedDefaultAdminUser(db: Pool | PoolClient | undefined = getPool(
   );
 }
 
-async function ensureLocalBusinessDefaults(local: LocalDb) {
-  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-  if (adminEmail && !local.adminUsers.some((user) => user.email.toLowerCase() === adminEmail)) {
-    local.adminUsers.push({
-      id: randomUUID(),
-      email: adminEmail,
-      name: 'ASTANA',
-      role: 'SUPER_ADMIN',
-      active: true,
-      passwordHash: '',
-      twoFactorSecret: '',
-      twoFactorEnabled: false,
-      twoFactorBackupCodeHashes: [],
-      createdAt: now(),
-      updatedAt: now(),
-    });
-  }
-  if (!local.workers.length) {
-    local.workers = defaultWorkers.map((worker) => ({
-      id: randomUUID(),
-      name: worker.name,
-      ratePerM2: worker.ratePerM2,
-      active: true,
-      createdAt: now(),
-      updatedAt: now(),
-    }));
-  }
-  await writeLocalDb(local);
+async function ensureLocalBusinessDefaults(): Promise<LocalDb> {
+  // Call only outside the mutation lock: this helper owns the fresh read and initialization.
+  return withLocalLeadSubmissionLock(async () => {
+    const local = await readLocalDb();
+    const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+    const addAdmin = Boolean(adminEmail && !local.adminUsers.some((user) => user.email.toLowerCase() === adminEmail));
+    if (addAdmin) {
+      local.adminUsers.push({
+        id: randomUUID(),
+        email: adminEmail,
+        name: 'ASTANA',
+        role: 'SUPER_ADMIN',
+        active: true,
+        passwordHash: '',
+        twoFactorSecret: '',
+        twoFactorEnabled: false,
+        twoFactorBackupCodeHashes: [],
+        sessionEpoch: 0,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    }
+    const addWorkers = !local.workers.length;
+    if (addWorkers) {
+      local.workers = defaultWorkers.map((worker) => ({
+        id: randomUUID(),
+        name: worker.name,
+        ratePerM2: worker.ratePerM2,
+        active: true,
+        createdAt: now(),
+        updatedAt: now(),
+      }));
+    }
+    if (addAdmin || addWorkers) await writeLocalDb(local, { writeAdminUsers: addAdmin });
+    return local;
+  });
 }
 
 function money(value: unknown) {
@@ -6325,8 +6364,7 @@ export async function listWorkers(includeInactive = false): Promise<Worker[]> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    await ensureLocalBusinessDefaults(local);
+    const local = await ensureLocalBusinessDefaults();
     return [...local.workers].filter((worker) => includeInactive || worker.active).sort((a, b) => a.name.localeCompare(b.name, 'sk'));
   }
   const { rows } = await db.query(`SELECT * FROM workers ${includeInactive ? '' : 'WHERE active = true'} ORDER BY name ASC`);
@@ -6338,8 +6376,7 @@ export async function upsertWorker(input: { id?: string; name: string; ratePerM2
   const timestamp = now();
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    await ensureLocalBusinessDefaults(local);
+    const local = await ensureLocalBusinessDefaults();
     const existing = input.id ? local.workers.find((worker) => worker.id === input.id) : undefined;
     if (existing) {
       existing.name = input.name.trim();
@@ -7664,9 +7701,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
 }
 
 function defaultValidUntil(days = 60) {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().slice(0, 10);
+  return slovakCalendarDateAfterDays(days);
 }
 
 export async function nextPriceOfferNumber() {
@@ -8909,6 +8944,7 @@ function toRealizationCaseDraft(row: Record<string, unknown>, mediaRows: Record<
       id: String(row.case_job_id),
       demolitionDate: dateOnly(row.case_job_date),
       district: cleanSlovakText(String(row.case_job_district ?? '')),
+      exactLocation: cleanSlovakText(String(row.case_job_location ?? '')),
     } : undefined,
     title: cleanSlovakText(String(row.title ?? '')),
     locality: cleanSlovakText(String(row.locality ?? '')),
@@ -8933,6 +8969,9 @@ function toRealizationCaseDraft(row: Record<string, unknown>, mediaRows: Record<
       originalName: cleanSlovakText(String(media.original_name ?? 'fotografia')),
       locality: cleanSlovakText(String(media.locality ?? '')),
       categories: parseStringArray(media.categories),
+      phase: String(media.photo_phase ?? 'during') as 'before' | 'during' | 'after',
+      publicCaption: cleanSlovakText(String(media.public_caption ?? '')),
+      sortOrder: Math.max(0, Math.min(999, Number(media.sort_order ?? 0) || 0)),
       createdAt: new Date(String(media.created_at)).toISOString(),
       uploadedAt: media.uploaded_at ? new Date(String(media.uploaded_at)).toISOString() : undefined,
     })),
@@ -8947,10 +8986,13 @@ export async function listRealizationCaseDrafts(): Promise<RealizationCaseDraft[
   const db = requirePhotoIntakeDatabase();
   const { rows } = await db.query(
     `SELECT d.*, j.id AS case_job_id, j.demolition_date::text AS case_job_date, j.district AS case_job_district,
+       j.location AS case_job_location,
        COALESCE((
          SELECT jsonb_agg(jsonb_build_object(
-           'id', m.id, 'original_name', m.original_name, 'locality', m.locality, 'categories', m.categories, 'created_at', m.created_at, 'uploaded_at', m.uploaded_at
-         ) ORDER BY m.created_at)
+           'id', m.id, 'original_name', m.original_name, 'locality', m.locality, 'categories', m.categories,
+           'photo_phase', link.photo_phase, 'public_caption', link.public_caption, 'sort_order', link.sort_order,
+           'created_at', m.created_at, 'uploaded_at', m.uploaded_at
+         ) ORDER BY link.sort_order, m.created_at)
          FROM realization_case_draft_media link
          JOIN realization_media_intake m ON m.id = link.media_id AND m.status = 'approved_private' AND m.sanitized_at IS NOT NULL
          JOIN photo_upload_invites i ON i.id = m.invite_id AND i.business_job_id IS NOT DISTINCT FROM d.business_job_id
@@ -8971,7 +9013,13 @@ export async function listPublishedRealizationCases(limit = 30, offset = 0): Pro
   const { rows } = await db.query(
     `SELECT d.id, d.title, d.locality, d.locality_precision, d.object_type, d.material_type,
        d.work_description, d.result_description, d.area_estimate, d.work_period, d.published_at,
-       array_agg(media.id ORDER BY media.created_at) AS photo_ids
+       array_agg(media.id ORDER BY link.sort_order, media.created_at) AS photo_ids,
+       jsonb_agg(jsonb_build_object(
+         'id', media.id,
+         'phase', link.photo_phase,
+         'publicCaption', link.public_caption,
+         'sortOrder', link.sort_order
+       ) ORDER BY link.sort_order, media.created_at) AS photos
      FROM realization_case_drafts d
       JOIN business_jobs job ON job.id=d.business_job_id AND job.deleted_at IS NULL
         AND job.status IN ('DEMONT_DOKONCENA', 'DOKONCENA', 'VYUCTOVANIE')
@@ -9003,6 +9051,12 @@ export async function listPublishedRealizationCases(limit = 30, offset = 0): Pro
     areaEstimate: row.area_estimate == null ? undefined : Number(row.area_estimate),
     workPeriod: cleanSlovakText(String(row.work_period ?? '')),
     photoIds: Array.isArray(row.photo_ids) ? row.photo_ids.map((id: unknown) => String(id)) : [],
+    photos: Array.isArray(row.photos) ? row.photos.map((photo: Record<string, unknown>) => ({
+      id: String(photo.id),
+      phase: String(photo.phase ?? 'during') as 'before' | 'during' | 'after',
+      publicCaption: cleanSlovakText(String(photo.publicCaption ?? '')),
+      sortOrder: Math.max(0, Math.min(999, Number(photo.sortOrder ?? 0) || 0)),
+    })) : [],
     publishedAt: new Date(String(row.published_at)).toISOString(),
   }));
 }
@@ -9268,19 +9322,20 @@ export async function saveRealizationCaseDraft(input: {
       [randomUUID(), id, input.id ? 'case_draft_updated' : 'case_draft_created', fields[9], JSON.stringify({ lifecycle: 'draft', attachedMediaCount: Number(attachedCount.rows[0]?.count ?? 0) })],
     );
     const media = await client.query(
-      `SELECT m.id, m.original_name, m.locality, m.categories, m.created_at, m.uploaded_at FROM realization_case_draft_media link
+      `SELECT m.id, m.original_name, m.locality, m.categories, link.photo_phase, link.public_caption, link.sort_order, m.created_at, m.uploaded_at FROM realization_case_draft_media link
        JOIN realization_media_intake m ON m.id = link.media_id AND m.status = 'approved_private' AND m.sanitized_at IS NOT NULL
        JOIN photo_upload_invites i ON i.id=m.invite_id AND i.business_job_id IS NOT DISTINCT FROM $2::uuid
-       WHERE link.draft_id = $1 ORDER BY m.created_at`,
+       WHERE link.draft_id = $1 ORDER BY link.sort_order, m.created_at`,
       [id, requestedJobId ?? null],
     );
     await client.query('COMMIT');
-    const jobRow = requestedJobId ? (await client.query('SELECT id, demolition_date::text AS demolition_date, district FROM business_jobs WHERE id=$1', [requestedJobId])).rows[0] : undefined;
+    const jobRow = requestedJobId ? (await client.query('SELECT id, demolition_date::text AS demolition_date, district, location FROM business_jobs WHERE id=$1', [requestedJobId])).rows[0] : undefined;
     return toRealizationCaseDraft({
       ...saved.rows[0],
       case_job_id: jobRow?.id,
       case_job_date: jobRow?.demolition_date,
       case_job_district: jobRow?.district,
+      case_job_location: jobRow?.location,
     }, media.rows);
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined);
@@ -9433,6 +9488,57 @@ export async function setRealizationCaseDraftMedia(input: { draftId: string; med
       `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
        VALUES ($1, 'realization_case_draft', $2, $3, $4, $5::jsonb, now())`,
       [randomUUID(), input.draftId, input.attach ? 'case_draft_photo_attached' : 'case_draft_photo_detached', actor, JSON.stringify({ lifecycle: 'draft', attached: input.attach, mediaId: input.mediaId })],
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateRealizationCaseDraftMediaMetadata(input: {
+  draftId: string;
+  mediaId: string;
+  phase: 'before' | 'during' | 'after';
+  publicCaption: string;
+  sortOrder: number;
+  updatedBy: string;
+}): Promise<boolean> {
+  await ensureSchema();
+  if (!(['before', 'during', 'after'] as const).includes(input.phase)) throw new Error('Neplatná fáza fotografie.');
+  if (!Number.isInteger(input.sortOrder) || input.sortOrder < 0 || input.sortOrder > 999) throw new Error('Poradie fotografie musí byť celé číslo od 0 do 999.');
+  const actor = cleanSlovakText(input.updatedBy).trim().slice(0, 254);
+  const publicCaption = cleanSlovakText(input.publicCaption).trim().slice(0, 240);
+  const db = requirePhotoIntakeDatabase();
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const draft = await client.query(
+      `SELECT id FROM realization_case_drafts WHERE id=$1 AND lifecycle='draft' FOR UPDATE`,
+      [input.draftId],
+    );
+    if (!draft.rows[0]) throw new Error('Koncept sa nenašiel alebo už nie je upraviteľný.');
+    const updated = await client.query(
+      `UPDATE realization_case_draft_media link
+       SET photo_phase=$1, public_caption=$2, sort_order=$3
+       FROM realization_media_intake media
+       WHERE link.draft_id=$4 AND link.media_id=$5 AND media.id=link.media_id
+         AND media.status='approved_private' AND media.sanitized_at IS NOT NULL
+       RETURNING link.media_id`,
+      [input.phase, publicCaption, input.sortOrder, input.draftId, input.mediaId],
+    );
+    if (!updated.rows[0]) throw new Error('Pripojená schválená fotografia sa nenašla.');
+    await client.query(
+      'UPDATE realization_case_drafts SET updated_at=now(), updated_by=$2 WHERE id=$1',
+      [input.draftId, actor],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1, 'realization_case_draft', $2, 'case_draft_photo_metadata_updated', $3, $4::jsonb, now())`,
+      [randomUUID(), input.draftId, actor, JSON.stringify({ mediaId: input.mediaId, phase: input.phase, sortOrder: input.sortOrder, publicCaptionRecorded: Boolean(publicCaption) })],
     );
     await client.query('COMMIT');
     return true;
@@ -12140,8 +12246,7 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    await ensureLocalBusinessDefaults(local);
+    const local = await ensureLocalBusinessDefaults();
     return [...local.adminUsers].map((user) => toAdminUser(user as unknown as Record<string, unknown>)).sort((a, b) => a.email.localeCompare(b.email));
   }
   const { rows } = await db.query('SELECT * FROM admin_users ORDER BY email ASC');
@@ -12154,13 +12259,75 @@ export async function getAdminUserByEmail(email: string): Promise<AdminUser | nu
   if (!normalized) return null;
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    await ensureLocalBusinessDefaults(local);
+    const local = await ensureLocalBusinessDefaults();
     const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
     return user ? toAdminUser(user as unknown as Record<string, unknown>) : null;
   }
   const { rows } = await db.query('SELECT * FROM admin_users WHERE lower(email) = lower($1) LIMIT 1', [normalized]);
   return rows[0] ? toAdminUser(rows[0]) : null;
+}
+
+export async function changeAdminUserPassword(
+  email: string,
+  passwordHash: string,
+  expectedSessionEpoch: number,
+  actorEmail: string,
+): Promise<AdminUser | null> {
+  await ensureSchema();
+  const normalized = email.trim().toLowerCase();
+  if (!normalized || !passwordHash || !Number.isSafeInteger(expectedSessionEpoch) || expectedSessionEpoch < 0) return null;
+  const timestamp = now();
+  const auditId = randomUUID();
+  const db = getPool();
+
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
+      if (!user || !user.active || normalizeAdminSessionEpoch(user.sessionEpoch) !== expectedSessionEpoch) return null;
+      user.passwordHash = passwordHash;
+      user.sessionEpoch = expectedSessionEpoch + 1;
+      user.updatedAt = timestamp;
+      local.auditLogs.unshift({
+        id: auditId,
+        entityType: 'admin_user',
+        entityId: user.id,
+        action: 'admin_user_password_changed',
+        actorEmail,
+        changes: { sessionsRevoked: true },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
+      return toAdminUser(user as unknown as Record<string, unknown>);
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE admin_users
+       SET password_hash = $1, session_epoch = session_epoch + 1, updated_at = $2
+       WHERE lower(email) = lower($3) AND active = true AND session_epoch = $4
+       RETURNING *`,
+      [passwordHash, timestamp, normalized, expectedSessionEpoch],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [auditId, 'admin_user', rows[0].id, 'admin_user_password_changed', actorEmail, { sessionsRevoked: true }, timestamp],
+    );
+    await client.query('COMMIT');
+    return toAdminUser(rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function upsertAdminUser(input: AdminUserInput, actorEmail: string): Promise<AdminUser> {
@@ -12177,6 +12344,7 @@ export async function upsertAdminUser(input: AdminUserInput, actorEmail: string)
     twoFactorEnabled: input.twoFactorEnabled ?? false,
     twoFactorLastUsedStep: -1,
     twoFactorBackupCodeHashes: input.twoFactorBackupCodeHashes ?? [],
+    sessionEpoch: 0,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -12200,13 +12368,21 @@ export async function upsertAdminUser(input: AdminUserInput, actorEmail: string)
           twoFactorBackupCodeHashes: input.twoFactorBackupCodeHashes ?? existing.twoFactorBackupCodeHashes ?? [],
           updatedAt: timestamp,
         };
-        await writeLocalDb(local);
-        await addAuditLog('admin_user', local.adminUsers[existingIndex].id, 'admin_user_updated', actorEmail, { email: user.email, role: user.role });
+        local.auditLogs.unshift({
+          id: randomUUID(), entityType: 'admin_user', entityId: local.adminUsers[existingIndex].id,
+          action: 'admin_user_updated', actorEmail,
+          changes: { email: user.email, role: user.role }, createdAt: timestamp,
+        });
+        await writeLocalDb(local, { writeAdminUsers: true });
         return local.adminUsers[existingIndex];
       }
       local.adminUsers.push(user);
-      await writeLocalDb(local);
-      await addAuditLog('admin_user', user.id, 'admin_user_created', actorEmail, { email: user.email, role: user.role });
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_user', entityId: user.id,
+        action: 'admin_user_created', actorEmail,
+        changes: { email: user.email, role: user.role }, createdAt: timestamp,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
@@ -12253,8 +12429,11 @@ export async function setAdminUserActive(id: string, active: boolean, actorEmail
       if (!user) return null;
       user.active = active;
       user.updatedAt = now();
-      await writeLocalDb(local);
-      await addAuditLog('admin_user', id, 'admin_user_active_changed', actorEmail, { active });
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_user', entityId: id,
+        action: 'admin_user_active_changed', actorEmail, changes: { active }, createdAt: user.updatedAt,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
@@ -12264,7 +12443,8 @@ export async function setAdminUserActive(id: string, active: boolean, actorEmail
   return toAdminUser(rows[0]);
 }
 
-export async function setAdminUserTwoFactorSecret(email: string, secret: string, actorEmail: string) {
+export async function setAdminUserTwoFactorSecret(email: string, secret: string, actorEmail: string, expectedSessionEpoch: number) {
+  if (!Number.isSafeInteger(expectedSessionEpoch) || expectedSessionEpoch < 0 || !secret) return null;
   await ensureSchema();
   const normalized = email.trim().toLowerCase();
   const db = getPool();
@@ -12272,23 +12452,29 @@ export async function setAdminUserTwoFactorSecret(email: string, secret: string,
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
       const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
-      if (!user) return null;
+      if (!user || !user.active || normalizeAdminSessionEpoch(user.sessionEpoch) !== expectedSessionEpoch
+        || user.twoFactorEnabled || user.twoFactorSecret) return null;
       user.twoFactorSecret = secret;
       user.twoFactorEnabled = false;
       user.twoFactorLastUsedStep = -1;
       user.twoFactorBackupCodeHashes = [];
       user.updatedAt = now();
-      await writeLocalDb(local);
-      await addAuditLog('admin_user', user.id, 'admin_user_2fa_secret_created', actorEmail, { email: user.email });
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_user', entityId: user.id,
+        action: 'admin_user_2fa_secret_created', actorEmail,
+        changes: { email: user.email }, createdAt: user.updatedAt,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
   const { rows } = await db.query(
     `UPDATE admin_users
      SET two_factor_secret = $1, two_factor_enabled = false, two_factor_last_used_step = -1, two_factor_backup_code_hashes = '[]'::jsonb, updated_at = now()
-     WHERE lower(email) = lower($2)
+     WHERE lower(email) = lower($2) AND active = true AND session_epoch = $3
+       AND two_factor_enabled = false AND two_factor_secret = ''
      RETURNING *`,
-    [secret, normalized],
+    [secret, normalized, expectedSessionEpoch],
   );
   if (!rows[0]) return null;
   const user = toAdminUser(rows[0]);
@@ -12296,7 +12482,9 @@ export async function setAdminUserTwoFactorSecret(email: string, secret: string,
   return user;
 }
 
-export async function enableAdminUserTwoFactor(email: string, backupCodeHashes: string[], firstTimeStep: number, expectedSecret: string, actorEmail: string) {
+export async function enableAdminUserTwoFactor(email: string, backupCodeHashes: string[], firstTimeStep: number, expectedSecret: string, actorEmail: string, expectedSessionEpoch: number) {
+  if (!Number.isSafeInteger(expectedSessionEpoch) || expectedSessionEpoch < 0
+    || !Number.isSafeInteger(firstTimeStep) || firstTimeStep < 0 || !expectedSecret) return null;
   await ensureSchema();
   const normalized = email.trim().toLowerCase();
   const db = getPool();
@@ -12304,23 +12492,31 @@ export async function enableAdminUserTwoFactor(email: string, backupCodeHashes: 
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
       const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
-      if (!user || !expectedSecret || user.twoFactorSecret !== expectedSecret || user.twoFactorEnabled
+      if (!user || !user.active || normalizeAdminSessionEpoch(user.sessionEpoch) !== expectedSessionEpoch
+        || user.twoFactorSecret !== expectedSecret || user.twoFactorEnabled
         || firstTimeStep <= (user.twoFactorLastUsedStep ?? -1)) return null;
       user.twoFactorEnabled = true;
       user.twoFactorLastUsedStep = firstTimeStep;
       user.twoFactorBackupCodeHashes = backupCodeHashes;
+      user.sessionEpoch = normalizeAdminSessionEpoch(user.sessionEpoch) + 1;
       user.updatedAt = now();
-      await writeLocalDb(local);
-      await addAuditLog('admin_user', user.id, 'admin_user_2fa_enabled', actorEmail, { email: user.email });
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_user', entityId: user.id,
+        action: 'admin_user_2fa_enabled', actorEmail,
+        changes: { email: user.email }, createdAt: user.updatedAt,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
   const { rows } = await db.query(
     `UPDATE admin_users
-     SET two_factor_enabled = true, two_factor_last_used_step = $3, two_factor_backup_code_hashes = $1::jsonb, updated_at = now()
+     SET two_factor_enabled = true, two_factor_last_used_step = $3, two_factor_backup_code_hashes = $1::jsonb,
+         session_epoch = session_epoch + 1, updated_at = now()
      WHERE lower(email) = lower($2) AND two_factor_secret = $4 AND two_factor_enabled = false AND two_factor_last_used_step < $3
+       AND active = true AND session_epoch = $5
      RETURNING *`,
-    [JSON.stringify(backupCodeHashes), normalized, firstTimeStep, expectedSecret],
+    [JSON.stringify(backupCodeHashes), normalized, firstTimeStep, expectedSecret, expectedSessionEpoch],
   );
   if (!rows[0]) return null;
   const user = toAdminUser(rows[0]);
@@ -12328,7 +12524,8 @@ export async function enableAdminUserTwoFactor(email: string, backupCodeHashes: 
   return user;
 }
 
-export async function consumeAdminUserTotpStep(email: string, expectedSecret: string, timeStep: number) {
+export async function consumeAdminUserTotpStep(email: string, expectedSecret: string, timeStep: number, expectedSessionEpoch: number) {
+  if (!Number.isSafeInteger(expectedSessionEpoch) || expectedSessionEpoch < 0) return null;
   await ensureSchema();
   const normalized = email.trim().toLowerCase();
   const db = getPool();
@@ -12338,10 +12535,11 @@ export async function consumeAdminUserTotpStep(email: string, expectedSecret: st
       const local = await readLocalDb();
       const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
       if (!user || !user.active || !user.twoFactorEnabled || user.twoFactorSecret !== expectedSecret
+        || normalizeAdminSessionEpoch(user.sessionEpoch) !== expectedSessionEpoch
         || timeStep <= (user.twoFactorLastUsedStep ?? -1)) return null;
       user.twoFactorLastUsedStep = timeStep;
       user.updatedAt = now();
-      await writeLocalDb(local);
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
@@ -12350,13 +12548,15 @@ export async function consumeAdminUserTotpStep(email: string, expectedSecret: st
      SET two_factor_last_used_step = $3, updated_at = now()
      WHERE lower(email) = lower($1) AND active = true AND two_factor_enabled = true
        AND two_factor_secret = $2 AND two_factor_last_used_step < $3::bigint
+       AND session_epoch = $4
      RETURNING *`,
-    [normalized, expectedSecret, timeStep],
+    [normalized, expectedSecret, timeStep, expectedSessionEpoch],
   );
   return rows[0] ? toAdminUser(rows[0]) : null;
 }
 
-export async function consumeAdminUserBackupCode(email: string, backupCodeHash: string, actorEmail: string) {
+export async function consumeAdminUserBackupCode(email: string, backupCodeHash: string, actorEmail: string, expectedSessionEpoch: number) {
+  if (!Number.isSafeInteger(expectedSessionEpoch) || expectedSessionEpoch < 0 || !backupCodeHash) return null;
   await ensureSchema();
   const normalized = email.trim().toLowerCase();
   const db = getPool();
@@ -12364,7 +12564,9 @@ export async function consumeAdminUserBackupCode(email: string, backupCodeHash: 
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
       const user = local.adminUsers.find((item) => item.email.toLowerCase() === normalized);
-      if (!user || !user.twoFactorBackupCodeHashes.includes(backupCodeHash)) return null;
+      if (!user || !user.active || !user.twoFactorEnabled
+        || normalizeAdminSessionEpoch(user.sessionEpoch) !== expectedSessionEpoch
+        || !user.twoFactorBackupCodeHashes.includes(backupCodeHash)) return null;
       user.twoFactorBackupCodeHashes = user.twoFactorBackupCodeHashes.filter((hash) => hash !== backupCodeHash);
       user.updatedAt = now();
       local.auditLogs.unshift({
@@ -12372,7 +12574,7 @@ export async function consumeAdminUserBackupCode(email: string, backupCodeHash: 
         action: 'admin_user_2fa_backup_code_used', actorEmail,
         changes: { email: user.email }, createdAt: now(),
       });
-      await writeLocalDb(local);
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
@@ -12385,12 +12587,13 @@ export async function consumeAdminUserBackupCode(email: string, backupCodeHash: 
      ), '[]'::jsonb), updated_at = now()
      WHERE lower(email) = lower($2)
        AND two_factor_enabled = true
+       AND active = true AND session_epoch = $3
        AND EXISTS (
          SELECT 1 FROM jsonb_array_elements_text(admin_users.two_factor_backup_code_hashes) AS stored(code_hash)
          WHERE code_hash = $1
        )
      RETURNING *`,
-    [backupCodeHash, normalized],
+    [backupCodeHash, normalized, expectedSessionEpoch],
   );
   if (!rows[0]) return null;
   const user = toAdminUser(rows[0]);
@@ -12410,15 +12613,21 @@ export async function resetAdminUserTwoFactor(id: string, actorEmail: string) {
       user.twoFactorEnabled = false;
       user.twoFactorLastUsedStep = -1;
       user.twoFactorBackupCodeHashes = [];
+      user.sessionEpoch = normalizeAdminSessionEpoch(user.sessionEpoch) + 1;
       user.updatedAt = now();
-      await writeLocalDb(local);
-      await addAuditLog('admin_user', id, 'admin_user_2fa_reset', actorEmail, { email: user.email });
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_user', entityId: id,
+        action: 'admin_user_2fa_reset', actorEmail,
+        changes: { email: user.email }, createdAt: user.updatedAt,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
       return user;
     });
   }
   const { rows } = await db.query(
     `UPDATE admin_users
-     SET two_factor_secret = '', two_factor_enabled = false, two_factor_last_used_step = -1, two_factor_backup_code_hashes = '[]'::jsonb, updated_at = now()
+     SET two_factor_secret = '', two_factor_enabled = false, two_factor_last_used_step = -1,
+         two_factor_backup_code_hashes = '[]'::jsonb, session_epoch = session_epoch + 1, updated_at = now()
      WHERE id = $1
      RETURNING *`,
     [id],
@@ -12560,7 +12769,7 @@ export async function setAdminSetting(key: string, value: string, actorEmail: st
         id: randomUUID(), entityType: 'site_content', entityId: siteContentAuditId,
         action: 'admin_setting_updated', actorEmail, changes: { key: normalizedKey }, createdAt: now(),
       });
-      await writeLocalDb(local);
+      await writeLocalDb(local, { adminSettingKey: normalizedKey });
     });
     return;
   }
@@ -12625,12 +12834,12 @@ export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
       : now(),
     sessionId: clampText(input.sessionId, 80),
     eventType: input.eventType,
-    path: clampText(input.path || '/', 300),
+    path: clampText(input.path || '/', 500),
     referrer: clampText(input.referrer, 500),
     device: input.device || 'desktop',
     viewportWidth: input.viewportWidth ? Math.max(0, Math.round(Number(input.viewportWidth))) : undefined,
-    utmSource: clampText(input.utmSource, 120),
-    utmMedium: clampText(input.utmMedium, 120),
+    utmSource: clampText(input.utmSource, 160),
+    utmMedium: clampText(input.utmMedium, 160),
     utmCampaign: clampText(input.utmCampaign, 160),
     metadata: input.metadata ?? {},
   };

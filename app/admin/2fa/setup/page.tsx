@@ -1,7 +1,7 @@
 import QRCode from 'qrcode';
 import { redirect } from 'next/navigation';
-import { createGuestCsrfToken, currentAdminEmail, currentPendingTwoFactorEmail } from '@/src/server/auth';
-import { getAdminUserByEmail, setAdminUserTwoFactorSecret } from '@/src/server/db';
+import { createGuestCsrfToken, currentTwoFactorSetupUser } from '@/src/server/auth';
+import { setAdminUserTwoFactorSecret } from '@/src/server/db';
 import { generateTotpSecret, isTwoFactorRequired, totpUri } from '@/src/server/two-factor';
 import { confirmTwoFactorSetupAction } from '../actions';
 
@@ -11,14 +11,12 @@ export const metadata = {
 };
 
 export default async function TwoFactorSetupPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
-  const email = (await currentPendingTwoFactorEmail()) || (await currentAdminEmail());
-  if (!email) redirect('/admin/login');
-  let user = await getAdminUserByEmail(email);
+  let user = await currentTwoFactorSetupUser();
   if (!user?.active) redirect('/admin/login');
   if (user.twoFactorEnabled) redirect('/admin/dopyty');
 
   if (!user.twoFactorSecret) {
-    user = await setAdminUserTwoFactorSecret(user.email, generateTotpSecret(), user.email);
+    user = await setAdminUserTwoFactorSecret(user.email, generateTotpSecret(), user.email, user.sessionEpoch);
   }
   if (!user?.twoFactorSecret) redirect('/admin/login');
 

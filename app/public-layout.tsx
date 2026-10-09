@@ -85,6 +85,7 @@ export function PublicFooter() {
         <a href="/kariera/">Kariéra</a>
         <a href="/spolupracujuci-strechari/">Spolupracujúci strechári</a>
         <a href="/poradna/">Poradňa</a>
+        <a href="/o-firme/#oficialne-weby">Overené údaje a weby ASTANA</a>
         <span>IČO: {site.ico}</span>
       </div>
       <div>

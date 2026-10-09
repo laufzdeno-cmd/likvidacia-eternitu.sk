@@ -243,13 +243,54 @@
   outline-offset: 4px;
 }
 
-.card > img {
+.photoGallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  background: #e0e6ee;
+}
+
+.photoGallery[data-count='1'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.photoGallery figure {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+  background: #f3f5f8;
+}
+
+.photoGallery figure:first-child:last-child,
+.photoGallery figure:nth-child(3):last-child {
+  grid-column: 1 / -1;
+}
+
+.photoGallery img {
   display: block;
   width: 100%;
   height: auto;
   aspect-ratio: 3 / 2;
   object-fit: cover;
   background: #f3f5f8;
+}
+
+.photoGallery figcaption {
+  position: absolute;
+  inset: auto 8px 8px;
+  display: grid;
+  gap: 2px;
+  max-width: calc(100% - 16px);
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgb(20 35 59 / 88%);
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.photoGallery figcaption span {
+  overflow-wrap: anywhere;
 }
 
 .cardBody {

@@ -11,9 +11,9 @@ test('homepage loads below-fold CSS after first paint and keeps direct anchors s
   assert.match(page, /<HomeDeferredStyles \/>/);
   assert.match(critical, /--home-route-css:\s*1/);
   assert.match(critical, /\.hero-photo\b/);
-  assert.doesNotMatch(critical, /\.included-group-card\b/);
+  assert.doesNotMatch(critical, /\.real-work-card\b/);
   assert.match(deferred, /--home-deferred-css:\s*1/);
-  assert.match(deferred, /\.included-group-card\b/);
+  assert.match(deferred, /\.real-work-card\b/);
   assert.match(loader, /<noscript><link rel="stylesheet" href=\{stylesheet\} \/><\/noscript>/);
   const client = readFileSync('app/homepage-deferred-client.tsx', 'utf8');
   assert.match(client, /link\[data-home-deferred-styles\]/);

@@ -284,6 +284,7 @@ export type AdminUser = {
   twoFactorEnabled: boolean;
   twoFactorLastUsedStep?: number;
   twoFactorBackupCodeHashes: string[];
+  sessionEpoch: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -656,7 +657,7 @@ export type PublishedRealization = Pick<Realization,
 export type RealizationCaseDraft = {
   id: string;
   businessJobId?: string;
-  businessJob?: { id: string; demolitionDate: string; district: string };
+  businessJob?: { id: string; demolitionDate: string; district: string; exactLocation: string };
   title: string;
   locality: string;
   localityPrecision: 'none' | 'municipality' | 'district';
@@ -675,7 +676,17 @@ export type RealizationCaseDraft = {
   resultDescription: string;
   areaEstimate?: number;
   workPeriod: string;
-  media: Array<{ id: string; originalName: string; locality: string; categories: string[]; createdAt: string; uploadedAt?: string }>;
+  media: Array<{
+    id: string;
+    originalName: string;
+    locality: string;
+    categories: string[];
+    phase: 'before' | 'during' | 'after';
+    publicCaption: string;
+    sortOrder: number;
+    createdAt: string;
+    uploadedAt?: string;
+  }>;
   createdAt: string;
   updatedAt: string;
   updatedBy: string;
@@ -684,7 +695,11 @@ export type RealizationCaseDraft = {
 export type PublishedRealizationCase = Pick<RealizationCaseDraft,
   'id' | 'title' | 'locality' | 'localityPrecision' | 'objectType' | 'materialType'
   | 'workDescription' | 'resultDescription' | 'areaEstimate' | 'workPeriod'
-> & { photoIds: string[]; publishedAt: string };
+> & {
+  photoIds: string[];
+  photos: Array<{ id: string; phase: 'before' | 'during' | 'after'; publicCaption: string; sortOrder: number }>;
+  publishedAt: string;
+};
 
 export type SiteContentItem = {
   key: string;

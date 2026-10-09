@@ -23,7 +23,21 @@
   "founded_year_source": "https://www.registeruz.sk/cruz-public/domain/accountingentity/show/1124019",
   "founded_year_verified_as_of": "2026-10-07",
   "areas_served": ["Slovensko"],
-  "same_as": ["https://astana.sk"],
+  "same_as": ["https://www.astana.sk/", "https://likvidovanie-azbestu.sk/"],
+  "official_websites": [
+    {
+      "url": "https://www.astana.sk/",
+      "role": "Firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti."
+    },
+    {
+      "url": "https://likvidacia-eternitu.sk",
+      "role": "Špecializovaný web pre eternitové a azbestové strechy, cenovú ponuku, demontáž a koordináciu so strechármi."
+    },
+    {
+      "url": "https://likvidovanie-azbestu.sk/",
+      "role": "Doplnkový odborný web pre azbest na nehnuteľnosti, v interiéri a pri špecializovaných vonkajších situáciách."
+    }
+  ],
   "authorizations": {
     "asbestos_removal_scope_as_published": ["EXT, BJ", "INT"],
     "public_verification": "Zoznam ÚVZ SR zverejnený k 19. 9. 2024 uvádza ASTANA, s.r.o. s oprávneniami označenými EXT, BJ a INT. Ide o stav zachytený v tomto zozname; aktuálnosť po uvedenom dátume z neho nemožno potvrdiť.",

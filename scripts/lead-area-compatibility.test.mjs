@@ -19,7 +19,7 @@ test('emailové a operátorské plochy používajú spoločný formát výmery',
   const list = read('../app/admin/(protected)/dopyty/page.tsx');
   const dashboard = read('../app/admin/(protected)/dashboard/page.tsx');
   const roofers = read('../app/admin/(protected)/strechari/page.tsx');
-  const quote = read('../app/admin/(protected)/dopyty/[id]/cenova-ponuka/page.tsx');
+  const legacyQuoteRoute = read('../app/admin/(protected)/dopyty/[id]/cenova-ponuka/page.tsx');
   const offerForm = read('../app/admin/(protected)/ponuky/offer-form.tsx');
   const relay = read('../src/server/astana-local-relay.ts');
 
@@ -29,8 +29,8 @@ test('emailové a operátorské plochy používajú spoločný formát výmery',
   assert.match(list, /formatLeadAreaCompact\(lead\)/);
   assert.match(dashboard, /formatLeadAreaCompact\(lead\)/);
   assert.match(roofers, /formatLeadAreaCompact\(lead\)/);
-  assert.match(quote, /defaultValue=\{areaUnknown \? '' : lead\.areaEstimate\}/);
-  assert.match(quote, /Výmera v pôvodnom dopyte nebola známa/);
+  assert.match(legacyQuoteRoute, /redirect\(`\/admin\/ponuky\/nova\?lead=\$\{encodeURIComponent\(id\)\}`\)/);
+  assert.doesNotMatch(legacyQuoteRoute, /createQuoteAction|createQuote|pricePerM2/);
   assert.match(offerForm, /areaIsUnknown \? 'Výmera neznáma'/);
   assert.match(offerForm, /job\.m2 > 0 \? `\$\{job\.m2\} m2` : 'výmera neznáma'/);
   assert.match(offerForm, /Výmera nie je vyplnená/);

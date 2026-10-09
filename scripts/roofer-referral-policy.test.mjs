@@ -184,13 +184,12 @@ test('the exact roofer referral migration upgrades a legacy row and enforces com
   }
 });
 
-test('admin boundary validates string evidence and imports never auto-authorize referrals', async () => {
-  const [actions, page, publicRoofers, partnerPage, quoteAction, quotePage, leadDetail] = await Promise.all([
+test('admin boundary validates string evidence, imports never auto-authorize referrals and legacy CP cannot write', async () => {
+  const [actions, page, publicRoofers, partnerPage, legacyQuotePage, leadDetail] = await Promise.all([
     read('app/admin/(protected)/strechari/actions.ts'),
     read('app/admin/(protected)/strechari/page.tsx'),
     read('app/strechari/page.tsx'),
     read('app/spolupracujuci-strechari/page.tsx'),
-    read('app/admin/(protected)/dopyty/[id]/cenova-ponuka/actions.ts'),
     read('app/admin/(protected)/dopyty/[id]/cenova-ponuka/page.tsx'),
     read('app/admin/(protected)/dopyty/[id]/page.tsx'),
   ]);
@@ -201,8 +200,7 @@ test('admin boundary validates string evidence and imports never auto-authorize 
   assert.match(page, /Importovaný partner sa bez samostatného potvrdenia neponúkne zákazníkovi/);
   assert.doesNotMatch(publicRoofers, /listRoofers|listReferralEligibleRoofers|customerReferralEvidence/);
   assert.doesNotMatch(partnerPage, /listRoofers|listReferralEligibleRoofers|customerReferralEvidence/);
-  assert.match(quoteAction, /getReferralEligibleRoofer\(recommendedRooferId\)/);
-  assert.match(quotePage, /getReferralEligibleRoofer\(lead\.selectedRooferId\)/);
+  assert.match(legacyQuotePage, /redirect\(`\/admin\/ponuky\/nova\?lead=\$\{encodeURIComponent\(id\)\}`\)/);
+  assert.doesNotMatch(legacyQuotePage, /createQuoteAction|createQuote|getReferralEligibleRoofer/);
   assert.match(leadDetail, /getReferralEligibleRoofer\(lead\.selectedRooferId\)/);
-  assert.doesNotMatch(quoteAction, /\bgetRoofer\b/);
 });

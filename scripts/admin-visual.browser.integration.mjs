@@ -45,7 +45,9 @@ const allRoutes = [
   [`/admin/zakazky/${syntheticIds.job}/`, 'zakazka-detail'],
   ['/admin/kariera/', 'kariera'],
   [`/admin/kariera/${syntheticIds.career}/`, 'kariera-detail'],
+  ['/admin/obsah/', 'obsah'],
   ['/admin/realizacie/fotky/', 'fotky'],
+  ['/admin/realizacie/pripady/', 'realizacie-pripady'],
   ['/admin/reviews/request/', 'review-request'],
   ['/admin/reviews/request/?result=invalid&attempt=visual-invalid', 'review-request-invalid'],
   ['/admin/reviews/request/?result=saved&attempt=visual-saved', 'review-request-saved'],
@@ -212,7 +214,7 @@ async function stopChild(processHandle) {
 }
 
 function sessionCookie() {
-  const payload = Buffer.from(JSON.stringify({ email: adminEmail, iat: Date.now() })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ kind: 'admin-session', email: adminEmail, iat: Date.now(), epoch: 0 })).toString('base64url');
   const signature = createHmac('sha256', secret).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }

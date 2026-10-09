@@ -10,6 +10,7 @@ let server;
 let enableAdminUserTwoFactor;
 let consumeAdminUserTotpStep;
 let getAdminUserByEmail;
+let resetAdminUserTwoFactor;
 let upsertAdminUser;
 let verifyTotpTimeStep;
 
@@ -33,7 +34,7 @@ async function startIsolatedDatabase() {
   process.env.DATABASE_URL = `postgres://astana_test:astana_test@127.0.0.1:${port}/astana_test`;
   process.env.ADMIN_EMAIL = '';
 
-  ({ enableAdminUserTwoFactor, consumeAdminUserTotpStep, getAdminUserByEmail, upsertAdminUser } = await import('../src/server/db.ts'));
+  ({ enableAdminUserTwoFactor, consumeAdminUserTotpStep, getAdminUserByEmail, resetAdminUserTwoFactor, upsertAdminUser } = await import('../src/server/db.ts'));
   ({ verifyTotpTimeStep } = await import('../src/server/two-factor.ts'));
 }
 
@@ -45,20 +46,20 @@ async function testTotpReplayAndConcurrency() {
   const token = generateSync({ secret, epoch });
 
   await upsertAdminUser({ email, name: 'TOTP test', role: 'SUPER_ADMIN', active: true, twoFactorSecret: secret }, 'integration-test');
-  const enabled = await enableAdminUserTwoFactor(email, ['backup-hash'], timeStep - 1, secret, 'integration-test');
+  const enabled = await enableAdminUserTwoFactor(email, ['backup-hash'], timeStep - 1, secret, 'integration-test', 0);
   assert.ok(enabled, 'initial setup must succeed');
   assert.equal(verifyTotpTimeStep(token, secret, epoch), timeStep, 'legitimate code resolves to its exact time step');
 
   const results = await Promise.all([
-    consumeAdminUserTotpStep(email, secret, timeStep),
-    consumeAdminUserTotpStep(email, secret, timeStep),
+    consumeAdminUserTotpStep(email, secret, timeStep, 1),
+    consumeAdminUserTotpStep(email, secret, timeStep, 1),
   ]);
   assert.equal(results.filter(Boolean).length, 1, 'only one parallel request may consume the same code');
-  assert.equal(await consumeAdminUserTotpStep(email, secret, timeStep), null, 'the same time step cannot be replayed');
+  assert.equal(await consumeAdminUserTotpStep(email, secret, timeStep, 1), null, 'the same time step cannot be replayed');
   const nextEpoch = (timeStep + 1) * 30;
   const nextToken = generateSync({ secret, epoch: nextEpoch });
   assert.equal(verifyTotpTimeStep(nextToken, secret, nextEpoch), timeStep + 1);
-  assert.ok(await consumeAdminUserTotpStep(email, secret, timeStep + 1), 'a later valid time step remains usable');
+  assert.ok(await consumeAdminUserTotpStep(email, secret, timeStep + 1, 1), 'a later valid time step remains usable');
 }
 
 async function testSetupCodeReplay() {
@@ -67,11 +68,20 @@ async function testSetupCodeReplay() {
   const timeStep = Math.floor(Date.now() / 30_000);
 
   await upsertAdminUser({ email, name: 'TOTP setup test', role: 'SUPER_ADMIN', active: true, twoFactorSecret: secret }, 'integration-test');
-  assert.ok(await enableAdminUserTwoFactor(email, ['first-backup-hash'], timeStep, secret, 'integration-test'));
-  assert.equal(await enableAdminUserTwoFactor(email, ['replacement-backup-hash'], timeStep, secret, 'integration-test'), null);
+  const enableResults = await Promise.all([
+    enableAdminUserTwoFactor(email, ['first-backup-hash'], timeStep, secret, 'integration-test', 0),
+    enableAdminUserTwoFactor(email, ['replacement-backup-hash'], timeStep, secret, 'integration-test', 0),
+  ]);
+  assert.equal(enableResults.filter(Boolean).length, 1, 'iba jedna súbežná aktivácia 2FA smie uspieť');
+  assert.equal(enableResults.find(Boolean)?.sessionEpoch, 1, 'aktivácia 2FA musí epoch zvýšiť presne raz');
   const user = await getAdminUserByEmail(email);
-  assert.deepEqual(user?.twoFactorBackupCodeHashes, ['first-backup-hash']);
+  assert.equal(user?.twoFactorBackupCodeHashes.length, 1);
   assert.equal(user?.twoFactorLastUsedStep, timeStep);
+  assert.equal(user?.sessionEpoch, 1);
+  assert.equal(await enableAdminUserTwoFactor(email, ['replay-hash'], timeStep, secret, 'integration-test', 0), null);
+  assert.equal((await getAdminUserByEmail(email))?.sessionEpoch, 1, 'replay nesmie zvýšiť epoch');
+  assert.equal((await resetAdminUserTwoFactor(user.id, 'integration-test'))?.sessionEpoch, 2,
+    'reset 2FA musí atómovo zrušiť aj reláciu vydanú po aktivácii');
 }
 
 async function testSecretRotation() {
@@ -81,12 +91,12 @@ async function testSecretRotation() {
   const timeStep = Math.floor(Date.now() / 30_000);
 
   await upsertAdminUser({ email, name: 'TOTP rotation test', role: 'SUPER_ADMIN', active: true, twoFactorSecret: oldSecret }, 'integration-test');
-  assert.ok(await enableAdminUserTwoFactor(email, ['old-backup-hash'], timeStep - 1, oldSecret, 'integration-test'));
+  assert.ok(await enableAdminUserTwoFactor(email, ['old-backup-hash'], timeStep - 1, oldSecret, 'integration-test', 0));
   await upsertAdminUser({ email, name: 'TOTP rotation test', role: 'SUPER_ADMIN', active: true, twoFactorSecret: nextSecret }, 'integration-test');
   assert.equal(await getAdminUserByEmail(email).then((user) => user?.twoFactorLastUsedStep), -1);
-  assert.equal(await enableAdminUserTwoFactor(email, ['wrong-secret-backup-hash'], timeStep, oldSecret, 'integration-test'), null);
-  assert.ok(await enableAdminUserTwoFactor(email, ['new-backup-hash'], timeStep, nextSecret, 'integration-test'));
-  assert.equal(await consumeAdminUserTotpStep(email, nextSecret, timeStep), null);
+  assert.equal(await enableAdminUserTwoFactor(email, ['wrong-secret-backup-hash'], timeStep, oldSecret, 'integration-test', 1), null);
+  assert.ok(await enableAdminUserTwoFactor(email, ['new-backup-hash'], timeStep, nextSecret, 'integration-test', 1));
+  assert.equal(await consumeAdminUserTotpStep(email, nextSecret, timeStep, 2), null);
 }
 
 let exitCode = 0;

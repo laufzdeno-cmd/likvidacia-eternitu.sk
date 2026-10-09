@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { listPhotoIntakeJobOptions, listPhotoIntakeRecords, listRealizationCaseDrafts } from '@/src/server/db';
-import { saveCaseDraftAction, setCaseDraftPhotoAction, transitionCaseDraftAction } from './actions';
+import { saveCaseDraftAction, setCaseDraftPhotoAction, transitionCaseDraftAction, updateCaseDraftPhotoMetadataAction } from './actions';
 
 export default async function RealizationCaseDraftsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const admin = await requireSuperAdmin();
@@ -32,6 +32,10 @@ export default async function RealizationCaseDraftsPage({ searchParams }: { sear
       <h2>Publikačný proces</h2>
       <p>Každý prípad sa zverejňuje samostatne až po redakčnej kontrole. Verejné budú iba schválený text, bezpečne zovšeobecnená obec alebo okres (prípadne bez lokality) a očistené fotografie; osobné údaje zákazníka sa nezobrazujú.</p>
       <p><strong>Aktuálny stav:</strong> {selected.lifecycle === 'draft' ? 'Súkromný koncept' : selected.lifecycle === 'reviewed' ? 'Čaká na schválenie' : selected.lifecycle === 'approved' ? 'Schválený, zatiaľ nezverejnený' : selected.lifecycle === 'published' ? 'Zverejnený' : 'Stiahnutý z webu'}</p>
+      {selected.businessJob ? <div className="admin-alert">
+        <strong>Interná presná lokalita CRM:</strong> {selected.businessJob.exactLocation || 'V zákazke nie je uvedená'}
+        <br /><small>Tento údaj slúži iba administrácii. Na verejný web sa prenesie výhradne samostatne zvolená obec, okres alebo žiadna lokalita.</small>
+      </div> : null}
       {selected.lifecycle !== 'draft' ? <div className="admin-case-review-preview">
         <h3>Náhľad uzamknutého obsahu</h3>
         <dl><div><dt>Názov</dt><dd>{selected.title || 'Neuvedený'}</dd></div>
@@ -44,7 +48,7 @@ export default async function RealizationCaseDraftsPage({ searchParams }: { sear
         <h4>Pripojené fotografie ({selected.media.length})</h4>
         {selected.media.length ? <div className="photo-admin-grid">{selected.media.map((photo) => <figure key={photo.id}>
           <img src={`/api/photo-intake/media/${photo.id}`} alt="Očistená fotografia prípadu na redakčnú kontrolu" loading="lazy" />
-          <figcaption>{photo.locality || 'Lokalita neuvedená'} · {photo.categories.join(', ') || 'kategória neuvedená'}</figcaption>
+          <figcaption>{photo.phase === 'before' ? 'Pred prácou' : photo.phase === 'after' ? 'Po práci' : 'Počas práce'} · {photo.publicCaption || photo.locality || 'Bez verejného popisu'}</figcaption>
         </figure>)}</div> : <p>Prípad zatiaľ nemá pripojenú schválenú fotografiu.</p>}
       </div> : null}
       {selected.lifecycle === 'draft' ? <form action={transitionCaseDraftAction}>
@@ -111,6 +115,13 @@ export default async function RealizationCaseDraftsPage({ searchParams }: { sear
       {selected.media.length ? <div className="photo-admin-grid">{selected.media.map((photo) => <article key={photo.id}>
         <img src={`/api/photo-intake/media/${photo.id}`} alt="Súkromná fotografia pripojená ku konceptu" loading="lazy" />
         <strong>{photo.originalName}</strong><small>{photo.locality || 'Lokalita neuvedená'} · {photo.uploadedAt ? 'nahrané' : 'zaevidované'} {new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date(photo.uploadedAt ?? photo.createdAt))}</small>
+        <form action={updateCaseDraftPhotoMetadataAction} className="admin-photo-meta-form">
+          <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="draftId" value={selected.id} /><input type="hidden" name="mediaId" value={photo.id} />
+          <label>Fáza<select name="phase" defaultValue={photo.phase}><option value="before">Pred prácou</option><option value="during">Počas práce</option><option value="after">Po práci</option></select></label>
+          <label>Poradie<input name="sortOrder" type="number" min="0" max="999" step="1" defaultValue={photo.sortOrder} required /></label>
+          <label>Verejný popis<input name="publicCaption" defaultValue={photo.publicCaption} maxLength={240} placeholder="Napr. Stav strechy pred demontážou" /></label>
+          <button type="submit">Uložiť popis fotky</button>
+        </form>
         <form action={setCaseDraftPhotoAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="draftId" value={selected.id} /><input type="hidden" name="mediaId" value={photo.id} /><input type="hidden" name="attach" value="false" /><button type="submit">Odpojiť fotku</button></form>
       </article>)}</div> : <p>Zatiaľ nie sú pripojené fotografie.</p>}
       <h3>Dostupné fotografie</h3>

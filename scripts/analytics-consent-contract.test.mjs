@@ -27,10 +27,13 @@ const mobileCookieLayout = read('../src/mobile-cookie-layout.css');
 const marketingRevocationRoute = read('../app/api/marketing-consent/revoke/route.ts');
 
 test('analytics API is gated by the server-readable consent cookie before persistence', () => {
+  assert.match(route, /analyticsOriginAllowed\(request\.headers\.get\('origin'\), process\.env\.NODE_ENV\)/);
   assert.match(route, /request\.cookies\.get\(analyticsConsentCookieName\)\?\.value !== 'granted'/);
   assert.match(route, /ok: true, skipped: true/);
   assert.ok(route.indexOf('skipped: true') < route.indexOf('recordAnalyticsEvent({'));
   assert.match(route, /request\.cookies\.get\(marketingConsentCookieName\)\?\.value !== 'granted'[\s\S]{0,80}delete metadata\.adClickIds/);
+  assert.match(route, /publicAnalyticsPayloadSchema\.safeParse\(parsedJson\)/);
+  assert.match(route, /consumeSharedRateLimit\([\s\S]{0,100}'analytics-event-address'/);
 });
 
 test('all public analytics events share a tracker that is inert without consent', () => {

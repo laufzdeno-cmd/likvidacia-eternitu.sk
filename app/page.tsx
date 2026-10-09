@@ -3,10 +3,10 @@ import HomepageClientBoundary from './homepage-client-boundary';
 import HomepageDeferredClient from './homepage-deferred-client';
 import HomepageDeferredWidgets from './homepage-deferred-widgets';
 import HeaderBrandLogo from './header-brand-logo';
-import { TrustComplianceSection } from './seo-components';
 import { ResponsiveImage } from '@/src/components/responsive-image';
 import {
   heroPhoto,
+  getAzbestReference,
   realizationHighlights,
 } from '@/src/data/azbestReferences';
 import { getSiteContentMap } from '@/src/server/db';
@@ -17,6 +17,7 @@ import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import { filterHomepageTrustItems, normalizeHomepageCoverageText } from '@/src/lib/homepage-trust-items.mjs';
 import './home-critical.css';
 import HomeDeferredStyles from './home-deferred-styles';
+import styles from './homepage-conversion-layout.module.css';
 
 export const metadata: Metadata = {
   alternates: { canonical: '/' },
@@ -37,35 +38,23 @@ const heroImage = {
     '/assets/azbest/hero/azbest-087-desktop-900.jpg 900w, /assets/azbest/hero/azbest-087-desktop.jpg 1100w',
 } as const;
 
-const realizationFilters = [
-  { value: 'vsetky', label: 'Všetky' },
-  { value: 'rodinny-dom', label: 'Rodinný dom' },
-  { value: 'hospodarska-budova', label: 'Hospodárska budova' },
-  { value: 'garaz', label: 'Garáž' },
-  { value: 'priemyselny-objekt', label: 'Priemyselný objekt' },
-] as const;
-
-const whyCardMeta = [
-  { id: 'safe-process', contentKey: 'whySafeText', icon: 'shield', title: 'Bezpečný postup' },
-  { id: 'documentation', contentKey: 'whyDocumentationText', icon: 'document', title: 'Dokumentácia' },
-  { id: 'removal-transport', contentKey: 'whyRemovalText', icon: 'truck', title: 'Demontáž aj odvoz' },
-  { id: 'experience', contentKey: 'whyExperienceText', icon: 'clock', title: 'ASTANA pôsobí od roku 2011' },
-  { id: 'clear-pricing', contentKey: 'whyPricingText', icon: 'euro', title: 'Jasné nacenenie' },
-  { id: 'coverage', contentKey: 'whyCoverageText', icon: 'map', title: 'Celé Slovensko' },
-] as const;
+const homepageHighlights = realizationHighlights
+  .filter((item) => ['azbest-164', 'azbest-120', 'azbest-110'].includes(item.image.id))
+  .slice(0, 3)
+  .map((item) => item.image.id === 'azbest-120' ? {
+    ...item,
+    title: 'Práce na hospodárskej budove',
+    image: {
+      ...getAzbestReference('azbest-057'),
+      title: 'Práce na streche hospodárskej budovy',
+      alt: 'Dlhá hospodárska budova s vlnitou strešnou krytinou a pracovníkmi v ochranných oblekoch.',
+    },
+  } : item);
 
 type VisualIconName =
-  | (typeof whyCardMeta)[number]['icon']
-  | 'warning'
-  | 'check'
-  | 'home'
-  | 'waste'
-  | 'tools'
-  | 'calendar'
-  | 'lock'
-  | 'spray'
-  | 'alert'
-  | 'certificate';
+  | 'shield' | 'document' | 'truck' | 'clock' | 'euro' | 'map'
+  | 'warning' | 'check' | 'home' | 'waste' | 'tools'
+  | 'calendar' | 'lock' | 'spray' | 'alert' | 'certificate';
 
 function VisualIcon({ name, className = 'visual-icon' }: { name: VisualIconName; className?: string }) {
   const paths = {
@@ -141,40 +130,6 @@ const defaultProcessSteps = [
   ['Pripravíme cenovú ponuku', 'Na základe m2 a údajov pripravíme nezáväznú cenovú ponuku.'],
   ['Po objednávke vybavíme dokumentáciu a termín', 'Pripravíme potrebný postup, doklady a dohodneme realizáciu.'],
   ['Zrealizujeme demontáž, odvoz a odovzdáme doklady', 'Materiál stabilizujeme, zabalíme, odvezieme a po ukončení odovzdáme dokumentáciu.'],
-] satisfies [string, string][];
-
-const defaultRiskItems = [
-  ['Zdravotné riziko', 'Pri neodbornej manipulácii môžu vznikať nebezpečné vlákna a prach.'],
-  ['Úradný postup', 'Pri azbeste sa rieši postup a dokumentácia podľa konkrétnej zákazky.'],
-  ['Nebezpečný odpad', 'Azbest nepatrí do bežného odpadu. Musí byť správne zabalený a odovzdaný.'],
-  ['Doklady', 'Po legálnej likvidácii získate potrebné potvrdenie alebo dokumentáciu.'],
-] satisfies [string, string][];
-
-const defaultCautionItems = [
-  [
-    'Pýtajte si doklady ku konkrétnej stavbe',
-    'Nestačí počuť „máme oprávnenie“. Pri plánovaných prácach držiteľ oprávnenia oznamuje odstraňovanie RÚVZ najmenej 30 dní vopred a prikladá požadované podklady. Firma vám má vedieť vysvetliť postup pre vašu stavbu.',
-  ],
-  [
-    'Pozor na odpad ponechaný na dvore',
-    'Likvidácia nekončí demontážou. Azbestový odpad musí byť zabalený a odvezený na určené miesto.',
-  ],
-  [
-    'Pozor na zhadzovanie eternitu',
-    'Materiál sa má demontovať kontrolovane. Zhadzovanie môže zhoršiť riziko prachu, poškodenia a chaosu na stavbe.',
-  ],
-  [
-    'Pozor na cenu bez dokladov',
-    'Nízka cena môže znamenať, že v nej nie je zahrnutá dokumentácia, skládka, balenie alebo odvoz.',
-  ],
-  [
-    'Pozor na meškanie termínu',
-    'Ak demontáž mešká, strechári čakajú a strecha môže zostať otvorená. Preto termíny plánujeme vopred a sledujeme počasie.',
-  ],
-  [
-    'Pozor na zálohu bez istoty',
-    'Pri bežných zákazkách neplatíte vopred za samotnú realizáciu. Platba prebieha po dokončení podľa dohodnutého rozsahu.',
-  ],
 ] satisfies [string, string][];
 
 const defaultRooferItems = [
@@ -297,20 +252,14 @@ export default async function HomePage() {
   const includedGroups = [
     {
       title: 'Úrady a dokumentácia',
-      text: 'Pripravíme potrebné podklady podľa typu zákazky, aby bol postup riešený ku konkrétnej stavbe.',
-      icon: 'document',
       items: includedItems.slice(0, 3),
     },
     {
       title: 'Bezpečná práca na stavbe',
-      text: 'Materiál stabilizujeme, demontujeme kontrolovane a po práci riešime čistý pracovný priestor.',
-      icon: 'shield',
       items: includedItems.slice(3, 6),
     },
     {
       title: 'Odvoz a doklady',
-      text: 'Odpad neostáva na dvore. Po zabalení riešime odvoz a súvisiace potvrdenia podľa rozsahu zákazky.',
-      icon: 'truck',
       items: includedItems.slice(6),
     },
   ].filter((group) => group.items.length > 0);
@@ -318,8 +267,6 @@ export default async function HomePage() {
     filterHomepageTrustItems(parsePairs(content.trustItems, defaultTrustItems)),
   );
   const processSteps = parsePairs(content.processSteps, defaultProcessSteps);
-  const riskItems = parsePairs(content.riskItems, defaultRiskItems);
-  const cautionItems = parsePairs(content.cautionItems, defaultCautionItems);
   const rooferItems = parsePairs(content.rooferItems, defaultRooferItems);
   const faq = parsePairs(content.faqItems, defaultFaq);
   const jsonLd = buildJsonLd(faq);
@@ -451,6 +398,58 @@ export default async function HomePage() {
             </div>
           </div>
 
+        </section>
+
+        <section className={`trust-bar ${styles.trustSection}`} id="preco" aria-labelledby="why-title">
+          <h2 id="why-title" className={styles.trustTitle}>{content.whyTitle}</h2>
+          {trustItems.map(([title, text], index) => (
+            <div className="trust-item" key={title}>
+              <span className={`line-icon ${['shield', 'map', 'document', 'truck', 'certificate'][index] || 'shield'}`} aria-hidden="true"></span>
+              <strong>{title}</strong>
+              <p>{text}</p>
+            </div>
+          ))}
+        </section>
+
+        <section className={`price-calculator-section ${styles.calculator}`} id="orientacna-cena" aria-labelledby="price-calculator-title">
+          <div className="price-calculator-copy">
+            <p className="eyebrow">Orientačný cenový rozsah</p>
+            <h2 id="price-calculator-title">Koľko môže stáť likvidácia?</h2>
+            <p>
+              Vyberte výmeru a materiál. Presnú cenu vám potvrdíme v nezáväznej ponuke.
+            </p>
+            <p className={styles.calculatorNote}>
+              Bez záväzkov · Ponuka do 24 hodín
+            </p>
+          </div>
+          <div className="price-calculator-card" data-price-calculator>
+            <div className="price-area-row">
+              <label htmlFor="price-area">Približná výmera</label>
+              <output htmlFor="price-area" data-price-area-output>120 m2</output>
+            </div>
+            <input
+              id="price-area"
+              data-price-area
+              type="range"
+              min="10"
+              max="500"
+              step="10"
+              defaultValue="120"
+              aria-label="Približná výmera v metroch štvorcových"
+            />
+            <div className="price-materials" role="group" aria-label="Typ materiálu">
+              <button type="button" className="is-active" data-price-material="vlnity" aria-pressed="true">Vlnitý eternit</button>
+              <button type="button" data-price-material="hladky" aria-pressed="false">Hladký eternit</button>
+              <button type="button" data-price-material="boleticky" aria-pressed="false">Boletické panely</button>
+              <button type="button" data-price-material="neviem" aria-pressed="false">Neviem posúdiť</button>
+            </div>
+            <div className="price-result" aria-live="polite">
+              <span>Orientačný cenový rozsah</span>
+              <strong><span data-price-min>960 €</span> – <span data-price-max>1 680 €</span></strong>
+              <small>Nejde o konečnú cenu. Dopravu, dokumentáciu, individuálne položky a režim DPH určí až konkrétna cenová ponuka.</small>
+            </div>
+            <a className="button button-primary" data-price-quote href="#dopyt">Preniesť údaje do dopytu</a>
+          </div>
         </section>
 
         <section className="quote-section" id="dopyt" aria-labelledby="quote-title">
@@ -627,185 +626,16 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="trust-bar" aria-label="Dôveryhodné prvky služby">
-          {trustItems.map(([title, text], index) => (
-            <div className="trust-item" key={title}>
-              <span className={`line-icon ${['shield', 'map', 'document', 'truck', 'certificate'][index] || 'shield'}`} aria-hidden="true"></span>
-              <strong>{title}</strong>
-              <p>{text}</p>
-            </div>
-          ))}
-        </section>
-
-        <section className="price-calculator-section" id="orientacna-cena" aria-labelledby="price-calculator-title">
-          <div className="price-calculator-copy">
-            <p className="eyebrow">Orientačný cenový rozsah</p>
-            <h2 id="price-calculator-title">Koľko môže stáť likvidácia?</h2>
-            <p>
-              Najrýchlejšie sa orientujeme podľa približnej výmery v m2. Zadajte plochu a typ materiálu a uvidíte
-              orientačný cenový rozsah. Nejde o konečnú cenu. Dopravu, dokumentáciu, individuálne položky
-              a režim DPH určí až konkrétna cenová ponuka po overení detailov.
-            </p>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)', marginTop: '12px' }}>
-              ✓ Bez záväzkov &nbsp;·&nbsp; ✓ Odpovieme do 24h
-              &nbsp;·&nbsp; ✓ Platíte po dokončení
-            </p>
-          </div>
-          <div className="price-calculator-card" data-price-calculator>
-            <div className="price-city-field">
-              <label htmlFor="price-city">Obec alebo mesto pre dopyt</label>
-              <input id="price-city" data-price-city type="text" maxLength={120} autoComplete="address-level2" placeholder="Napr. Poprad" />
-              <small>Nepovinné pri orientačnom výpočte.</small>
-            </div>
-            <div className="price-area-row">
-              <label htmlFor="price-area">Približná výmera</label>
-              <output htmlFor="price-area" data-price-area-output>120 m2</output>
-            </div>
-            <input
-              id="price-area"
-              data-price-area
-              type="range"
-              min="10"
-              max="500"
-              step="10"
-              defaultValue="120"
-              aria-label="Približná výmera v metroch štvorcových"
-            />
-            <div className="price-materials" role="group" aria-label="Typ materiálu">
-              <button type="button" className="is-active" data-price-material="vlnity" aria-pressed="true">Vlnitý eternit</button>
-              <button type="button" data-price-material="hladky" aria-pressed="false">Hladký eternit</button>
-              <button type="button" data-price-material="boleticky" aria-pressed="false">Boletické panely</button>
-              <button type="button" data-price-material="neviem" aria-pressed="false">Neviem posúdiť</button>
-            </div>
-            <div className="price-result" aria-live="polite">
-              <span>Orientačný cenový rozsah</span>
-              <strong><span data-price-min>960 €</span> – <span data-price-max>1 680 €</span></strong>
-              <small>Výpočet automaticky nezahŕňa dopravu, dokumentáciu, individuálne položky ani určenie DPH.</small>
-            </div>
-            <a className="button button-primary" data-price-quote href="#dopyt">Preniesť údaje do dopytu</a>
-          </div>
-        </section>
-
-        <section className="section risk-section asbestos-section" id="azbest" aria-labelledby="risk-title">
-          <div className="section-heading">
-            <p className="eyebrow">{content.riskEyebrow}</p>
-            <h2 id="risk-title">{content.riskTitle}</h2>
-            <p className="section-intro">{content.riskText}</p>
-          </div>
-          <div className="risk-notice">
-            <span className="risk-notice-icon"><span style={{ fontSize: 28 }}>🛡️</span></span>
-            <div>
-              <h3>{content.riskNoticeTitle}</h3>
-              <p>{content.riskNoticeText}</p>
-            </div>
-          </div>
-          <div className="risk-grid">
-            {riskItems.map(([title, text], index) => (
-              <article key={title}>
-                <span className="risk-card-icon">
-                  <span style={{ fontSize: 28 }}>{(['⚠️', '📋', '🗑️', '✅'] as const)[index] || '⚠️'}</span>
-                </span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section caution-section" id="doklady-ku-stavbe" aria-labelledby="caution-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">{content.cautionEyebrow}</p>
-              <h2 id="caution-title">{content.cautionTitle}</h2>
-            </div>
-            <p>{content.cautionText}</p>
-          </div>
-          <div className="caution-grid">
-            {cautionItems.map(([title, text], index) => (
-              <article key={title}>
-                <span className="caution-card-icon">
-                  <VisualIcon name={(['certificate', 'waste', 'tools', 'euro', 'calendar', 'lock'] as const)[index] || 'alert'} />
-                </span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section included-section" id="cena" aria-labelledby="included-title">
-          <div className="section-heading">
-            <p className="eyebrow">{content.includedEyebrow}</p>
-            <h2 id="included-title">{content.includedTitle}</h2>
-            <p className="section-intro">{content.includedText}</p>
-          </div>
-          <div className="included-group-grid">
-            {includedGroups.map((group) => (
-              <article className="included-group-card" key={group.title}>
-                <div className="included-group-head">
-                  <span className="included-group-icon"><VisualIcon name={group.icon as VisualIconName} /></span>
-                  <div>
-                    <h3>{group.title}</h3>
-                    <p>{group.text}</p>
-                  </div>
-                </div>
-                <ul>
-                  {group.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <TrustComplianceSection />
-
-        <section className="section process-section" id="ako-to-prebieha" aria-labelledby="process-title">
-          <div className="section-heading">
-            <p className="eyebrow">{content.processEyebrow}</p>
-            <h2 id="process-title">{content.processTitle}</h2>
-            <p className="section-intro">Od prvého odhadu po odvoz a doklady. Kroky držíme jednoduché, aby zákazník vedel, čo sa bude diať a čo má pripraviť.</p>
-          </div>
-          <ol className="process-list process-stepper">
-            {processSteps.map(([title, text], index) => (
-              <li key={title}>
-                <span className="step-num">{index + 1}</span>
-                <div className="process-step-copy">
-                  <strong>{title}</strong>
-                  <p>{text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </section>
-
         <section className="section real-work-section" id="realizacie-astana" aria-labelledby="real-work-title">
           <div className="section-heading split">
             <div>
-              <p className="eyebrow">Vybrané realizácie</p>
-              <h2 id="real-work-title">Naša práca v praxi</h2>
+              <p className="eyebrow">{content.realizationsEyebrow}</p>
+              <h2 id="real-work-title">{content.realizationsTitle}</h2>
             </div>
-            <p>
-              Pozrite si šesť ukážok prác na rodinných domoch, hospodárskej budove a priemyselných objektoch.
-              Ďalšie fotografie nájdete vo filtrovaných realizáciách.
-            </p>
+            <p>{content.realizationsText}</p>
           </div>
-          <div className="realization-filter-pills" role="group" data-home-gallery-filters aria-label="Filtrovať realizácie podľa typu objektu">
-            {realizationFilters.map((filter, index) => (
-              <button
-                className={index === 0 ? 'is-active' : undefined}
-                type="button"
-                data-home-gallery-filter={filter.value}
-                aria-pressed={index === 0}
-                key={filter.value}
-              >
-                {filter.label}
-              </button>
-            ))}
-          </div>
-          <div className="real-work-grid">
-            {realizationHighlights.map((item) => (
+          <div className={`real-work-grid ${styles.gallery}`}>
+            {homepageHighlights.map((item) => (
               <article className="real-work-card" data-home-gallery-card data-category={item.category} key={item.title}>
                 <ResponsiveImage
                   image={item.image}
@@ -813,7 +643,7 @@ export default async function HomePage() {
                   loading="lazy"
                   width={720}
                   height={520}
-                  sizes="(max-width: 760px) 100vw, 33vw"
+                  sizes="(max-width: 1023px) 100vw, 33vw"
                 />
                 <div className="real-work-content">
                   <span>Reálna realizácia · {item.type}</span>
@@ -828,45 +658,67 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <section className="section roofers-section" id="strechari" aria-labelledby="roofers-title">
-          <div className="section-heading split">
-            <div>
-              <p className="eyebrow">{content.roofersEyebrow}</p>
-              <h2 id="roofers-title">{content.roofersTitle}</h2>
-            </div>
-            <p>{content.roofersText}</p>
+        <section className={`section ${styles.section}`} id="cena" aria-labelledby="included-title">
+          <div className="section-heading">
+            <p className="eyebrow">{content.includedEyebrow}</p>
+            <h2 id="included-title">{content.includedTitle}</h2>
+            <p className="section-intro">{content.includedText}</p>
           </div>
-          <div className="roofers-grid">
-            {rooferItems.map(([title, text], index) => (
-              <article key={title}>
-                <span className={`line-icon ${['calendar', 'shield', 'truck', 'document', 'certificate', 'map'][index] || 'shield'}`} aria-hidden="true"></span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </article>
+          <div className={styles.serviceGroups}>
+            {includedGroups.map((group) => (
+              <div key={group.title}>
+                <h3>{group.title}</h3>
+                <ul>
+                  {group.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
             ))}
           </div>
-          <div className="roofers-actions">
-            <a className="button button-outline" href="/strechari/#registracia">Ste strechár? Zaregistrujte sa →</a>
-            <a className="button button-primary" href="#dopyt">{content.roofersCtaSecondary}</a>
+          <div className={styles.subsection} id="ako-to-prebieha">
+            <h3 id="process-title">{content.processTitle}</h3>
+            <ol className={styles.steps}>
+              {processSteps.map(([title, text]) => (
+                <li key={title}>
+                  <strong>{title}</strong>
+                  <p>{text}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div className={styles.subsection} id="strechari">
+            <h3 id="roofers-title">{content.roofersTitle}</h3>
+            <p>{content.roofersText}</p>
+            <dl className={styles.notes}>
+              {rooferItems.filter((_, index) => index === 0 || index === 1 || index === 4).map(([title, text]) => (
+                <div key={title}>
+                  <dt>{title}</dt>
+                  <dd>{text}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="real-work-actions">
+              <a className="button button-outline" href="/strechari/#registracia">Ste strechár? Zaregistrujte sa →</a>
+              <a className="button button-primary" href="#dopyt">{content.roofersCtaSecondary}</a>
+            </div>
           </div>
         </section>
 
-        <section className="section why-section" id="preco" aria-labelledby="why-title">
-          <div className="why-card">
-            <div>
-              <p className="eyebrow">{content.whyEyebrow}</p>
-              <h2 id="why-title">{content.whyTitle}</h2>
-              <p className="why-lead">{content.whyText}</p>
-            </div>
-            <div className="why-card-grid">
-              {whyCardMeta.map((card) => (
-                <article className="why-feature-card" key={card.id}>
-                  <VisualIcon name={card.icon} className="why-card-icon" />
-                  <h3>{card.title}</h3>
-                  <p>{content[card.contentKey]}</p>
-                </article>
-              ))}
-            </div>
+        <section className={`section ${styles.section}`} id="azbest" aria-labelledby="risk-title">
+          <div className="section-heading">
+            <p className="eyebrow">{content.riskEyebrow}</p>
+            <h2 id="risk-title">{content.riskTitle}</h2>
+            <p className="section-intro">{content.riskText}</p>
+          </div>
+          <div id="doklady-ku-stavbe" className={styles.subsection}>
+            <h3 id="caution-title">{content.cautionTitle}</h3>
+            <p>{content.riskNoticeText}</p>
+            <p>{site.compliance.asbestosRemovalAuthorization.publicVerification}</p>
+            <p>
+              <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">Overiť zoznam oprávnených spoločností na ÚVZ SR</a>
+            </p>
+            <p><a href="/postup/">Ako rozoznať legálnu likvidáciu azbestu</a></p>
           </div>
         </section>
 

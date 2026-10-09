@@ -1,11 +1,12 @@
-import { adminEmail, requireSuperAdmin } from '@/src/server/auth';
+import { adminEmail, csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
 import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
 import { changeAdminPasswordAction, deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
 
 export default async function SettingsAdminPage({ searchParams }: { searchParams?: Promise<{ heslo?: string }> }) {
-  await requireSuperAdmin();
+  const admin = await requireSuperAdmin();
+  const csrfToken = csrfTokenForEmail(admin.email);
   const [workers, prices, settings, offerSettings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings(), getPriceOfferSettings()]);
   const params = await searchParams;
   const passwordMessage =
@@ -14,7 +15,9 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
       : params?.heslo === 'nespravne'
         ? 'Aktuálne heslo nesedí.'
         : params?.heslo === 'neplatne'
-          ? 'Nové heslo musí mať aspoň 8 znakov a obe hodnoty musia byť rovnaké.'
+          ? 'Nové heslo musí mať 12 až 128 znakov a obe hodnoty musia byť rovnaké.'
+          : params?.heslo === 'konflikt'
+            ? 'Účet sa medzitým zmenil. Obnovte stránku a skúste to znova.'
           : '';
 
   return (
@@ -24,6 +27,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
       <section className="admin-card">
         <h2>Ceny skládok</h2>
         <form className="admin-filter-bar" action={saveLandfillPriceAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <label>Rok<input name="year" type="number" defaultValue={new Date().getFullYear()} /></label>
           <label>Skládka<select name="landfill">{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select></label>
           <label>€/tonu<input name="pricePerTon" type="number" step="0.01" /></label>
@@ -37,13 +41,14 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
                 <td colSpan={5}>
                   <div className="admin-table-inline-actions">
                     <form action={saveLandfillPriceAction} className="admin-table-inline-form">
+                      <input type="hidden" name="_csrf" value={csrfToken} />
                       <input name="year" type="number" defaultValue={price.year} aria-label="Rok" />
                       <select name="landfill" defaultValue={price.landfill} aria-label="Skládka">{landfills.map((item) => <option key={item} value={item}>{landfillLabels[item]}</option>)}</select>
                       <input name="pricePerTon" type="number" step="0.01" defaultValue={price.pricePerTon} aria-label="Cena za tonu" />
                       <input type="hidden" name="id" value={price.id} />
                       <button type="submit">Uložiť</button>
                     </form>
-                    <form action={deleteLandfillPriceAction}><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form>
+                    <form action={deleteLandfillPriceAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={price.id} /><button type="submit">Zmazať</button></form>
                   </div>
                 </td>
               </tr>
@@ -61,6 +66,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
               <tr key={worker.id}>
                 <td colSpan={4}>
                   <form action={saveWorkerAction} className="admin-table-inline-form admin-table-inline-form-workers">
+                    <input type="hidden" name="_csrf" value={csrfToken} />
                     <input name="name" defaultValue={worker.name} aria-label="Meno pracovníka" />
                     <input name="ratePerM2" type="number" step="0.01" defaultValue={worker.ratePerM2} aria-label="Sadzba za m2" />
                     <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked={worker.active} /> Aktívny</label>
@@ -73,6 +79,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
           </table>
         </div>
         <form className="admin-filter-bar" action={saveWorkerAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <label>Meno<input name="name" /></label>
           <label>Sadzba<input name="ratePerM2" type="number" step="0.01" /></label>
           <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked /> Aktívny</label>
@@ -83,6 +90,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
       <section className="admin-card">
         <h2>Predvolené hodnoty</h2>
         <form className="admin-quote-form" action={saveGeneralSettingsAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <label>Základná cena za m2<input name="defaultPricePerM2" type="number" step="0.01" defaultValue={settings.defaultPricePerM2} /></label>
           <label className="admin-form-wide">Google review link<input name="googleReviewLink" defaultValue={settings.googleReviewLink} /></label>
           <button className="admin-primary-button" type="submit">Uložiť nastavenia</button>
@@ -93,6 +101,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
       <section className="admin-card">
         <h2>Ceny materiálov</h2>
         <form className="admin-quote-form" action={savePriceOfferSettingsAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           {Object.entries(priceOfferMaterialLabels).map(([key, label]) => (
             <label key={key}>{label}<input name={`material_${key}`} type="number" step="0.01" defaultValue={offerSettings.materialPrices[key as keyof typeof offerSettings.materialPrices]} /></label>
           ))}
@@ -109,13 +118,29 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
         <p>Prihlasovací email: <strong>{adminEmail() || 'TODO nastaviť ADMIN_EMAIL'}</strong></p>
         {passwordMessage ? <div className="admin-alert">{passwordMessage}</div> : null}
         <form className="admin-quote-form" action={changeAdminPasswordAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <label>Aktuálne heslo<input name="currentPassword" type="password" autoComplete="current-password" required /></label>
-          <label>Nové heslo<input name="newPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
-          <label>Zopakovať nové heslo<input name="repeatPassword" type="password" autoComplete="new-password" minLength={8} required /></label>
+          <label>Nové heslo<input name="newPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
+          <label>Zopakovať nové heslo<input name="repeatPassword" type="password" autoComplete="new-password" minLength={12} maxLength={128} required /></label>
           <button className="admin-primary-button admin-form-wide" type="submit">Zmeniť heslo</button>
         </form>
         <p style={{ marginTop: 12 }}>
           Ak heslo zabudnete, použite stránku <a href="/admin/reset-password">obnovy hesla</a>. Vyžaduje resetovací token uložený v bezpečných premenných projektu.
+        </p>
+      </section>
+
+      <section className="admin-card">
+        <h2>E-mail astana@astana.sk</h2>
+        <p>Heslo schránky sa z bezpečnostných dôvodov neukladá ani nezobrazuje v tomto adminovi.</p>
+        <ol>
+          <li>Zmeňte heslo v oficiálnej správe HostCreators.</li>
+          <li>Rovnaké nové heslo uložte vo Verceli do premennej <strong>SMTP_PASS</strong>.</li>
+          <li>Po novom nasadení overte SMTP v časti Kontrola systému.</li>
+        </ol>
+        <p className="admin-inline-actions">
+          <a className="admin-secondary-link" href="https://www.hostcreators.sk/admin/host/domain/14352/edit" target="_blank" rel="noreferrer">Otvoriť HostCreators</a>
+          <a className="admin-secondary-link" href="https://vercel.com/laufzdeno-3815s-projects/likvidacia-eternitu-sk/settings/environment-variables" target="_blank" rel="noreferrer">Otvoriť SMTP_PASS vo Verceli</a>
+          <a className="admin-secondary-link" href="/admin/health">Skontrolovať systém</a>
         </p>
       </section>
     </main>

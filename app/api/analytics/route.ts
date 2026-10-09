@@ -1,56 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { recordAnalyticsEvent } from '@/src/server/db';
-import type { AnalyticsEventType } from '@/src/server/types';
 import { analyticsConsentCookieName, marketingConsentCookieName } from '@/src/lib/marketing-consent';
+import { analyticsOriginAllowed, publicAnalyticsPayloadSchema } from '@/src/server/public-analytics-policy';
+import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
+import { AnalyticsBodyTooLargeError, readAnalyticsRequestBody } from '@/src/server/analytics-request-body';
 
 export const runtime = 'nodejs';
 
-const allowedEventTypes = new Set<AnalyticsEventType>([
-  'page_view',
-  'quote_section_view',
-  'form_start',
-  'form_submit_error',
-  'cta_click',
-  'phone_click',
-  'price_calculator_change',
-  'gallery_filter',
-  'reviews_expand',
-  'roofer_registration_success',
-]);
-
-const buckets = new Map<string, { count: number; resetAt: number }>();
-
-function clientIp(request: NextRequest) {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown';
-}
-
-function rateLimited(ip: string) {
-  const now = Date.now();
-  const bucket = buckets.get(ip);
-  if (!bucket || bucket.resetAt < now) {
-    buckets.set(ip, { count: 1, resetAt: now + 60_000 });
-    return false;
-  }
-  bucket.count += 1;
-  return bucket.count > 80;
-}
-
-function originAllowed(request: NextRequest) {
-  const origin = request.headers.get('origin');
-  if (!origin) return true;
-  const allowed = (process.env.ALLOWED_ORIGINS || 'https://likvidacia-eternitu.sk,https://www.likvidacia-eternitu.sk')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return allowed.includes(origin);
-}
-
-function cleanText(value: unknown, fallback = '') {
-  return String(value ?? fallback).trim();
-}
+const maximumBodyBytes = 16 * 1024;
 
 export async function POST(request: NextRequest) {
-  if (!originAllowed(request)) {
+  if (!analyticsOriginAllowed(request.headers.get('origin'), process.env.NODE_ENV)) {
     return NextResponse.json({ ok: false }, { status: 403 });
   }
 
@@ -60,38 +20,49 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
   }
 
-  if (rateLimited(clientIp(request))) {
-    return NextResponse.json({ ok: false }, { status: 429 });
+  // Invalid and oversized requests consume the same quota before any body read.
+  try {
+    if (await consumeSharedRateLimit(
+      'analytics-event-address',
+      trustedRateLimitClientIp(request.headers),
+      80,
+      60_000,
+    )) return NextResponse.json({ ok: false }, { status: 429 });
+  } catch (error) {
+    console.error('Analytics rate limit unavailable', error instanceof Error ? error.message : 'unknown');
+    return NextResponse.json({ ok: false }, { status: 503 });
   }
 
-  let payload: Record<string, unknown>;
+  let rawBody: string;
   try {
-    payload = (await request.json()) as Record<string, unknown>;
+    rawBody = await readAnalyticsRequestBody(request, maximumBodyBytes);
+  } catch (error) {
+    return NextResponse.json({ ok: false }, { status: error instanceof AnalyticsBodyTooLargeError ? 413 : 400 });
+  }
+
+  let parsedJson: unknown;
+  try {
+    parsedJson = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ ok: false }, { status: 400 });
   }
+  const parsed = publicAnalyticsPayloadSchema.safeParse(parsedJson);
+  if (!parsed.success) return NextResponse.json({ ok: false }, { status: 400 });
 
-  const eventType = cleanText(payload.eventType) as AnalyticsEventType;
-  const sessionId = cleanText(payload.sessionId);
-  if (!sessionId || !allowedEventTypes.has(eventType)) {
-    return NextResponse.json({ ok: false }, { status: 400 });
-  }
-
-  const metadata = typeof payload.metadata === 'object' && payload.metadata !== null
-    ? { ...(payload.metadata as Record<string, unknown>) }
-    : {};
+  const payload = parsed.data;
+  const metadata = { ...payload.metadata };
   if (request.cookies.get(marketingConsentCookieName)?.value !== 'granted') delete metadata.adClickIds;
 
   await recordAnalyticsEvent({
-    sessionId,
-    eventType,
-    path: cleanText(payload.path, '/'),
-    referrer: cleanText(payload.referrer),
-    device: cleanText(payload.device, 'desktop') as 'desktop' | 'tablet' | 'mobile',
-    viewportWidth: Number(payload.viewportWidth || 0) || undefined,
-    utmSource: cleanText(payload.utmSource),
-    utmMedium: cleanText(payload.utmMedium),
-    utmCampaign: cleanText(payload.utmCampaign),
+    sessionId: payload.sessionId,
+    eventType: payload.eventType,
+    path: payload.path,
+    referrer: payload.referrer,
+    device: payload.device,
+    viewportWidth: payload.viewportWidth,
+    utmSource: payload.utmSource,
+    utmMedium: payload.utmMedium,
+    utmCampaign: payload.utmCampaign,
     metadata,
   });
 

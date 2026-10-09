@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { getAdminSetting, getAdminUserByEmail } from './db';
+import { adminSessionEpochMatchesUser } from './admin-session-policy';
 import type { AdminRole, AdminUser } from './types';
 
 const cookieName = 'astana_admin_session';
@@ -53,28 +54,30 @@ export async function verifyCsrf(formData: FormData) {
   }
 }
 
-function encodeSession(email: string) {
-  const payload = Buffer.from(JSON.stringify({ email, iat: Date.now() })).toString('base64url');
+type AdminSession = { kind: 'admin-session'; email: string; iat: number; epoch: number };
+
+function encodeSession(email: string, epoch: number) {
+  const payload = Buffer.from(JSON.stringify({ kind: 'admin-session', email, iat: Date.now(), epoch })).toString('base64url');
   return `${payload}.${sign(payload)}`;
 }
 
-function decodeSession(token?: string) {
+function decodeSession(token?: string): AdminSession | null {
   if (!token) return null;
   const [payload, signature] = token.split('.');
   if (!payload || !signature || sign(payload) !== signature) return null;
   try {
-    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { email?: string; iat?: number };
-    if (!decoded.email || !decoded.iat) return null;
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Partial<AdminSession>;
+    if (decoded.kind !== 'admin-session' || !decoded.email || !decoded.iat || !Number.isSafeInteger(decoded.epoch) || Number(decoded.epoch) < 0) return null;
     if (Date.now() - decoded.iat > 1000 * 60 * 60 * 12) return null;
-    return decoded.email;
+    return { kind: 'admin-session', email: decoded.email, iat: decoded.iat, epoch: Number(decoded.epoch) };
   } catch {
     return null;
   }
 }
 
 export async function currentAdminEmail() {
-  const cookieStore = await cookies();
-  return decodeSession(cookieStore.get(cookieName)?.value);
+  const user = await currentAdminUser();
+  return user?.active ? user.email : null;
 }
 
 export async function requireAdmin() {
@@ -82,7 +85,7 @@ export async function requireAdmin() {
   return user.email;
 }
 
-type PendingTwoFactor = { email: string; iat: number };
+type PendingTwoFactor = { kind: 'pending-two-factor'; email: string; iat: number; epoch: number };
 
 function encodeSignedJson(value: unknown) {
   const payload = Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -100,9 +103,15 @@ function decodeSignedJson<T>(token?: string): T | null {
   }
 }
 
-export async function setPendingTwoFactor(email: string) {
+export async function setPendingTwoFactor(email: string, sessionEpoch: number) {
+  if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) throw new Error('Invalid pending two-factor epoch.');
   const cookieStore = await cookies();
-  cookieStore.set(pendingTwoFactorCookieName, encodeSignedJson({ email: email.trim().toLowerCase(), iat: Date.now() }), {
+  cookieStore.set(pendingTwoFactorCookieName, encodeSignedJson({
+    kind: 'pending-two-factor',
+    email: email.trim().toLowerCase(),
+    iat: Date.now(),
+    epoch: sessionEpoch,
+  }), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -111,12 +120,18 @@ export async function setPendingTwoFactor(email: string) {
   });
 }
 
-export async function currentPendingTwoFactorEmail() {
+export async function currentPendingTwoFactorUser(): Promise<AdminUser | null> {
   const cookieStore = await cookies();
   const pending = decodeSignedJson<PendingTwoFactor>(cookieStore.get(pendingTwoFactorCookieName)?.value);
-  if (!pending?.email || !pending.iat) return null;
+  if (pending?.kind !== 'pending-two-factor' || !pending.email || !pending.iat || !Number.isSafeInteger(pending.epoch) || pending.epoch < 0) return null;
   if (Date.now() - pending.iat > 1000 * 60 * 10) return null;
-  return pending.email;
+  const user = await getAdminUserByEmail(pending.email).catch(() => null);
+  if (!user?.active || !adminSessionEpochMatchesUser(pending.epoch, user.sessionEpoch)) return null;
+  return user;
+}
+
+export async function currentPendingTwoFactorEmail() {
+  return (await currentPendingTwoFactorUser())?.email ?? null;
 }
 
 export async function clearPendingTwoFactor() {
@@ -144,9 +159,11 @@ export async function consumePendingBackupCodes() {
   return pending.codes;
 }
 
-export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'name' | 'role' | 'active'> | null> {
-  const email = await currentAdminEmail();
-  if (!email) return null;
+export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'name' | 'role' | 'active' | 'sessionEpoch'> | null> {
+  const cookieStore = await cookies();
+  const session = decodeSession(cookieStore.get(cookieName)?.value);
+  if (!session) return null;
+  const email = session.email;
 
   let user: AdminUser | null = null;
   let lookupFailed = false;
@@ -156,23 +173,29 @@ export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'nam
     lookupFailed = true;
     console.error('Admin user lookup failed; refusing session fallback.', error);
   }
-  if (user) return { email: user.email, name: user.name || user.email, role: user.role, active: user.active };
+  if (user) {
+    if (!adminSessionEpochMatchesUser(session.epoch, user.sessionEpoch)) return null;
+    return { email: user.email, name: user.name || user.email, role: user.role, active: user.active, sessionEpoch: user.sessionEpoch };
+  }
 
   const configuredEmail = adminEmail();
-  const temporaryEmail = process.env.TEMP_ADMIN_EMAIL || '';
-  const fallbackEmail = temporaryEmail || configuredEmail;
-  const hasConfiguredCredential = Boolean(
-    (temporaryEmail && process.env.TEMP_ADMIN_PASSWORD_HASH)
-      || process.env.ADMIN_PASSWORD_HASH
-      || (process.env.NODE_ENV !== 'production' && process.env.ADMIN_PASSWORD),
-  );
+  const fallbackEmail = process.env.TEMP_ADMIN_EMAIL || configuredEmail;
   if (!lookupFailed && process.env.NODE_ENV !== 'production' && fallbackEmail && email.toLowerCase() === fallbackEmail.toLowerCase()) {
-    return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true };
-  }
-  if (!lookupFailed && hasConfiguredCredential && fallbackEmail && email.toLowerCase() === fallbackEmail.toLowerCase()) {
-    return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true };
+    if (session.epoch !== 0) return null;
+    return { email, name: 'ASTANA', role: 'SUPER_ADMIN', active: true, sessionEpoch: 0 };
   }
   return null;
+}
+
+// Setup accepts either a pending password proof or a full session, but never
+// upgrades that proof to a newer account generation after an asynchronous read.
+export async function currentTwoFactorSetupUser(): Promise<AdminUser | null> {
+  const pending = await currentPendingTwoFactorUser();
+  if (pending) return pending;
+  const session = await currentAdminUser();
+  if (!session?.active) return null;
+  const user = await getAdminUserByEmail(session.email).catch(() => null);
+  return user?.active && adminSessionEpochMatchesUser(session.sessionEpoch, user.sessionEpoch) ? user : null;
 }
 
 export async function requireAdminUser() {
@@ -199,9 +222,10 @@ export function canAccessAdminPath(role: AdminRole, pathname: string) {
   );
 }
 
-export async function setAdminSession(email: string) {
+export async function setAdminSession(email: string, sessionEpoch: number) {
+  if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) throw new Error('Invalid admin session epoch.');
   const cookieStore = await cookies();
-  cookieStore.set(cookieName, encodeSession(email), {
+  cookieStore.set(cookieName, encodeSession(email, sessionEpoch), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -229,39 +253,58 @@ function verifyHash(password: string, storedHash: string) {
   return timingSafeEqual(actual, expected);
 }
 
-export async function verifyAdminCredentials(email: string, password: string) {
+type VerifiedLoginUser = Pick<AdminUser, 'email' | 'role' | 'twoFactorEnabled' | 'sessionEpoch'> & { localDevelopmentFallback: boolean };
+
+export async function authenticateAdminCredentials(email: string, password: string): Promise<VerifiedLoginUser | null> {
   const normalizedEmail = email.trim().toLowerCase();
+  let dbUser: AdminUser | null;
+  try {
+    dbUser = await getAdminUserByEmail(normalizedEmail);
+  } catch {
+    return null;
+  }
+  if (dbUser && !dbUser.active) return null;
+  const user: VerifiedLoginUser | null = dbUser
+    ? { email: dbUser.email, role: dbUser.role, twoFactorEnabled: dbUser.twoFactorEnabled, sessionEpoch: dbUser.sessionEpoch, localDevelopmentFallback: false }
+    : process.env.NODE_ENV !== 'production'
+      && normalizedEmail === (process.env.TEMP_ADMIN_EMAIL || adminEmail()).toLowerCase()
+      ? { email: normalizedEmail, role: 'SUPER_ADMIN', twoFactorEnabled: false, sessionEpoch: 0, localDevelopmentFallback: true }
+      : null;
+  if (!user) return null;
   const tempEmail = process.env.TEMP_ADMIN_EMAIL;
   const tempHash = process.env.TEMP_ADMIN_PASSWORD_HASH;
-  if (tempEmail && tempHash && normalizedEmail === tempEmail.toLowerCase()) {
-    return verifyHash(password, tempHash);
+  if (process.env.NODE_ENV !== 'production' && tempEmail && tempHash && normalizedEmail === tempEmail.toLowerCase()) {
+    return verifyHash(password, tempHash) ? user : null;
   }
 
-  const dbUser = await getAdminUserByEmail(normalizedEmail).catch(() => null);
-  if (dbUser) {
-    if (!dbUser.active) return false;
-    if (dbUser.passwordHash) return verifyHash(password, dbUser.passwordHash);
+  if (dbUser?.passwordHash) {
+    return verifyHash(password, dbUser.passwordHash) ? user : null;
   }
 
   const configuredEmail = adminEmail();
-  if (!configuredEmail || normalizedEmail !== configuredEmail.toLowerCase()) return false;
+  if (!configuredEmail || normalizedEmail !== configuredEmail.toLowerCase()) return null;
 
   try {
     const storedAdminHash = await getAdminSetting('admin_password_hash');
     if (storedAdminHash) {
-      return verifyHash(password, storedAdminHash);
+      return verifyHash(password, storedAdminHash) ? user : null;
     }
   } catch (error) {
     console.error('Admin password override could not be read.', error);
+    return null;
   }
 
   if (process.env.ADMIN_PASSWORD_HASH) {
-    return verifyHash(password, process.env.ADMIN_PASSWORD_HASH);
+    return verifyHash(password, process.env.ADMIN_PASSWORD_HASH) ? user : null;
   }
 
   if (process.env.NODE_ENV !== 'production' && process.env.ADMIN_PASSWORD) {
-    return password === process.env.ADMIN_PASSWORD;
+    return password === process.env.ADMIN_PASSWORD ? user : null;
   }
 
-  return process.env.NODE_ENV !== 'production' && password === 'astana-admin';
+  return process.env.NODE_ENV !== 'production' && password === 'astana-admin' ? user : null;
+}
+
+export async function verifyAdminCredentials(email: string, password: string) {
+  return Boolean(await authenticateAdminCredentials(email, password));
 }

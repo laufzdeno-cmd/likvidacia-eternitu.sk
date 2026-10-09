@@ -42,7 +42,7 @@ const navGroups = [
       { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
       { href: '/admin/users', label: 'Používatelia', icon: 'users', superOnly: true },
       { href: '/admin/audit', label: 'Audit aktivít', icon: 'shield', superOnly: true },
-      { href: '/admin/obsah', label: 'Texty webu', icon: 'doc' },
+      { href: '/admin/obsah', label: 'Obsah a GEO', icon: 'doc' },
       { href: '/admin/health', label: 'Kontrola systému', icon: 'shield', superOnly: true },
     ],
   },

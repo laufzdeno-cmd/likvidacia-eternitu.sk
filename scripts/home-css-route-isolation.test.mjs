@@ -126,7 +126,7 @@ test('homepage presentation is route-scoped and absent from the final shared pol
   const routeCss = `${criticalCss}\n${deferredCss}`;
   assert.match(page, /import '\.\/home-critical\.css'/);
   assert.match(criticalCss, /--home-route-css:\s*1/);
-  for (const criticalClass of ['hero-photo', 'quote-card', 'price-calculator-section', 'included-group-card']) {
+  for (const criticalClass of ['hero-photo', 'quote-card', 'price-calculator-section', 'real-work-card']) {
     assert.match(routeCss, new RegExp(`\\.${criticalClass}\\b`));
   }
 
@@ -149,29 +149,15 @@ test('late homepage mobile guards preserve the original one-column cascade', () 
   const deferredCss = readFileSync('public/assets/home-below-fold.css', 'utf8').replaceAll('\r\n', '\n');
   const deferredRoot = postcss.parse(deferredCss, { from: 'public/assets/home-below-fold.css' });
   const initialFaqGrid = deferredCss.indexOf('.faq-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))');
-  const finalWhyDesktop = deferredCss.lastIndexOf('.why-card-grid{width:100%!important;grid-template-columns:repeat(3,minmax(0,1fr))!important');
-  const finalTwoColumnCards = deferredCss.lastIndexOf('.caution-grid,.roofers-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important');
   const finalFaqTwoColumn = deferredCss.lastIndexOf('@media (max-width: 1320px)');
   const finalFaqOneColumn = deferredCss.lastIndexOf('@media (max-width: 860px)');
-  const finalWhyMedia = deferredCss.lastIndexOf('@media (max-width: 900px)');
-  const finalCardMedia = deferredCss.lastIndexOf('@media (max-width: 760px)');
-  const finalWhyMobile = deferredCss.lastIndexOf('main .why-card-grid,\n  .why-card-grid');
-  const finalCardMobile = deferredCss.lastIndexOf('.caution-grid,\n  .roofers-grid');
 
   assert.ok(finalFaqTwoColumn > initialFaqGrid, 'responsive FAQ guard must follow the desktop FAQ grid');
   assert.ok(finalFaqOneColumn > finalFaqTwoColumn, 'single-column FAQ guard must follow the two-column guard');
-  assert.ok(finalWhyDesktop >= 0, 'expected extracted desktop why-card grid rule');
-  assert.ok(finalTwoColumnCards >= 0, 'expected extracted two-column card rule');
-  assert.ok(finalWhyMedia > finalWhyDesktop, 'mobile why-card media guard must follow desktop grid rules');
-  assert.ok(finalCardMedia > finalTwoColumnCards, 'mobile card media guard must follow two-column grid rules');
-  assert.ok(finalWhyMobile > finalWhyDesktop, 'mobile why-card guard must follow desktop grid rules');
-  assert.ok(finalCardMobile > finalTwoColumnCards, 'mobile card guard must follow two-column grid rules');
 
   const expected = new Map([
     ['(max-width: 1320px)|.faq-grid', 'repeat(2, minmax(0, 1fr))'],
     ['(max-width: 860px)|.faq-grid', 'minmax(0, 1fr)'],
-    ['(max-width: 900px)|main .why-card-grid,.why-card-grid', 'minmax(0, 1fr)!important'],
-    ['(max-width: 760px)|.caution-grid,.roofers-grid', 'minmax(0, 1fr)!important'],
   ]);
   const actual = new Map();
   deferredRoot.walkRules((rule) => {
@@ -277,15 +263,6 @@ test('effective homepage grid cascade stays correct throughout every breakpoint 
     'faq-grid': (width) => (width <= 860
       ? 'minmax(0,1fr)'
       : width <= 1320 ? 'repeat(2,minmax(0,1fr))' : 'repeat(3,minmax(0,1fr))'),
-    'why-card-grid': (width) => (width <= 900
-      ? 'minmax(0,1fr)'
-      : 'repeat(3,minmax(0,1fr))'),
-    'caution-grid': (width) => (width <= 760
-      ? 'minmax(0,1fr)'
-      : width <= 1080 ? 'repeat(2,minmax(0,1fr))' : 'repeat(3,minmax(0,1fr))'),
-    'roofers-grid': (width) => (width <= 760
-      ? 'minmax(0,1fr)'
-      : width <= 1080 ? 'repeat(2,minmax(0,1fr))' : 'repeat(3,minmax(0,1fr))'),
   };
   for (const [className, expectation] of Object.entries(expectedColumns)) {
     for (const width of relevantGridWidths(className)) {
@@ -330,10 +307,26 @@ test('protected homepage layout does not use cascade-bypassing shorthands', () =
   );
 });
 
-test('homepage-only section accents retain their clipping context after extraction', () => {
-  const deferredCss = readFileSync('public/assets/home-below-fold.css', 'utf8');
-  assert.match(deferredCss, /\.caution-section,\s*\.roofers-section\s*\{[\s\S]*?position: relative;[\s\S]*?overflow: hidden;/);
-  assert.match(deferredCss, /\.caution-section::after,\s*\.roofers-section::after\s*\{[\s\S]*?pointer-events: none;/);
+test('consolidated homepage retires unused selectors and accents but preserves the shared risk grid', () => {
+  const retiredClasses = [
+    'asbestos-section', 'caution-card-icon', 'caution-grid', 'caution-section',
+    'included-group-card', 'included-group-grid', 'included-group-head', 'included-group-icon',
+    'included-section', 'process-list', 'process-section', 'process-step-copy', 'process-stepper',
+    'realization-filter-pills', 'risk-card-icon', 'risk-notice', 'risk-notice-icon', 'risk-section',
+    'roofers-actions', 'roofers-grid', 'roofers-section', 'why-card', 'why-card-grid',
+    'why-card-icon', 'why-feature-card', 'why-lead', 'why-section',
+  ];
+  for (const className of retiredClasses) {
+    const token = `.${className}`;
+    assert.equal(tokenAppears(`${homepageSource}\n${nonHomepageSource}`, token), false, `${token} is still used at runtime`);
+    for (const file of homepageCssFiles) {
+      postcss.parse(readFileSync(file, 'utf8'), { from: file }).walkRules((rule) => {
+        assert.equal(selectorTokens(rule.selector).includes(token), false, `${file} retains retired ${token}`);
+      });
+    }
+  }
+  assert.match(readFileSync('app/simple-public-page.tsx', 'utf8'), /className="risk-grid"/);
+  assert.ok(globalCssFiles.some((file) => /\.risk-grid\b/.test(readFileSync(file, 'utf8'))), 'shared risk-grid styles must remain');
 });
 
 function effectiveHeroClaimTypography(width) {

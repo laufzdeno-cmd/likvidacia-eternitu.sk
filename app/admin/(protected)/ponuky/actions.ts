@@ -18,7 +18,7 @@ import { sendPriceOfferDocumentEmail } from '@/src/server/mail';
 import { renderPriceOfferPdf } from '@/src/server/price-offer-pdf';
 import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
 import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
-import { isValidIsoCalendarDate } from '@/src/lib/date-only';
+import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import type { PriceOfferInput, PriceOfferMaterialType } from '@/src/server/types';
 
 const allowedMaterialTypes = new Set<PriceOfferMaterialType>([
@@ -39,12 +39,7 @@ function isUsablePhone(value: string) {
 }
 
 function todayInSlovakia() {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Bratislava',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
+  return slovakCalendarDateAfterDays(0);
 }
 
 function num(value: FormDataEntryValue | null) {
@@ -52,7 +47,7 @@ function num(value: FormDataEntryValue | null) {
 }
 
 function actionErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : 'Cenovu ponuku sa nepodarilo odoslat.';
+  return error instanceof Error ? error.message : 'Cenovú ponuku sa nepodarilo odoslať.';
 }
 
 function parseOffer(formData: FormData): PriceOfferInput {

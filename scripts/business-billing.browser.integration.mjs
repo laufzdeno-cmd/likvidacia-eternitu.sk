@@ -58,7 +58,7 @@ async function stopChild(processHandle) {
 }
 
 function sessionCookie() {
-  const payload = Buffer.from(JSON.stringify({ email: adminEmail, iat: Date.now() })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify({ kind: 'admin-session', email: adminEmail, iat: Date.now(), epoch: 0 })).toString('base64url');
   const signature = createHmac('sha256', secret).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }

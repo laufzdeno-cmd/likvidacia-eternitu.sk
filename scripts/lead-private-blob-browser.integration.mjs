@@ -473,7 +473,7 @@ async function runPriceQuoteChecks(page, appOrigin, tempRoot) {
   await checkPriceCalculatorMatrix(page, '[data-price-calculator]', 10, false);
   await page.locator('[data-price-calculator]').scrollIntoViewIfNeeded();
   await checkPriceCalculatorMatrix(page, '[data-price-calculator]', 10, true);
-  await page.locator('#price-city').fill('Poprad');
+  await page.locator('#city').fill('Zachovaná obec');
   await page.locator('#price-area').evaluate((input) => {
     input.value = '240';
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -482,7 +482,7 @@ async function runPriceQuoteChecks(page, appOrigin, tempRoot) {
   await page.locator('[data-price-material="hladky"]').click();
   await page.locator('[data-price-quote]').click();
   assert.equal(await page.locator('#areaEstimate').inputValue(), '240');
-  assert.equal(await page.locator('#city').inputValue(), 'Poprad');
+  assert.equal(await page.locator('#city').inputValue(), 'Zachovaná obec');
   assert.equal(await page.locator('#materialType').inputValue(), 'Hladký / štvorcový eternit');
   assert.equal(await page.locator('#email').inputValue(), '');
   assert.equal(await page.locator('input[name="gdpr"]').isChecked(), false);
@@ -532,11 +532,10 @@ async function runPriceQuoteChecks(page, appOrigin, tempRoot) {
     await page.waitForFunction(() => document.querySelector('#areaEstimate')?.value === '120');
     await page.locator('[data-price-calculator]').scrollIntoViewIfNeeded();
     const homepageSizes = await page.locator('[data-price-calculator]').evaluate((root) => {
-      const city = root.querySelector('[data-price-city]').getBoundingClientRect();
       const cta = root.querySelector('[data-price-quote]').getBoundingClientRect();
-      return { cityLeft: city.left, cityRight: city.right, ctaLeft: cta.left, ctaRight: cta.right, viewport: innerWidth };
+      return { cityFields: root.querySelectorAll('[data-price-city]').length, ctaLeft: cta.left, ctaRight: cta.right, viewport: innerWidth };
     });
-    assert.ok(homepageSizes.cityLeft >= 0 && homepageSizes.cityRight <= homepageSizes.viewport + 1, `homepage city field clipped at ${width}px`);
+    assert.equal(homepageSizes.cityFields, 0, `homepage calculator must stay compact at ${width}px`);
     assert.ok(homepageSizes.ctaLeft >= 0 && homepageSizes.ctaRight <= homepageSizes.viewport + 1, `homepage quote CTA clipped at ${width}px`);
     assert.equal(await page.locator('[data-price-quote]').evaluate((element) => getComputedStyle(element).color), 'rgb(255, 255, 255)', 'homepage quote CTA requires contrasting white text');
     await page.waitForFunction(() => !document.querySelector('.mobile-sticky-cta')?.classList.contains('is-visible'));
@@ -1674,10 +1673,10 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
     }, `${viewport.width}x${viewport.height} sticky CTA must stay hidden and inert while the hero remains visible`);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.locator('#price-city').focus();
+  await page.locator('#price-area').focus();
   await page.waitForFunction(() => document.documentElement.dataset.homepageCriticalClient === 'loaded');
   await page.evaluate(async () => {
-    const target = document.querySelector('.why-section');
+    const target = document.querySelector('#cena');
     if (!(target instanceof HTMLElement)) throw new Error('homepage slow-scroll target missing');
     const start = target.offsetTop + Math.min(180, Math.max(40, target.offsetHeight / 3));
     window.scrollTo(0, start);
@@ -2011,8 +2010,7 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
           computedStyleSnapshots.push(await page.evaluate(({ width, height }) => {
             const selectors = [
               '.hero', '.hero-copy', '.hero-photo', '.hero-photo img', '.quote-card',
-              '.price-calculator-section', '.included-group-card',
-              '.why-card-grid', '.caution-grid', '.roofers-grid', '.faq-grid',
+              '.price-calculator-section', '#preco', '#cena', '#azbest', '.faq-grid',
             ];
             const properties = [
               'display', 'position', 'color', 'background-color', 'background-image',
@@ -2038,9 +2036,6 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
           }, viewport));
         }
         const homepageGridColumns = await page.evaluate(() => Object.fromEntries([
-          ['why', '.why-card-grid'],
-          ['caution', '.caution-grid'],
-          ['roofers', '.roofers-grid'],
           ['faq', '.faq-grid'],
         ].map(([key, selector]) => {
           const element = document.querySelector(selector);
@@ -2048,9 +2043,6 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
           return [key, value === 'none' || !value ? 0 : value.trim().split(/\s+/).length];
         })));
         const expectedHomepageColumns = {
-          why: viewport.width <= 900 ? 1 : 3,
-          caution: viewport.width <= 760 ? 1 : viewport.width <= 1080 ? 2 : 3,
-          roofers: viewport.width <= 760 ? 1 : viewport.width <= 1080 ? 2 : 3,
           faq: viewport.width <= 860 ? 1 : viewport.width <= 1320 ? 2 : 3,
         };
         assert.deepEqual(
@@ -2104,9 +2096,9 @@ async function runResponsiveVisualChecks(page, appOrigin, tempRoot, sharp) {
         }
         if (viewport.width === 390) {
           for (const [sectionName, selector] of [
-            ['why', '.why-section'],
-            ['caution', '.caution-section'],
-            ['roofers', '.roofers-section'],
+            ['trust', '#preco'],
+            ['services', '#cena'],
+            ['risk', '#azbest'],
             ['faq', '.faq-section'],
           ]) {
             await page.locator(selector).screenshot({
@@ -3119,7 +3111,7 @@ async function runHarness() {
       const unauthenticated = await fetch(`${blobOrigin}/${row.storage_key}`);
       assert.equal(unauthenticated.status, 401, 'private Blob must reject anonymous read');
     }
-    const sessionPayload = Buffer.from(JSON.stringify({ email: 'admin@local.test', iat: Date.now() })).toString('base64url');
+    const sessionPayload = Buffer.from(JSON.stringify({ kind: 'admin-session', email: 'admin@local.test', iat: Date.now(), epoch: 0 })).toString('base64url');
     const sessionSignature = createHmac('sha256', authSecret).update(sessionPayload).digest('base64url');
     const adminCookie = `astana_admin_session=${sessionPayload}.${sessionSignature}`;
     const tamperedCookie = `${adminCookie.slice(0, -1)}${adminCookie.endsWith('a') ? 'b' : 'a'}`;

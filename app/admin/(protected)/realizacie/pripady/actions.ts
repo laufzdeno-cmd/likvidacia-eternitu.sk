@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { saveRealizationCaseDraft, setRealizationCaseDraftMedia, transitionRealizationCaseDraft } from '@/src/server/db';
+import { saveRealizationCaseDraft, setRealizationCaseDraftMedia, transitionRealizationCaseDraft, updateRealizationCaseDraftMediaMetadata } from '@/src/server/db';
 import type { RealizationCaseDraft } from '@/src/server/types';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 
@@ -54,6 +54,29 @@ export async function setCaseDraftPhotoAction(formData: FormData) {
   if (!/^[0-9a-f-]{36}$/i.test(draftId) || !/^[0-9a-f-]{36}$/i.test(mediaId)) throw new Error('Neplatný koncept alebo fotografia.');
   await setRealizationCaseDraftMedia({ draftId, mediaId, attach, updatedBy: admin.email });
   revalidatePath('/admin/realizacie/pripady');
+}
+
+export async function updateCaseDraftPhotoMetadataAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireSuperAdmin();
+  const draftId = text(formData, 'draftId', 36);
+  const mediaId = text(formData, 'mediaId', 36);
+  const phase = text(formData, 'phase', 16);
+  const sortOrderRaw = text(formData, 'sortOrder', 4);
+  const sortOrder = Number(sortOrderRaw);
+  if (!/^[0-9a-f-]{36}$/i.test(draftId) || !/^[0-9a-f-]{36}$/i.test(mediaId)) throw new Error('Neplatný koncept alebo fotografia.');
+  if (!(['before', 'during', 'after'] as string[]).includes(phase)) throw new Error('Neplatná fáza fotografie.');
+  if (!Number.isInteger(sortOrder) || sortOrder < 0 || sortOrder > 999) throw new Error('Poradie fotografie musí byť celé číslo od 0 do 999.');
+  await updateRealizationCaseDraftMediaMetadata({
+    draftId,
+    mediaId,
+    phase: phase as 'before' | 'during' | 'after',
+    publicCaption: text(formData, 'publicCaption', 240),
+    sortOrder,
+    updatedBy: admin.email,
+  });
+  revalidatePath('/admin/realizacie/pripady');
+  revalidatePath('/realizacie');
 }
 
 export async function transitionCaseDraftAction(formData: FormData) {

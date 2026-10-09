@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { adminEmail, hashPassword, requireSuperAdmin, verifyAdminCredentials, verifyCsrf } from '@/src/server/auth';
-import { deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, setAdminSetting, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
+import { clearAdminSession, hashPassword, requireSuperAdmin, verifyAdminCredentials, verifyCsrf } from '@/src/server/auth';
+import { changeAdminUserPassword, deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
 import type { BusinessLandfill, PriceOfferMaterialType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
@@ -77,20 +77,22 @@ export async function savePriceOfferSettingsAction(formData: FormData) {
 
 export async function changeAdminPasswordAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actor = (await requireSuperAdmin()).email;
+  const admin = await requireSuperAdmin();
+  const actor = admin.email;
   const currentPassword = String(formData.get('currentPassword') || '');
   const newPassword = String(formData.get('newPassword') || '');
   const repeatPassword = String(formData.get('repeatPassword') || '');
 
-  if (!(await verifyAdminCredentials(adminEmail(), currentPassword))) {
+  if (!(await verifyAdminCredentials(admin.email, currentPassword))) {
     redirect('/admin/nastavenia?heslo=nespravne');
   }
 
-  if (newPassword.length < 8 || newPassword !== repeatPassword) {
+  if (newPassword.length < 12 || newPassword.length > 128 || newPassword !== repeatPassword) {
     redirect('/admin/nastavenia?heslo=neplatne');
   }
 
-  await setAdminSetting('admin_password_hash', hashPassword(newPassword), actor);
-  revalidatePath('/admin/nastavenia');
-  redirect('/admin/nastavenia?heslo=ulozene');
+  const changed = await changeAdminUserPassword(admin.email, hashPassword(newPassword), admin.sessionEpoch, actor);
+  if (!changed) redirect('/admin/nastavenia?heslo=konflikt');
+  await clearAdminSession();
+  redirect('/admin/login?heslo=ulozene');
 }

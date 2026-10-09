@@ -122,9 +122,10 @@ test('admin login uses trusted shared address limits while 2FA uses an account l
   assert.match(loginRoute, /consumeSharedRateLimit\('admin-login-address', trustedRateLimitClientIp\(request\.headers\), maxLoginAttempts, loginWindowMs\)/);
   assert.match(loginRoute, /Admin login rate limit unavailable[\s\S]{0,180}503/);
   assert.doesNotMatch(loginRoute, /x-forwarded-for|loginAttempts/);
-  assert.equal((twoFactorActions.match(/twoFactorLimitState\(email\)/g) || []).length, 2);
+  assert.equal((twoFactorActions.match(/twoFactorLimitState\(user\.email\)/g) || []).length, 2);
   assert.match(twoFactorActions, /consumeSharedRateLimit\([\s\S]{0,120}'admin-two-factor-account'[\s\S]{0,100}maxTwoFactorAttempts/);
-  assert.match(twoFactorActions, /twoFactorLimitState\(email\)[\s\S]{0,180}limited[\s\S]{0,100}unavailable/);
+  assert.match(twoFactorActions, /twoFactorLimitState\(user\.email\)[\s\S]{0,180}limited[\s\S]{0,100}unavailable/);
+  assert.match(twoFactorActions, /'admin-two-factor-account',\s*email\.trim\(\)\.toLowerCase\(\)/);
 });
 
 test('shared rate-limit identities are HMACed, namespaced and use fixed windows', () => {

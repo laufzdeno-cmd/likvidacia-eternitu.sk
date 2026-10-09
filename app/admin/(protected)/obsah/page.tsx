@@ -1,6 +1,8 @@
+import { csrfTokenForEmail, requireAdmin } from '@/src/server/auth';
 import { listSiteContent } from '@/src/server/db';
-import { homeContentDefaults } from '@/src/server/site-content';
+import { homeContentDefaults, homepageEditableKeys } from '@/src/server/site-content';
 import { mergeSiteContent } from '@/src/server/site-content-map';
+import { astanaWebsites } from '@/src/content/site';
 import { updateSiteContentAction } from './actions';
 
 const labels: Record<string, string> = {
@@ -73,10 +75,16 @@ const labels: Record<string, string> = {
   faqItems: 'FAQ: otázky vo formáte Otázka|Odpoveď, každá na nový riadok',
 };
 
-export default async function SiteContentPage() {
+export default async function SiteContentPage({ searchParams }: { searchParams?: Promise<{ stav?: string }> }) {
+  const adminEmail = await requireAdmin();
   const stored = await listSiteContent();
-  const storedMap = Object.fromEntries(stored.map((item) => [item.key, item.value]));
   const content = mergeSiteContent(homeContentDefaults, stored);
+  const params = await searchParams;
+  const statusMessage = params?.stav === 'ulozene'
+    ? 'Texty boli uložené.'
+    : params?.stav === 'neplatne'
+      ? 'Texty sa neuložili. Niektoré pole nebolo povolené alebo bolo príliš dlhé.'
+      : '';
 
   return (
     <main className="admin-page">
@@ -85,31 +93,55 @@ export default async function SiteContentPage() {
           <p>Verejný web</p>
           <h1>Texty úvodnej stránky</h1>
         </div>
+        <a className="admin-secondary-link" href="/" target="_blank" rel="noreferrer">Otvoriť náhľad webu</a>
       </div>
 
       <section className="admin-card">
         <h2>Editovateľné texty</h2>
         <p>Úpravy sa po uložení premietnu na verejnej stránke. SEO a štruktúra zostávajú zachované.</p>
+        {statusMessage ? <div className="admin-alert" role="status">{statusMessage}</div> : null}
         <form className="admin-quote-form" action={updateSiteContentAction}>
-          {Object.entries(content).filter(([key]) => key !== 'homepageContentVersion').map(([key, value]) => (
+          <input type="hidden" name="_csrf" value={csrfTokenForEmail(adminEmail)} />
+          {homepageEditableKeys.map((key) => {
+            const value = content[key];
+            return (
             <label key={key} className={value.length > 90 ? 'admin-form-wide' : ''}>
               {labels[key] || key}
-              {key === 'whyItems' ? (
-                <textarea rows={4} value={value} readOnly disabled aria-describedby="archived-why-items-note" />
-              ) : value.length > 90 ? (
-                <textarea name={`content:${key}`} rows={4} defaultValue={value} />
+              {value.length > 90 ? (
+                <textarea name={`content:${key}`} rows={4} defaultValue={value} maxLength={key.endsWith('Items') ? 10_000 : 3_000} />
               ) : (
-                <input name={`content:${key}`} defaultValue={value} />
+                <input name={`content:${key}`} defaultValue={value} maxLength={3_000} />
               )}
             </label>
-          ))}
-          {Object.hasOwn(storedMap, 'whyItems') ? (
-            <p id="archived-why-items-note" className="admin-form-wide">Pôvodný obsah zostáva zachovaný iba na kontrolu. Verejné karty používajú nové samostatné polia vyššie.</p>
-          ) : null}
+          );
+          })}
           <button className="admin-primary-button" type="submit">
             Uložiť texty
           </button>
         </form>
+      </section>
+
+      <section className="admin-card">
+        <h2>GEO, dôkazy a verejné údaje</h2>
+        <p>
+          AI a vyhľadávače dostávajú rovnaké pravdivé údaje ako návštevník. Skrytý marketingový text sa nepoužíva;
+          verejná stránka, JSON-LD, company.json a llms.txt musia hovoriť to isté.
+        </p>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead><tr><th>Oficiálny web</th><th>Úloha</th></tr></thead>
+            <tbody>{astanaWebsites.map((website) => <tr key={website.url}>
+              <td><a href={website.url} target="_blank" rel="noreferrer">{website.name}</a></td>
+              <td>{website.role}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+        <p className="admin-inline-actions">
+          <a className="admin-secondary-link" href="/o-firme/#oficialne-weby" target="_blank" rel="noreferrer">Verejná identita firmy</a>
+          <a className="admin-secondary-link" href="/data/company.json" target="_blank" rel="noreferrer">Strojové firemné údaje</a>
+          <a className="admin-secondary-link" href="/llms.txt" target="_blank" rel="noreferrer">Informácie pre AI</a>
+          <a className="admin-secondary-link" href="/admin/realizacie/pripady">Spravovať overené realizácie</a>
+        </p>
       </section>
     </main>
   );

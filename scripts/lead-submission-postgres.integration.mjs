@@ -99,6 +99,7 @@ let listRealizationCaseDrafts;
 let saveRealizationCaseDraft;
 let createCaseDraftFromApprovedPhoto;
 let setRealizationCaseDraftMedia;
+let updateRealizationCaseDraftMediaMetadata;
 let transitionRealizationCaseDraft;
 let listPublishedRealizationCases;
 let countPublishedRealizationCases;
@@ -192,7 +193,7 @@ async function startIsolatedDatabase() {
   process.env.DATABASE_URL = connectionString;
   process.env.ADMIN_EMAIL = '';
 
-  ({ createLeadSubmission, recordAcceptedLeadAnalytics, recoverAcceptedLeadAnalytics, getLeadAttributionReport, getLeadEmailOutboxAttention, reserveLeadUploadDraft, markLeadUploadDraftUploaded, claimExpiredLeadUploadDrafts, completeLeadUploadDraftDeletion, trackUnreservedLegacyLeadPhoto, consumeApiRateLimit, purgeExpiredApiRateLimitBuckets, claimDuePhotoIntakeDeletions, listRevokedPendingPhotoRecords, listPhotoIntakeRecords, markPhotoIntakeUploadTokenIssued, reservePhotoIntakeSanitizationAttempt, abandonPhotoIntakeSanitizationAttempt, claimPhotoIntakeSanitizationCleanups, completePhotoIntakeSanitizationCleanup, failPhotoIntakeSanitizationCleanup, markPhotoIntakeDeletionFailed, completePhotoIntakeDeletion, updatePhotoIntakeMetadata, withdrawApprovedPhotoIntakeRecord, completePhotoIntakeRecord, reviewPhotoIntakeRecord, createTestimonial, updateTestimonial, updateTestimonialStatus, listApprovedTestimonials, createCareerApplication, createRooferRegistration, getRooferRegistrationBySubmissionId, attachCareerApplicationCv, listApplicationNotificationStatuses, listDueApplicationNotifications, getApplicationNotificationHealth, claimApplicationNotification, claimCareerNotificationBatch, recordApplicationNotificationResult, recordCareerNotificationBatchResult, markStaleApplicationNotificationClaimsUnknown, resolveUnknownApplicationNotification, prepareConfirmedApplicationNotificationRetry, LeadSubmissionConflictError, createRealization, updateRealizationStatus, listPublishedRealizations, listRealizationCaseDrafts, saveRealizationCaseDraft, setRealizationCaseDraftMedia, transitionRealizationCaseDraft, listPublishedRealizationCases, countPublishedRealizationCases, getPublishedRealizationCasePhoto, listPhotoIntakeJobOptions, createPhotoUploadInvite, consumePhotoUploadInviteByHash, getActivePhotoUploadInvite } = await import('../src/server/db.ts'));
+  ({ createLeadSubmission, recordAcceptedLeadAnalytics, recoverAcceptedLeadAnalytics, getLeadAttributionReport, getLeadEmailOutboxAttention, reserveLeadUploadDraft, markLeadUploadDraftUploaded, claimExpiredLeadUploadDrafts, completeLeadUploadDraftDeletion, trackUnreservedLegacyLeadPhoto, consumeApiRateLimit, purgeExpiredApiRateLimitBuckets, claimDuePhotoIntakeDeletions, listRevokedPendingPhotoRecords, listPhotoIntakeRecords, markPhotoIntakeUploadTokenIssued, reservePhotoIntakeSanitizationAttempt, abandonPhotoIntakeSanitizationAttempt, claimPhotoIntakeSanitizationCleanups, completePhotoIntakeSanitizationCleanup, failPhotoIntakeSanitizationCleanup, markPhotoIntakeDeletionFailed, completePhotoIntakeDeletion, updatePhotoIntakeMetadata, withdrawApprovedPhotoIntakeRecord, completePhotoIntakeRecord, reviewPhotoIntakeRecord, createTestimonial, updateTestimonial, updateTestimonialStatus, listApprovedTestimonials, createCareerApplication, createRooferRegistration, getRooferRegistrationBySubmissionId, attachCareerApplicationCv, listApplicationNotificationStatuses, listDueApplicationNotifications, getApplicationNotificationHealth, claimApplicationNotification, claimCareerNotificationBatch, recordApplicationNotificationResult, recordCareerNotificationBatchResult, markStaleApplicationNotificationClaimsUnknown, resolveUnknownApplicationNotification, prepareConfirmedApplicationNotificationRetry, LeadSubmissionConflictError, createRealization, updateRealizationStatus, listPublishedRealizations, listRealizationCaseDrafts, saveRealizationCaseDraft, setRealizationCaseDraftMedia, updateRealizationCaseDraftMediaMetadata, transitionRealizationCaseDraft, listPublishedRealizationCases, countPublishedRealizationCases, getPublishedRealizationCasePhoto, listPhotoIntakeJobOptions, createPhotoUploadInvite, consumePhotoUploadInviteByHash, getActivePhotoUploadInvite } = await import('../src/server/db.ts'));
   ({ createCaseDraftFromApprovedPhoto } = await import('../src/server/db.ts'));
   ({ getTestimonial, listTestimonialsPage, listTestimonialAdminHistory } = await import('../src/server/db.ts'));
   ({ persistAcceptedLeadAnalyticsBatch } = await import('../src/server/analytics-recovery.ts'));
@@ -1430,6 +1431,27 @@ async function runIntegrationChecks() {
   assert.match(accountBucketRows.rows[0].bucket_key, /^[a-f0-9]{64}$/);
   assert.ok(!accountBucketRows.rows[0].bucket_key.includes(limitedAdminEmail), 'DB limiter nesmie ukladať email účtu v čitateľnej forme');
 
+  const analyticsIp = '203.0.113.88';
+  const analyticsAttempts = [];
+  const originalDateNow = Date.now;
+  const analyticsWindowTime = Math.floor(Date.now() / 60_000) * 60_000 + 1_000;
+  try {
+    Date.now = () => analyticsWindowTime;
+    for (let index = 0; index < 81; index += 1) {
+      analyticsAttempts.push(await consumeSharedRateLimit('analytics-event-address', analyticsIp, 80, 60_000));
+    }
+  } finally {
+    Date.now = originalDateNow;
+  }
+  assert.equal(analyticsAttempts.slice(0, 80).every((limited) => limited === false), true);
+  assert.equal(analyticsAttempts[80], true, '81. analytická udalosť v spoločnom okne musí byť obmedzená');
+  const analyticsBucketKey = createRateLimitBucketKey('analytics-event-address', analyticsIp, process.env.AUTH_SECRET);
+  const analyticsBucketRows = await inspectPool.query(
+    'SELECT hit_count FROM api_rate_limit_buckets WHERE bucket_key = $1',
+    [analyticsBucketKey],
+  );
+  assert.equal(Number(analyticsBucketRows.rows[0]?.hit_count), 81);
+
   const inviteId = randomUUID();
   await inspectPool.query(
     `INSERT INTO photo_upload_invites (id, token_hash, created_by, worker_label, expires_at)
@@ -1743,6 +1765,13 @@ async function runIntegrationChecks() {
   const draftWithPhoto = (await listRealizationCaseDrafts()).find((draft) => draft.id === caseDraft.id);
   assert.equal(draftWithPhoto?.media.length, 1, 'koncept smie naviazať interne schválenú fotku aj mimo prvej strany dostupných fotografií');
   assert.equal(draftWithPhoto?.media[0].id, approvedCasePhotoId);
+  assert.equal(draftWithPhoto?.media[0].phase, 'during', 'staré a novo pripojené fotografie musia dostať bezpečný predvolený stav počas práce');
+  await updateRealizationCaseDraftMediaMetadata({
+    draftId: caseDraft.id, mediaId: approvedCasePhotoId, phase: 'before', publicCaption: 'Stav pred demontážou', sortOrder: 2, updatedBy: 'integration-test',
+  });
+  const photoWithMetadata = (await listRealizationCaseDrafts()).find((draft) => draft.id === caseDraft.id)?.media[0];
+  assert.deepEqual({ phase: photoWithMetadata?.phase, publicCaption: photoWithMetadata?.publicCaption, sortOrder: photoWithMetadata?.sortOrder },
+    { phase: 'before', publicCaption: 'Stav pred demontážou', sortOrder: 2 });
   const attachedPhotoCreatedAt = await inspectPool.query('SELECT created_at FROM realization_media_intake WHERE id=$1', [approvedCasePhotoId]);
   assert.equal(draftWithPhoto?.media[0].createdAt, new Date(attachedPhotoCreatedAt.rows[0].created_at).toISOString(), 'koncept musí správcovi ukázať skutočný dátum prijatia fotky pre kontrolu dlhodobého uchovávania');
   const attachedPhotoUploadedAt = await inspectPool.query('SELECT uploaded_at FROM realization_media_intake WHERE id=$1', [approvedCasePhotoId]);
@@ -1800,7 +1829,7 @@ async function runIntegrationChecks() {
     businessJobId: completedPhotoJobId, title: 'Koncept viazaný na CRM zákazku', locality: 'Poprad', localityPrecision: 'district',
     objectType: 'Rodinný dom', materialType: 'Eternit', workDescription: '', resultDescription: '', updatedBy: 'integration-test',
   });
-  assert.deepEqual(jobBoundDraft.businessJob, { id: completedPhotoJobId, demolitionDate: '2026-09-01', district: 'Poprad' });
+  assert.deepEqual(jobBoundDraft.businessJob, { id: completedPhotoJobId, demolitionDate: '2026-09-01', district: 'Poprad', exactLocation: '' });
   await inspectPool.query("UPDATE business_jobs SET status='V_REALIZACII' WHERE id=$1", [completedPhotoJobId]);
   const editedBoundDraft = await saveRealizationCaseDraft({
     id: jobBoundDraft.id, businessJobId: completedPhotoJobId, title: 'Upravený koncept s historickou väzbou', locality: 'Poprad', localityPrecision: 'district',
@@ -1911,6 +1940,9 @@ async function runIntegrationChecks() {
     resultDescription: 'Odpad bol odovzdaný na určené zneškodnenie.', workPeriod: '2026', updatedBy: 'integration-test',
   });
   await setRealizationCaseDraftMedia({ draftId: publishableCase.id, mediaId: otherJobPhotoId, attach: true, updatedBy: 'integration-test' });
+  await updateRealizationCaseDraftMediaMetadata({
+    draftId: publishableCase.id, mediaId: otherJobPhotoId, phase: 'after', publicCaption: 'Strecha po bezpečnej demontáži', sortOrder: 1, updatedBy: 'integration-test',
+  });
   assert.deepEqual(await listPublishedRealizationCases(), [], 'súkromné koncepty nikdy nesmú vstúpiť do verejného zoznamu');
   assert.equal(await getPublishedRealizationCasePhoto(otherJobPhotoId), null, 'schválená súkromná fotografia nie je verejne čitateľná pred publikovaním prípadu');
   const publicationConstraints = await inspectPool.query(
@@ -1997,6 +2029,7 @@ async function runIntegrationChecks() {
   assert.equal(publicCases[0].id, publishableCase.id);
   assert.equal(publicCases[0].locality, '');
   assert.deepEqual(publicCases[0].photoIds, [otherJobPhotoId]);
+  assert.deepEqual(publicCases[0].photos, [{ id: otherJobPhotoId, phase: 'after', publicCaption: 'Strecha po bezpečnej demontáži', sortOrder: 1 }]);
   assert.equal('businessJobId' in publicCases[0], false, 'verejný DTO nesmie obsahovať internú väzbu na CRM');
   assert.equal('publicationEvidence' in publicCases[0], false, 'verejný DTO nesmie odhaliť interné dôkazy súhlasu');
   const publishedPhoto = await getPublishedRealizationCasePhoto(otherJobPhotoId);
@@ -2026,7 +2059,7 @@ async function runIntegrationChecks() {
   assert.equal(await getPublishedRealizationCasePhoto(otherJobPhotoId), null, 'stiahnutá fotografia sa okamžite prestane podávať');
   const lifecycleAudit = await inspectPool.query("SELECT action FROM audit_logs WHERE entity_type='realization_case_draft' AND entity_id=$1 ORDER BY created_at", [publishableCase.id]);
   assert.deepEqual(lifecycleAudit.rows.map((row) => row.action), [
-    'case_draft_created', 'case_draft_photo_attached', 'case_reviewed', 'case_approved', 'case_draft', 'case_draft_updated', 'case_reviewed', 'case_approved', 'case_published', 'case_withdrawn',
+    'case_draft_created', 'case_draft_photo_attached', 'case_draft_photo_metadata_updated', 'case_reviewed', 'case_approved', 'case_draft', 'case_draft_updated', 'case_reviewed', 'case_approved', 'case_published', 'case_withdrawn',
   ]);
   const crossJobAttachError = await setRealizationCaseDraftMedia({ draftId: jobBoundDraft.id, mediaId: otherJobPhotoId, attach: true, updatedBy: 'integration-test' }).then(() => null, (error) => error);
   assert.match(String(crossJobAttachError?.message ?? ''), /rovnakej CRM zákazky/);

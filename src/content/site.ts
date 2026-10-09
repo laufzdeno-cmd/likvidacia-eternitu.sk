@@ -25,7 +25,7 @@ export const site = {
       verifiedAsOf: '2026-10-07',
     },
   },
-  sameAs: ['https://astana.sk'],
+  sameAs: ['https://www.astana.sk/', 'https://likvidovanie-azbestu.sk/'],
   documents: {
     public: [] as Array<{ name: string; url: string }>,
     publicVerificationUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
@@ -50,6 +50,24 @@ export const site = {
     },
   },
 } as const;
+
+export const astanaWebsites = [
+  {
+    url: 'https://www.astana.sk/',
+    name: 'ASTANA.sk',
+    role: 'Firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti.',
+  },
+  {
+    url: site.website,
+    name: 'Likvidacia-eternitu.sk',
+    role: 'Špecializovaný web pre eternitové a azbestové strechy, cenovú ponuku, demontáž a koordináciu so strechármi.',
+  },
+  {
+    url: 'https://likvidovanie-azbestu.sk/',
+    name: 'Likvidovanie-azbestu.sk',
+    role: 'Doplnkový odborný web pre azbest na nehnuteľnosti, v interiéri a pri špecializovaných vonkajších situáciách.',
+  },
+] as const;
 
 export const companyAddressLine = `${site.address.street}, ${site.address.postalCode} ${site.address.locality}`;
 export const phoneLink = `tel:${site.phoneHref}`;

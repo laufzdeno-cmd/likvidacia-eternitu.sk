@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import Image from 'next/image';
 import localityDataset from '@/src/data/slovakia-locality-points.json';
 import { mapPublishedRealizationLocalityPoints } from '@/src/lib/published-realization-locality-points';
+import { selectPublishedRealizationPhotos } from '@/src/lib/published-realization-photos';
 import type { PublishedRealizationCase } from '@/src/server/types';
 import styles from './approved-case-map.module.css';
 
@@ -107,23 +108,29 @@ export default function ApprovedCaseMap({ cases }: Props) {
       <div className={`${styles.cards} ${cases.length === 1 ? styles.cardsOne : cases.length === 2 ? styles.cardsTwo : ''}`}>
         {cases.map((item) => {
           const pointAvailable = points.some((point) => point.caseId === item.id);
-          const imageId = item.photoIds[0];
-          const imagePath = imageId ? `/api/realization-case-media/${encodeURIComponent(imageId)}/` : null;
+          const photos = selectPublishedRealizationPhotos(item);
           const localityLabel = item.localityPrecision === 'municipality' ? 'obec' : item.localityPrecision === 'district' ? 'okres' : 'lokalita';
           return (
             <article className={styles.card} id={`realizacia-${item.id}`} key={item.id}>
-              {imagePath ? (
-                <img
-                  src={`${imagePath}?w=720`}
-                  srcSet={`${imagePath}?w=360 360w, ${imagePath}?w=720 720w, ${imagePath}?w=1080 1080w`}
-                  alt={`${item.objectType} – ${item.materialType}${item.locality ? `, ${item.locality}` : ''}`}
-                  width={720}
-                  height={480}
-                  sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
-                  loading="lazy"
-                  decoding="async"
-                />
-              ) : null}
+              {photos.length ? <div className={styles.photoGallery} data-count={Math.min(photos.length, 3)}>
+                {photos.map((photo) => {
+                  const imagePath = `/api/realization-case-media/${encodeURIComponent(photo.id)}/`;
+                  const phaseLabel = photo.phase === 'before' ? 'Pred prácou' : photo.phase === 'after' ? 'Po práci' : 'Počas práce';
+                  return <figure key={photo.id}>
+                    <img
+                      src={`${imagePath}?w=720`}
+                      srcSet={`${imagePath}?w=360 360w, ${imagePath}?w=720 720w, ${imagePath}?w=1080 1080w`}
+                      alt={photo.publicCaption || `${phaseLabel}: ${item.objectType} – ${item.materialType}${item.locality ? `, ${item.locality}` : ''}`}
+                      width={720}
+                      height={480}
+                      sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                    <figcaption><strong>{phaseLabel}</strong>{photo.publicCaption ? <span>{photo.publicCaption}</span> : null}</figcaption>
+                  </figure>;
+                })}
+              </div> : null}
               <div className={styles.cardBody}>
                 <p className={styles.locality}>{item.locality || 'Slovensko'}{item.locality ? ` · ${localityLabel}` : ''}{pointAvailable ? ' · približná poloha na mape' : ''}</p>
                 <h3>{item.title}</h3>

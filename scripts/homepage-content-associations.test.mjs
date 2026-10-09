@@ -11,16 +11,12 @@ const company = JSON.parse(readFileSync(new URL('../public/data/company.json', i
 const llms = readFileSync(new URL('../public/llms.txt', import.meta.url), 'utf8');
 const photoReferences = readFileSync(new URL('../src/data/azbestReferences.ts', import.meta.url), 'utf8');
 
-test('homepage trust cards bind editable descriptions to stable card keys', () => {
-  const cardBlock = homepage.match(/const whyCardMeta = \[([\s\S]*?)\] as const;/)?.[1];
-  assert.ok(cardBlock, 'card metadata exists');
-  const ids = [...cardBlock.matchAll(/id: '([^']+)'/g)].map((match) => match[1]);
-  const keys = [...cardBlock.matchAll(/contentKey: '(why[A-Za-z]+)'/g)].map((match) => match[1]);
-  assert.equal(ids.length, 6);
-  assert.equal(new Set(ids).size, ids.length);
-  assert.equal(new Set(keys).size, keys.length);
-  for (const key of keys) assert.match(defaults, new RegExp(`\\b${key}:`));
-  assert.match(homepage, /<p>\{content\[card\.contentKey\]\}<\/p>/);
+test('consolidated homepage trust keeps editable titles paired with their descriptions', () => {
+  assert.match(homepage, /trustItems\.map\(\(\[title, text\], index\)/);
+  assert.match(homepage, /className="trust-item" key=\{title\}[\s\S]*?<strong>\{title\}<\/strong>\s*<p>\{text\}<\/p>/);
+  assert.match(homepage, /id="preco" aria-labelledby="why-title"/);
+  assert.match(homepage, /id="why-title"[^>]*>\{content\.whyTitle\}<\/h2>/);
+  assert.doesNotMatch(homepage, /className="why-card-grid"/);
   assert.doesNotMatch(homepage, /whyItems\[index\]/);
 });
 
@@ -28,12 +24,16 @@ test('homepage hero claim and supporting text have distinct jobs', () => {
   assert.doesNotMatch(homepage, /heroClaim:\s*['`]/);
   assert.doesNotMatch(homepage, /heroText:\s*['`]/);
   assert.match(defaults, /heroClaim: 'Pošlite nám približnú výmeru a obec\. O ďalší postup sa postaráme my\.'/);
-  assert.match(defaults, /heroText:\s*`Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie, odvoz aj \$\{serviceDocumentationOutcome\}\.\`/);
+  assert.match(defaults, /heroText:\s*`Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie a odvoz\. Výsledkom je \$\{serviceDocumentationOutcome\}\.\`/);
 });
 
-test('homepage evidence describes the six attached realization cards accurately', () => {
-  assert.match(homepage, /šesť ukážok prác na rodinných domoch, hospodárskej budove a priemyselných objektoch/);
-  assert.doesNotMatch(homepage, /šesť ukážok[^.]*interiéri/);
+test('homepage evidence describes the three representative photos accurately', () => {
+  assert.match(defaults, /tri ukážky prác na rodinnom dome, hospodárskej budove a priemyselnom objekte/);
+  assert.match(homepage, /\{content\.realizationsText\}/);
+  assert.doesNotMatch(homepage, /šesť ukážok|tri ukážky[^.]*interiéri/);
+  assert.match(homepage, /\['azbest-164', 'azbest-120', 'azbest-110'\]\.includes\(item\.image\.id\)/);
+  assert.match(homepage, /homepageHighlights\.map\(\(item\)/);
+  assert.match(homepage, /href="\/realizacie\/">Zobraziť všetky realizácie<\/a>/);
   assert.match(defaults, /whyExperienceText: 'Firma ASTANA pôsobí na trhu od roku 2011\.'/);
 });
 
@@ -82,13 +82,11 @@ test('contact preference explains why email stays required for the written offer
   assert.match(homepage, /<input id="email" name="email" type="email"[^>]*required/);
 });
 
-test('admin edits keyed trust-card text and no longer exposes the obsolete positional field', () => {
-  for (const key of ['whySafeText', 'whyDocumentationText', 'whyRemovalText', 'whyExperienceText', 'whyPricingText', 'whyCoverageText']) {
-    assert.match(admin, new RegExp(`${key}:`));
-  }
-  assert.match(admin, /key === 'whyItems'/);
-  assert.match(admin, /value=\{value\} readOnly disabled/);
-  assert.match(admin, /Pôvodný obsah zostáva zachovaný iba na kontrolu/);
+test('admin exposes only homepage fields whose saved value is rendered', () => {
+  assert.match(defaults, /export const homepageEditableKeys = \[/);
+  assert.match(admin, /homepageEditableKeys\.map\(\(key\) =>/);
+  assert.doesNotMatch(admin, /Object\.entries\(content\)/);
+  assert.doesNotMatch(defaults.match(/export const homepageEditableKeys = \[([\s\S]*?)\] as const/)?.[1] ?? '', /whySafeText|whyDocumentationText|whyRemovalText|whyItems/);
 });
 
 test('regional quick answer uses grammatical location text once in the visible page', () => {

@@ -90,7 +90,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
   const insight = getLeadInsight(lead, lead.files.length, lead.quotes.length);
   const attribution = leadAttribution(lead.rawData);
   const hasProtectedQuotes = lead.quotes.some((quote) => !['draft', 'cancelled'].includes(quote.status));
-  const wantsRoofer = lead.wantsRooferRecommendation || cleanSlovakText(lead.roofer).toLowerCase().includes('strechár');
+  const wantsRoofer = insight.tags.includes('potrebuje_strechara');
 
   return (
     <main className="admin-page">

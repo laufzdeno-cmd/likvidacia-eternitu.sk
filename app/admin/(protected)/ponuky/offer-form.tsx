@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useFormStatus } from 'react-dom';
 import type { BusinessJob, PriceOffer, PriceOfferMaterialType, PriceOfferSettings } from '@/src/server/types';
 import { calculatePriceOfferPricing } from '@/src/lib/price-offer-pricing';
 import { MAX_PRICE_OFFER_NOTE_LENGTH } from '@/src/lib/price-offer-note';
+import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import { calculateTransportDistanceAction } from './actions';
 import { euro, priceOfferMaterialLabels } from './constants';
 
@@ -19,16 +21,16 @@ function n(value: string | number | undefined) {
 }
 
 function defaultValidUntil() {
-  const date = new Date();
-  date.setDate(date.getDate() + 60);
-  return date.toISOString().slice(0, 10);
+  return slovakCalendarDateAfterDays(60);
 }
 
 function displayDate(value: string) {
-  return new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(value));
+  if (!isValidIsoCalendarDate(value)) return '';
+  return new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' }).format(new Date(value));
 }
 
 export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }: Props) {
+  const { pending } = useFormStatus();
   const selectedJob = jobs.find((job) => job.id === (offer?.jobId || selectedJobId));
   const initialMaterial = offer?.materialType || 'VLNITY_ETERNIT';
   const initialValidUntil = offer?.validUntil || defaultValidUntil();
@@ -49,6 +51,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
   const [validUntil, setValidUntil] = useState(initialValidUntil);
   const vatRate = offer?.vatRate ?? settings.vatRate;
   const areaIsUnknown = area <= 0;
+  const formattedValidUntil = displayDate(validUntil);
 
   const totals = useMemo(() => {
     const pricing = calculatePriceOfferPricing({ areaM2: area, pricePerM2WithoutVat: price,
@@ -79,7 +82,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
   }
 
   return (
-    <div className="price-offer-layout">
+    <div className={`price-offer-layout${pending ? ' admin-submit-busy' : ''}`}>
       <div className="price-offer-main">
         <section className="admin-card">
           <h2>Zákazka</h2>
@@ -158,7 +161,7 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
             <label>
               Platná do
               <input name="validUntil" type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} required />
-              <small>Zobrazí sa ako: {displayDate(validUntil)}</small>
+              <small>{formattedValidUntil ? `Zobrazí sa ako: ${formattedValidUntil}` : 'Doplňte platný dátum platnosti ponuky.'}</small>
             </label>
             <label className="admin-form-wide">Poznámka do ponuky<textarea name="offerNote" rows={4} maxLength={MAX_PRICE_OFFER_NOTE_LENGTH} defaultValue={offer?.offerNote || ''} /><small>Najviac {MAX_PRICE_OFFER_NOTE_LENGTH} znakov.</small></label>
             <label className="admin-form-wide">Interná poznámka<textarea name="internalNote" rows={4} defaultValue={offer?.internalNote || ''} /></label>
@@ -186,11 +189,15 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
           <span>S DPH</span>
           <strong>{euro(totals.withVat)}</strong>
         </div>
-        <div className="price-offer-actions">
-          <button className="admin-secondary-link" type="submit">{offer ? 'Uložiť zmeny' : 'Uložiť ako koncept'}</button>
-          <button className="admin-primary-button" type="submit" name="next" value="send">Uložiť a skontrolovať odoslanie</button>
+        <div className="price-offer-actions" aria-busy={pending}>
+          <button className="admin-secondary-link" type="submit" disabled={pending}>{pending ? 'Ukladám…' : offer ? 'Uložiť zmeny' : 'Uložiť ako koncept'}</button>
+          <button className="admin-primary-button" type="submit" name="next" value="send" disabled={pending}>{pending ? 'Ukladám…' : 'Uložiť a skontrolovať odoslanie'}</button>
         </div>
       </aside>
+      {pending ? <div className="admin-pending-toast" role="status" aria-live="polite">
+        <span className="admin-button-spinner" aria-hidden="true" />
+        <strong>Ukladám cenovú ponuku…</strong>
+      </div> : null}
     </div>
   );
 }

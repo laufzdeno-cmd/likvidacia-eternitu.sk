@@ -7,7 +7,7 @@ export const homeContentDefaults = {
   heroTitle: 'Likvidácia azbestu a eternitu po celom Slovensku',
   heroClaim: 'Pošlite nám približnú výmeru a obec. O ďalší postup sa postaráme my.',
   heroText:
-    `Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie, odvoz aj ${serviceDocumentationOutcome}.`,
+    `Zabezpečíme potrebné podklady, bezpečnú demontáž, balenie a odvoz. Výsledkom je ${serviceDocumentationOutcome}.`,
   quoteKicker: 'Rýchla cenová ponuka',
   quoteTitle: 'Jednoduchý formulár',
   quoteIntro: 'Stačí približná výmera, lokalita a kontakt. Ozveme sa do 24 hodín.',
@@ -43,9 +43,10 @@ export const homeContentDefaults = {
   whyTitle: 'Prečo sa zákazníci obracajú na ASTANA',
   whyText:
     'Nie sme firma, ktorá len zloží eternit zo strechy. Riešime dokumentáciu ku konkrétnej stavbe, stabilizáciu, kontrolovanú demontáž, balenie, odvoz aj doklady po likvidácii.',
-  realizationsEyebrow: 'Realizácie',
-  realizationsTitle: 'Schválené realizácie z adminu',
-  realizationsText: 'Schválené ukážky prác z adminu: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.',
+  realizationsEyebrow: 'Vybrané realizácie',
+  realizationsTitle: 'Naša práca v praxi',
+  realizationsText:
+    'Pozrite si tri ukážky prác na rodinnom dome, hospodárskej budove a priemyselnom objekte. Ďalšie fotografie nájdete vo filtrovaných realizáciách.',
   testimonialsEyebrow: 'Referencie',
   testimonialsTitle: 'Čo hovoria zákazníci',
   testimonialsText: 'Krátke skúsenosti zákazníkov po realizácii a odovzdaní zákazky.',
@@ -88,3 +89,53 @@ export const homeContentDefaults = {
   faqItems:
     'Je azbest nebezpečný?|Materiály s obsahom azbestu môžu byť problém najmä pri poškodení, lámaní alebo neodbornej manipulácii. Preto je dôležitý odborný postup, stabilizácia, balenie a správne odovzdanie odpadu.\nMôžem eternit odstrániť svojpomocne?|Pri azbeste nejde iba o fyzické odstránenie krytiny. Treba riešiť bezpečnú manipuláciu, balenie, odvoz na určené miesto a doklady.\nTreba na práce povolenie od RÚVZ?|Pri plánovanom odstraňovaní azbestu držiteľ oprávnenia písomne oznamuje práce príslušnému RÚVZ najmenej 30 dní vopred a predkladá požadované podklady. Ide o oznámenie, nie o žiadosť o povolenie. ASTANA pripraví postup ku konkrétnej stavbe a po dokončení odovzdá dohodnuté doklady vrátane potvrdenia o likvidácii.\nStačí, že firma má oprávnenie na odstraňovanie azbestu?|Je potrebné overiť, či rozsah oprávnenia zodpovedá konkrétnemu typu prác a či firma pripraví oznámenie a podklady ku konkrétnej stavbe.\nČo ak neviem presnú výmeru?|Stačí približná výmera v m2. Ak neviete presne, uveďte odhad. Presné m2 sa overia podľa skutočnosti a rozsahu prác.\nPotrebujete fotky?|Fotky sú voliteľné, ale veľmi pomôžu. Podľa nich vieme lepšie posúdiť typ materiálu, prístup, výšku objektu, stav strechy a náročnosť.\nČo dostanem po likvidácii?|Po riadnom ukončení a úhrade zákazky odovzdávame potvrdenie alebo súvisiacu dokumentáciu podľa rozsahu a typu zákazky.\nKedy môže začať realizácia?|Termín závisí od rozsahu, lokality, počasia a potrebného postupu pred prácami. Po potvrdení objednávky dohodneme ďalší postup a časový plán.\nPomôžete zladiť likvidáciu so strechárom?|Áno. Pri výmenách striech vyrážame z Popradu skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na nadväzujúcu prácu.',
 };
+
+/**
+ * Only fields rendered by the current homepage belong in the owner-facing CMS.
+ * Legacy defaults remain available for backwards compatibility, but must not
+ * create controls whose saved value has no public effect.
+ */
+export const homepageEditableKeys = [
+  'heroEyebrow',
+  'heroTitle',
+  'heroClaim',
+  'heroText',
+  'quoteKicker',
+  'quoteTitle',
+  'quoteIntro',
+  'quoteHandled',
+  'quotePriorityTitle',
+  'quotePriorityText',
+  'formSubmitText',
+  'ctaPrimary',
+  'ctaPhone',
+  'realizationsEyebrow',
+  'realizationsTitle',
+  'realizationsText',
+  'includedEyebrow',
+  'includedTitle',
+  'includedText',
+  'includedItems',
+  'processTitle',
+  'processSteps',
+  'riskEyebrow',
+  'riskTitle',
+  'riskText',
+  'riskNoticeText',
+  'cautionTitle',
+  'roofersTitle',
+  'roofersText',
+  'roofersCtaSecondary',
+  'rooferItems',
+  'whyTitle',
+  'trustItems',
+  'faqEyebrow',
+  'faqTitle',
+  'faqText',
+  'faqItems',
+  'finalEyebrow',
+  'finalTitle',
+  'finalText',
+  'finalCtaPrimary',
+  'footerText',
+] as const satisfies readonly (keyof typeof homeContentDefaults)[];

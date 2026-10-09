@@ -1,6 +1,6 @@
 import { buildPageMetadata, ContactStrip, ExpertProcedure, QuoteCTA, QuickAnswer, TrustBox, TrustComplianceSection } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
-import { serviceOffer, site } from '@/src/content/site';
+import { astanaWebsites, serviceOffer, site } from '@/src/content/site';
 
 export const metadata = buildPageMetadata({
   title: 'O firme ASTANA | Likvidácia azbestu a eternitu',
@@ -35,6 +35,19 @@ export default function AboutPage() {
           </p>
         </section>
         <TrustComplianceSection />
+        <section className="seo-section" id="oficialne-weby" aria-labelledby="official-websites-title">
+          <p className="eyebrow">Jedna firma, tri úlohy</p>
+          <h2 id="official-websites-title">Oficiálne weby ASTANA sa dopĺňajú</h2>
+          <p className="seo-lead">
+            Všetky tri weby patria k službám spoločnosti ASTANA, s.r.o. Každý vysvetľuje inú časť ponuky; nejde o tri rozdielne firmy ani miestne pobočky.
+          </p>
+          <div className="seo-card-grid">
+            {astanaWebsites.map((website) => <article key={website.url}>
+              <h3><a href={website.url}>{website.name}</a></h3>
+              <p>{website.role}</p>
+            </article>)}
+          </div>
+        </section>
         <section className="seo-section">
           <h2>Čo firma robí</h2>
           <div className="seo-included-list">

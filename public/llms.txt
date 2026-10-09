@@ -13,6 +13,7 @@ Likvidacia-eternitu.sk je web firmy ASTANA, s.r.o. pre odbornú likvidáciu azbe
 - [Realizácie ASTANA](https://likvidacia-eternitu.sk/realizacie/)
 - [Recenzie zákazníkov](https://likvidacia-eternitu.sk/recenzie/)
 - [O firme ASTANA](https://likvidacia-eternitu.sk/o-firme/)
+- [Overené údaje a oficiálne weby ASTANA](https://likvidacia-eternitu.sk/o-firme/#oficialne-weby)
 - [Kontakt](https://likvidacia-eternitu.sk/kontakt/)
 - [Kde pôsobíme a ako plánujeme výjazdy](https://likvidacia-eternitu.sk/kde-posobime/)
 - [Poradňa](https://likvidacia-eternitu.sk/poradna/)
@@ -63,6 +64,14 @@ Pri výmene strechy sa po dohode plánuje skorý výjazd. Cieľom môže byť pr
 - balenie ako nebezpečný odpad,
 - odvoz nebezpečného odpadu,
 - potvrdenie alebo dokumentácia po legálnej likvidácii podľa rozsahu zákazky.
+
+## Oficiálne weby jednej firmy
+
+- [ASTANA.sk](https://www.astana.sk/) je firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti.
+- [Likvidacia-eternitu.sk](https://likvidacia-eternitu.sk/) sa zameriava na eternitové a azbestové strechy, cenovú ponuku, demontáž a koordináciu so strechármi.
+- [Likvidovanie-azbestu.sk](https://likvidovanie-azbestu.sk/) dopĺňa informácie o azbeste na nehnuteľnosti, v interiéri a pri špecializovaných vonkajších situáciách.
+
+Tieto weby reprezentujú služby spoločnosti ASTANA, s.r.o. a obsahovo sa dopĺňajú. Nejde o tri rozdielne firmy ani miestne pobočky.
 
 ## Lokality
 

@@ -8,6 +8,7 @@ const { calculatePriceOfferPricing } = require('../src/lib/price-offer-pricing.t
 const { roundTripDistanceKm } = require('../src/lib/price-offer-distance.ts');
 const { resolvePriceOfferVatRate } = require('../src/lib/price-offer-vat.ts');
 const { priceOfferUpdateLifecycle } = require('../src/lib/price-offer-state.ts');
+const { slovakCalendarDateAfterDays } = require('../src/lib/date-only.ts');
 const { renderPriceOfferPdfHtml } = require('../src/server/price-offer-pdf.ts');
 const { priceOfferEmailHtml, priceOfferEmailText } = require('../src/server/mail.ts');
 
@@ -38,6 +39,19 @@ test('doprava používa spiatočné kilometre a editovateľnú sadzbu', () => {
   assert.equal(totals.totalWithVat, 1611);
   assert.equal(roundTripDistanceKm(42_300), 84.6);
   assert.equal(roundTripDistanceKm(2_000_001), null);
+});
+
+test('platnosť ponuky sa počíta zo slovenského kalendárneho dňa aj okolo polnoci a zmeny času', () => {
+  assert.equal(slovakCalendarDateAfterDays(60, new Date('2026-01-15T23:30:00.000Z')), '2026-03-17');
+  assert.equal(slovakCalendarDateAfterDays(60, new Date('2026-06-15T22:30:00.000Z')), '2026-08-15');
+  assert.equal(slovakCalendarDateAfterDays(0, new Date('2026-03-29T00:30:00.000Z')), '2026-03-29');
+  assert.equal(slovakCalendarDateAfterDays(0, new Date('2026-10-25T00:30:00.000Z')), '2026-10-25');
+});
+
+test('stará URL cenovej ponuky iba presmeruje do schváleného workflow', async () => {
+  const legacyPage = await readFile(new URL('../app/admin/(protected)/dopyty/[id]/cenova-ponuka/page.tsx', import.meta.url), 'utf8');
+  assert.match(legacyPage, /redirect\(`\/admin\/ponuky\/nova\?lead=\$\{encodeURIComponent\(id\)\}`\)/);
+  assert.doesNotMatch(legacyPage, /createQuoteAction|createQuote|<form/);
 });
 
 test('historická DPH sa bezpečne odvodí a null nikdy neznamená 0 %', () => {
@@ -237,6 +251,7 @@ test('server action validuje cenu a Maps ostáva serverové s ručným fallbacko
   assert.match(actions, /isUsablePhone\(input\.phone\)/);
   assert.match(actions, /isValidIsoCalendarDate\(input\.validUntil\)/);
   assert.match(actions, /input\.validUntil < todayInSlovakia\(\)/);
+  assert.match(actions, /Cenovú ponuku sa nepodarilo odoslať\./);
   assert.match(form, /Cena za km bez DPH/);
   assert.match(form, /Vzdialenosť a sadzbu môžete upraviť ručne/);
   assert.match(form, /name="realizationTerm" maxLength=\{250\}/);
