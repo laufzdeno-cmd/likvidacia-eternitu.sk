@@ -19,6 +19,7 @@ const leadReceiptRoute = read('../app/api/lead/receipt/route.ts');
 const noJsConfirmation = read('../app/dopyt-prijaty/route.ts');
 const leadReceipt = read('../src/server/lead-receipt.ts');
 const leadUploadRoute = read('../app/api/lead-upload/route.ts');
+const nextConfig = read('../next.config.mjs');
 const leadValidation = read('../src/server/validation.ts');
 const emailCron = read('../app/api/cron/notifications/route.ts');
 const leadEmailDeliveryCron = read('../app/api/cron/lead-email-delivery/route.ts');
@@ -54,6 +55,10 @@ test('homepage rejects unsupported photo metadata before upload and offers only 
   assert.match(homepageClient, /const contentType = leadPhotoContentType\(file\.name, file\.type\)/);
   assert.match(homepage, /accept="[^"]*\.webp,image\/jpeg,image\/png,image\/webp"/);
   assert.doesNotMatch(homepage, /HEIC a HEIF tiež prijímame/);
+});
+
+test('content security policy permits the Vercel Blob client upload API', () => {
+  assert.match(nextConfig, /connect-src 'self' https:\/\/vercel\.com /);
 });
 
 test('strechársky honeypot is disabled and excluded from FormData', () => {

@@ -14,7 +14,7 @@ const securityHeaders = [
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       ["script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://connect.facebook.net", isDev ? "'unsafe-eval'" : ''].filter(Boolean).join(' '),
-      "connect-src 'self' https://*.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://www.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.facebook.com https://connect.facebook.net",
+      "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://*.blob.vercel-storage.com https://*.public.blob.vercel-storage.com https://www.google.com https://www.googleadservices.com https://googleads.g.doubleclick.net https://www.facebook.com https://connect.facebook.net",
       'upgrade-insecure-requests',
     ].join('; '),
   },
