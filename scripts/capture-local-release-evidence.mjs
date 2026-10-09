@@ -302,7 +302,7 @@ export function cleanupEvidenceMetrics(log, label = 'Dôkazový') {
     `${label} log nepotvrdzuje odstránenie jednorazovej databázy.`,
   );
   requireExactlyOne(
-    /^Cleanup PASS: owned temp root removed: <USER_PROFILE>[\\/]AppData[\\/]Local[\\/]Temp[\\/]astana-photo-intake-[A-Za-z0-9_-]+$/gm,
+    /^Cleanup PASS: owned temp root removed: (?:<USER_PROFILE>[\\/]AppData[\\/]Local[\\/]Temp|<(?:PROJECT_ROOT|CANDIDATE_ROOT)>[\\/]tmp)[\\/]astana-photo-intake-[A-Za-z0-9_-]+$/gm,
     `${label} log nepotvrdzuje odstránenie vlastného dočasného rootu.`,
   );
   return {
@@ -441,7 +441,7 @@ async function main() {
     ['unit', 'npm.cmd', ['run', 'test:unit']],
     ['typecheck', 'npm.cmd', ['run', 'typecheck']],
     ['databaseIntegration', 'npm.cmd', ['run', 'test:db-integration']],
-    ['productionBuild', 'powershell.exe', [
+    ['productionBuild', 'pwsh.exe', [
       '-NoProfile',
       '-ExecutionPolicy',
       'Bypass',
@@ -449,7 +449,7 @@ async function main() {
       path.join(candidateRoot, 'scripts', 'run-isolated-postgres.ps1'),
       '-ProductionBuild',
     ]],
-    ['lighthouseBuild', 'powershell.exe', [
+    ['lighthouseBuild', 'pwsh.exe', [
       '-NoProfile',
       '-ExecutionPolicy',
       'Bypass',

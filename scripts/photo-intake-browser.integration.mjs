@@ -7,11 +7,13 @@
  * Covers invitation login, scoped history, private media reads, forged and
  * revoked sessions, cross-invite denial, and one actual browser multipart
  * upload through signed callback/confirm with SQL locality/category checks.
- * Uses a temporary source-only Next project, in-memory PGlite or an explicitly
+ * Uses a project-owned temporary source-only Next project, in-memory PGlite or an explicitly
  * managed loopback PostgreSQL for full-build mode,
  * a loopback Blob emulator, fresh explicit child env, and network guards.
  * Never reads env files or uses production data/accounts/mail. Removes only
- * its verified owned temp tree, after unlinking the dependency junction.
+ * its verified owned temp tree. The temp project lives below the installed
+ * dependency project's ignored tmp directory so normal Node resolution works
+ * without copying dependencies or creating a junction.
  *
  * Limitations: local dev HTTP and a simulated installed Blob SDK contract;
  * not real Vercel/private-store availability, production TLS/CSP/Secure
@@ -22,16 +24,19 @@ import { createHmac, randomBytes, randomUUID, createHash, timingSafeEqual } from
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createNetServer } from 'node:net';
 import { createRequire, syncBuiltinESMExports } from 'node:module';
-import { cp, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, unlink, writeFile } from 'node:fs/promises';
+import { cp, lstat, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { extractStylesheetHrefs } from './built-route-assets.mjs';
+import { resolveProjectDependencyRoot } from './project-dependency-root.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const projectRoot = path.resolve(path.dirname(scriptPath), '..');
+const dependencyRoot = resolveProjectDependencyRoot(import.meta.url);
+const nextCliPath = path.join(dependencyRoot, 'next', 'dist', 'bin', 'next');
+const harnessTempParent = path.join(path.dirname(dependencyRoot), 'tmp');
 const privateBlobHost = 'harness.private.blob.vercel-storage.com';
 
 async function collectMobileCssCoverage(context, appOrigin, pagePath) {
@@ -450,7 +455,6 @@ async function createTempProject(tempRoot, headersOnly = false, includeSeoAudit 
     "} catch {\n    return new NextResponse('Súkromnú fotografiu sa nepodarilo načítať', { status: 503 });",
     "} catch (error) {\n    console.error('ISOLATED PHOTO MEDIA READ FAILED', JSON.stringify({ message: error instanceof Error ? error.message : String(error), cause: error instanceof Error && error.cause instanceof Error ? error.cause.message : undefined }));\n    return new NextResponse('Súkromnú fotografiu sa nepodarilo načítať', { status: 503 });",
   ), 'utf8');
-  await symlink(path.join(projectRoot, 'node_modules'), path.join(tempRoot, 'node_modules'), 'junction');
   // Next's client upload is intentionally pointed at a loopback HTTP emulator.
   // This temporary-only config adds a loopback CSP exception for the test
   // document; source config in the repository remains byte-for-byte untouched.
@@ -542,8 +546,8 @@ async function stopChild(child) {
 
 function assertOwnedTempRoot(tempRoot) {
   const resolved = path.resolve(tempRoot);
-  const parent = path.resolve(tmpdir());
-  assert.equal(path.dirname(resolved).toLowerCase(), parent.toLowerCase(), 'teardown target must be directly under os.tmpdir()');
+  const parent = path.resolve(harnessTempParent);
+  assert.equal(path.dirname(resolved).toLowerCase(), parent.toLowerCase(), 'teardown target must be directly under the dependency project tmp');
   assert.match(path.basename(resolved), /^astana-photo-intake-[A-Za-z0-9]+$/, 'teardown target must be this harness temp');
   return resolved;
 }
@@ -607,7 +611,10 @@ async function runHarness() {
   if (process.env.ASTANA_HARNESS_LIGHTHOUSE === '1') {
     assert.ok(existsSync(lighthouseBrowser), 'Lighthouse Chromium missing; set ASTANA_HARNESS_LIGHTHOUSE_BROWSER to an installed Chromium executable.');
   }
-  const tempRoot = await mkdtemp(path.join(tmpdir(), 'astana-photo-intake-'));
+  await mkdir(harnessTempParent, { recursive: true });
+  const harnessTempParentStat = await lstat(harnessTempParent);
+  assert.equal(harnessTempParentStat.isSymbolicLink(), false, 'dependency project tmp cannot be a symbolic link or junction');
+  const tempRoot = await mkdtemp(path.join(harnessTempParent, 'astana-photo-intake-'));
   const owner = randomUUID();
   let pglite, socket, blobServer, child, browser;
   const contexts = [], logs = [], deniedOrigins = [];
@@ -667,7 +674,7 @@ async function runHarness() {
       TEMP: tempRoot, TMP: tempRoot,
     });
     if (productionMode) {
-      const build = spawnSync(process.execPath, [path.join(tempRoot, 'node_modules', 'next', 'dist', 'bin', 'next'), 'build', '--webpack'], {
+      const build = spawnSync(process.execPath, [nextCliPath, 'build', '--webpack'], {
         cwd: tempRoot, env, windowsHide: true, encoding: 'utf8', timeout: 240_000, maxBuffer: 8 * 1024 * 1024,
       });
       assert.equal(build.status, 0, `isolated production build failed: ${(build.stdout || '') + (build.stderr || '')}`.slice(-7000));
@@ -1589,14 +1596,8 @@ async function runHarness() {
     if (blobServer) { blobServer.closeAllConnections(); await new Promise((resolve) => blobServer.close(resolve)); }
     await socket?.stop(); await pglite?.close();
     const ownedRoot = assertOwnedTempRoot(tempRoot);
-    assert.equal((await realpath(ownedRoot)).toLowerCase(), ownedRoot.toLowerCase(), 'temp root cannot be a symlink');
+    assert.equal((await lstat(ownedRoot)).isSymbolicLink(), false, 'temp root cannot be a symlink or junction');
     assert.equal(await readFile(path.join(ownedRoot, '.harness-owner'), 'utf8'), owner);
-    const moduleLink = path.join(ownedRoot, 'node_modules'), linkStat = await lstat(moduleLink).catch(() => null);
-    if (linkStat) {
-      assert.ok(linkStat.isSymbolicLink(), 'dependency path must be a junction');
-      assert.equal((await realpath(moduleLink)).toLowerCase(), (await realpath(path.join(projectRoot, 'node_modules'))).toLowerCase());
-      await unlink(moduleLink);
-    }
     await rm(ownedRoot, { recursive: true, force: true, maxRetries: 12, retryDelay: 500 });
     assert.equal(existsSync(ownedRoot), false, 'owned temp root removed');
     console.log('Cleanup PASS: owned temp root removed: ' + ownedRoot);

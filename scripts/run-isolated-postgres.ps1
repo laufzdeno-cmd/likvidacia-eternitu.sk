@@ -13,6 +13,10 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+[Console]::InputEncoding = $utf8NoBom
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
 if ($HistoricalClient -and -not $TenPhotoBrowser) { throw 'Historický klient vyžaduje -TenPhotoBrowser.' }
 if ($Lighthouse -and -not $ProductionBuild) { throw 'Lighthouse vyžaduje izolovaný -ProductionBuild.' }
 if (($TenPhotoBrowser -and $SchemaConcurrency) -or ($CareerWorkflow -and ($TenPhotoBrowser -or $SchemaConcurrency))) { throw 'Testy prehliadača, súbehu schémy a kariérneho workflow musia bežať oddelene.' }
