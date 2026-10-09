@@ -2,6 +2,16 @@
 
 > Tento dokument zachytáva bodový stav pred vytvorením izolovaných zdrojov. Následne bolo vytvorené prázdne vlastné prostredie `staging` a nepripojená databáza `astana-staging-db`; aktuálny stav a bezpečnostná hranica sú v [staging bootstrap dôkaze](STAGING-BOOTSTRAP-2026-10-08.md).
 
+## Read-only opakované potvrdenie — 9. 10. 2026
+
+- Prihlásený Vercel dashboard v Opere znovu potvrdil správny tím `laufzdeno-3815s-projects` a projekt `likvidacia-eternitu-sk`. Predchádzajúce MCP odpovede `404/403` preto neznamenali zánik projektu; konektor nemal úplný projektový pohľad.
+- Zoznam prostredí zobrazuje `Production`, `Preview`, `Development` a vlastné prostredie `staging`. Riadok `staging` stále uvádza **No branch configuration** a **No custom domains**.
+- Zoznam projektových premenných zobrazil iba scope Production a/alebo Preview; žiadna hodnota sa neodkryla. Presné staršie filtrované potvrdenie, že `staging` nemá projektové premenné, zostáva zdokumentované v staging bootstrap dôkaze.
+- Neon integrácia zobrazuje existujúci zdroj `astana-staging-db` s tlačidlom **Connect to Project** a otvorený dialóg s nezaškrtnutým scope `staging`. To znovu potvrdzuje, že databáza ešte nie je pripojená. Tlačidlo **Connect** nebolo stlačené.
+- Projektová stránka Storage nezobrazila nové stagingové pripojenie. Dva samostatné Private Blob stores požadované runbookom preto naďalej nie sú preukázané.
+- Stránka deploymentov v tejto relácii načítala iba kostru rozhrania bez zoznamu. Identita aktuálneho produkčného deploymentu ani počet staging deploymentov sa týmto browser checkpointom nemenia ani nanovo nepotvrdzujú; pre tieto tvrdenia zostáva autoritatívny predchádzajúci dashboard/CLI dôkaz nižšie.
+- Kontrola bola striktne iba na čítanie: bez Save, Connect, Create, Deploy, Promote, zmeny premennej, odkrytia tajomstva, formulára, e-mailu alebo zásahu do databázy či Blob.
+
 ## Rozsah a bezpečnostná hranica
 
 Kontrola prebehla iba na čítanie. Pôvodnú inventúru cez prihlásené Vercel CLI doplnila 8. 10. 2026 čerstvá kontrola prihláseného Vercel dashboardu v Opere. Vercel MCP bol prihlásený pod iným účtom a lokálny CLI po reštarte nebol dostupný, preto sa ich chyby `404/403` nepoužili ako dôkaz o stave projektu. Nevytvoril sa deployment, nezmenil alias, premenná, databáza, Blob, cron ani oprávnenie. Hodnoty premenných sa neodkrývali, nečítali, neukladali a tento dokument neobsahuje ich časti.

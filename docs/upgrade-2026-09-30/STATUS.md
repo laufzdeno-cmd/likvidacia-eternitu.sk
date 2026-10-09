@@ -1,5 +1,12 @@
 # Stav a poradie práce
 
+## Vercel staging — čerstvé read-only potvrdenie (9. 10. 2026)
+
+- Prihlásený Vercel dashboard v Opere znovu potvrdil správny tím a projekt `likvidacia-eternitu-sk`. Vlastné prostredie `staging` existuje, ale stále nemá vetvu ani vlastnú doménu.
+- Neon zdroj `astana-staging-db` existuje, no stále ponúka akciu **Connect to Project**; scope `staging` nebol zaškrtnutý a databáza nebola pripojená. Projektová stránka Storage nepreukázala dva požadované samostatné Private Blob stores.
+- Premenné sa iba čítali podľa názvov a scope; ich hodnoty sa neodkryli. Nebol použitý Save, Connect, Create, Deploy, Promote, formulár, e-mail ani databázový/Blob zápis. O04 preto zostáva **WAITING** a formálne skóre projektu zostáva **63,6/100**.
+- Presný dôkaz a hranice sú doplnené v [Vercel read-only snapshote](VERCEL-READONLY-SNAPSHOT-2026-10-08.md) a [staging bootstrap dôkaze](STAGING-BOOTSTRAP-2026-10-08.md).
+
 ## G09 — produkčný prístup AI botov (9. 10. 2026)
 
 - Read-only Vercel Firewall → Traffic za zobrazených posledných 24 hodín potvrdil na produkčnom hoste 607 požiadaviek `OAI-AdsBot/1.0`, 177 `OAI-SearchBot/1.0` a 109 `ChatGPT-User/1.0`. Presný filter `allow` + celý OAI-SearchBot user-agent + request path preukázal aj 6 povolených požiadaviek na `/` a 5 na `/robots.txt`.

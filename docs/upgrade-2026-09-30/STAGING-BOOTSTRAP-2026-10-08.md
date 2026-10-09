@@ -16,6 +16,14 @@
 - V projekte stále nie je pripojený žiadny stagingový Blob store; požadované dva oddelené Private Blob stores preto zostávajú nevytvorené.
 - Kontrola bola iba na čítanie. Nebol stlačený žiadny **Connect**, **Create Storage**, **Add Environment Variable**, **Save**, deploy ani formulárové tlačidlo.
 
+## Opakované read-only potvrdenie 9. 10. 2026
+
+- Dashboard znovu zobrazil vlastné prostredie `staging` bez sledovanej vetvy a bez vlastnej domény.
+- Neon integrácia znovu zobrazila `astana-staging-db` ako existujúci zdroj s akciou **Connect to Project**. V otvorenom pripájacom dialógu bolo možné zvoliť iba scope `staging`, ktorý zostal nezaškrtnutý; **Connect** sa nevykonal.
+- Projektové environment variables boli iba pre Production a/alebo Preview. Ich hodnoty sa neodkrývali a žiadna premenná sa nemenila.
+- Projektová stránka Storage nepreukázala nové stagingové pripojenie. Dva samostatné Private Blob stores vyžadované bezpečnostným kontraktom preto zostávajú nevytvorené alebo nepripojené.
+- Nebol vytvorený deployment, zmenený alias, odoslaný formulár alebo e-mail ani vykonaný databázový zápis. Stav zostáva bezpečne **WAITING** pred prvým externým stagingovým zápisom.
+
 Vercel System Environment Variables musia zostať zapnuté, pretože bezpečnostný guard používa `VERCEL_TARGET_ENV` a `VERCEL_PROJECT_ID`. Podľa [oficiálnej dokumentácie Vercel](https://vercel.com/docs/environment-variables/system-environment-variables) tento prepínač sprístupňuje platformové identifikátory; nejde o dôkaz, že sú stagingu sprístupnené integračné tajomstvá. Izoláciu integračných zdrojov dokazuje až detail konkrétneho DB/Blob spojenia.
 
 ## Bezpečnostný kontrakt kandidáta
