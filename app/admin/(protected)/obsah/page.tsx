@@ -1,4 +1,4 @@
-import { csrfTokenForEmail, requireAdmin } from '@/src/server/auth';
+import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { listSiteContent } from '@/src/server/db';
 import { homeContentDefaults, homepageEditableKeys } from '@/src/server/site-content';
 import { mergeSiteContent } from '@/src/server/site-content-map';
@@ -76,7 +76,7 @@ const labels: Record<string, string> = {
 };
 
 export default async function SiteContentPage({ searchParams }: { searchParams?: Promise<{ stav?: string }> }) {
-  const adminEmail = await requireAdmin();
+  const { email: adminEmail } = await requireSuperAdmin();
   const stored = await listSiteContent();
   const content = mergeSiteContent(homeContentDefaults, stored);
   const params = await searchParams;

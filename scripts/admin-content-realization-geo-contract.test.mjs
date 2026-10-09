@@ -6,14 +6,20 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFile(new URL(path, root), 'utf8');
 
 test('editor verejných textov používa CSRF, povolené kľúče a limity', async () => {
-  const [page, action, defaults, homepage] = await Promise.all([
+  const [page, action, defaults, homepage, nav, auth] = await Promise.all([
     read('app/admin/(protected)/obsah/page.tsx'),
     read('app/admin/(protected)/obsah/actions.ts'),
     read('src/server/site-content.ts'),
     read('app/page.tsx'),
+    read('app/admin/(protected)/admin-nav.tsx'),
+    read('src/server/auth.ts'),
   ]);
   assert.match(page, /name="_csrf" value=\{csrfTokenForEmail\(adminEmail\)\}/);
+  assert.match(page, /const \{ email: adminEmail \} = await requireSuperAdmin\(\)/);
+  assert.doesNotMatch(page, /\brequireAdmin\(\)/);
   assert.match(action, /await verifyCsrf\(formData\)/);
+  assert.match(action, /await verifyCsrf\(formData\);[\s\S]*?await requireSuperAdmin\(\)/);
+  assert.doesNotMatch(action, /\brequireAdmin\(\)/);
   assert.match(action, /const editableKeys = new Set/);
   assert.match(action, /homepageEditableKeys/);
   assert.match(action, /!editableKeys\.has\(contentKey\)/);
@@ -25,6 +31,9 @@ test('editor verejných textov používa CSRF, povolené kľúče a limity', asy
   assert.match(homepage, /\{content\.realizationsEyebrow\}/);
   assert.match(homepage, /\{content\.realizationsTitle\}/);
   assert.match(homepage, /\{content\.realizationsText\}/);
+  assert.match(nav, /href: '\/admin\/obsah', label: 'Obsah a GEO', icon: 'doc', superOnly: true/);
+  assert.match(auth, /pathname\.startsWith\('\/admin\/obsah'\)/);
+  assert.match(auth, /if \(role === 'SUPER_ADMIN'\) return true/);
 });
 
 test('zmena admin hesla mení účet, zvyšuje epochu a neukladá heslo schránky', async () => {

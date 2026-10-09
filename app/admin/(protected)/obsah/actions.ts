@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireAdmin, verifyCsrf } from '@/src/server/auth';
+import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { upsertSiteContentValues } from '@/src/server/db';
 import { homepageEditableKeys } from '@/src/server/site-content';
 
@@ -14,7 +14,7 @@ function maxLengthForKey(key: string) {
 
 export async function updateSiteContentAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actorEmail = await requireAdmin();
+  const actorEmail = (await requireSuperAdmin()).email;
   const values: Record<string, string> = {};
 
   for (const [key, value] of formData.entries()) {
