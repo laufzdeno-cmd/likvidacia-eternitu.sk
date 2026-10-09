@@ -6300,7 +6300,7 @@ async function seedDefaultAdminUser(db: Pool | PoolClient | undefined = getPool(
   await db.query(
     `INSERT INTO admin_users (id, email, name, role, active, password_hash)
      SELECT $1, $2, 'ASTANA', 'SUPER_ADMIN', true, ''
-     WHERE NOT EXISTS (SELECT 1 FROM admin_users WHERE lower(email) = lower($2))`,
+     WHERE NOT EXISTS (SELECT 1 FROM admin_users)`,
     [randomUUID(), email],
   );
 }
@@ -6310,7 +6310,7 @@ async function ensureLocalBusinessDefaults(): Promise<LocalDb> {
   return withLocalLeadSubmissionLock(async () => {
     const local = await readLocalDb();
     const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-    const addAdmin = Boolean(adminEmail && !local.adminUsers.some((user) => user.email.toLowerCase() === adminEmail));
+    const addAdmin = Boolean(adminEmail && local.adminUsers.length === 0);
     if (addAdmin) {
       local.adminUsers.push({
         id: randomUUID(),
@@ -12419,28 +12419,246 @@ export async function upsertAdminUser(input: AdminUserInput, actorEmail: string)
   return saved;
 }
 
-export async function setAdminUserActive(id: string, active: boolean, actorEmail: string) {
+export type ManagedAdminUserInput = {
+  id?: string;
+  email: string;
+  name: string;
+  role: AdminRole;
+  active: boolean;
+  passwordHash?: string;
+  expectedSessionEpoch?: number;
+};
+
+export type AdminUserManagementErrorCode =
+  | 'ACTOR_REVOKED'
+  | 'CONFLICT'
+  | 'DUPLICATE_EMAIL'
+  | 'LAST_SUPER_ADMIN'
+  | 'MISSING_PASSWORD'
+  | 'SELF_ACCESS_CHANGE'
+  | 'USER_NOT_FOUND';
+
+export class AdminUserManagementError extends Error {
+  readonly code: AdminUserManagementErrorCode;
+
+  constructor(code: AdminUserManagementErrorCode) {
+    super(code);
+    this.name = 'AdminUserManagementError';
+    this.code = code;
+  }
+}
+
+export type ManagedAdminActor = {
+  email: string;
+  sessionEpoch: number;
+};
+
+function assertManagedAdminActor(user: AdminUser | null | undefined, actor: ManagedAdminActor) {
+  if (!user
+    || !user.active
+    || user.role !== 'SUPER_ADMIN'
+    || normalizeAdminSessionEpoch(user.sessionEpoch) !== actor.sessionEpoch) {
+    throw new AdminUserManagementError('ACTOR_REVOKED');
+  }
+}
+
+function managedAdminSecurityChanged(existing: AdminUser, input: ManagedAdminUserInput) {
+  return existing.email !== input.email
+    || existing.role !== input.role
+    || existing.active !== input.active
+    || Boolean(input.passwordHash);
+}
+
+function assertManagedAdminChange(
+  existing: AdminUser,
+  input: ManagedAdminUserInput,
+  actorEmail: string,
+  activeSuperAdminsExcludingTarget: number,
+) {
+  if (existing.email === actorEmail.trim().toLowerCase()
+    && (input.role !== 'SUPER_ADMIN' || !input.active)) {
+    throw new AdminUserManagementError('SELF_ACCESS_CHANGE');
+  }
+  if (existing.role === 'SUPER_ADMIN'
+    && existing.active
+    && (input.role !== 'SUPER_ADMIN' || !input.active)
+    && activeSuperAdminsExcludingTarget === 0) {
+    throw new AdminUserManagementError('LAST_SUPER_ADMIN');
+  }
+  if (input.active && !(input.passwordHash || existing.passwordHash)) {
+    throw new AdminUserManagementError('MISSING_PASSWORD');
+  }
+}
+
+export async function saveManagedAdminUser(input: ManagedAdminUserInput, actor: ManagedAdminActor): Promise<AdminUser> {
   await ensureSchema();
+  if (input.id && input.expectedSessionEpoch === undefined) throw new AdminUserManagementError('CONFLICT');
+  const timestamp = now();
+  const normalizedInput: ManagedAdminUserInput = {
+    ...input,
+    id: input.id?.trim() || undefined,
+    email: input.email.trim().toLowerCase(),
+    name: input.name.trim(),
+  };
+  const normalizedActor: ManagedAdminActor = {
+    email: actor.email.trim().toLowerCase(),
+    sessionEpoch: actor.sessionEpoch,
+  };
+  if (!normalizedActor.email || !Number.isSafeInteger(normalizedActor.sessionEpoch) || normalizedActor.sessionEpoch < 0) {
+    throw new AdminUserManagementError('ACTOR_REVOKED');
+  }
   const db = getPool();
+
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
-      const user = local.adminUsers.find((item) => item.id === id);
-      if (!user) return null;
-      user.active = active;
-      user.updatedAt = now();
+      const actorUser = local.adminUsers.find((item) => item.email.toLowerCase() === normalizedActor.email);
+      assertManagedAdminActor(actorUser ? toAdminUser(actorUser as unknown as Record<string, unknown>) : null, normalizedActor);
+      const duplicate = local.adminUsers.find((item) => item.email.toLowerCase() === normalizedInput.email && item.id !== normalizedInput.id);
+      if (duplicate) throw new AdminUserManagementError('DUPLICATE_EMAIL');
+
+      if (!normalizedInput.id) {
+        if (normalizedInput.active && !normalizedInput.passwordHash) throw new AdminUserManagementError('MISSING_PASSWORD');
+        const created: AdminUser = {
+          id: randomUUID(),
+          email: normalizedInput.email,
+          name: normalizedInput.name,
+          role: normalizedInput.role,
+          active: normalizedInput.active,
+          passwordHash: normalizedInput.passwordHash || '',
+          twoFactorSecret: '',
+          twoFactorEnabled: false,
+          twoFactorLastUsedStep: -1,
+          twoFactorBackupCodeHashes: [],
+          sessionEpoch: 0,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        local.adminUsers.push(created);
+        local.auditLogs.unshift({
+          id: randomUUID(), entityType: 'admin_user', entityId: created.id,
+          action: 'admin_user_created', actorEmail: normalizedActor.email,
+          changes: { email: created.email, role: created.role, active: created.active }, createdAt: timestamp,
+        });
+        await writeLocalDb(local, { writeAdminUsers: true });
+        return created;
+      }
+
+      const existingIndex = local.adminUsers.findIndex((item) => item.id === normalizedInput.id);
+      if (existingIndex < 0) throw new AdminUserManagementError('USER_NOT_FOUND');
+      const existing = toAdminUser(local.adminUsers[existingIndex] as unknown as Record<string, unknown>);
+      if (normalizedInput.expectedSessionEpoch !== undefined && existing.sessionEpoch !== normalizedInput.expectedSessionEpoch) {
+        throw new AdminUserManagementError('CONFLICT');
+      }
+      const activeSuperAdminsExcludingTarget = local.adminUsers.filter((item) => item.id !== existing.id && item.active && item.role === 'SUPER_ADMIN').length;
+      assertManagedAdminChange(existing, normalizedInput, normalizedActor.email, activeSuperAdminsExcludingTarget);
+      const securityChanged = managedAdminSecurityChanged(existing, normalizedInput);
+      const saved: AdminUser = {
+        ...existing,
+        email: normalizedInput.email,
+        name: normalizedInput.name,
+        role: normalizedInput.role,
+        active: normalizedInput.active,
+        passwordHash: normalizedInput.passwordHash || existing.passwordHash,
+        sessionEpoch: existing.sessionEpoch + (securityChanged ? 1 : 0),
+        updatedAt: timestamp,
+      };
+      local.adminUsers[existingIndex] = saved;
       local.auditLogs.unshift({
-        id: randomUUID(), entityType: 'admin_user', entityId: id,
-        action: 'admin_user_active_changed', actorEmail, changes: { active }, createdAt: user.updatedAt,
+        id: randomUUID(), entityType: 'admin_user', entityId: saved.id,
+        action: 'admin_user_updated', actorEmail: normalizedActor.email,
+        changes: {
+          previousEmail: existing.email, email: saved.email,
+          previousRole: existing.role, role: saved.role,
+          previousActive: existing.active, active: saved.active,
+          passwordChanged: Boolean(normalizedInput.passwordHash), sessionsRevoked: securityChanged,
+        }, createdAt: timestamp,
       });
       await writeLocalDb(local, { writeAdminUsers: true });
-      return user;
+      return saved;
     });
   }
-  const { rows } = await db.query('UPDATE admin_users SET active = $1, updated_at = now() WHERE id = $2 RETURNING *', [active, id]);
-  if (!rows[0]) return null;
-  await addAuditLog('admin_user', id, 'admin_user_active_changed', actorEmail, { active });
-  return toAdminUser(rows[0]);
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('astana:admin-user-management', 0))");
+    const actorResult = await client.query('SELECT * FROM admin_users WHERE lower(email) = lower($1) FOR UPDATE', [normalizedActor.email]);
+    assertManagedAdminActor(actorResult.rows[0] ? toAdminUser(actorResult.rows[0]) : null, normalizedActor);
+    if (!normalizedInput.id) {
+      if (normalizedInput.active && !normalizedInput.passwordHash) throw new AdminUserManagementError('MISSING_PASSWORD');
+      const { rows } = await client.query(
+        `INSERT INTO admin_users (id, email, name, role, active, password_hash, created_at, updated_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$7)
+         RETURNING *`,
+        [randomUUID(), normalizedInput.email, normalizedInput.name, normalizedInput.role, normalizedInput.active, normalizedInput.passwordHash || '', timestamp],
+      );
+      const created = toAdminUser(rows[0]);
+      await client.query(
+        'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [randomUUID(), 'admin_user', created.id, 'admin_user_created', normalizedActor.email, { email: created.email, role: created.role, active: created.active }, timestamp],
+      );
+      await client.query('COMMIT');
+      return created;
+    }
+
+    const currentResult = await client.query('SELECT * FROM admin_users WHERE id = $1 FOR UPDATE', [normalizedInput.id]);
+    if (!currentResult.rows[0]) throw new AdminUserManagementError('USER_NOT_FOUND');
+    const existing = toAdminUser(currentResult.rows[0]);
+    if (normalizedInput.expectedSessionEpoch !== undefined && existing.sessionEpoch !== normalizedInput.expectedSessionEpoch) {
+      throw new AdminUserManagementError('CONFLICT');
+    }
+    const superAdmins = await client.query("SELECT id, active FROM admin_users WHERE role = 'SUPER_ADMIN' FOR UPDATE");
+    const activeSuperAdminsExcludingTarget = superAdmins.rows.filter((row) => row.id !== existing.id && row.active).length;
+    assertManagedAdminChange(existing, normalizedInput, normalizedActor.email, activeSuperAdminsExcludingTarget);
+    const securityChanged = managedAdminSecurityChanged(existing, normalizedInput);
+    const { rows } = await client.query(
+      `UPDATE admin_users
+       SET email = $1, name = $2, role = $3, active = $4,
+           password_hash = CASE WHEN $5 = '' THEN password_hash ELSE $5 END,
+           session_epoch = session_epoch + $6, updated_at = $7
+       WHERE id = $8
+       RETURNING *`,
+      [normalizedInput.email, normalizedInput.name, normalizedInput.role, normalizedInput.active,
+        normalizedInput.passwordHash || '', securityChanged ? 1 : 0, timestamp, existing.id],
+    );
+    const saved = toAdminUser(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'admin_user', saved.id, 'admin_user_updated', normalizedActor.email, {
+        previousEmail: existing.email, email: saved.email,
+        previousRole: existing.role, role: saved.role,
+        previousActive: existing.active, active: saved.active,
+        passwordChanged: Boolean(normalizedInput.passwordHash), sessionsRevoked: securityChanged,
+      }, timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if (error && typeof error === 'object' && 'code' in error && error.code === '23505') {
+      throw new AdminUserManagementError('DUPLICATE_EMAIL');
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function setAdminUserActive(id: string, active: boolean, actorEmail: string) {
+  const users = await listAdminUsers();
+  const user = users.find((item) => item.id === id);
+  const actor = users.find((item) => item.email.toLowerCase() === actorEmail.trim().toLowerCase());
+  if (!user) return null;
+  if (!actor) throw new AdminUserManagementError('ACTOR_REVOKED');
+  return saveManagedAdminUser({
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    active,
+    expectedSessionEpoch: user.sessionEpoch,
+  }, { email: actor.email, sessionEpoch: actor.sessionEpoch });
 }
 
 export async function setAdminUserTwoFactorSecret(email: string, secret: string, actorEmail: string, expectedSessionEpoch: number) {
@@ -12636,6 +12854,74 @@ export async function resetAdminUserTwoFactor(id: string, actorEmail: string) {
   const user = toAdminUser(rows[0]);
   await addAuditLog('admin_user', id, 'admin_user_2fa_reset', actorEmail, { email: user.email });
   return user;
+}
+
+export async function resetManagedAdminUserTwoFactor(id: string, actor: ManagedAdminActor) {
+  await ensureSchema();
+  const normalizedActor: ManagedAdminActor = {
+    email: actor.email.trim().toLowerCase(),
+    sessionEpoch: actor.sessionEpoch,
+  };
+  if (!id || !normalizedActor.email || !Number.isSafeInteger(normalizedActor.sessionEpoch) || normalizedActor.sessionEpoch < 0) {
+    throw new AdminUserManagementError('ACTOR_REVOKED');
+  }
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const actorUser = local.adminUsers.find((item) => item.email.toLowerCase() === normalizedActor.email);
+      const verifiedActor = actorUser ? toAdminUser(actorUser as unknown as Record<string, unknown>) : null;
+      assertManagedAdminActor(verifiedActor, normalizedActor);
+      if (verifiedActor?.id === id) throw new AdminUserManagementError('SELF_ACCESS_CHANGE');
+      const user = local.adminUsers.find((item) => item.id === id);
+      if (!user) throw new AdminUserManagementError('USER_NOT_FOUND');
+      user.twoFactorSecret = '';
+      user.twoFactorEnabled = false;
+      user.twoFactorLastUsedStep = -1;
+      user.twoFactorBackupCodeHashes = [];
+      user.sessionEpoch = normalizeAdminSessionEpoch(user.sessionEpoch) + 1;
+      user.updatedAt = timestamp;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_user', entityId: id,
+        action: 'admin_user_2fa_reset', actorEmail: normalizedActor.email,
+        changes: { email: user.email }, createdAt: timestamp,
+      });
+      await writeLocalDb(local, { writeAdminUsers: true });
+      return toAdminUser(user as unknown as Record<string, unknown>);
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtextextended('astana:admin-user-management', 0))");
+    const actorResult = await client.query('SELECT * FROM admin_users WHERE lower(email) = lower($1) FOR UPDATE', [normalizedActor.email]);
+    const verifiedActor = actorResult.rows[0] ? toAdminUser(actorResult.rows[0]) : null;
+    assertManagedAdminActor(verifiedActor, normalizedActor);
+    if (verifiedActor?.id === id) throw new AdminUserManagementError('SELF_ACCESS_CHANGE');
+    const { rows } = await client.query(
+      `UPDATE admin_users
+       SET two_factor_secret = '', two_factor_enabled = false, two_factor_last_used_step = -1,
+           two_factor_backup_code_hashes = '[]'::jsonb, session_epoch = session_epoch + 1, updated_at = $2
+       WHERE id = $1
+       RETURNING *`,
+      [id, timestamp],
+    );
+    if (!rows[0]) throw new AdminUserManagementError('USER_NOT_FOUND');
+    const user = toAdminUser(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'admin_user', id, 'admin_user_2fa_reset', normalizedActor.email, { email: user.email }, timestamp],
+    );
+    await client.query('COMMIT');
+    return user;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function listPlannerActions(range?: { from?: string; to?: string }): Promise<PlannerAction[]> {

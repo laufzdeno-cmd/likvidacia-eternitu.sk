@@ -52,12 +52,15 @@ const allRoutes = [
   ['/admin/reviews/request/?result=invalid&attempt=visual-invalid', 'review-request-invalid'],
   ['/admin/reviews/request/?result=saved&attempt=visual-saved', 'review-request-saved'],
   ['/admin/nastavenia/', 'nastavenia'],
+  ['/admin/users/', 'users'],
   ['/admin/analytics/', 'analytics'],
   ['/admin/health/', 'health'],
 ];
 const routes = process.argv.includes('--review-only')
   ? allRoutes.filter(([, slug]) => slug.startsWith('review-request'))
-  : allRoutes;
+  : process.argv.includes('--users-only')
+    ? allRoutes.filter(([, slug]) => slug === 'users')
+    : allRoutes;
 
 const viewports = [
   { width: 1440, height: 1000, name: 'desktop', screenshot: true },

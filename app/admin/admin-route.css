@@ -2309,8 +2309,85 @@ body .admin-main .admin-page .admin-card,
 .admin-table-inline-form-workers {
   grid-template-columns: minmax(160px, 1fr) minmax(120px, 180px) auto auto;
 }
+.admin-user-edit-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(170px, 1fr));
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+.admin-user-edit-form .admin-checkbox,
+.admin-user-edit-form button {
+  align-self: end;
+}
+.admin-user-list {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.admin-user-card {
+  min-width: 0;
+  padding: clamp(16px, 2vw, 24px);
+  border: 1px solid #dbe7ef;
+  border-radius: 20px;
+  background: #fff;
+}
+.admin-user-card-heading,
+.admin-user-card-security {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.admin-user-card-heading {
+  margin-bottom: 18px;
+}
+.admin-user-card-heading h3,
+.admin-user-card-heading p,
+.admin-user-card-security p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.admin-user-card-heading p,
+.admin-user-card-security p {
+  margin-top: 4px;
+  color: #475569;
+}
+.admin-user-card-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-user-card .status-pill {
+  border-color: #9bcfe3 !important;
+  background: #e7f5fb !important;
+  color: #06324a !important;
+}
+.admin-user-card-security {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e2e8f0;
+}
+.admin-user-card-security form {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+  min-width: min(100%, 430px);
+}
 .admin-table-inline-form .admin-checkbox {
   margin: 0 !important;
+}
+@media (max-width: 900px) {
+  .admin-user-edit-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-user-card-security form {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
 }
 .admin-card fieldset {
   border: 1px solid #e2e8f0 !important;

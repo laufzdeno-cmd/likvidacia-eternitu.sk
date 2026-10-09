@@ -3,6 +3,7 @@ param(
   [switch]$HistoricalClient,
   [switch]$SchemaConcurrency,
   [switch]$CareerWorkflow,
+  [switch]$AdminUsers,
   [switch]$ProductionBuild,
   [switch]$Lighthouse,
   [switch]$CronRoutes,
@@ -20,6 +21,7 @@ $OutputEncoding = $utf8NoBom
 if ($HistoricalClient -and -not $TenPhotoBrowser) { throw 'Historický klient vyžaduje -TenPhotoBrowser.' }
 if ($Lighthouse -and -not $ProductionBuild) { throw 'Lighthouse vyžaduje izolovaný -ProductionBuild.' }
 if (($TenPhotoBrowser -and $SchemaConcurrency) -or ($CareerWorkflow -and ($TenPhotoBrowser -or $SchemaConcurrency))) { throw 'Testy prehliadača, súbehu schémy a kariérneho workflow musia bežať oddelene.' }
+if ($AdminUsers -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or $ProductionBuild -or $CronRoutes -or $LegacyMigration -or $LegacyMixed -or $LiveUploadCompatibility)) { throw 'Test správy admin účtov musí bežať samostatne.' }
 if (($ProductionBuild -or $CronRoutes) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or $LegacyMigration -or $LegacyMixed -or $LiveUploadCompatibility -or ($ProductionBuild -and $CronRoutes))) { throw 'Produkčný build a cron kontroly sa spúšťajú samostatne.' }
 if (($LegacyMigration -or $LegacyMixed -or $LiveUploadCompatibility) -and ($TenPhotoBrowser -or $SchemaConcurrency -or $CareerWorkflow -or ($LegacyMigration -and $LegacyMixed) -or ($LiveUploadCompatibility -and ($LegacyMigration -or $LegacyMixed)))) { throw 'Staré a nové migračné testy sa spúšťajú samostatne.' }
 
@@ -136,6 +138,9 @@ try {
     } elseif ($CareerWorkflow) {
       & node --import tsx (Join-Path $projectRoot 'scripts/career-admin-workflow-postgres.integration.mjs')
       if ($LASTEXITCODE -ne 0) { throw 'Kariérny workflow na jednorazovom PostgreSQL zlyhal.' }
+    } elseif ($AdminUsers) {
+      & node --import tsx (Join-Path $projectRoot 'scripts/admin-user-management.postgres.integration.mjs')
+      if ($LASTEXITCODE -ne 0) { throw 'Správa admin účtov na jednorazovom PostgreSQL zlyhala.' }
     } elseif ($TenPhotoBrowser) {
       $env:ASTANA_HARNESS_TEN_PHOTO_ONLY = '1'
       if ($HistoricalClient) { $env:ASTANA_HARNESS_USE_PREVIOUS_CLIENT = '1' }

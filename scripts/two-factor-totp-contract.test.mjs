@@ -27,7 +27,7 @@ test('lokálny JSON fallback serializuje všetky zmeny, ktoré môžu prepísať
   const db = await read('../src/server/db.ts');
   for (const name of [
     'upsertAdminUser',
-    'setAdminUserActive',
+    'saveManagedAdminUser',
     'setAdminUserTwoFactorSecret',
     'enableAdminUserTwoFactor',
     'consumeAdminUserTotpStep',
@@ -39,6 +39,10 @@ test('lokálny JSON fallback serializuje všetky zmeny, ktoré môžu prepísať
     const body = db.slice(start, end < 0 ? db.length : end);
     assert.match(body, /withLocalLeadSubmissionLock/, `${name} local updates must share the serialized JSON write lock`);
   }
+  const activeStart = db.indexOf('export async function setAdminUserActive(');
+  const activeEnd = db.indexOf('\nexport async function ', activeStart + 1);
+  assert.match(db.slice(activeStart, activeEnd), /return saveManagedAdminUser\(/,
+    'setAdminUserActive must delegate to the serialized managed-user mutation');
 });
 
 test('admin and pending 2FA cookies are bound to the current database session epoch', async () => {

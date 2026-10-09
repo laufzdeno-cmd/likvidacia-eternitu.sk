@@ -117,7 +117,7 @@ test('local admin state has explicit persistence owners', { timeout: 20_000 }, a
           passwordHash: 'fixture-password-v2', twoFactorBackupCodeHashes: [],
         }, actor);
         assert.equal(saved.sessionEpoch, 1);
-        await db.setAdminUserActive(user.id, false, actor);
+        await db.setAdminUserActive(user.id, false, environment.ADMIN_EMAIL);
         await Promise.all([
           db.setAdminSetting('admin_password_hash', 'fixture-override-v2', actor),
           db.setAdminSetting('local_test_setting', 'saved', actor),

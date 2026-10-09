@@ -51,10 +51,17 @@ test('local admin storage increments the session epoch on 2FA enable and reset',
     assert.equal(await db.consumeAdminUserBackupCode(email, 'new-backup', 'integration-test', 2), null);
     assert.ok(await db.consumeAdminUserBackupCode(email, 'new-backup', 'integration-test', 3));
     assert.equal(await db.consumeAdminUserBackupCode(email, 'new-backup', 'integration-test', 3), null);
-    await db.setAdminUserActive(created.id, false, 'integration-test');
+    const backupAdmin = await db.upsertAdminUser({
+      email: `backup-${randomUUID()}@local.test`,
+      name: 'Backup superadmin',
+      role: 'SUPER_ADMIN',
+      active: true,
+      passwordHash: 'fixture-backup-password-hash',
+    }, 'integration-test');
+    await db.setAdminUserActive(created.id, false, backupAdmin.email);
     assert.equal(await db.consumeAdminUserTotpStep(email, secret, 126, 3), null);
     const persisted = JSON.parse(await readFile(databasePath, 'utf8'));
-    assert.equal(persisted.adminUsers.find((user) => user.id === created.id)?.sessionEpoch, 3);
+    assert.equal(persisted.adminUsers.find((user) => user.id === created.id)?.sessionEpoch, 4);
     assert.equal(persisted.auditLogs.some((entry) => JSON.stringify(entry).includes(secret)), false,
       'audit nesmie obsahovať 2FA secret ani obnovovacie kódy');
   } finally {

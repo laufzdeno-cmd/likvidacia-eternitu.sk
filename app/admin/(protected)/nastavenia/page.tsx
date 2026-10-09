@@ -1,4 +1,4 @@
-import { adminEmail, csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
+import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
 import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
@@ -115,7 +115,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
 
       <section className="admin-card">
         <h2>Prístup do adminu</h2>
-        <p>Prihlasovací email: <strong>{adminEmail() || 'TODO nastaviť ADMIN_EMAIL'}</strong></p>
+        <p>Prihlasovací email: <strong>{admin.email}</strong></p>
         {passwordMessage ? <div className="admin-alert">{passwordMessage}</div> : null}
         <form className="admin-quote-form" action={changeAdminPasswordAction}>
           <input type="hidden" name="_csrf" value={csrfToken} />
