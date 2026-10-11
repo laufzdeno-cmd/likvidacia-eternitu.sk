@@ -109,14 +109,14 @@ async function processPendingLeadEmailDelivery(
         const saved = await recordLeadEmailRecipientResult(pendingDelivery.lead.id, role, delivery, token);
         if (!saved) throw new Error('Výsledok odoslania už nepatrí aktívnemu pokusu.');
       },
-    });
+    }, pendingDelivery.files);
   } else if (mode !== 'local_relay') {
     for (const role of roles) {
       const token = await claimLeadEmailOutbox(pendingDelivery.lead.id, role);
       if (!token) continue;
       let delivery;
       try {
-        delivery = await sendLeadEmailToRecipient(pendingDelivery.lead, role, pendingDelivery.fileCount, pendingDelivery.businessJobId);
+        delivery = await sendLeadEmailToRecipient(pendingDelivery.lead, role, pendingDelivery.fileCount, pendingDelivery.businessJobId, pendingDelivery.files);
       } catch (error) {
         delivery = { status: 'unknown' as const, reason: error instanceof Error ? error.message : 'Výsledok odoslania sa nepodarilo potvrdiť.' };
       }

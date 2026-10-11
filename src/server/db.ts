@@ -4453,8 +4453,9 @@ export async function listPendingLeadEmailDeliveries(limit = 25, requireBothReci
       .slice(0, Math.max(1, Math.min(100, limit))).flatMap(([leadId, pendingRoles]) => {
       const lead = local.leads.find((item) => item.id === leadId);
       const businessJob = local.businessJobs.find((item) => item.leadId === leadId);
+      const files = local.leadFiles.filter((item) => item.leadId === leadId);
        return lead && !lead.deletedAt && businessJob
-        ? [{ lead, businessJobId: businessJob.id, fileCount: local.leadFiles.filter((item) => item.leadId === leadId).length, pendingRoles }]
+        ? [{ lead, businessJobId: businessJob.id, fileCount: files.length, files, pendingRoles }]
         : [];
     });
   }
@@ -4473,7 +4474,7 @@ export async function listPendingLeadEmailDeliveries(limit = 25, requireBothReci
     const leadId = String(row.lead_id);
     const lead = await getLeadWithFiles(leadId);
     const { rows: jobs } = await db.query('SELECT id FROM business_jobs WHERE lead_id = $1 LIMIT 1', [leadId]);
-    if (lead && jobs[0]) deliveries.push({ lead, businessJobId: String(jobs[0].id), fileCount: lead.files.length, pendingRoles: (row.pending_roles as string[]).filter((role): role is 'customer' | 'internal' => role === 'customer' || role === 'internal') });
+    if (lead && jobs[0]) deliveries.push({ lead, businessJobId: String(jobs[0].id), fileCount: lead.files.length, files: lead.files, pendingRoles: (row.pending_roles as string[]).filter((role): role is 'customer' | 'internal' => role === 'customer' || role === 'internal') });
   }
   return deliveries;
 }

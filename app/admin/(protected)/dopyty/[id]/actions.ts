@@ -133,7 +133,7 @@ export async function resendLeadEmailRecipientAfterReview(formData: FormData) {
   const attemptLockedAt = await prepareLeadEmailRecipientManualRetry(id, recipientRole, actor, evidence);
   if (!attemptLockedAt) throw new Error('Tento príjemca už má potvrdené doručenie alebo jeho stav nie je bezpečne obnoviteľný.');
 
-  const result = await sendLeadEmailToRecipient(lead, recipientRole, lead.files.length, businessJobId);
+  const result = await sendLeadEmailToRecipient(lead, recipientRole, lead.files.length, businessJobId, lead.files);
   // After an explicit manual retry, another attempt always needs a fresh delivery check.
   const recorded = await recordLeadEmailRecipientResult(id, recipientRole, { ...result, retryable: false }, attemptLockedAt, actor);
   if (!recorded) await addAuditLog('lead', id, 'lead_email_manual_retry_stale_result', actor, { recipientRole, attemptLockedAt });

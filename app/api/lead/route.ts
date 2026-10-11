@@ -526,7 +526,7 @@ export async function POST(request: NextRequest) {
             if (!recorded) throw new Error('Výsledok odoslania už nepatrí aktívnemu pokusu.');
             recipientsRecorded += 1;
           },
-        });
+        }, submission.files);
       } catch (error) {
         let customerConfirmed = false;
         try {

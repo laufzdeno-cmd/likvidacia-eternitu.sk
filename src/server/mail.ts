@@ -3,17 +3,31 @@ import { canSafelyFallbackToLocalRelay, isAstanaLocalRelayConfigured, leadDelive
 import { cleanSlovakText } from './slovak-text';
 import { classifyRequiredSmtpRecipient, classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } from './email-delivery-policy';
 import type { ApplicationNotificationRecipient } from './types';
-import type { CareerApplication, Lead, PriceOffer, PriceOfferSettings } from './types';
+import type { CareerApplication, Lead, LeadFile, PriceOffer, PriceOfferSettings } from './types';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { isCustomStagingTarget, stagingMailOverride } from './preview-safety';
 import { formatLeadAreaCompact } from './lead-area';
+import { readStoredLeadFile } from './storage';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
 const fromEmail = () => process.env.FROM_EMAIL || process.env.MAIL_FROM || 'astana@astana.sk';
 const customerLeadEmailSubject = '✅ ASTANA, s.r.o. prijala váš dopyt | likvidacia-eternitu.sk';
 const customerLeadLogoUrl = 'https://likvidacia-eternitu.sk/assets/astana-logo-dark.png';
+const maxInternalLeadAttachmentBytes = 12 * 1024 * 1024;
+
+type InternalLeadPhotoAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+};
+
+type InternalLeadPhotoBundle = {
+  attachments: InternalLeadPhotoAttachment[];
+  attachedCount: number;
+  skippedCount: number;
+};
 
 function namedFromHeader(name: string) {
   const from = fromEmail();
@@ -158,7 +172,81 @@ function contactMeta(contact?: string) {
 }
 
 function leadSubmittedAt(lead: Lead) {
-  return new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(lead.createdAt));
+  return new Intl.DateTimeFormat('sk-SK', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/Bratislava',
+  }).format(new Date(lead.createdAt));
+}
+
+function photoCountLabel(count: number) {
+  if (count === 1) return '1 fotografia';
+  if (count >= 2 && count <= 4) return `${count} fotografie`;
+  return `${count} fotografií`;
+}
+
+function attachedPhotoCountLabel(count: number) {
+  if (count === 1) return '1 priložená';
+  if (count >= 2 && count <= 4) return `${count} priložené`;
+  return `${count} priložených`;
+}
+
+function attachedPhotoAdjective(count: number) {
+  if (count === 1) return 'priložená';
+  if (count >= 2 && count <= 4) return 'priložené';
+  return 'priložených';
+}
+
+function internalLeadPhotoSummary(fileCount: number, attachedCount: number) {
+  const total = photoCountLabel(fileCount);
+  if (fileCount === 0) return total;
+  if (attachedCount === fileCount) return `${total} · ${attachedPhotoAdjective(fileCount)} k tomuto e-mailu`;
+  if (attachedCount > 0) return `${total} · ${attachedPhotoCountLabel(attachedCount)} k e-mailu, všetky sú v chránenom admine`;
+  return `${total} · uložené v chránenom admine`;
+}
+
+function safeLeadAttachmentName(file: LeadFile, index: number) {
+  const cleaned = cleanSlovakText(file.originalName)
+    .replace(/[\u0000-\u001F\u007F"\\/]+/g, '-')
+    .trim()
+    .slice(0, 120);
+  return cleaned || `fotografia-${index + 1}`;
+}
+
+export async function prepareInternalLeadPhotoAttachments(
+  files: LeadFile[],
+  readFile: (file: LeadFile) => Promise<Buffer> = readStoredLeadFile,
+): Promise<InternalLeadPhotoBundle> {
+  const attachments: InternalLeadPhotoAttachment[] = [];
+  let totalBytes = 0;
+  let skippedCount = 0;
+
+  for (const [index, file] of files.entries()) {
+    const remainingBytes = maxInternalLeadAttachmentBytes - totalBytes;
+    if (!file.mimeType.startsWith('image/') || file.sizeBytes <= 0 || file.sizeBytes > remainingBytes) {
+      skippedCount += 1;
+      continue;
+    }
+
+    try {
+      const content = await readFile(file);
+      if (content.length <= 0 || content.length > remainingBytes) {
+        skippedCount += 1;
+        continue;
+      }
+      attachments.push({
+        filename: safeLeadAttachmentName(file, index),
+        content,
+        contentType: file.mimeType,
+      });
+      totalBytes += content.length;
+    } catch {
+      // The protected admin copy remains the source of truth if an email attachment cannot be prepared.
+      skippedCount += 1;
+    }
+  }
+
+  return { attachments, attachedCount: attachments.length, skippedCount };
 }
 
 function customerLeadEmailHtml(lead: Lead) {
@@ -254,7 +342,7 @@ function customerLeadEmailText(lead: Lead) {
   ].join('\n');
 }
 
-function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0) {
+export function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0, attachedCount = 0) {
   const leadUrl = `${siteUrl()}/admin/dopyty/${encodeURIComponent(lead.id)}/`;
   const businessJobUrl = businessJobId
     ? `${siteUrl()}/admin/zakazky/${encodeURIComponent(businessJobId)}/`
@@ -271,7 +359,7 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0) {
     ['Materiál', escapeHtml(lead.materialType)],
     ['Objekt', escapeHtml(lead.objectType)],
     ['Kontakt', `<span style="display:inline-block;background:${contact.bg};color:${contact.color};border:1px solid ${contact.border};border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700;">${contact.label}</span>`],
-    ['Fotky', fileCount === 1 ? '1 fotografia' : `${escapeHtml(fileCount)} fotografie`],
+    ['Fotky', escapeHtml(internalLeadPhotoSummary(fileCount, attachedCount))],
     ['Termín', escapeHtml(lead.term || '—')],
     ['Poznámka', escapeHtml(lead.note || '—')],
   ];
@@ -279,11 +367,14 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0) {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0;padding:0;background:#F7F4EE;font-family:Arial,sans-serif;">
     <tr><td style="padding:24px 12px;">
       <table role="presentation" width="600" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:collapse;background:#ffffff;">
-        <tr><td style="background:linear-gradient(135deg,#263451 0%,#18243B 100%);padding:20px 28px;">
+        <tr><td bgcolor="#263451" style="background-color:#263451;background-image:linear-gradient(135deg,#263451 0%,#18243B 100%);padding:20px 28px;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
             <tr>
-              <td style="color:#ffffff;font-size:20px;font-weight:700;">🔔 Nový dopyt</td>
-              <td align="right" style="font-size:12px;color:#E2E8F0;line-height:1.5;">${escapeHtml(leadSubmittedAt(lead))}<br /><span style="color:#F2B24A;font-size:11px;font-weight:600;">likvidacia-eternitu.sk</span></td>
+              <td style="vertical-align:middle;color:#ffffff!important;">
+                <img src="${customerLeadLogoUrl}" width="150" alt="ASTANA, s.r.o." style="display:block;width:150px;max-width:100%;height:auto;border:0;" />
+                <div style="margin-top:8px;color:#ffffff!important;font-size:18px;font-weight:700;">🔔 Nový dopyt</div>
+              </td>
+              <td align="right" style="vertical-align:middle;font-size:12px;color:#E2E8F0!important;line-height:1.5;">${escapeHtml(leadSubmittedAt(lead))}<br /><a href="${escapeHtml(siteUrl())}/" style="color:#F2B24A!important;text-decoration:none!important;font-size:11px;font-weight:700;"><span style="color:#F2B24A!important;">likvidacia-eternitu.sk</span></a></td>
             </tr>
           </table>
         </td></tr>
@@ -300,15 +391,15 @@ function adminLeadEmailHtml(lead: Lead, businessJobId?: string, fileCount = 0) {
         <tr><td style="background:#F7F4EE;padding:20px 28px;text-align:center;">
           <a href="${leadUrl}" style="display:inline-block;background:#C86432;color:#ffffff;padding:14px 32px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Otvoriť dopyt a prílohy →</a>
           ${businessJobUrl ? `<div style="margin-top:10px;font-size:11px;color:#687284;">Súvisiaca zákazka: <a href="${businessJobUrl}" style="color:#185FA5;">otvoriť v admine</a></div>` : ''}
-          <div style="margin-top:10px;font-size:11px;color:#687284;">alebo prejdi na: ${escapeHtml(siteUrl())}/admin/</div>
+          <div style="margin-top:10px;font-size:11px;color:#687284;">alebo prejdi na: <a href="${escapeHtml(siteUrl())}/admin/" style="color:#185FA5!important;text-decoration:underline;">${escapeHtml(siteUrl())}/admin/</a></div>
         </td></tr>
-        <tr><td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 28px;text-align:center;color:#475569;font-size:11px;">ASTANA admin systém · likvidacia-eternitu.sk</td></tr>
+        <tr><td style="background:#F8FAFC;border-top:1px solid #E2E8F0;padding:16px 28px;text-align:center;color:#475569;font-size:11px;">ASTANA admin systém · <a href="${escapeHtml(siteUrl())}/" style="color:#185FA5!important;text-decoration:none!important;">likvidacia-eternitu.sk</a></td></tr>
       </table>
     </td></tr>
   </table>`;
 }
 
-function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
+export function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0, attachedCount = 0) {
   return [
     'Nový dopyt z likvidacia-eternitu.sk',
     '',
@@ -323,14 +414,20 @@ function adminLeadEmailText(lead: Lead, businessJobId?: string, fileCount = 0) {
     `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
     `Termín: ${plainText(lead.term || '—')}`,
     `Poznámka: ${plainText(lead.note || '—')}`,
-    `Fotky: ${fileCount}`,
+    `Fotky: ${internalLeadPhotoSummary(fileCount, attachedCount)}`,
     '',
     `Dopyt a prílohy: ${siteUrl()}/admin/dopyty/${encodeURIComponent(lead.id)}/`,
     ...(businessJobId ? [`Súvisiaca zákazka: ${siteUrl()}/admin/zakazky/${encodeURIComponent(businessJobId)}/`] : []),
   ].join('\n');
 }
 
-async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobId?: string, recordRecipient?: LeadRecipientDeliveryRecorder): Promise<LeadDeliveryResult> {
+async function sendLeadEmailsViaSmtp(
+  lead: Lead,
+  fileCount: number,
+  businessJobId?: string,
+  recordRecipient?: LeadRecipientDeliveryRecorder,
+  files: LeadFile[] = [],
+): Promise<LeadDeliveryResult> {
   const client = transporter();
   if (!client) {
     return {
@@ -342,7 +439,6 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
       reason: 'SMTP nie je nastavené.',
     };
   }
-  const adminHtml = adminLeadEmailHtml(lead, businessJobId, fileCount);
   const customerHtml = customerLeadEmailHtml(lead);
 
   const customerClaim = recordRecipient ? await recordRecipient.claim('customer') : undefined;
@@ -371,6 +467,10 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
   }, customerClaim);
 
   const adminClaim = recordRecipient ? await recordRecipient.claim('internal') : undefined;
+  const photoBundle = adminClaim === false
+    ? { attachments: [], attachedCount: 0, skippedCount: files.length }
+    : await prepareInternalLeadPhotoAttachments(files);
+  const adminHtml = adminLeadEmailHtml(lead, businessJobId, fileCount, photoBundle.attachedCount);
   const adminDelivery = adminClaim === false
     ? { sent: false as const, status: 'failed' as const, messageId: '', retryable: false, reason: 'Interný email už spracúva iný pokus.' }
     : await client
@@ -379,8 +479,9 @@ async function sendLeadEmailsViaSmtp(lead: Lead, fileCount: number, businessJobI
       to: resolveOutboundEmailRecipient(leadRecipient()),
       replyTo: leadRecipient(),
       subject: `🔔 ${plainText(lead.city)} | ${plainText(formatLeadAreaCompact(lead))} | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
-      text: adminLeadEmailText(lead, businessJobId, fileCount),
+      text: adminLeadEmailText(lead, businessJobId, fileCount, photoBundle.attachedCount),
       html: adminHtml,
+      attachments: photoBundle.attachments,
     })
     .then((info) => {
       const status = classifySmtpAcceptance(info);
@@ -443,7 +544,13 @@ export async function sendCareerApplicationNotificationBatch(application: Career
   };
 }
 
-export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobId?: string, recordRecipient?: LeadRecipientDeliveryRecorder): Promise<LeadDeliveryResult> {
+export async function sendLeadEmails(
+  lead: Lead,
+  fileCount: number,
+  businessJobId?: string,
+  recordRecipient?: LeadRecipientDeliveryRecorder,
+  files: LeadFile[] = [],
+): Promise<LeadDeliveryResult> {
   const mode = leadDeliveryMode();
   if (!hasLeadEmailTransportConfiguration(mode)) {
     return { sent: false, customerSent: false, adminSent: false, reason: 'Odosielanie dopytových e-mailov nie je nastavené.' };
@@ -461,7 +568,7 @@ export async function sendLeadEmails(lead: Lead, fileCount: number, businessJobI
     return result;
   }
 
-  const smtpResult = await sendLeadEmailsViaSmtp(lead, fileCount, businessJobId, recordRecipient);
+  const smtpResult = await sendLeadEmailsViaSmtp(lead, fileCount, businessJobId, recordRecipient, files);
   if (!canSafelyFallbackToLocalRelay(mode, smtpResult)) return smtpResult;
 
   const relayClaim = recordRecipient ? await recordRecipient.claim() : undefined;
@@ -494,6 +601,7 @@ export async function sendLeadEmailToRecipient(
   recipientRole: 'customer' | 'internal',
   fileCount: number,
   businessJobId?: string,
+  files: LeadFile[] = [],
 ): Promise<{ status: 'sent' | 'failed' | 'unknown'; messageId?: string; reason?: string; retryable?: boolean }> {
   let client: ReturnType<typeof transporter>;
   try {
@@ -505,6 +613,9 @@ export async function sendLeadEmailToRecipient(
 
   const isCustomer = recipientRole === 'customer';
   try {
+    const photoBundle = isCustomer
+      ? { attachments: [], attachedCount: 0, skippedCount: 0 }
+      : await prepareInternalLeadPhotoAttachments(files);
     const info = await client.sendMail(isCustomer
       ? {
           from: namedFromHeader('ASTANA likvidácia azbestu'),
@@ -519,8 +630,9 @@ export async function sendLeadEmailToRecipient(
           to: resolveOutboundEmailRecipient(leadRecipient()),
           replyTo: leadRecipient(),
           subject: `🔔 ${plainText(lead.city)} | ${plainText(formatLeadAreaCompact(lead))} | ${plainText(lead.fullName)} | likvidacia-eternitu.sk`,
-          text: adminLeadEmailText(lead, businessJobId, fileCount),
-          html: adminLeadEmailHtml(lead, businessJobId, fileCount),
+          text: adminLeadEmailText(lead, businessJobId, fileCount, photoBundle.attachedCount),
+          html: adminLeadEmailHtml(lead, businessJobId, fileCount, photoBundle.attachedCount),
+          attachments: photoBundle.attachments,
         });
     const status = classifySmtpAcceptance(info);
     return {

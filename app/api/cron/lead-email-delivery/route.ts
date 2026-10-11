@@ -42,7 +42,7 @@ async function deliverPendingLeadEmail(
         const recorded = await recordLeadEmailRecipientResult(lead.id, role, delivery, attemptToken);
         if (!recorded) throw new Error('outbox_result_not_recorded');
       },
-    });
+    }, pendingDelivery.files);
   } else if (mode !== 'local_relay') {
     for (const role of pendingRoles) {
       const attemptToken = await claimLeadEmailOutbox(lead.id, role);
@@ -50,7 +50,7 @@ async function deliverPendingLeadEmail(
 
       let delivery;
       try {
-        delivery = await sendLeadEmailToRecipient(lead, role, pendingDelivery.fileCount, pendingDelivery.businessJobId);
+        delivery = await sendLeadEmailToRecipient(lead, role, pendingDelivery.fileCount, pendingDelivery.businessJobId, pendingDelivery.files);
       } catch {
         // An interrupted/ambiguous send must remain unknown, never be auto-retried.
         delivery = { status: 'unknown' as const, reason: 'Výsledok odoslania sa nepodarilo potvrdiť.' };
