@@ -44,49 +44,36 @@ function declarationsForRule(root, selectorFragment, mediaPattern) {
   return declarations;
 }
 
-test('homepage keeps the four-step mobile lead-form structure', () => {
-  const progress = sourceBetween(page, '<div className="quote-form-progress"', '</div>');
+test('homepage presents one continuous lead form with an honest effort estimate', () => {
   const form = sourceBetween(page, '<form className="lead-form"', '</form>');
 
-  assert.equal((progress.match(/<span><\/span>/g) || []).length, 4,
-    'the progress indicator must contain exactly four steps');
+  assert.match(page, /className="quote-form-summary">Jeden formulár · 7 povinných údajov · približne 1 minúta<\/p>/);
+  assert.doesNotMatch(page, /quote-form-progress/,
+    'the page must not suggest a multi-step flow when every field is in one continuous form');
   assert.equal((form.match(/className="form-stage(?:\s|\")/g) || []).length, 4,
-    'the lead form must contain exactly four form stages');
-  assert.match(form, /1\. Výmera a lokalita/);
-  assert.match(form, /2\. Typ materiálu a termín/);
-  assert.match(form, /3\. Kontakt/);
-  assert.match(form, /4\. Fotky voliteľne/);
-  assert.equal((form.match(/data-form-step-title/g) || []).length, 4,
-    'every mobile step must expose a focusable semantic title');
+    'semantic groups keep related fields readable without acting as hidden steps');
+  assert.match(form, />O streche a lokalite<\/h3>/);
+  assert.match(form, />Doplňujúce údaje<\/h3>/);
+  assert.match(form, />Kontakt na vás<\/h3>/);
+  assert.match(form, />Fotky a poznámka \(voliteľné\)<\/h3>/);
+  assert.doesNotMatch(form, /data-form-step-title|>\s*[1-4]\.\s/);
   assert.equal((form.match(/<h3[^>]+className="form-stage-title"/g) || []).length, 4);
 });
 
-test('mobile steps initialize, validate accessibly, and reset to step one', () => {
+test('continuous mobile form validates accessibly without generated next/back controls', () => {
   const normalizedClient = compact(client);
 
-  assert.match(normalizedClient, /const formStages = Array\.from\(form\?\.querySelectorAll<HTMLElement>\(':scope > \.form-stage'\) \|\| \[\]\);/);
-  assert.match(normalizedClient, /const mobileStepMedia = window\.matchMedia\('\(max-width: 760px\)'\);/);
-  assert.match(normalizedClient, /let activeFormStep = 0;/);
-  assert.match(normalizedClient, /const initializeMobileFormSteps = \(\) => \{/);
-  assert.match(normalizedClient, /initializeMobileFormSteps\(\);/);
-  assert.match(normalizedClient, /form\?\.setAttribute\('data-active-step', String\(activeFormStep \+ 1\)\);/);
-  assert.match(normalizedClient, /next\.textContent = index === 0 \? 'Pokračovať k materiálu' : 'Pokračovať';/);
+  assert.match(normalizedClient, /const firstFormStage = form\?\.querySelector<HTMLElement>\(':scope > \.form-stage'\);/);
+  assert.match(normalizedClient, /form\.insertBefore\(validationSummary, firstFormStage \|\| form\.firstChild\);/);
+  assert.doesNotMatch(normalizedClient, /mobileStepMedia|activeFormStep|initializeMobileFormSteps|data-form-step-next|data-form-step-back/);
 
   assert.match(normalizedClient, /control\.setAttribute\('aria-invalid', 'true'\);/);
   assert.match(normalizedClient, /control\.setAttribute\('aria-describedby', \[control\.getAttribute\('aria-describedby'\), errorId\]\.filter\(Boolean\)\.join\(' '\)\);/);
   assert.match(normalizedClient, /validationSummary\.setAttribute\('role', 'alert'\);/);
-  assert.match(normalizedClient, /showValidationSummary\(invalid\); invalid\[0\]\.focus\(\); return;/,
-    'step validation must focus the first invalid control');
-  assert.match(normalizedClient, /form\.reset\(\); activeFormStep = 0;[\s\S]*?renderFormStep\(\);/,
-    'a successful submission must reset and render the first step');
-  assert.match(normalizedClient, /clearStepValidation\(formStages\[activeFormStep\]\); activeFormStep =/,
-    'moving away from a step must clear errors that would become hidden');
-  assert.match(normalizedClient, /querySelector<HTMLElement>\('\[data-form-step-title\]'\)\?\.focus\(\{ preventScroll: true \}\)/,
-    'the new step title must receive focus so assistive technology announces the transition');
-  assert.match(normalizedClient, /const onMobileStepMediaChange = \(event: MediaQueryListEvent\) => \{[\s\S]*?const focusedElement = document\.activeElement;[\s\S]*?formStages\.findIndex\(\(stage\) => stage\.contains\(focusedElement\)\)[\s\S]*?activeFormStep = focusedStageIndex;[\s\S]*?renderFormStep\(\); \};/,
-    'desktop-to-mobile transition must preserve the step that contains the focused control');
-  assert.match(normalizedClient, /mobileStepMedia\.addEventListener\('change', onMobileStepMediaChange\);/);
-  assert.match(normalizedClient, /mobileStepMedia\.removeEventListener\('change', onMobileStepMediaChange\);/);
+  assert.match(normalizedClient, /showValidationSummary\(invalid\); invalid\[0\]\?\.focus\(\); return;/,
+    'validation must summarize errors and focus the first invalid control');
+  assert.match(normalizedClient, /const result = await submitLeadForm\(payload\); form\.reset\(\);/,
+    'a successful submission must reset the continuous form');
   assert.match(normalizedClient, /const focusSubmitResult = \(\) => \{ if \(!status\) return; status\.tabIndex = -1; status\.focus\(\{ preventScroll: true \}\); \};/,
     'the visible submit result must be programmatically focusable and receive focus');
   const nativeSuccess = sourceBetween(normalizedClient, 'if (verifiedReceipt?.accepted === true)', '} else {');
@@ -103,26 +90,21 @@ test('mobile steps initialize, validate accessibly, and reset to step one', () =
     'JavaScript submission failure or timeout must focus its error result');
 });
 
-test('mobile CSS hides inactive steps and stacks hero actions at 360px', () => {
+test('mobile CSS keeps every form group visible and stacks hero actions at 360px', () => {
   const root = postcss.parse(criticalCss, { from: 'app/home-critical.css' });
   const deferredRoot = postcss.parse(deferredCss, { from: 'public/assets/home-below-fold.css' });
-  const hiddenSteps = declarationsForRule(root, '.is-mobile-steps .form-stage[hidden]');
-  const mobileSteps = declarationsForRule(root, '.is-mobile-steps', /max-width:\s*760px/);
-  const mobileControls = declarationsForRule(root, '.is-mobile-steps .form-step-controls', /max-width:\s*760px/);
+  const summary = declarationsForRule(root, '.quote-form-summary');
+  const deferredSummary = declarationsForRule(deferredRoot, '.quote-form-summary');
+  const mobileStage = declarationsForRule(root, '.form-stage', /max-width:\s*760px/);
   const compactHeroActions = declarationsForRule(root, 'main>.hero .hero-actions', /max-width:\s*360px/);
   const compactHeroButtons = declarationsForRule(root, '.hero-actions .button', /max-width:\s*360px/);
-  const backButton = declarationsForRule(root, '.form-step-back');
-  const deferredVisibleControls = declarationsForRule(deferredRoot, '.is-mobile-steps .form-step-controls:not([hidden])', /max-width:\s*760px/);
-  const deferredHiddenControls = declarationsForRule(deferredRoot, '.form-step-controls[hidden]');
 
-  assert.deepEqual(hiddenSteps.get('display'), { value: 'none', important: true });
-  assert.ok(mobileSteps.has('gap'), 'the mobile step layout must be activated at 760px');
-  assert.deepEqual(mobileControls.get('display'), { value: 'flex', important: false });
+  assert.equal(summary.get('font-weight')?.value, '800');
+  assert.equal(deferredSummary.get('background')?.value, '#f3fbfe');
+  assert.equal(mobileStage.get('grid-template-columns')?.value, 'minmax(0,1fr)');
+  assert.doesNotMatch(criticalCss, /is-mobile-steps|form-step-controls|form-step-next|form-step-back|quote-form-progress/);
+  assert.doesNotMatch(deferredCss, /is-mobile-steps|form-step-controls|form-step-next|form-step-back|quote-form-progress/);
   assert.deepEqual(compactHeroActions.get('display'), { value: 'grid', important: true });
-  assert.equal(backButton.get('flex')?.value, '0 0 auto');
-  assert.equal(backButton.get('white-space')?.value, 'nowrap');
   assert.deepEqual(compactHeroActions.get('grid-template-columns'), { value: 'minmax(0,1fr)', important: true });
   assert.deepEqual(compactHeroButtons.get('width'), { value: '100%', important: true });
-  assert.deepEqual(deferredVisibleControls.get('display'), { value: 'flex', important: true });
-  assert.deepEqual(deferredHiddenControls.get('display'), { value: 'none', important: true });
 });

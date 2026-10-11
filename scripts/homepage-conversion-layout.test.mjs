@@ -73,11 +73,11 @@ function textOf(value) {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 }
 
-test('preserves the complete form, quote section and navigation from the pre-consolidation candidate', () => {
-  // c1260450 baseline; only CRLF/LF is normalized. No JSX, copy, attributes or whitespace is ignored.
+test('protects the accepted continuous form, quote section and navigation', () => {
+  // 2026-10-11 continuous-form baseline; only CRLF/LF is normalized. No JSX, copy, attributes or whitespace is ignored.
   const protectedBlocks = [
-    ['form', /<form className="lead-form"[\s\S]*?<\/form>/, 'd5156c660eae565702135816ea8f302c4428b6b5174bcd43fedc683579807d50'],
-    ['quote section', /<section className="quote-section"[\s\S]*?<\/section>/, 'c7afd137804ee72a9b773aa21d3f7f7d5405af9a5b832c0f4e19ed0d72c594af'],
+    ['form', /<form className="lead-form"[\s\S]*?<\/form>/, 'ee3f758c1add5e7a76f284f3d43b352c212cc5f820d86a41d0d9bb62dd137b2e'],
+    ['quote section', /<section className="quote-section"[\s\S]*?<\/section>/, 'af19a27f2783cb7e30be63d57fb05e023189714136e6dc316ddf388d0fcd429f'],
     ['navigation', /<header className="site-header"[\s\S]*?<\/header>/, 'ea30112e452486547d7f35336c532c5ba6eef1cbfeb5e7502a10b37063be765c'],
   ];
   for (const [name, pattern, expected] of protectedBlocks) {
