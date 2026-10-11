@@ -84,9 +84,7 @@
 .quote-info-panel ul{display:grid;gap:12px;padding:0;margin:26px 0 0;list-style:none}
 .quote-info-panel li{display:flex;align-items:flex-start;gap:10px;color:rgba(255,255,255,.86);font-size:14px;line-height:1.45}
 .quote-panel-icon{flex:0 0 18px;width:18px;height:18px;color:#6fc17a}
-.quote-form-progress{display:flex;gap:8px;margin:18px 0 22px}
-.quote-form-progress span{width:34px;height:4px;border-radius:999px;background:#e8541a}
-.quote-form-progress span:nth-child(n+2){background:#e8e6df}
+.quote-form-summary{margin:16px 0 20px;padding:10px 12px;border:1px solid #cfe8f3;border-radius:12px;background:#f3fbfe;color:#25506a;font-size:13px;font-weight:800;line-height:1.4}
 .price-calculator-copy ul{display:grid;gap:12px;padding:0;margin:24px 0 0;list-style:none}
 .price-calculator-copy li{display:flex;align-items:flex-start;gap:10px}
 .price-calculator-copy li:before{display:none!important}
@@ -1606,10 +1604,9 @@ main .quote-card::after {
   display: none !important;
 }
 main .quote-card .quote-kicker,
-main .quote-card > p:not(.quote-kicker),
+main .quote-card > p:not(.quote-kicker):not(.quote-form-summary),
 main .quote-handled,
-main .quote-priority,
-main .quote-form-progress {
+main .quote-priority {
   display: none !important;
 }
 main .quote-card h2 {
@@ -2466,5 +2463,5 @@ main .price-calculator-card a.button.button-primary[data-price-quote] {
 
 /* Muted step descriptions still need WCAG AA contrast on white cards. */
 
-/* Mobile lead steps and accessible validation; keep after legacy cascade. */
-.form-step-assurance{grid-column:1/-1!important;margin:0!important;padding:10px 12px!important;border-radius:12px!important;background:#eef7f2!important;color:#255b3d!important;font-size:13px!important;font-weight:750!important;line-height:1.4!important}.form-step-controls{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:2px 0 8px}.form-step-controls[hidden],.is-mobile-steps .form-stage[hidden],.is-mobile-steps .mobile-final-control[hidden]{display:none!important}.form-step-back{min-height:44px;padding:10px 16px;border:1px solid rgba(15,31,61,.22);border-radius:12px;background:#fff;color:#0f1f3d;font-weight:800;cursor:pointer}.form-step-next{min-height:46px;margin-left:auto}.form-error-summary{margin:0 0 12px!important;padding:12px 14px!important;border:2px solid #b42318!important;border-radius:12px!important;background:#fff4f2!important;color:#7a271a!important;font-weight:800!important;line-height:1.4!important}.field-error{grid-column:1/-1!important;margin:-4px 0 4px!important;color:#b42318!important;font-size:13px!important;font-weight:750!important;line-height:1.35!important}.quote-form-progress span.is-active{background:#e8541a!important}.quote-form-progress span.is-complete{background:#3f7f50!important}@media (max-width:760px){.is-mobile-steps{gap:12px!important}.is-mobile-steps .form-stage{scroll-margin-top:108px}.is-mobile-steps .form-step-controls:not([hidden]){display:flex!important}}@media (min-width:761px){.form-step-controls{display:none!important}}@media (max-width:360px){main>.hero .hero-actions{display:grid!important;grid-template-columns:minmax(0,1fr)!important}.hero-actions .button{width:100%!important;white-space:nowrap!important}.hero-actions .button-outline{font-size:14px!important}}
+/* Continuous mobile lead form and accessible validation; keep after legacy cascade. */
+.quote-form-summary{margin:16px 0 20px!important;padding:10px 12px!important;border:1px solid #cfe8f3!important;border-radius:12px!important;background:#f3fbfe!important;color:#25506a!important;font-size:13px!important;font-weight:800!important;line-height:1.4!important}.form-step-assurance{grid-column:1/-1!important;margin:0!important;padding:10px 12px!important;border-radius:12px!important;background:#eef7f2!important;color:#255b3d!important;font-size:13px!important;font-weight:750!important;line-height:1.4!important}.form-error-summary{margin:0 0 12px!important;padding:12px 14px!important;border:2px solid #b42318!important;border-radius:12px!important;background:#fff4f2!important;color:#7a271a!important;font-weight:800!important;line-height:1.4!important}.field-error{grid-column:1/-1!important;margin:-4px 0 4px!important;color:#b42318!important;font-size:13px!important;font-weight:750!important;line-height:1.35!important}@media (max-width:360px){main>.hero .hero-actions{display:grid!important;grid-template-columns:minmax(0,1fr)!important}.hero-actions .button{width:100%!important;white-space:nowrap!important}.hero-actions .button-outline{font-size:14px!important}}

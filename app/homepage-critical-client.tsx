@@ -59,9 +59,7 @@ export default function initializeHomepageCriticalClient({
     let lastStickyScrollY = window.scrollY;
     let stickySuppressedByDownScroll = false;
     let quoteSectionTracked = false;
-    const formStages = Array.from(form?.querySelectorAll<HTMLElement>(':scope > .form-stage') || []);
-    const mobileStepMedia = window.matchMedia('(max-width: 760px)');
-    let activeFormStep = 0;
+    const firstFormStage = form?.querySelector<HTMLElement>(':scope > .form-stage');
     let validationSummary: HTMLElement | null = null;
     const maxLeadFileSize = 10 * 1024 * 1024;
     const escapeHtml = (value: string) =>
@@ -400,7 +398,7 @@ export default function initializeHomepageCriticalClient({
       validationSummary.setAttribute('role', 'alert');
       validationSummary.setAttribute('tabindex', '-1');
       validationSummary.textContent = `Skontrolujte ${controls.length === 1 ? 'označený údaj' : `${controls.length} označené údaje`}.`;
-      form.insertBefore(validationSummary, formStages[0] || form.firstChild);
+      form.insertBefore(validationSummary, firstFormStage || form.firstChild);
       controls.forEach(showFieldError);
     };
 
@@ -409,93 +407,6 @@ export default function initializeHomepageCriticalClient({
         validationSummary.remove();
         validationSummary = null;
       }
-    };
-
-    const clearStepValidation = (stage: HTMLElement | undefined) => {
-      stage?.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[aria-invalid="true"]')
-        .forEach(clearFieldError);
-      validationSummary?.remove();
-      validationSummary = null;
-    };
-
-    const renderFormStep = () => {
-      const mobile = mobileStepMedia.matches;
-      form?.classList.toggle('is-mobile-steps', mobile);
-      form?.setAttribute('data-active-step', String(activeFormStep + 1));
-      formStages.forEach((stage, index) => { stage.hidden = mobile && index !== activeFormStep; });
-      form?.querySelectorAll<HTMLElement>('.mobile-final-control').forEach((element) => { element.hidden = mobile && activeFormStep !== formStages.length - 1; });
-      form?.querySelectorAll<HTMLButtonElement>('[data-form-step-next], [data-form-step-back]').forEach((button) => {
-        const step = Number(button.dataset.formStepNext || button.dataset.formStepBack || 0);
-        button.closest<HTMLElement>('.form-step-controls')!.hidden = !mobile || step !== activeFormStep + 1;
-      });
-      document.querySelectorAll<HTMLElement>('.quote-form-progress span').forEach((dot, index) => {
-        dot.classList.toggle('is-active', index === activeFormStep);
-        dot.classList.toggle('is-complete', index < activeFormStep);
-      });
-    };
-
-    const onMobileStepMediaChange = (event: MediaQueryListEvent) => {
-      if (event.matches && formStages.length) {
-        const focusedElement = document.activeElement;
-        const focusedStageIndex = focusedElement instanceof Element
-          ? formStages.findIndex((stage) => stage.contains(focusedElement))
-          : -1;
-        if (focusedStageIndex >= 0) {
-          activeFormStep = focusedStageIndex;
-        } else if (focusedElement instanceof Element && form?.contains(focusedElement)
-          && focusedElement.closest('.mobile-final-control')) {
-          activeFormStep = formStages.length - 1;
-        }
-      }
-      renderFormStep();
-    };
-
-    const goToFormStep = (nextStep: number, validateCurrent = false) => {
-      if (!formStages.length) return;
-      if (validateCurrent) {
-        const invalid = invalidControls(formStages[activeFormStep]);
-        if (invalid.length) {
-          showValidationSummary(invalid);
-          invalid[0].focus();
-          return;
-        }
-      }
-      clearStepValidation(formStages[activeFormStep]);
-      activeFormStep = Math.max(0, Math.min(formStages.length - 1, nextStep));
-      renderFormStep();
-      const activeStage = formStages[activeFormStep];
-      activeStage?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      activeStage?.querySelector<HTMLElement>('[data-form-step-title]')?.focus({ preventScroll: true });
-    };
-
-    const initializeMobileFormSteps = () => {
-      if (!form || formStages.length < 2 || form.querySelector('[data-form-step-next]')) return;
-      form.noValidate = true;
-      formStages.forEach((stage, index) => {
-        const controls = document.createElement('div');
-        controls.className = 'form-step-controls';
-        if (index > 0) {
-          const back = document.createElement('button');
-          back.type = 'button';
-          back.className = 'form-step-back';
-          back.dataset.formStepBack = String(index + 1);
-          back.textContent = 'Späť';
-          back.addEventListener('click', () => goToFormStep(index - 1));
-          controls.append(back);
-        }
-        if (index < formStages.length - 1) {
-          const next = document.createElement('button');
-          next.type = 'button';
-          next.className = 'button button-primary form-step-next';
-          next.dataset.formStepNext = String(index + 1);
-          next.textContent = index === 0 ? 'Pokračovať k materiálu' : 'Pokračovať';
-          next.addEventListener('click', () => goToFormStep(index + 1, true));
-          controls.append(next);
-        }
-        stage.insertAdjacentElement('afterend', controls);
-      });
-      form.querySelectorAll<HTMLElement>(':scope > .consent, :scope > .form-submit, :scope > .form-security').forEach((element) => element.classList.add('mobile-final-control'));
-      renderFormStep();
     };
 
     const onValidationInput = (event: Event) => {
@@ -627,12 +538,6 @@ export default function initializeHomepageCriticalClient({
       if (!form.checkValidity()) {
         event.preventDefault();
         const invalid = invalidControls();
-        if (mobileStepMedia.matches && invalid[0]) {
-          const invalidStage = formStages.findIndex((stage) => stage.contains(invalid[0]));
-          if (invalidStage >= 0) activeFormStep = invalidStage;
-          else activeFormStep = formStages.length - 1;
-          renderFormStep();
-        }
         showValidationSummary(invalid);
         invalid[0]?.focus();
         return;
@@ -668,11 +573,9 @@ export default function initializeHomepageCriticalClient({
         }
         const result = await submitLeadForm(payload);
         form.reset();
-        activeFormStep = 0;
         form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[aria-invalid="true"]').forEach(clearFieldError);
         validationSummary?.remove();
         validationSummary = null;
-        renderFormStep();
         selectedFiles = [];
         uploadedFilesByFingerprint.clear();
         lastLeadSnapshot = '';
@@ -771,7 +674,6 @@ export default function initializeHomepageCriticalClient({
       } catch { /* Browser storage may be unavailable; leave the form untouched. */ }
     }
     applyRooferSelectionFromUrl();
-    initializeMobileFormSteps();
     void applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
@@ -792,7 +694,6 @@ export default function initializeHomepageCriticalClient({
     form?.addEventListener('input', onFormStart);
     form?.addEventListener('input', onValidationInput);
     form?.addEventListener('change', onValidationInput);
-    mobileStepMedia.addEventListener('change', onMobileStepMediaChange);
     if (!clickAnalyticsAlreadyTracked) document.addEventListener('click', onAnalyticsClick);
     document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     if (!pageViewAlreadyTracked) trackAnalytics('page_view');
@@ -914,7 +815,6 @@ export default function initializeHomepageCriticalClient({
       form?.removeEventListener('input', onFormStart);
       form?.removeEventListener('input', onValidationInput);
       form?.removeEventListener('change', onValidationInput);
-      mobileStepMedia.removeEventListener('change', onMobileStepMediaChange);
       if (!clickAnalyticsAlreadyTracked) document.removeEventListener('click', onAnalyticsClick);
       document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       heroSectionObserver?.disconnect();
