@@ -388,9 +388,10 @@ test('public entry modules contain only facades while provider and transport cod
   assert.match(analyticsEngine, /\/api\/analytics\//);
 
   assert.match(adFacade, /import\('\.\/ad-conversion-engine\.mjs'\)/);
-  assert.doesNotMatch(adFacade, /googletagmanager\.com|connect\.facebook\.net|allow_enhanced_conversions/);
+  assert.doesNotMatch(adFacade, /googletagmanager\.com|connect\.facebook\.net|bzrcdn\.openai\.com|allow_enhanced_conversions/);
   assert.match(adEngine, /googletagmanager\.com/);
   assert.match(adEngine, /connect\.facebook\.net/);
+  assert.match(adEngine, /bzrcdn\.openai\.com/);
   assert.match(widgets, /attachAcceptedLeadConversionTracking/);
   assert.match(widgets, /readConsentPreferences/);
   assert.match(widgets, /saveConsentPreferences/);

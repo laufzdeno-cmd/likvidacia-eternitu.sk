@@ -2,6 +2,7 @@ type TrackingWindow = Window & {
   dataLayer?: unknown[][];
   gtag?: (...args: unknown[]) => void;
   fbq?: (...args: unknown[]) => void;
+  oaiq?: ((...args: unknown[]) => void) & { q?: unknown[][] };
 };
 
 type AcceptedLeadConversion = {
@@ -16,6 +17,8 @@ type TrackingDependencies = {
   metaPixelId?: string;
   googleAdsConversionId?: string;
   googleAdsConversionLabel?: string;
+  openAiAdsPixelId?: string;
+  openAiAdsDebug?: boolean;
 };
 
 export function publishAcceptedLeadConversion(detail: AcceptedLeadConversion): void;

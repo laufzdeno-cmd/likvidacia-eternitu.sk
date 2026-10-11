@@ -32,12 +32,13 @@ export default function PublicWidgets({
     if (hasMarketingConsent()) ensureMarketingConsentSubject();
     else if (hasPendingMarketingRevocation() || marketingConsentSubject()) void revokePendingMetaCapiOutbox();
     const detachTracking = attachAcceptedLeadConversionTracking({
-      window: window as Window & { dataLayer?: unknown[][]; gtag?: (...args: unknown[]) => void; fbq?: (...args: unknown[]) => void },
+      window: window as Window & { dataLayer?: unknown[][]; gtag?: (...args: unknown[]) => void; fbq?: (...args: unknown[]) => void; oaiq?: (...args: unknown[]) => void },
       document,
       hasMarketingConsent,
       metaPixelId: process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim(),
       googleAdsConversionId: process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_ID?.trim(),
       googleAdsConversionLabel: process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_LABEL?.trim(),
+      openAiAdsPixelId: process.env.NEXT_PUBLIC_OPENAI_ADS_PIXEL_ID?.trim(),
     });
     const retryRevocation = () => {
       if (!hasMarketingConsent() && (hasPendingMarketingRevocation() || marketingConsentSubject())) {
@@ -118,7 +119,7 @@ export default function PublicWidgets({
                 <span><strong>Analytika</strong><small>Meranie návštevnosti, navštívených stránok a zdroja kampane pomocou pseudonymného ID v tomto prehliadači.</small></span>
               </label>
               <label><input type="checkbox" checked={preferences.marketing} onChange={(event) => setPreferences((current) => ({ ...current, marketing: event.target.checked }))} />
-                <span><strong>Marketingové meranie</strong><small>Po úspešnom dopyte môžeme Google Ads poslať konverznú udalosť. Meta môže dostať aj zahashovaný email a telefón; zahashovanie nie je anonymizácia. Identifikátory kliknutia uložíme iba pri zapnutej analytike aj marketingu.</small></span>
+                <span><strong>Marketingové meranie</strong><small>Po úspešnom dopyte môžeme OpenAI Ads a Google Ads poslať konverznú udalosť. Meta môže dostať aj zahashovaný email a telefón; zahashovanie nie je anonymizácia. Identifikátory kliknutia uložíme iba pri zapnutej analytike aj marketingu.</small></span>
               </label>
             </div>
           </div>

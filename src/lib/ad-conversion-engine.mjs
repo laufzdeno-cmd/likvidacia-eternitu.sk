@@ -96,6 +96,40 @@ function loadMetaPixel({ window: windowObject, document: documentObject, metaPix
   return windowObject.fbq;
 }
 
+function loadOpenAiAdsPixel({
+  window: windowObject,
+  document: documentObject,
+  openAiAdsPixelId,
+  openAiAdsDebug = false,
+  measurementConsent,
+}) {
+  if (!openAiAdsPixelId || !/^[A-Za-z0-9_-]{10,128}$/.test(openAiAdsPixelId)) return null;
+
+  if (!windowObject.oaiq) {
+    const oaiq = function queueOpenAiAdsCall() { oaiq.q.push(arguments); };
+    oaiq.q = [];
+    windowObject.oaiq = oaiq;
+  }
+
+  const consent = Boolean(measurementConsent);
+  if (!documentObject.querySelector('script[data-astana-openai-ads-pixel]')) {
+    // OpenAI requires the real consent state to be queued before init.
+    windowObject.oaiq('consent', consent);
+    const configuration = { pixelId: openAiAdsPixelId };
+    if (openAiAdsDebug === true) configuration.debug = true;
+    windowObject.oaiq('init', configuration);
+    const script = documentObject.createElement('script');
+    script.async = true;
+    script.dataset.astanaOpenaiAdsPixel = 'true';
+    script.src = 'https://bzrcdn.openai.com/sdk/oaiq.min.js';
+    documentObject.head.appendChild(script);
+  } else {
+    windowObject.oaiq('consent', consent);
+  }
+
+  return windowObject.oaiq;
+}
+
 /** Load consented ad tags for landing-page context; emit conversions only for server-confirmed leads. */
 export function attachAcceptedLeadConversionTracking(dependencies) {
   const { window: windowObject, hasMarketingConsent } = dependencies;
@@ -133,6 +167,17 @@ export function attachAcceptedLeadConversionTracking(dependencies) {
         rememberQueuedEvent(queuedInMemory, key);
       }
     }
+
+    const oaiq = loadOpenAiAdsPixel({ ...dependencies, measurementConsent: true });
+    if (oaiq) {
+      const key = `openai:${detail.eventId}`;
+      if (!queuedInMemory.has(key)) {
+        oaiq('measure', 'lead_created', { type: 'customer_action' }, { event_id: detail.eventId });
+        // The SDK queue is not a provider-delivery receipt. event_id protects
+        // a future browser/server retry from being counted twice by OpenAI.
+        rememberQueuedEvent(queuedInMemory, key);
+      }
+    }
   };
 
   const handleConsentChange = () => {
@@ -140,6 +185,7 @@ export function attachAcceptedLeadConversionTracking(dependencies) {
     if (granted) {
       const google = loadGoogleTag(dependencies);
       const fbq = loadMetaPixel(dependencies);
+      loadOpenAiAdsPixel({ ...dependencies, measurementConsent: true });
       google?.gtag('consent', 'update', {
         ad_storage: 'granted',
         ad_user_data: 'denied',
@@ -155,6 +201,7 @@ export function attachAcceptedLeadConversionTracking(dependencies) {
         analytics_storage: 'denied',
       });
       if (windowObject.fbq) windowObject.fbq('consent', 'revoke');
+      if (windowObject.oaiq) windowObject.oaiq('consent', false);
     }
   };
 

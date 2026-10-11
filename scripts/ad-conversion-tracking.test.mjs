@@ -2,7 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { attachAcceptedLeadConversionTracking, publishAcceptedLeadConversion, publishAcceptedLeadResponse } from '../src/lib/ad-conversion-engine.mjs';
 
-function harness({ consent = false, metaPixelId = '123456789012345', googleAdsConversionId = 'AW-123456789', googleAdsConversionLabel = 'AbCd_123' } = {}) {
+function harness({
+  consent = false,
+  metaPixelId = '123456789012345',
+  googleAdsConversionId = 'AW-123456789',
+  googleAdsConversionLabel = 'AbCd_123',
+  openAiAdsPixelId = 'CYUNCfwtj997ebQRw87Gwu',
+} = {}) {
   const listeners = new Map();
   const storage = new Map();
   const scripts = [];
@@ -21,7 +27,9 @@ function harness({ consent = false, metaPixelId = '123456789012345', googleAdsCo
     createElement: () => ({ dataset: {}, async: false, src: '' }),
     querySelector: (selector) => scripts.find((script) => selector.includes('google-ads')
       ? script.dataset.astanaGoogleAds
-      : selector.includes('meta-pixel') ? script.dataset.astanaMetaPixel : false) || null,
+      : selector.includes('meta-pixel')
+        ? script.dataset.astanaMetaPixel
+        : selector.includes('openai-ads-pixel') ? script.dataset.astanaOpenaiAdsPixel : false) || null,
   };
   const cleanup = attachAcceptedLeadConversionTracking({
     window,
@@ -30,6 +38,7 @@ function harness({ consent = false, metaPixelId = '123456789012345', googleAdsCo
     metaPixelId,
     googleAdsConversionId,
     googleAdsConversionLabel,
+    openAiAdsPixelId,
   });
   const remount = () => attachAcceptedLeadConversionTracking({
     window,
@@ -38,6 +47,7 @@ function harness({ consent = false, metaPixelId = '123456789012345', googleAdsCo
     metaPixelId,
     googleAdsConversionId,
     googleAdsConversionLabel,
+    openAiAdsPixelId,
   });
   return {
     window,
@@ -59,6 +69,7 @@ test('marketing consent loads tags on the landing page, but only an accepted lea
 
   testHarness.setConsent(true);
   assert.deepEqual(testHarness.scripts.map((script) => new URL(script.src).hostname).sort(), [
+    'bzrcdn.openai.com',
     'connect.facebook.net',
     'www.googletagmanager.com',
   ]);
@@ -68,6 +79,12 @@ test('marketing consent loads tags on the landing page, but only an accepted lea
     'granting consent does not send a lead conversion');
   assert.equal(testHarness.window.fbq.queue.filter(([command, name]) => command === 'track' && name === 'Lead').length, 0,
     'granting consent does not send a lead conversion');
+  assert.deepEqual(testHarness.window.oaiq.q.slice(0, 2).map((call) => Array.from(call)), [
+    ['consent', true],
+    ['init', { pixelId: 'CYUNCfwtj997ebQRw87Gwu' }],
+  ], 'OpenAI receives the actual consent state before pixel initialization');
+  assert.equal(testHarness.window.oaiq.q.filter(([command]) => command === 'measure').length, 0,
+    'granting consent does not send an OpenAI lead conversion');
   testHarness.dispatch(event);
 
   assert.ok(googleCalls.some(([command, name, payload]) => command === 'event' && name === 'conversion'
@@ -80,20 +97,31 @@ test('marketing consent loads tags on the landing page, but only an accepted lea
   assert.deepEqual(Object.keys(leadCall[2]), ['content_name']);
   assert.deepEqual(Object.keys(googleCalls.find(([command, name]) => command === 'event' && name === 'conversion')[2]).sort(), ['send_to', 'transaction_id']);
   assert.ok(metaCalls.some(([command, setting, enabled]) => command === 'set' && setting === 'autoConfig' && enabled === false));
+  const openAiCalls = testHarness.window.oaiq.q;
+  assert.deepEqual(Array.from(openAiCalls.find(([command]) => command === 'measure')), [
+    'measure',
+    'lead_created',
+    { type: 'customer_action' },
+    { event_id: event.eventId },
+  ]);
 
   testHarness.dispatch(event);
   assert.equal(googleCalls.filter(([command, name]) => command === 'event' && name === 'conversion').length, 1);
   assert.equal(metaCalls.filter(([command, name]) => command === 'track' && name === 'Lead').length, 1);
+  assert.equal(openAiCalls.filter(([command]) => command === 'measure').length, 1);
 
   testHarness.setConsent(false);
   assert.ok(googleCalls.some(([command, state, payload]) => command === 'consent' && state === 'update'
     && payload.ad_storage === 'denied'));
   assert.ok(metaCalls.some(([command, state]) => command === 'consent' && state === 'revoke'));
+  assert.ok(openAiCalls.some(([command, granted]) => command === 'consent' && granted === false));
   testHarness.dispatch({ eventId: `lead:${'b'.repeat(64)}`, material: 'plocha' });
   assert.equal(googleCalls.filter(([command, name]) => command === 'event' && name === 'conversion').length, 1,
     'a new accepted lead after consent withdrawal must not send a Google conversion');
   assert.equal(metaCalls.filter(([command, name]) => command === 'track' && name === 'Lead').length, 1,
     'a new accepted lead after consent withdrawal must not send a Meta conversion');
+  assert.equal(openAiCalls.filter(([command]) => command === 'measure').length, 1,
+    'a new accepted lead after consent withdrawal must not send an OpenAI conversion');
   testHarness.cleanup();
 });
 
@@ -106,12 +134,22 @@ test('invalid conversions and incomplete provider configuration do not send even
   assert.equal(noConsent.scripts.filter((script) => script.dataset.astanaGoogleAds).length, 0,
     'a Google tag without its conversion label stays disabled');
   assert.equal(noConsent.scripts.filter((script) => script.dataset.astanaMetaPixel).length, 1);
+  assert.equal(noConsent.scripts.filter((script) => script.dataset.astanaOpenaiAdsPixel).length, 1);
   assert.equal(noConsent.window.fbq.queue.filter(([command, name]) => command === 'track' && name === 'Lead').length, 1);
+  assert.equal(noConsent.window.oaiq.q.filter(([command]) => command === 'measure').length, 1);
   noConsent.cleanup();
 });
 
+test('invalid OpenAI Pixel ID keeps the provider disabled', () => {
+  const invalid = harness({ consent: true, openAiAdsPixelId: 'not valid!' });
+  assert.equal(invalid.scripts.filter((script) => script.dataset.astanaOpenaiAdsPixel).length, 0);
+  invalid.dispatch(event);
+  assert.equal(invalid.window.oaiq, undefined);
+  invalid.cleanup();
+});
+
 test('page-lifetime provider dedupe survives tracker remount without claiming delivery', () => {
-  const first = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '' });
+  const first = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '', openAiAdsPixelId: '' });
   assert.equal(first.scripts.length, 1, 'existing consent loads the tag during tracker initialization');
   assert.equal(first.window.fbq.queue.filter(([command, name]) => command === 'track' && name === 'Lead').length, 0,
     'existing consent alone does not send a lead');
@@ -127,12 +165,12 @@ test('page-lifetime provider dedupe survives tracker remount without claiming de
 });
 
 test('a page reload can retry a queued conversion using the same provider dedupe ID', () => {
-  const first = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '' });
+  const first = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '', openAiAdsPixelId: '' });
   first.dispatch(event);
   const firstLead = first.window.fbq.queue.find(([command, name]) => command === 'track' && name === 'Lead');
   first.cleanup();
 
-  const reloadedPage = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '' });
+  const reloadedPage = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '', openAiAdsPixelId: '' });
   reloadedPage.dispatch(event);
   const retriedLead = reloadedPage.window.fbq.queue.find(([command, name]) => command === 'track' && name === 'Lead');
   assert.equal(firstLead[3].eventID, event.eventId);
@@ -190,7 +228,7 @@ test('revoking consent clears stored identifiers but prevents a duplicate after 
 });
 
 test('Meta Pixel forwards queued-stub calls to the loaded SDK and revocation blocks later lead events', () => {
-  const testHarness = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '' });
+  const testHarness = harness({ consent: true, googleAdsConversionId: '', googleAdsConversionLabel: '', openAiAdsPixelId: '' });
   const pixel = testHarness.window.fbq;
   assert.equal(typeof pixel.callMethod, 'undefined');
   assert.ok(pixel.queue.some(([command, name]) => command === 'init' && name === '123456789012345'));
