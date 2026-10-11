@@ -213,10 +213,10 @@ test('public offer copy consistently treats customer photos as optional', () => 
 });
 
 test('price content uses the approved asbestos roof social image', () => {
-  assert.match(priceLanding, /image:\s*'\/og\/cena-strecha\.jpg'/);
+  assert.match(priceLanding, /image:\s*'\/og\/cena-strecha-realizacia\.jpg'/);
   assert.match(
     seoContent,
-    /slug:\s*'kolko-stoji-likvidacia-azbestu'[\s\S]*?image:\s*'\/og\/cena-strecha\.jpg'/,
+    /slug:\s*'kolko-stoji-likvidacia-azbestu'[\s\S]*?image:\s*'\/og\/cena-strecha-realizacia\.jpg'/,
   );
   assert.match(
     seoContent,
