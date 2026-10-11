@@ -13,6 +13,7 @@ import { getSiteContentMap } from '@/src/server/db';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 import { homeContentDefaults } from '@/src/server/site-content';
 import { site } from '@/src/content/site';
+import { transportPolicy } from '@/src/content/transport-policy.mjs';
 import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import { filterHomepageTrustItems, normalizeHomepageCoverageText } from '@/src/lib/homepage-trust-items.mjs';
 import './home-critical.css';
@@ -98,28 +99,29 @@ const defaultIncludedItems = [
 const defaultTrustItems = [
   ['Firma ASTANA pôsobí od roku 2011', 'Pôsobíme na trhu od roku 2011.'],
   ['Pôsobíme po celej SR', 'Zákazky riešime podľa lokality a kapacity'],
-  ['Doprava podľa zákazky', 'Prípadná doprava je samostatne uvedená v cenovej ponuke.'],
+  [transportPolicy.title, transportPolicy.full],
   ['RÚVZ / OÚŽP ku konkrétnej stavbe', 'Postup riešime legálne, nie iba všeobecným sľubom'],
   ['Doklady po likvidácii', 'Potvrdenie / dokumentácia po úhrade'],
 ] satisfies [string, string][];
 
-const transportOfferDisclosure = [
-  'Doprava podľa zákazky',
-  'Prípadná doprava je samostatne uvedená v cenovej ponuke.',
+const transportPolicyDisclosure = [
+  transportPolicy.title,
+  transportPolicy.full,
 ] satisfies [string, string];
 
-function containsFreeTransportClaim(value: string) {
-  return /doprava/i.test(value) && /(?:zadarmo|zdarma|neúčtujeme|bezplatn)/i.test(value);
+function containsTransportPolicyClaim(value: string) {
+  return /doprava/i.test(value)
+    && /(?:100\s*m|zadarmo|zdarma|neúčtujeme|bezplatn|podľa zákazky|samostatne uvedená)/i.test(value);
 }
 
 function normalizeTransportDisclosureText(value: string) {
-  return containsFreeTransportClaim(value) ? transportOfferDisclosure[1] : value;
+  return containsTransportPolicyClaim(value) ? transportPolicy.full : value;
 }
 
 function normalizeTransportTrustItems(items: Array<[string, string]>) {
   return items.map(([title, text]) => (
-    containsFreeTransportClaim(`${title} ${text}`)
-      ? transportOfferDisclosure
+    containsTransportPolicyClaim(`${title} ${text}`)
+      ? transportPolicyDisclosure
       : [title, text] satisfies [string, string]
   ));
 }
@@ -446,7 +448,10 @@ export default async function HomePage() {
             <div className="price-result" aria-live="polite">
               <span>Orientačný cenový rozsah</span>
               <strong><span data-price-min>960 €</span> – <span data-price-max>1 680 €</span></strong>
-              <small>Nejde o konečnú cenu. Dopravu, dokumentáciu, individuálne položky a režim DPH určí až konkrétna cenová ponuka.</small>
+              <small>
+                Nejde o konečnú cenu. {transportPolicy.freeFromThreshold} {transportPolicy.belowThreshold}{' '}
+                Dokumentáciu, individuálne položky a režim DPH určí až konkrétna cenová ponuka.
+              </small>
             </div>
             <a className="button button-primary" data-price-quote href="#dopyt">Preniesť údaje do dopytu</a>
           </div>

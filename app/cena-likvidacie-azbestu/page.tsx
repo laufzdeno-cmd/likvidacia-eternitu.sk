@@ -4,11 +4,12 @@ import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 import PricePageClient from '../price-page-client';
 import { PublicFontPreload } from '@/src/components/public-font-preload';
+import { transportPolicy } from '@/src/content/transport-policy.mjs';
 
 export const metadata = buildPageMetadata({
   title: 'Cena likvidácie azbestu a eternitu | Faktory ceny | ASTANA',
   description:
-    'Cena likvidácie azbestu závisí od výmery, materiálu, prístupu a lokality. Pošlite výmeru a obec; fotky sú voliteľné. Získajte nezáväznú ponuku.',
+    'Cena likvidácie azbestu podľa výmery, materiálu a lokality. Pri ploche od 100 m² dopravu po Slovensku neúčtujeme. Získajte nezáväznú ponuku.',
   path: '/cena-likvidacie-azbestu/',
   image: '/og/cena.jpg',
 });
@@ -17,7 +18,7 @@ const priceFactors = [
   ['Výmera v m2', 'Najdôležitejší údaj pre prvé nacenenie. Ak presnú výmeru neviete, uveďte odhad.'],
   ['Typ materiálu', 'Vlnitý eternit, šablóny, dosky alebo už zložený odpad môžu mať rozdielnu náročnosť.'],
   ['Výška a prístup', 'Cenu ovplyvňuje výška objektu, sklon strechy, lešenie, prístup techniky a miesto nakládky.'],
-  ['Lokalita', 'Pri väčšej vzdialenosti alebo horšej dostupnosti sa mení logistika a plánovanie odvozu.'],
+  ['Lokalita', `${transportPolicy.freeFromThreshold} ${transportPolicy.belowThreshold} Lokalita naďalej ovplyvňuje plánovanie výjazdu a odvozu.`],
   ['Dokumentácia', 'Rozsah potrebných podkladov závisí od typu zákazky a konkrétneho prípadu.'],
   ['Objem odpadu', 'Dôležitý je stav materiálu, balenie a množstvo odpadu pripraveného na odvoz.'],
 ] as const;
@@ -27,7 +28,7 @@ export default function AsbestosPricePage() {
     <PublicPageShell breadcrumb={{ name: 'Cena likvidácie azbestu', path: '/cena-likvidacie-azbestu/' }} hideWhatsappOnMobile>
       <PublicFontPreload />
       <main className="seo-page price-seo-page">
-        <JsonLd data={[buildServiceJsonLd('Cena likvidácie azbestu a eternitu', 'Cena závisí od výmery, typu materiálu, prístupu, lokality, dokumentácie a objemu odpadu.', '/cena-likvidacie-azbestu/'), buildFaqJsonLd(coreFaqs.slice(3, 7))]} />
+        <JsonLd data={[buildServiceJsonLd('Cena likvidácie azbestu a eternitu', `Cena závisí od výmery, typu materiálu, prístupu, lokality, dokumentácie a objemu odpadu. ${transportPolicy.full}`, '/cena-likvidacie-azbestu/'), buildFaqJsonLd(coreFaqs.slice(3, 7))]} />
         <section className="seo-hero">
           <p className="eyebrow">Cena</p>
           <h1>Cena likvidácie azbestu a eternitu</h1>
@@ -40,7 +41,7 @@ export default function AsbestosPricePage() {
         </section>
         <QuickAnswer>
           Cena likvidácie azbestu a eternitu sa nedá zodpovedne určiť jednou sumou bez údajov o zákazke. Závisí od m2,
-          typu materiálu, výšky objektu, prístupu, lokality, dokumentácie a objemu odpadu.
+          typu materiálu, výšky objektu, prístupu, lokality, dokumentácie a objemu odpadu. {transportPolicy.full}
         </QuickAnswer>
         <section className="seo-section">
           <h2>Čo ovplyvňuje cenu</h2>
@@ -67,8 +68,8 @@ export default function AsbestosPricePage() {
             <h2>Kalkulátor podľa výmery</h2>
             <p>
               Kalkulátor zobrazuje iba orientačný cenový rozsah podľa zadanej výmery v m2. Nejde o konečnú cenovú
-              ponuku. Výsledok automaticky nezahŕňa dopravu, dokumentáciu ani iné individuálne položky. Konkrétny
-              rozsah prác a DPH uvedieme až v cenovej ponuke.
+              ponuku. {transportPolicy.freeFromThreshold} {transportPolicy.belowThreshold} Výsledok nezahŕňa
+              dokumentáciu ani iné individuálne položky; konkrétny rozsah prác a DPH uvedieme až v cenovej ponuke.
             </p>
           </div>
           <div className="price-calculator">

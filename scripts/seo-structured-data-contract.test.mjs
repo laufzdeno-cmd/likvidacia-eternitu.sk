@@ -212,11 +212,15 @@ test('public offer copy consistently treats customer photos as optional', () => 
   assert.match(notFound, /Fotky sú voliteľné/);
 });
 
-test('homepage calculator describes only a non-final price range and its exclusions', () => {
+test('homepage calculator describes a non-final price range, transport policy and its exclusions', () => {
   assert.match(homepage, /Orientačný cenový rozsah/);
   assert.match(homepage, /Nejde o konečnú cenu/);
-  assert.match(homepage, /Dopravu, dokumentáciu, individuálne položky/);
+  assert.match(homepage, /transportPolicy\.freeFromThreshold/);
+  assert.match(homepage, /transportPolicy\.belowThreshold/);
+  assert.match(homepage, /Dokumentáciu, individuálne položky/);
   assert.match(homepage, /režim DPH určí až konkrétna cenová ponuka/);
+  assert.match(priceLanding, /transportPolicy\.freeFromThreshold/);
+  assert.match(priceLanding, /transportPolicy\.belowThreshold/);
 });
 
 test('Plus Jakarta Sans is self-hosted and optional so it never delays the first render', () => {

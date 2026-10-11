@@ -1,4 +1,5 @@
 import { serviceDocumentationOutcome } from '../content/site';
+import { transportPolicy } from '../content/transport-policy.mjs';
 
 export const homeContentVersion = '2026-05-23-proof-cleanup-v10';
 
@@ -67,7 +68,7 @@ export const homeContentDefaults = {
   footerText:
     'Likvidácia azbestu a eternitu po celom Slovensku. Cenová ponuka, dokumentácia, demontáž, balenie, odvoz a potvrdenie.',
   trustItems:
-    'Firma ASTANA pôsobí od roku 2011|Pôsobíme na trhu od roku 2011.\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\nDoprava podľa zákazky|Prípadná doprava je samostatne uvedená v cenovej ponuke.\nRÚVZ / OÚŽP ku konkrétnej stavbe|Postup riešime legálne, nie iba všeobecným sľubom\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade',
+    `Firma ASTANA pôsobí od roku 2011|Pôsobíme na trhu od roku 2011.\nPôsobíme po celej SR|Zákazky riešime podľa lokality a kapacity\n${transportPolicy.title}|${transportPolicy.full}\nRÚVZ / OÚŽP ku konkrétnej stavbe|Postup riešime legálne, nie iba všeobecným sľubom\nDoklady po likvidácii|Potvrdenie / dokumentácia po úhrade`,
   includedItems:
     'Oznámenie prác a podklady pre RÚVZ\nPodklady pre OÚŽP / životné prostredie\nDokumentácia k nakladaniu s nebezpečným odpadom\nStabilizácia materiálu\nOdborná demontáž\nDekontaminácia pracovného priestoru\nBalenie do označených vriec\nOdvoz na skládku nebezpečného odpadu\nPotvrdenie / dokumentácia po legálnej likvidácii',
   processSteps:

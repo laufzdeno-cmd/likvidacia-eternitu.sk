@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import { transportPolicy } from '../src/content/transport-policy.mjs';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 const homepage = read('../app/homepage-critical-client.tsx');
@@ -43,6 +44,18 @@ test('price-page calculator uses a mobile-safe quote CTA without removing deskto
   assert.match(pricePage, /data-price-quote href="\/#dopyt"/);
   assert.match(pricePage, /<PublicPageShell[^>]+hideWhatsappOnMobile>/);
   assert.match(publicShell, /<PublicWidgets hideWhatsappOnMobile=\{hideWhatsappOnMobile\} \/>/);
+});
+
+test('both calculator disclosures apply the approved transport threshold', () => {
+  assert.match(homepageMarkup, /transportPolicy\.freeFromThreshold/);
+  assert.match(homepageMarkup, /transportPolicy\.belowThreshold/);
+  assert.match(pricePage, /transportPolicy\.freeFromThreshold/);
+  assert.match(pricePage, /transportPolicy\.belowThreshold/);
+  assert.equal(
+    transportPolicy.full,
+    'Pri ploche od 100 m² dopravu po Slovensku neúčtujeme. Pri menšej výmere prípadnú dopravu uvedieme samostatne v cenovej ponuke.',
+  );
+  assert.equal(`${transportPolicy.freeFromThreshold} ${transportPolicy.belowThreshold}`, transportPolicy.full);
 });
 
 test('standalone price page avoids the full lead and gallery client', () => {

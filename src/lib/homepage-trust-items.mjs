@@ -1,20 +1,24 @@
-const currentTransportDisclosure = ['Doprava podľa zákazky', 'Prípadná doprava je samostatne uvedená v cenovej ponuke.'];
+import { transportPolicy } from '../content/transport-policy.mjs';
+
+const currentTransportDisclosure = [transportPolicy.title, transportPolicy.full];
 const approvedCoverageText = 'Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.';
 const knownLegacyTransportClaims = new Set([
   'doprava nad 100 m2 zdarma|pri väčších zákazkách dopravu neúčtujeme',
   'doprava|pri väčších zákazkách dopravu neúčtujeme',
   'doprava po slovensku od 100 m2|pri ploche od 100 m2 dopravu po slovensku neúčtujeme',
+  'doprava podľa zákazky|prípadná doprava je samostatne uvedená v cenovej ponuke',
 ]);
 
-/** Replace the known historical transport wording if it was saved in the editable coverage card. */
+/** Keep historical transport wording in editable content aligned with the approved policy. */
 export function normalizeHomepageCoverageText(value) {
   const normalized = normalizeLegacyText(value);
   if (
     normalized.includes('doprava nad 100 m2 zdarma')
     || normalized.includes('pri väčších zákazkách dopravu neúčtujeme')
     || normalized.includes('pri ploche od 100 m2 dopravu po slovensku neúčtujeme')
+    || normalized.includes('prípadná doprava je samostatne uvedená v cenovej ponuke')
   ) {
-    return currentTransportDisclosure[1];
+    return transportPolicy.full;
   }
   return value;
 }
@@ -29,7 +33,7 @@ function normalizeLegacyText(value) {
     .replace(/[.!…]+$/u, '');
 }
 
-/** Normalize historical transport copy to the current per-offer disclosure. */
+/** Normalize historical transport copy to the approved threshold policy. */
 export function filterHomepageTrustItems(items) {
   const normalized = [];
   let hasTransportClaim = false;

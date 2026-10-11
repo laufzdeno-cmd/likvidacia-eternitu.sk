@@ -14,6 +14,7 @@ import * as photos from '../src/data/azbestReferences.ts';
 import { ResponsiveImage } from '../src/components/responsive-image.tsx';
 import { serializeJsonLd } from '../src/lib/json-ld-serialize.mjs';
 import * as trustPolicy from '../src/lib/homepage-trust-items.mjs';
+import { transportPolicy } from '../src/content/transport-policy.mjs';
 
 const source = readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const { outputText, diagnostics } = ts.transpileModule(source, {
@@ -36,6 +37,7 @@ async function renderPage(overrides = {}) {
     ['@/src/components/responsive-image', { ResponsiveImage }],
     ['@/src/lib/json-ld-serialize.mjs', { serializeJsonLd }],
     ['@/src/lib/homepage-trust-items.mjs', trustPolicy],
+    ['@/src/content/transport-policy.mjs', { transportPolicy }],
     ['./homepage-client-boundary', empty],
     ['./homepage-deferred-client', empty],
     ['./homepage-deferred-widgets', empty],
@@ -151,7 +153,9 @@ test('compact homepage calculator omits locality but retains controls, disclosur
   assert.equal(elements(calculator).filter(({ node }) => node.props['data-price-material']).length, 4);
   assert.doesNotMatch(textOf(calculator), /Obec alebo mesto|Nepovinné pri orientačnom/);
   assert.equal(elements(calculator).some(({ node }) => node.props['data-price-city'] !== undefined), false);
-  assert.match(textOf(calculator), /Dopravu, dokumentáciu, individuálne položky a režim DPH určí až konkrétna cenová ponuka/);
+  assert.ok(textOf(calculator).includes(transportPolicy.freeFromThreshold));
+  assert.ok(textOf(calculator).includes(transportPolicy.belowThreshold));
+  assert.match(textOf(calculator), /Dokumentáciu, individuálne položky a režim DPH určí až konkrétna cenová ponuka/);
   assert.ok(elements(calculator).some(({ node }) => node.props['data-price-quote'] !== undefined && node.props.href === '#dopyt'));
   const city = byId(tree, 'city');
   assert.equal(city.props.name, 'city');
@@ -167,7 +171,7 @@ test('consolidates service, process and roofer content without standalone duplic
   const retired = /\b(?:why-card-grid|caution-grid|risk-grid|roofers-grid|included-group-grid)\b/;
   for (const { node } of elements(tree)) assert.doesNotMatch(node.props.className || '', retired);
   assert.match(textOf(tree), /Nezáväznú cenovú ponuku vám pošleme čo najskôr, najneskôr do 24 hodín\./);
-  assert.match(textOf(byId(tree, 'preco')), /Prípadná doprava je samostatne uvedená v cenovej ponuke\./);
+  assert.ok(textOf(byId(tree, 'preco')).includes(transportPolicy.full));
 });
 
 test('keeps editable trust descriptions paired with their titles after consolidation', async () => {

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { filterHomepageTrustItems, normalizeHomepageCoverageText } from '../src/lib/homepage-trust-items.mjs';
+import { transportPolicy } from '../src/content/transport-policy.mjs';
 
 const homepage = readFileSync(new URL('../app/page.tsx', import.meta.url), 'utf8');
 const defaults = readFileSync(new URL('../src/server/site-content.ts', import.meta.url), 'utf8');
@@ -9,6 +10,7 @@ const admin = readFileSync(new URL('../app/admin/(protected)/obsah/page.tsx', im
 const seo = readFileSync(new URL('../app/seo-components.tsx', import.meta.url), 'utf8');
 const company = JSON.parse(readFileSync(new URL('../public/data/company.json', import.meta.url), 'utf8'));
 const llms = readFileSync(new URL('../public/llms.txt', import.meta.url), 'utf8');
+const pricePage = readFileSync(new URL('../app/cena-likvidacie-azbestu/page.tsx', import.meta.url), 'utf8');
 const photoReferences = readFileSync(new URL('../src/data/azbestReferences.ts', import.meta.url), 'utf8');
 
 test('consolidated homepage trust keeps editable titles paired with their descriptions', () => {
@@ -53,22 +55,29 @@ test('2011 refers only to company activity, including the legacy trust-bar row',
   ]);
 });
 
-test('homepage replaces legacy free-transport claims with transparent offer pricing', () => {
-  const disclosure = ['Doprava podľa zákazky', 'Prípadná doprava je samostatne uvedená v cenovej ponuke.'];
-  assert.equal(company.transport_policy, disclosure[1]);
-  assert.ok(llms.includes(disclosure[1]));
-  assert.doesNotMatch(llms, /dopravu po Slovensku neúčtujeme|doprava nad 100 m² zdarma/i);
-  assert.match(homepage, /const transportOfferDisclosure = \[\s*'Doprava podľa zákazky',\s*'Prípadná doprava je samostatne uvedená v cenovej ponuke\.'/);
-  assert.match(homepage, /containsFreeTransportClaim\(`\$\{title\} \$\{text\}`\)\s*\? transportOfferDisclosure/);
+test('approved transport rule is shared by public, machine-readable and price surfaces', () => {
+  assert.equal(company.transport_policy, transportPolicy.full);
+  assert.ok(llms.includes(transportPolicy.full));
+  assert.match(homepage, /import \{ transportPolicy \} from '@\/src\/content\/transport-policy\.mjs'/);
+  assert.match(defaults, /\$\{transportPolicy\.title\}\|\$\{transportPolicy\.full\}/);
+  assert.match(homepage, /containsTransportPolicyClaim\(`\$\{title\} \$\{text\}`\)\s*\? transportPolicyDisclosure/);
   assert.match(homepage, /normalizeTransportTrustItems\(\s*filterHomepageTrustItems\(parsePairs\(content\.trustItems, defaultTrustItems\)\)/);
-  assert.doesNotMatch(homepage, /Pri ploche od 100 m² dopravu po Slovensku neúčtujeme\./);
+  assert.match(pricePage, /transportPolicy\.freeFromThreshold/);
+  assert.match(pricePage, /transportPolicy\.belowThreshold/);
   assert.doesNotMatch(homepage, /className="transport-banner"/);
 });
 
-test('legacy transport wording from editable content is replaced again before rendering', () => {
-  const disclosure = 'Prípadná doprava je samostatne uvedená v cenovej ponuke.';
-  assert.equal(normalizeHomepageCoverageText('Doprava nad 100 m2 zdarma.'), disclosure);
-  assert.equal(normalizeHomepageCoverageText('Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.'), disclosure);
+test('legacy transport wording from editable content is normalized to the approved rule', () => {
+  assert.equal(normalizeHomepageCoverageText('Doprava nad 100 m2 zdarma.'), transportPolicy.full);
+  assert.equal(normalizeHomepageCoverageText('Pri ploche od 100 m² dopravu po Slovensku neúčtujeme.'), transportPolicy.full);
+  assert.equal(
+    normalizeHomepageCoverageText('Prípadná doprava je samostatne uvedená v cenovej ponuke.'),
+    transportPolicy.full,
+  );
+  assert.deepEqual(
+    filterHomepageTrustItems([['Doprava podľa zákazky', 'Prípadná doprava je samostatne uvedená v cenovej ponuke.']]),
+    [[transportPolicy.title, transportPolicy.full]],
+  );
   assert.equal(
     normalizeHomepageCoverageText('Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.'),
     'Zákazky riešime po celom Slovensku podľa rozsahu a kapacity.',
