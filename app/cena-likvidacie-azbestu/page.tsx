@@ -11,7 +11,7 @@ export const metadata = buildPageMetadata({
   description:
     'Cena likvidácie azbestu podľa výmery, materiálu a lokality. Pri ploche od 100 m² dopravu po Slovensku neúčtujeme. Získajte nezáväznú ponuku.',
   path: '/cena-likvidacie-azbestu/',
-  image: '/og/cena.jpg',
+  image: '/og/cena-strecha.jpg',
 });
 
 const priceFactors = [

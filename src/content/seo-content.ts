@@ -400,7 +400,7 @@ export const articles = [
     slug: 'kolko-stoji-likvidacia-azbestu',
     title: 'Koľko stojí likvidácia azbestu',
     description: 'Cena likvidácie azbestu závisí od výmery, prístupu, typu materiálu, lokality a dokumentácie.',
-    image: '/og/cena.jpg',
+    image: '/og/cena-strecha.jpg',
     quickAnswer:
       'Cena likvidácie azbestu je individuálna. Najviac ju ovplyvňuje výmera, typ a stav materiálu, výška objektu, prístup, lokalita, rozsah dokumentácie a objem odpadu. Na prvú ponuku stačí m2 a lokalita; fotky sú voliteľné.',
     body: [

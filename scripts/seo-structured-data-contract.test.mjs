@@ -212,6 +212,18 @@ test('public offer copy consistently treats customer photos as optional', () => 
   assert.match(notFound, /Fotky sú voliteľné/);
 });
 
+test('price content uses the approved asbestos roof social image', () => {
+  assert.match(priceLanding, /image:\s*'\/og\/cena-strecha\.jpg'/);
+  assert.match(
+    seoContent,
+    /slug:\s*'kolko-stoji-likvidacia-azbestu'[\s\S]*?image:\s*'\/og\/cena-strecha\.jpg'/,
+  );
+  assert.match(
+    seoContent,
+    /slug:\s*'odvoz-a-balenie-azbestoveho-odpadu'[\s\S]*?image:\s*'\/og\/cena\.jpg'/,
+  );
+});
+
 test('homepage calculator describes a non-final price range, transport policy and its exclusions', () => {
   assert.match(homepage, /Orientačný cenový rozsah/);
   assert.match(homepage, /Nejde o konečnú cenu/);
