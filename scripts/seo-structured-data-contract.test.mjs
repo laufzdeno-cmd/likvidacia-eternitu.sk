@@ -161,6 +161,12 @@ test('career remains discoverable from every public footer implementation', () =
   assert.match(realizationsLanding, /<a href="\/kariera\/">Kariéra<\/a>/);
 });
 
+test('price calculator stays short and leaves locality to the inquiry form', () => {
+  assert.match(priceLanding, /data-price-area/);
+  assert.match(priceLanding, /data-price-material/);
+  assert.doesNotMatch(priceLanding, /data-price-city|priceCity|price-city-field|Obec alebo mesto pre dopyt/);
+});
+
 test('sitemap does not claim every page was modified at build time', () => {
   assert.doesNotMatch(sitemap, /lastModified|new Date\s*\(/);
 });

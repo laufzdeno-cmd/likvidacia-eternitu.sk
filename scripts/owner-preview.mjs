@@ -395,6 +395,7 @@ async function verify(directory) {
           report.interactions.push('320px mobile menu opens and closes');
         }
         if (route === '/cena/') {
+          assert.equal(await page.locator('[data-price-city]').count(), 0, 'price calculator must stay compact without a locality field');
           const area = page.locator('[data-price-area]');
           await area.focus();
           await area.press('ArrowRight');
@@ -406,15 +407,14 @@ async function verify(directory) {
           assert.equal(Number((await page.locator('[data-price-min]').innerText()).replace(/\D/g, '')), 1170);
           assert.equal(Number((await page.locator('[data-price-max]').innerText()).replace(/\D/g, '')), 1950);
           report.interactions.push(`${viewport.width}px calculator: keyboard area change and material selection`);
-          await page.locator('[data-price-city]').fill('Ukážková obec');
           await page.locator('[data-price-quote]').click();
           await page.waitForURL(`${state.origin}/#dopyt`);
           await expect(page.locator('#areaEstimate')).toHaveValue('130');
-          await expect(page.locator('#city')).toHaveValue('Ukážková obec');
+          await expect(page.locator('#city')).toHaveValue('');
           await expect(page.locator('#materialType')).toHaveValue('Hladký / štvorcový eternit');
           await expect(page.locator('#email')).toHaveValue('');
           assert.equal(await page.locator('input[name="gdpr"]').isChecked(), false);
-          report.interactions.push(`${viewport.width}px calculator prefill: area, city and material transferred; email empty, GDPR unchecked; no submit`);
+          report.interactions.push(`${viewport.width}px calculator prefill: no locality field; area and material transferred; email, city and GDPR untouched; no submit`);
         }
       }
     }

@@ -13,12 +13,11 @@ const materialAliases: Record<string, string> = {
   hladky: 'plocha',
 };
 
-function applyCampaignPrefill(areaInput: HTMLInputElement, cityInput: HTMLInputElement | null, materialButtons: HTMLButtonElement[]) {
+function applyCampaignPrefill(areaInput: HTMLInputElement, materialButtons: HTMLButtonElement[]) {
   let params: URLSearchParams;
   try { params = new URLSearchParams(window.location.search); } catch { return; }
   const plochaParam = params.get('plocha');
   const areaValue = params.get('area') ?? params.get('m2') ?? (plochaParam && /^\d+$/.test(plochaParam) ? plochaParam : null);
-  const cityValue = params.get('city') ?? params.get('mesto');
   const rawMaterial = (params.get('material') ?? params.get('meta_material') ?? (plochaParam && !/^\d+$/.test(plochaParam) ? plochaParam : '')).trim().toLowerCase();
   const materialKey = ({
     vlnity: 'vlnity', vlnity_eternit: 'vlnity', plocha: 'hladky', hladky: 'hladky',
@@ -26,7 +25,6 @@ function applyCampaignPrefill(areaInput: HTMLInputElement, cityInput: HTMLInputE
   } as Record<string, string>)[rawMaterial];
 
   if (areaValue && /^(?:[1-9]\d{0,2}|500)$/.test(areaValue)) areaInput.value = areaValue;
-  if (cityInput && cityValue) cityInput.value = cityValue.slice(0, 120);
   if (!materialKey) return;
   const selected = materialButtons.find((button) => button.dataset.priceMaterial === materialKey);
   if (!selected) return;
@@ -50,13 +48,12 @@ export function initializePriceCalculators(trackAnalytics?: PriceAnalytics) {
     const areaOutput = calculator.querySelector<HTMLOutputElement>('[data-price-area-output]');
     const minOutput = calculator.querySelector<HTMLElement>('[data-price-min]');
     const maxOutput = calculator.querySelector<HTMLElement>('[data-price-max]');
-    const cityInput = calculator.querySelector<HTMLInputElement>('[data-price-city]');
     const quoteLink = calculator.querySelector<HTMLAnchorElement>('[data-price-quote]');
     const transferStatus = calculator.querySelector<HTMLElement>('[data-price-transfer-status]');
     const materialButtons = Array.from(calculator.querySelectorAll<HTMLButtonElement>('[data-price-material]'));
     if (!areaInput || !areaOutput || !minOutput || !maxOutput) return;
 
-    applyCampaignPrefill(areaInput, cityInput, materialButtons);
+    applyCampaignPrefill(areaInput, materialButtons);
     const selectedMaterial = materialButtons.find((button) => button.classList.contains('is-active'))?.dataset.priceMaterial || 'vlnity';
     let activeMaterial = materialAliases[selectedMaterial] || selectedMaterial;
 
@@ -87,7 +84,7 @@ export function initializePriceCalculators(trackAnalytics?: PriceAnalytics) {
     };
     const onQuoteClick = (event: Event) => {
       const selectedKey = materialButtons.find((button) => button.classList.contains('is-active'))?.dataset.priceMaterial || 'vlnity';
-      const draft = createPriceQuoteDraft(areaInput.value, selectedKey, cityInput?.value || '');
+      const draft = createPriceQuoteDraft(areaInput.value, selectedKey, '');
       if (!draft) return;
       const form = document.querySelector<HTMLFormElement>('.lead-form');
       if (form) applyPriceQuoteDraft(form, draft);

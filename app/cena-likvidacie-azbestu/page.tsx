@@ -73,11 +73,6 @@ export default function AsbestosPricePage() {
             </p>
           </div>
           <div className="price-calculator">
-            <div className="price-city-field">
-              <label htmlFor="priceCity">Obec alebo mesto pre dopyt</label>
-              <input id="priceCity" data-price-city type="text" maxLength={120} autoComplete="address-level2" placeholder="Napr. Poprad" />
-              <small>Nepovinné pri orientačnom výpočte.</small>
-            </div>
             <label htmlFor="priceArea">Výmera v m2</label>
             <input id="priceArea" data-price-area type="range" min="30" max="500" step="10" defaultValue="120" />
             <output data-price-area-output htmlFor="priceArea">120 m2</output>

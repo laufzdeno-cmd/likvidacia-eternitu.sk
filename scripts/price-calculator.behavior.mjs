@@ -41,9 +41,8 @@ class MockClassList {
   }
 }
 
-function createCalculator(area = '120', withCity = true) {
+function createCalculator(area = '120') {
   const input = Object.assign(new MockEventTarget(), { value: area });
-  const cityInput = { value: '' };
   const quoteLink = new MockEventTarget();
   const transferStatus = { hidden: true };
   const areaOutput = { textContent: '' };
@@ -65,7 +64,6 @@ function createCalculator(area = '120', withCity = true) {
         '[data-price-area-output]': areaOutput,
         '[data-price-min]': minOutput,
         '[data-price-max]': maxOutput,
-        '[data-price-city]': withCity ? cityInput : null,
         '[data-price-quote]': quoteLink,
         '[data-price-transfer-status]': transferStatus,
       })[selector] || null;
@@ -74,7 +72,7 @@ function createCalculator(area = '120', withCity = true) {
       return selector === '[data-price-material]' ? materials : [];
     },
   };
-  return { root, input, cityInput, quoteLink, transferStatus, areaOutput, minOutput, maxOutput, materials };
+  return { root, input, quoteLink, transferStatus, areaOutput, minOutput, maxOutput, materials };
 }
 
 function withCalculators(calculators, run) {
@@ -119,7 +117,6 @@ test('area drag updates the estimate and records one analytics event on completi
   const analytics = [];
   withCalculators([calc], () => {
     initializePriceCalculators((...event) => analytics.push(event));
-    calc.cityInput.value = 'Poprad';
     calc.input.value = '200';
     calc.input.dispatch('input');
     assertPrice(calc.minOutput.textContent, '1 600 €');
@@ -157,7 +154,7 @@ test('multiple calculators stay independent and setup-cleanup-setup does not dup
   });
 });
 
-test('campaign parameters prefill the calculator selection, area and locality', () => {
+test('campaign parameters prefill only the calculator selection and area', () => {
   const { priceRedirectTarget } = require('../src/server/price-redirect.ts');
   const redirect = priceRedirectTarget({ utm_source: 'google', utm_id: 'campaign-9', material: 'boleticky', plocha: '240', city: 'Poprad' });
   const calc = createCalculator();
@@ -166,7 +163,6 @@ test('campaign parameters prefill the calculator selection, area and locality', 
   try {
     const cleanup = withCalculators([calc], () => initializePriceCalculators());
     assert.equal(calc.input.value, '240');
-    assert.equal(calc.cityInput.value, 'Poprad');
     assert.equal(calc.materials.find((button) => button.classList.contains('is-active')).dataset.priceMaterial, 'boleticky');
     assertPrice(calc.minOutput.textContent, '2 640 €');
     assertPrice(calc.maxOutput.textContent, '4 320 €');
@@ -177,10 +173,10 @@ test('campaign parameters prefill the calculator selection, area and locality', 
   }
 });
 
-test('calculator quote action fills the existing form without touching contact or consent', () => {
+test('calculator quote action fills area and material without touching locality, contact or consent', () => {
   const calc = createCalculator();
   const fields = {
-    areaEstimate: { value: '' }, city: { value: '' },
+    areaEstimate: { value: '' }, city: { value: 'Poprad' },
     materialType: { value: '', options: [{ value: 'Hladký / štvorcový eternit' }] },
     email: { value: 'existing@example.test' }, consent: { checked: true },
   };
@@ -193,16 +189,15 @@ test('calculator quote action fills the existing form without touching contact o
   try {
     const cleanup = initializePriceCalculators();
     calc.input.value = '250';
-    calc.cityInput.value = 'Poprad';
     calc.materials[1].dispatch('click');
     calc.quoteLink.dispatch('click');
     assert.deepEqual([fields.areaEstimate.value, fields.city.value, fields.materialType.value], ['250', 'Poprad', 'Hladký / štvorcový eternit']);
     assert.equal(fields.email.value, 'existing@example.test');
     assert.equal(fields.consent.checked, true);
     cleanup();
-    calc.cityInput.value = 'Levoča';
+    calc.input.value = '300';
     calc.quoteLink.dispatch('click');
-    assert.equal(fields.city.value, 'Poprad', 'cleanup removes quote prefill listener');
+    assert.equal(fields.areaEstimate.value, '250', 'cleanup removes quote prefill listener');
   } finally {
     if (previousDocument === undefined) delete globalThis.document;
     else globalThis.document = previousDocument;
@@ -229,8 +224,8 @@ test('blocked browser storage leaves the visitor on the price page with a manual
   }
 });
 
-test('homepage calculator without locality transfers area/material and preserves an existing inquiry city', () => {
-  const calc = createCalculator('200', false);
+test('calculator transfers area/material and preserves an existing inquiry city', () => {
+  const calc = createCalculator('200');
   const fields = {
     areaEstimate: { value: '' }, city: { value: 'Poprad' },
     materialType: { value: '', options: [{ value: 'Vlnitý eternit' }] },

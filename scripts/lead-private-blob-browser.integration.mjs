@@ -489,10 +489,10 @@ async function runPriceQuoteChecks(page, appOrigin, tempRoot) {
 
   await page.goto(`${appOrigin}/cena-likvidacie-azbestu/`, { waitUntil: 'networkidle' });
   assert.equal(await page.locator('[data-nextjs-dialog]').count(), 0);
+  assert.equal(await page.locator('[data-price-city]').count(), 0, 'price calculator must not ask for locality');
   await checkPriceCalculatorMatrix(page, '.price-calculator', 30, false);
   await page.locator('.price-calculator').scrollIntoViewIfNeeded();
   await checkPriceCalculatorMatrix(page, '.price-calculator', 30, true);
-  await page.locator('#priceCity').fill('Spišská Nová Ves');
   await page.locator('#priceArea').evaluate((input) => {
     input.value = '300';
     input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -503,7 +503,7 @@ async function runPriceQuoteChecks(page, appOrigin, tempRoot) {
   await page.waitForURL(`${appOrigin}/#dopyt`);
   await page.waitForFunction(() => document.querySelector('#areaEstimate')?.value === '300', null, { timeout: 5000 });
   assert.equal(await page.locator('#areaEstimate').inputValue(), '300');
-  assert.equal(await page.locator('#city').inputValue(), 'Spišská Nová Ves');
+  assert.equal(await page.locator('#city').inputValue(), '');
   assert.equal(await page.locator('#materialType').inputValue(), 'Neviem posúdiť');
   assert.equal(await page.locator('#email').inputValue(), '');
   assert.equal(await page.locator('input[name="gdpr"]').isChecked(), false);
@@ -518,11 +518,10 @@ async function runPriceQuoteChecks(page, appOrigin, tempRoot) {
     await page.setViewportSize({ width, height: 740 });
     await page.goto(`${appOrigin}/cena-likvidacie-azbestu/`, { waitUntil: 'networkidle' });
     const sizes = await page.locator('.price-calculator').evaluate((root) => {
-      const city = root.querySelector('[data-price-city]').getBoundingClientRect();
       const cta = root.querySelector('[data-price-quote]').getBoundingClientRect();
-      return { cityLeft: city.left, cityRight: city.right, ctaLeft: cta.left, ctaRight: cta.right, viewport: innerWidth };
+      return { cityFields: root.querySelectorAll('[data-price-city]').length, ctaLeft: cta.left, ctaRight: cta.right, viewport: innerWidth };
     });
-    assert.ok(sizes.cityLeft >= 0 && sizes.cityRight <= sizes.viewport + 1, `city field clipped at ${width}px: ${JSON.stringify(sizes)}`);
+    assert.equal(sizes.cityFields, 0, `price calculator must not show a locality field at ${width}px`);
     assert.ok(sizes.ctaLeft >= 0 && sizes.ctaRight <= sizes.viewport + 1, `quote CTA clipped at ${width}px: ${JSON.stringify(sizes)}`);
     assert.equal(await page.locator('[data-price-quote]').evaluate((element) => getComputedStyle(element).color), 'rgb(255, 255, 255)', 'price quote CTA requires contrasting white text');
     assert.equal(await page.locator('.whatsapp-btn').evaluate((element) => getComputedStyle(element).display), 'none', 'mobile price CTA must not be obscured by floating WhatsApp');
