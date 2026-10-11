@@ -108,7 +108,7 @@ test('consent stores separate categories and removes analytics identifiers on de
   assert.match(widgets, /role="alert"/);
   assert.doesNotMatch(marketingRevocationRoute, /response\.cookies\.set/,
     'oneskorená serverová odpoveď nesmie vymazať novší súhlasový identifikátor');
-  assert.match(widgets, /Po úspešnom dopyte môžeme Google Ads poslať konverznú udalosť\. Meta môže dostať aj zahashovaný email a telefón/);
+  assert.match(widgets, /Po úspešnom dopyte môžeme OpenAI Ads a Google Ads poslať konverznú udalosť\. Meta môže dostať aj zahashovaný email a telefón/);
   assert.match(adConversion, /import\('\.\/ad-conversion-engine\.mjs'\)/,
     'provider code stays behind the public dynamic facade');
   assert.match(adConversion, /maximumQueuedEvents/);
@@ -118,11 +118,11 @@ test('consent stores separate categories and removes analytics identifiers on de
   assert.match(adConversionEngine, /event', 'conversion'/);
   assert.match(adConversionEngine, /'track', 'Lead'/);
   assert.match(adConversionEngine, /autoConfig', false/);
-  assert.match(cookies, /Pri súhlase s marketingovým meraním sa reklamné značky Google Ads alebo Meta načítajú počas návštevy stránky/);
+  assert.match(cookies, /Pri súhlase s marketingovým meraním sa reklamné značky OpenAI Ads, Google Ads alebo Meta načítajú počas návštevy stránky/);
   assert.match(cookies, /Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu/);
   assert.match(cookies, /zahashovaný email a telefón/);
   assert.match(cookies, /Hashovanie nie je anonymizácia/);
-  assert.match(cookies, /Neposielame meno, poznámku ani fotografie/);
+  assert.match(cookies, /neposielame mu meno, telefón, email, poznámku ani fotografie/);
   assert.match(adConversionTests, /marketing consent loads tags on the landing page, but only an accepted lead sends a conversion/);
   assert.match(adConversionTests, /granting consent does not send a lead conversion/);
 });
