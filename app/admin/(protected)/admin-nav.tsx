@@ -9,6 +9,7 @@ const navGroups = [
     title: 'HLAVNÉ',
     items: [
       { href: '/admin/dashboard', label: 'Prehľad', icon: 'chart' },
+      { href: '/admin/asistent', label: 'Asistent', icon: 'spark' },
       { href: '/admin/zakazky', label: 'Zákazky', icon: 'list' },
       { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
       { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
@@ -66,6 +67,7 @@ function Icon({ name }: { name: string }) {
     image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="m21 15-5-5L5 20" /></>,
     badge: <><path d="m12 3 2.2 2.2 3.1-.2.9 3 2.6 1.7-1.5 2.7.6 3-3 1-1.3 2.8-3-1-2.7 1.5-1.8-2.6-3-.6.2-3-2.2-2.1 2.1-2.2-.2-3 3-.8z" /><path d="m9 12 2 2 4-4" /></>,
     shield: <><path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6z" /><path d="m8.5 12 2.2 2.2 4.8-4.8" /></>,
+    spark: <><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" /><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></>,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" {...common}>{paths[name]}</svg>;
 }
