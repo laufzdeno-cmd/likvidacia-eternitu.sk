@@ -238,6 +238,12 @@ export const locationPages = [
       'či je materiál na streche, fasáde alebo už bezpečne uložený',
       'preferovaný termín a informáciu, či po demontáži nadväzuje strechár',
     ],
+    planningPoints: [
+      ['Výjazd zo sídla firmy', 'ASTANA sídli v Poprade. Termín aj poradie zákaziek však vždy potvrdzujeme podľa rozsahu práce, pripravenosti stavby a aktuálnej kapacity.'],
+      ['Materiál na objekte alebo na zemi', 'Uveďte, či je materiál ešte na streche alebo fasáde, prípadne už zložený. Od toho sa odvíja potrebný postup, manipulácia aj nakládka.'],
+      ['Nadväzujúci strechár', 'Ak po demontáži pokračuje pokrývač, napíšte jeho plánovaný termín už v prvom dopyte. Pomôže nám to zosúladiť práce bez zbytočného čakania.'],
+    ],
+    relatedSlugs: ['presov', 'kosice', 'zilina'],
   },
   {
     slug: 'kosice',
@@ -253,6 +259,12 @@ export const locationPages = [
       'možnosť príjazdu pracovného vozidla a prístup k objektu',
       'časové obmedzenia a požadovanú nadväznosť ďalších prác',
     ],
+    planningPoints: [
+      ['Presná obec rozhoduje o trase', 'Košický kraj zahŕňa viac vzdialených okresov. Obec alebo mestská časť nám umožní realisticky posúdiť výjazd a navrhnúť termín.'],
+      ['Príjazd a miesto nakládky', 'Napíšte, či sa pracovné vozidlo dostane priamo k objektu a kde je možné bezpečne manipulovať so zabaleným materiálom.'],
+      ['Prevádzkové obmedzenia', 'Pri firme, hale alebo objekte v prevádzke uveďte čas, keď je možný prístup. Konkrétny režim dohodneme pred potvrdením zákazky.'],
+    ],
+    relatedSlugs: ['presov', 'poprad', 'banska-bystrica'],
   },
   {
     slug: 'presov',
@@ -268,6 +280,12 @@ export const locationPages = [
       'približnú výmeru a stav azbestocementového materiálu',
       'či treba termín demontáže koordinovať s pokrývačmi',
     ],
+    planningPoints: [
+      ['Výjazd plánujeme z Popradu', 'Pri dopyte z Prešovského kraja uveďte konkrétnu obec. Podľa nej, rozsahu a dostupnej kapacity potvrdíme logistiku aj termín.'],
+      ['Rozsah a stav materiálu', 'Pomôže odhad výmery a informácia, či je krytina celá, poškodená alebo už zložená. Fotografie sú voliteľné, no môžu spresniť prvé posúdenie.'],
+      ['Koordinácia so strechárom', 'Ak má po odstránení eternitu hneď pokračovať nová strecha, uveďte dohodnutý termín pokrývača. Nadväznosť prác potvrdíme spoločne.'],
+    ],
+    relatedSlugs: ['poprad', 'kosice', 'zilina'],
   },
   {
     slug: 'zilina',
@@ -283,6 +301,12 @@ export const locationPages = [
       'približný sklon, výšku a výmeru strechy',
       'či má po odstránení bezprostredne nadväzovať nová krytina',
     ],
+    planningPoints: [
+      ['Prístup k stavbe', 'Ak je objekt v užšej ulici alebo mimo hlavnej cesty, opíšte možnosť príjazdu a priestor pri budove. Pomôže to pripraviť vhodnú logistiku.'],
+      ['Výška a sklon strechy', 'Pri strechách v Žilinskom kraji potrebujeme poznať približnú výšku, sklon a výmeru. Tieto údaje vplývajú na prípravu aj nacenenie.'],
+      ['Nová krytina po demontáži', 'Napíšte, či máte dohodnutého strechára a jeho termín. Odstránenie azbestu a ďalšie strešné práce plánujeme ako dve nadväzujúce činnosti.'],
+    ],
+    relatedSlugs: ['trencin', 'banska-bystrica', 'presov'],
   },
   {
     slug: 'banska-bystrica',
@@ -298,6 +322,12 @@ export const locationPages = [
       'približnú výmeru a miesto, kde sa materiál nachádza',
       'popis príjazdu k objektu a priestoru na bezpečnú manipuláciu',
     ],
+    planningPoints: [
+      ['Obec aj okres', 'Banskobystrický kraj je územne rozsiahly. Uvedenie obce aj okresu nám pomôže správne posúdiť trasu a termín výjazdu.'],
+      ['Príjazd v členitom teréne', 'Ak vedie k objektu úzka, strmá alebo inak obmedzená cesta, popíšte ju v dopyte. Potrebujeme vedieť, kam sa bezpečne dostane pracovné vozidlo.'],
+      ['Miesto uloženia materiálu', 'Rozlišujeme materiál na streche, fasáde a už zložený odpad. Uveďte jeho polohu a približný rozsah, aby ponuka počítala so správnou manipuláciou.'],
+    ],
+    relatedSlugs: ['zilina', 'trencin', 'nitra'],
   },
   {
     slug: 'bratislava',
@@ -313,6 +343,12 @@ export const locationPages = [
       'možnosť príjazdu a parkovania pracovného vozidla',
       'prípadné časové alebo prevádzkové obmedzenia pri objekte',
     ],
+    planningPoints: [
+      ['Mestská časť a parkovanie', 'Pri bratislavskom dopyte uveďte mestskú časť alebo obec a možnosť státia pracovného vozidla. Samotný názov Bratislava na plánovanie výjazdu nestačí.'],
+      ['Čas prístupu k objektu', 'Ak je vstup do areálu, dvora alebo ulice časovo obmedzený, napíšte dostupné intervaly. Reálny režim prác dohodneme pred potvrdením termínu.'],
+      ['Priestor na bezpečnú manipuláciu', 'Pomôže informácia, kde sa dá pripraviť a naložiť zabalený materiál bez blokovania vstupu, prevádzky alebo susedného pozemku.'],
+    ],
+    relatedSlugs: ['trnava', 'nitra', 'trencin'],
   },
   {
     slug: 'nitra',
@@ -328,6 +364,12 @@ export const locationPages = [
       'či je materiál ešte na objekte alebo už zložený',
       'prístup k materiálu; voliteľné fotky z viacerých strán pomôžu ponuku spresniť',
     ],
+    planningPoints: [
+      ['Strecha alebo už zložený materiál', 'Uveďte, či ide o demontáž krytiny, materiál na fasáde alebo už zložené dosky. Každý stav vyžaduje iný rozsah prípravy a manipulácie.'],
+      ['Prístup k objektu', 'Pri dome, hospodárskej budove alebo hale popíšte príjazd a voľný priestor pri materiáli. Podľa toho vieme pripraviť realistický postup.'],
+      ['Fotografie ako pomôcka', 'Fotky nie sú podmienkou dopytu. Ak ich máte, záber celého objektu, materiálu a prístupu môže znížiť počet doplňujúcich otázok.'],
+    ],
+    relatedSlugs: ['trnava', 'trencin', 'banska-bystrica'],
   },
   {
     slug: 'trnava',
@@ -343,6 +385,12 @@ export const locationPages = [
       'prístup pracovného vozidla k objektu',
       'či treba demontáž termínovo zladiť s pokrývačmi',
     ],
+    planningPoints: [
+      ['Obec a dostupnosť objektu', 'Pri dopyte z Trnavského kraja uveďte obec alebo okres a možnosť príjazdu k stavbe. Tieto údaje potrebujeme skôr než potvrdíme výjazd.'],
+      ['Termín pokrývačov', 'Ak sa po odstránení eternitu mení strecha, pošlite plánovaný termín strechára. Nadväznosť prác dohodneme podľa rozsahu a kapacity.'],
+      ['Stav a poloha materiálu', 'Napíšte, či je materiál ešte na streche, na inom objekte alebo už zložený. Pri prvom posúdení stačí približná výmera.'],
+    ],
+    relatedSlugs: ['bratislava', 'nitra', 'trencin'],
   },
   {
     slug: 'trencin',
@@ -358,6 +406,12 @@ export const locationPages = [
       'stav materiálu a možnosti bezpečného prístupu',
       'plánovaný termín strechára, ak má hneď nadväzovať nová krytina',
     ],
+    planningPoints: [
+      ['Konkrétna obec a okres', 'Pri plánovaní v Trenčianskom kraji potrebujeme presnejšiu lokalitu než iba názov kraja. Obec a okres určia trasu aj reálnu dostupnosť termínu.'],
+      ['Prístup a poloha objektu', 'Ak je cesta úzka, pozemok svahovitý alebo je pri objekte málo priestoru, uveďte to v dopyte. Logistiku potvrdíme podľa skutočných podmienok.'],
+      ['Nadväzujúca nová strecha', 'Pri výmene krytiny napíšte, kedy má prísť strechár. Termín demontáže potvrdíme až po overení kapacity a nadväznosti prác.'],
+    ],
+    relatedSlugs: ['trnava', 'zilina', 'banska-bystrica'],
   },
 ] as const;
 

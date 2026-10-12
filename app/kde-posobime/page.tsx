@@ -1,4 +1,4 @@
-import type { FaqItem } from '@/src/content/seo-content';
+import { locationPages, type FaqItem } from '@/src/content/seo-content';
 import { site, phoneLink } from '@/src/content/site';
 import { buildPageMetadata, QuickAnswer } from '../seo-components';
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
@@ -46,6 +46,26 @@ export default function ServiceAreaPage() {
         </section>
 
         <QuickAnswer>{quickAnswer}</QuickAnswer>
+
+        <section className="seo-section" aria-labelledby="regional-pages-title">
+          <p className="eyebrow">Regionálne informácie</p>
+          <h2 id="regional-pages-title">Vyberte oblasť, kde sa nachádza objekt</h2>
+          <p className="seo-lead">
+            Na každej regionálnej stránke nájdete územný rozsah, údaje potrebné pre ponuku a praktické podmienky
+            výjazdu. Uvedené mestá a okresy označujú pôsobnosť, nie pobočky ani potvrdené realizácie.
+          </p>
+          <div className="seo-card-grid">
+            {locationPages.map((location) => (
+              <article key={location.slug}>
+                <h3>{location.name}</h3>
+                <p>{location.coverageHeading}: {location.coverageAreas.join(', ')}.</p>
+                <a href={`/likvidacia-azbestu-${location.slug}/`}>
+                  Praktické informácie pre oblasť {location.name}
+                </a>
+              </article>
+            ))}
+          </div>
+        </section>
 
         <section className="seo-section" aria-labelledby="area-planning-title">
           <p className="eyebrow">Nadväznosť prác</p>
