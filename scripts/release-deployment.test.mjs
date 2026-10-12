@@ -27,6 +27,7 @@ function fixture({
   afterPromote = candidateId,
   afterPromoteChecks = [],
   deployments = {},
+  projectShape = 'targets',
   projectHangsAfterPromote = false,
   promoteHangs = false,
   promoteThrows = false,
@@ -65,7 +66,14 @@ function fixture({
         const observed = promoted && projectChecksAfterPromote < afterPromoteChecks.length
           ? afterPromoteChecks[projectChecksAfterPromote++]
           : currentId;
-        return { ok: true, status: 200, json: async () => ({ id: env.VERCEL_PROJECT_ID, alias: [{ domain: 'likvidacia-eternitu.sk', environment: 'production', deployment: { id: observed } }] }) };
+        const project = projectShape === 'legacy'
+          ? { id: env.VERCEL_PROJECT_ID, alias: [{ domain: 'likvidacia-eternitu.sk', environment: 'production', deployment: { id: observed } }] }
+          : {
+            id: env.VERCEL_PROJECT_ID,
+            alias: null,
+            targets: { production: { id: observed, alias: ['likvidacia-eternitu-sk.example.vercel.app'] } },
+          };
+        return { ok: true, status: 200, json: async () => project };
       }
       const id = url.pathname.split('/').at(-1);
       return values[id]
@@ -84,6 +92,12 @@ test('verify-only binds candidate, rollback and current production without POST'
   assert.equal(f.calls.some((call) => call.method === 'POST'), false);
   assert.ok(f.calls.every((call) => call.headers.Authorization === 'Bearer test-token'));
   assert.ok(f.calls.every((call) => Object.keys(call.headers).length === 1), 'requests expose only Authorization');
+});
+
+test('legacy project alias response remains accepted', async () => {
+  const f = fixture({ projectShape: 'legacy' });
+  const result = await runReviewedDeployment({ argv: baseArgs, env, fetchImpl: f.fetchImpl, guardRunner: async () => guarded() });
+  assert.equal(result.action, 'verified');
 });
 
 test('custom Staging verification requires READY staging target bound to the guarded SHA', async () => {

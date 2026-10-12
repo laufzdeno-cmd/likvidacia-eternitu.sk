@@ -103,10 +103,28 @@ async function inspectDeployment({ deploymentId, env, expectedTarget = 'producti
 async function currentProductionAliases({ env, fetchImpl, signal }) {
   const project = await vercelJson({ pathname: `/v9/projects/${env.VERCEL_PROJECT_ID}`, env, fetchImpl, signal });
   if (project?.id !== env.VERCEL_PROJECT_ID) throw new Error('Vercel vrátil iný projekt pri kontrole produkčných aliasov.');
-  const bindings = (Array.isArray(project.alias) ? project.alias : [])
+  const legacyBindings = (Array.isArray(project.alias) ? project.alias : [])
     .filter((entry) => String(entry?.environment ?? entry?.target ?? '').toLowerCase() === 'production' && !entry?.redirect)
     .map((entry) => ({ alias: entry.domain || entry.name, deployment: entry.deployment?.id || entry.deploymentId }))
-    .filter((entry) => typeof entry.alias === 'string' && deploymentPattern.test(entry.deployment || ''))
+    .filter((entry) => typeof entry.alias === 'string' && deploymentPattern.test(entry.deployment || ''));
+  const productionTarget = project?.targets?.production;
+  const productionTargetId = productionTarget?.id;
+  const targetBindings = deploymentPattern.test(productionTargetId || '')
+    ? [...new Set([
+      ...(Array.isArray(productionTarget?.alias) ? productionTarget.alias : []),
+      ...(Array.isArray(productionTarget?.automaticAliases) ? productionTarget.automaticAliases : []),
+    ].filter((alias) => typeof alias === 'string' && alias.trim()).map((alias) => alias.trim().toLowerCase()))]
+      .map((alias) => ({ alias, deployment: productionTargetId }))
+    : [];
+  const byAlias = new Map();
+  for (const binding of [...legacyBindings, ...targetBindings]) {
+    const alias = binding.alias.trim().toLowerCase();
+    const existing = byAlias.get(alias);
+    if (existing && existing !== binding.deployment) throw new Error(`Vercel vrátil konfliktnú väzbu produkčného aliasu ${alias}.`);
+    byAlias.set(alias, binding.deployment);
+  }
+  const bindings = [...byAlias.entries()]
+    .map(([alias, deployment]) => ({ alias, deployment }))
     .sort((a, b) => a.alias.localeCompare(b.alias));
   if (bindings.length === 0) throw new Error('Vercel projekt nemá overiteľný produkčný alias; release je fail-closed.');
   return bindings;
