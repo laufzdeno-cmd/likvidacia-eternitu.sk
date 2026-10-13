@@ -3,23 +3,23 @@ import { euro, numberSk } from '../zakazky/constants';
 import YearWorkerChart from './year-worker-chart';
 import { businessTodayKey } from '@/src/lib/business-period';
 import { summarizeBusinessJobs } from '@/src/lib/business-dashboard-metrics';
-import { requireAdminUser } from '@/src/server/auth';
+import { requireSuperAdmin } from '@/src/server/auth';
 
 const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Máj', 'Jún', 'Júl', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
 
 export default async function YearPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
+  const adminUser = await requireSuperAdmin();
   const params = await searchParams;
   const currentYear = Number(businessTodayKey().slice(0, 4));
   const requestedYear = Number(params.rok || currentYear);
   const year = Number.isInteger(requestedYear) && requestedYear >= currentYear - 3 && requestedYear <= currentYear
     ? requestedYear
     : currentYear;
-  const [jobs, workers, financeRows, financeSummary, adminUser] = await Promise.all([
+  const [jobs, workers, financeRows, financeSummary] = await Promise.all([
     listBusinessJobs({ from: `${year}-01-01`, to: `${year}-12-31`, limit: null, excludeTestData: true }),
     listWorkers(true),
     listBusinessFinanceMonthlySummary(year),
     getBusinessFinanceSummary(`${year}-01-01`, `${year}-12-31`),
-    requireAdminUser(),
   ]);
   const rows = monthNames.map((month, index) => {
     const key = `${year}-${String(index + 1).padStart(2, '0')}`;

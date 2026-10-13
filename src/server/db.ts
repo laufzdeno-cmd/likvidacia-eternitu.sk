@@ -13,6 +13,7 @@ import { getRuntimeFeatureHealth } from './runtime-feature-health';
 import { isValidLeadSubmissionId } from '../lib/lead-submission-id.mjs';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '../lib/date-only';
 import { priceOfferNumberYear } from '../lib/price-offer-number-year';
+import { leadOfferFilterMatches, type LeadOfferFilter } from '../lib/admin-lead-overview';
 import { normalizeAdminSessionEpoch } from './admin-session-policy';
 import {
   shouldFallbackToDefaultSiteContent,
@@ -4585,6 +4586,8 @@ type LeadSummaryPageFilters = {
   tag?: string;
   queue?: 'new' | 'unassigned' | 'followup' | 'waiting' | 'quote' | 'active' | '';
   ownerEmail?: string;
+  offer?: LeadOfferFilter;
+  testData?: '' | 'business' | 'test';
   today?: string;
   page?: number;
   pageSize?: number;
@@ -4648,7 +4651,8 @@ function localLeadMatchesQueue(lead: LeadSummary, queue: LeadSummaryPageFilters[
 function buildLeadSummaryPageWhere(filters: LeadSummaryPageFilters) {
   const values: unknown[] = [];
   const conditions = [filters.archivedOnly ? 'l.deleted_at IS NOT NULL' : 'l.deleted_at IS NULL'];
-  if (filters.excludeTestData) conditions.push('COALESCE(l.is_test_data, false) = false');
+  if (filters.excludeTestData || filters.testData === 'business') conditions.push('COALESCE(l.is_test_data, false) = false');
+  if (filters.testData === 'test') conditions.push('COALESCE(l.is_test_data, false) = true');
   const addValue = (value: unknown) => {
     values.push(value);
     return `$${values.length}`;
@@ -4673,6 +4677,13 @@ function buildLeadSummaryPageWhere(filters: LeadSummaryPageFilters) {
   }
   if (filters.ownerEmail) conditions.push(`LOWER(COALESCE(l.owner_email, '')) = LOWER(${addValue(filters.ownerEmail)})`);
 
+  if (filters.offer === 'none') conditions.push('latest_offer.status IS NULL');
+  if (filters.offer === 'prepared') conditions.push(`latest_offer.status = 'PRIPRAVENA'`);
+  if (filters.offer === 'waiting') conditions.push(`latest_offer.status = 'ODOSLANA'`);
+  if (filters.offer === 'accepted') conditions.push(`latest_offer.status = 'PRIJATA'`);
+  if (filters.offer === 'attention') conditions.push(`latest_offer.status = ANY(${addValue(['ODOSIELA', 'NEISTY_STAV'])}::text[])`);
+  if (filters.offer === 'cancelled') conditions.push(`latest_offer.status = 'ZRUSENA'`);
+
   if (filters.tag === 'chyba_fotka') conditions.push('COALESCE(f.file_count, 0) = 0');
   if (filters.tag === 'potrebuje_strechara') {
     conditions.push(`(l.wants_roofer_recommendation = true OR NULLIF(l.selected_roofer_id, '') IS NOT NULL OR LOWER(COALESCE(l.roofer, '')) LIKE '%potrebujem%' OR LOWER(COALESCE(l.roofer, '')) LIKE '%chcem odporucit%')`);
@@ -4695,14 +4706,23 @@ export async function listLeadSummaryPage(filters: LeadSummaryPageFilters = {}):
 
   if (!db) {
     const all = await listLeadSummaries(Boolean(filters.archivedOnly));
+    const local = await readLocalDb();
+    const latestOfferStatus = new Map<string, PriceOfferStatus>();
+    for (const offer of [...local.priceOffers].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.number.localeCompare(a.number))) {
+      if (offer.deletedAt) continue;
+      const leadId = offer.leadId || (/^dopyt:([0-9a-f-]{36})$/i.exec(offer.sourceInquiry || '')?.[1] ?? '');
+      if (leadId && !latestOfferStatus.has(leadId)) latestOfferStatus.set(leadId, offer.status);
+    }
     const q = normalizeAdminSearch(filters.q?.trim() || '');
     const filtered = all
       .filter((lead) => filters.archivedOnly ? Boolean(lead.deletedAt) : !lead.deletedAt)
-      .filter((lead) => !filters.excludeTestData || !lead.isTestData)
+      .filter((lead) => !(filters.excludeTestData || filters.testData === 'business') || !lead.isTestData)
+      .filter((lead) => filters.testData !== 'test' || Boolean(lead.isTestData))
       .filter((lead) => !q || normalizeAdminSearch([lead.fullName, lead.phone, lead.email, lead.city, lead.district, lead.materialType, lead.objectType, lead.id].join(' ')).includes(q))
       .filter((lead) => !filters.status || lead.status === filters.status)
       .filter((lead) => localLeadMatchesQueue(lead, filters.queue, today))
       .filter((lead) => !filters.ownerEmail || (lead.ownerEmail || '').toLowerCase() === filters.ownerEmail.toLowerCase())
+      .filter((lead) => leadOfferFilterMatches(latestOfferStatus.get(lead.id), filters.offer || ''))
       .filter((lead) => !filters.tag || localLeadMatchesTag(lead, filters.tag));
     const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -4722,6 +4742,14 @@ export async function listLeadSummaryPage(filters: LeadSummaryPageFilters = {}):
       FROM quotes
       GROUP BY lead_id
     ) q ON q.lead_id = l.id
+    LEFT JOIN LATERAL (
+      SELECT po.status
+      FROM price_offers po
+      WHERE po.deleted_at IS NULL
+        AND (po.lead_id = l.id OR (po.lead_id IS NULL AND LOWER(po.source_inquiry) = 'dopyt:' || l.id::text))
+      ORDER BY po.created_at DESC, po.number DESC
+      LIMIT 1
+    ) latest_offer ON true
   `;
   const where = buildLeadSummaryPageWhere({ ...filters, today });
   const countResult = await db.query(`SELECT count(*)::int AS total ${base} WHERE ${where.where}`, where.values);

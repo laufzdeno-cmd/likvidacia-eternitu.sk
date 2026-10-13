@@ -4,7 +4,9 @@ import { requireAdminUser } from '@/src/server/auth';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 import { formatLeadAreaCompact } from '@/src/server/lead-area';
 import type { LeadStatus } from '@/src/server/types';
-import { restoreLeadAction } from './[id]/actions';
+import { isLeadOfferFilter, leadFollowupPresentation, leadOfferFilterOptions, leadOfferPresentation } from '@/src/lib/admin-lead-overview';
+import { businessTodayKey } from '@/src/lib/business-period';
+import { archiveTestLeadFromListAction, restoreLeadAction } from './[id]/actions';
 
 const statusOptions: Array<['', string] | [LeadStatus, string]> = [
   ['', 'Všetky stavy'],
@@ -57,7 +59,7 @@ function pageSizeValue(value: string | undefined) {
 
 function pageHref(params: Record<string, string | undefined>, page: number, pageSize: number) {
   const query = new URLSearchParams();
-  for (const key of ['q', 'status', 'tag', 'queue', 'owner']) {
+  for (const key of ['q', 'status', 'tag', 'queue', 'owner', 'offer', 'data']) {
     if (params[key]) query.set(key, params[key] as string);
   }
   if (params.archived === '1') query.set('archived', '1');
@@ -74,11 +76,13 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const tag = (params.tag || '') as LeadTag | '';
   const queue = isQueue(params.queue || '') ? params.queue as QueueValue : '';
   const ownerEmail = (params.owner || '').trim().toLowerCase();
-  const today = new Date().toISOString().slice(0, 10);
+  const offer = isLeadOfferFilter(params.offer) ? params.offer || '' : '';
+  const dataKind = adminUser.role === 'SUPER_ADMIN' && (params.data === 'business' || params.data === 'test') ? params.data : '';
+  const today = businessTodayKey();
   const archivedOnly = params.archived === '1' && adminUser.role === 'SUPER_ADMIN';
   const pageSize = pageSizeValue(params.pageSize);
   const [leadPage, queueCounts, adminUsers] = await Promise.all([
-    listLeadSummaryPage({ archivedOnly, q, status, tag, queue, ownerEmail, today, page: pageValue(params.page), pageSize }),
+    listLeadSummaryPage({ archivedOnly, q, status, tag, queue, ownerEmail, offer, testData: dataKind, today, page: pageValue(params.page), pageSize }),
     archivedOnly ? Promise.resolve({ total: 0, newLeads: 0, unassigned: 0, followups: 0, waiting: 0, quote: 0, active: 0 }) : getLeadQueueCounts(today),
     listAdminUsers(),
   ]);
@@ -87,7 +91,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const ownerName = new Map(adminUsers.map((user) => [user.email, user.name || user.email]));
 
   return (
-    <main className="admin-page">
+    <main className="admin-page admin-leads-page">
       <div className="admin-heading">
         <div>
           <p>Obchodný tok</p>
@@ -126,6 +130,23 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         </section>
       )}
 
+      {!archivedOnly ? <section className="admin-card admin-offer-overview" aria-labelledby="offer-overview-title">
+        <div className="admin-section-heading">
+          <div><p>Rýchly prehľad</p><h2 id="offer-overview-title">Stav cenových ponúk</h2></div>
+          <a href="/admin/ponuky">Otvoriť všetky cenové ponuky</a>
+        </div>
+        <p className="admin-muted-note">Kliknutím zobrazíte iba dopyty v danom stave. „Odoslaná – čakáme“ znamená, že ponuka odišla a čaká sa na rozhodnutie zákazníka.</p>
+        <div className="admin-offer-filter-chips" aria-label="Filtrovanie podľa stavu cenovej ponuky">
+          <a className={`admin-offer-filter-chip is-all${offer ? '' : ' is-active'}`} href={pageHref({ ...params, offer: undefined }, 1, pageSize)}>Všetky</a>
+          {leadOfferFilterOptions.map((item) => <a
+            className={`admin-offer-filter-chip is-${item.value}${offer === item.value ? ' is-active' : ''}`}
+            href={pageHref({ ...params, offer: item.value }, 1, pageSize)}
+            key={item.value}
+            title={item.description}
+          >{item.label}</a>)}
+        </div>
+      </section> : null}
+
       <section className="admin-card">
         <form className="admin-filter-bar" action="/admin/dopyty" method="get">
           <label>
@@ -159,6 +180,21 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
             </select>
           </label>
           <label>
+            Cenová ponuka
+            <select name="offer" defaultValue={offer}>
+              <option value="">Všetky stavy CP</option>
+              {leadOfferFilterOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+          </label>
+          {adminUser.role === 'SUPER_ADMIN' ? <label>
+            Dáta
+            <select name="data" defaultValue={dataKind}>
+              <option value="">Všetky dopyty</option>
+              <option value="business">Iba reálne dopyty</option>
+              <option value="test">Iba testovacie dopyty</option>
+            </select>
+          </label> : null}
+          <label>
             Na stránke
             <select name="pageSize" defaultValue={String(pageSize)}>
               <option value="25">25</option>
@@ -174,6 +210,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       </section>
 
       <section className="admin-card">
+        {adminUser.role === 'SUPER_ADMIN' ? <p className="admin-table-help">Testovacie dopyty sú označené žltým štítkom. Tlačidlo „Odstrániť test“ ich bezpečne presunie do obnoviteľného archívu; trvalé odstránenie zostáva iba v detaile archivovaného dopytu.</p> : null}
         <div className="admin-table-wrap">
           <table className="admin-table admin-leads-table">
             <thead>
@@ -191,11 +228,15 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
               </tr>
             </thead>
             <tbody>
-              {leads.map(({ lead, insight }) => (
-                <tr key={lead.id}>
+              {leads.map(({ lead, insight }) => {
+                const currentOffer = latestOffers.get(lead.id);
+                const offerView = leadOfferPresentation(currentOffer?.status);
+                const followupView = leadFollowupPresentation(lead.followupDate, today);
+                return <tr className={lead.isTestData ? 'is-test-lead' : undefined} key={lead.id}>
                   <td>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(lead.createdAt))}</td>
                   <td>
                     <strong>{cleanSlovakText(lead.fullName)}</strong>
+                    {lead.isTestData ? <span className="admin-test-data-badge">TEST</span> : null}
                     <br />
                     <a className="admin-tel-link" href={`tel:${lead.phone}`}>{lead.phone}</a>
                     {lead.email ? <small> · {lead.email}</small> : null}
@@ -211,28 +252,23 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   <td>
                     <strong>{lead.ownerEmail ? ownerName.get(lead.ownerEmail) || lead.ownerEmail : 'Bez vlastníka'}</strong>
                     {lead.nextAction ? <><br /><small>{cleanSlovakText(lead.nextAction)}</small></> : <><br /><small className="muted">Ďalší krok nie je určený</small></>}
+                    {followupView ? <><br /><span className={`admin-followup-badge is-${followupView.tone}`}>{followupView.label}</span></> : null}
                   </td>
                   <td>
-                    {(() => {
-                      const offer = latestOffers.get(lead.id);
-                      if (!offer) return <span className="muted">Bez ponuky</span>;
-                      const label = offer.status === 'ODOSLANA' ? 'Odoslaná' : offer.status === 'PRIPRAVENA' ? 'Pripravená · neodoslaná' : offer.status === 'ODOSIELA' ? 'Odosielanie' : offer.status === 'NEISTY_STAV' ? 'Overiť odoslanie' : offer.status === 'PRIJATA' ? 'Prijatá' : 'Zrušená';
-                      return <><a href={`/admin/ponuky/${offer.id}`}>CP {offer.number}</a><br /><small>{label}</small></>;
-                    })()}
+                    {currentOffer ? <a className="admin-offer-number" href={`/admin/ponuky/${currentOffer.id}`}>CP {currentOffer.number}</a> : null}
+                    <span className={`admin-offer-state is-${offerView.state}`}>{offerView.label}</span>
+                    <small className="admin-offer-detail">{offerView.detail}</small>
                   </td>
                   <td><span className={`status-pill status-${lead.status}`}>{lead.deletedAt ? 'Archivovaný dopyt' : statusLabels[lead.status] || lead.status}</span></td>
                   <td>
                     <div className="admin-row-actions">
-                      {lead.deletedAt ? <><a className="admin-row-link is-muted" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{adminUser.role === 'SUPER_ADMIN' ? <form action={restoreLeadAction}><input type="hidden" name="id" value={lead.id} /><button className="admin-row-link is-plum" type="submit">Obnoviť</button></form> : null}</> : <><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{(() => {
-                        const offer = latestOffers.get(lead.id);
-                        return offer
-                          ? <a className="admin-row-link is-plum" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
-                          : <a className="admin-row-link is-plum" href={`/admin/ponuky/nova?lead=${lead.id}`}>Vytvoriť CP</a>;
-                      })()}</>}
+                      {lead.deletedAt ? <><a className="admin-row-link is-muted" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{adminUser.role === 'SUPER_ADMIN' ? <form action={restoreLeadAction}><input type="hidden" name="id" value={lead.id} /><button className="admin-row-link is-plum" type="submit">Obnoviť</button></form> : null}</> : <><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{currentOffer
+                        ? <a className="admin-row-link is-plum" href={`/admin/ponuky/${currentOffer.id}`}>Otvoriť CP</a>
+                        : <a className="admin-row-link is-plum" href={`/admin/ponuky/nova?lead=${lead.id}`}>Vytvoriť CP</a>}{adminUser.role === 'SUPER_ADMIN' && lead.isTestData ? <form action={archiveTestLeadFromListAction} data-confirm-submit="Testovací dopyt sa presunie do archívu a zmizne z aktívneho zoznamu. Bude ho možné obnoviť. Pokračovať?"><input type="hidden" name="id" value={lead.id} /><button className="admin-row-link is-danger-ghost" type="submit">Odstrániť test</button></form> : null}</>}
                     </div>
                   </td>
-                </tr>
-              ))}
+                </tr>;
+              })}
               {!leads.length ? <tr><td colSpan={10}>Nenašli sa žiadne dopyty pre zvolené filtre.</td></tr> : null}
             </tbody>
           </table>

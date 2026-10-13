@@ -60,7 +60,9 @@ const routes = process.argv.includes('--review-only')
   ? allRoutes.filter(([, slug]) => slug.startsWith('review-request'))
   : process.argv.includes('--users-only')
     ? allRoutes.filter(([, slug]) => slug === 'users')
-    : allRoutes;
+    : process.argv.includes('--dopyty-only')
+      ? allRoutes.filter(([, slug]) => slug === 'dopyty')
+      : allRoutes;
 
 const viewports = [
   { width: 1440, height: 1000, name: 'desktop', screenshot: true },

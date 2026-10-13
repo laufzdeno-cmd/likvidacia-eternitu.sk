@@ -596,6 +596,277 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Prehľad dopytov: kompaktné akcie a jednoznačné obchodné stavy. */
+.admin-leads-page .admin-offer-overview {
+  display: grid;
+  gap: 12px;
+  border-color: #cbdde8;
+  background: linear-gradient(135deg, #f8fcff 0%, #ffffff 72%);
+}
+
+.admin-leads-page .admin-offer-overview .admin-section-heading {
+  margin-bottom: 0;
+}
+
+.admin-leads-page .admin-muted-note,
+.admin-leads-page .admin-table-help {
+  margin: 0;
+  color: #4a6070;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-leads-page .admin-table-help {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f1d992;
+  border-radius: 9px;
+  background: #fff9e8;
+  color: #5b4711;
+}
+
+.admin-offer-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-offer-filter-chip,
+.admin-offer-state,
+.admin-followup-badge,
+.admin-test-data-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.admin-offer-filter-chip {
+  min-height: 32px;
+  padding: 7px 11px;
+  text-decoration: none;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.admin-offer-filter-chip:hover,
+.admin-offer-filter-chip:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(6, 50, 74, .12);
+}
+
+.admin-offer-filter-chip.is-active {
+  outline: 3px solid rgba(30, 109, 154, .18);
+  outline-offset: 1px;
+}
+
+.admin-offer-filter-chip.is-all,
+.admin-offer-filter-chip.is-none,
+.admin-offer-state.is-none {
+  border-color: #c9d3dc;
+  background: #f4f6f8;
+  color: #405466;
+}
+
+.admin-offer-filter-chip.is-prepared,
+.admin-offer-state.is-prepared {
+  border-color: #e7c96b;
+  background: #fff4c9;
+  color: #6c4f00;
+}
+
+.admin-offer-filter-chip.is-waiting,
+.admin-offer-state.is-waiting {
+  border-color: #9ec7e8;
+  background: #e9f4ff;
+  color: #12527a;
+}
+
+.admin-offer-filter-chip.is-accepted,
+.admin-offer-state.is-accepted {
+  border-color: #9acbb0;
+  background: #eaf8f0;
+  color: #17643a;
+}
+
+.admin-offer-filter-chip.is-attention,
+.admin-offer-state.is-attention {
+  border-color: #e6aca7;
+  background: #fff0ef;
+  color: #9b241b;
+}
+
+.admin-offer-filter-chip.is-cancelled,
+.admin-offer-state.is-cancelled {
+  border-color: #c8ccd1;
+  background: #f1f2f3;
+  color: #5a626b;
+}
+
+.admin-offer-number {
+  display: block;
+  width: fit-content;
+  margin-bottom: 6px;
+  color: #0b5f89;
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.admin-offer-state {
+  padding: 5px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.admin-offer-detail {
+  display: block;
+  max-width: 190px;
+  margin-top: 5px;
+  color: #5c6d7b;
+  line-height: 1.35;
+}
+
+.admin-test-data-badge {
+  margin-left: 7px;
+  padding: 3px 6px;
+  border-color: #e0b941;
+  background: #fff2a9;
+  color: #624900;
+  font-size: 9px;
+  letter-spacing: .05em;
+  vertical-align: middle;
+}
+
+.admin-followup-badge {
+  margin-top: 6px;
+  padding: 4px 7px;
+  font-size: 10px;
+}
+
+.admin-followup-badge.is-danger {
+  background: #ffe8e6;
+  color: #a4261d;
+}
+
+.admin-followup-badge.is-warning {
+  background: #fff2c2;
+  color: #6f5100;
+}
+
+.admin-followup-badge.is-neutral {
+  background: #e9f2f7;
+  color: #315b70;
+}
+
+.admin-leads-table tr.is-test-lead td {
+  background: #fffdf5;
+}
+
+.admin-leads-table tr.is-test-lead:hover td {
+  background: #fff9df;
+}
+
+.admin-leads-table .admin-row-actions {
+  display: grid;
+  min-width: 96px;
+  gap: 5px;
+}
+
+.admin-leads-table .admin-row-actions form {
+  margin: 0;
+}
+
+.admin-leads-table .admin-row-link,
+.admin-leads-table button.admin-row-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 26px !important;
+  padding: 4px 8px !important;
+  border-radius: 6px !important;
+  font-size: 10px !important;
+  font-weight: 850 !important;
+  line-height: 1.15 !important;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.admin-leads-table .admin-row-link.is-orange {
+  border: 1px solid #9dc4da !important;
+  background: #eef8fd !important;
+  color: #0a567c !important;
+}
+
+.admin-leads-table .admin-row-link.is-plum {
+  border: 1px solid #cda7b4 !important;
+  background: #fff !important;
+  color: #7b1b3c !important;
+}
+
+.admin-leads-table .admin-row-link.is-muted {
+  border: 1px solid #c7cfd6 !important;
+  background: #f5f7f8 !important;
+  color: #425563 !important;
+}
+
+.admin-leads-table .admin-row-link.is-danger-ghost {
+  border: 1px solid #e4b1ad !important;
+  background: #fff8f7 !important;
+  color: #a12b23 !important;
+}
+
+.admin-leads-table .admin-row-link:hover,
+.admin-leads-table .admin-row-link:focus-visible {
+  filter: brightness(.97);
+  box-shadow: 0 3px 8px rgba(6, 50, 74, .1);
+}
+
+.admin-page .status-pill.status-pripravena {
+  background: #fff4c9;
+  color: #6c4f00;
+}
+
+.admin-page .status-pill.status-odoslana,
+.admin-page .status-pill.status-stiahnuta {
+  background: #e9f4ff;
+  color: #12527a;
+}
+
+.admin-page .status-pill.status-prijata {
+  background: #eaf8f0;
+  color: #17643a;
+}
+
+.admin-page .status-pill.status-odosiela,
+.admin-page .status-pill.status-neisty_stav {
+  background: #fff0ef;
+  color: #9b241b;
+}
+
+.admin-page .status-pill.status-zrusena {
+  background: #f1f2f3;
+  color: #5a626b;
+}
+
+@media (max-width: 720px) {
+  .admin-offer-filter-chips {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-offer-filter-chip {
+    justify-content: center;
+    text-align: center;
+  }
+}
 .admin-dl.wide {
   grid-template-columns: minmax(170px, 0.24fr) minmax(0, 1fr);
 }

@@ -21,7 +21,7 @@ const navGroups = [
   {
     title: 'VÝKAZY',
     items: [
-      { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar' },
+      { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar', superOnly: true },
       { href: '/admin/analytics', label: 'Analytika', icon: 'trend', superOnly: true },
     ],
   },

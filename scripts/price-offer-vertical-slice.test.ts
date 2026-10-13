@@ -221,13 +221,14 @@ test('detail zákazky vedie iba do schváleného PDF toku cenovej ponuky', async
 test('dopyty zobrazujú poslednú ponuku cez jeden dávkový, archivované ponuky ignorujúci lookup', async () => {
   const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
   const page = await readFile(new URL('../app/admin/(protected)/dopyty/page.tsx', import.meta.url), 'utf8');
+  const overview = await readFile(new URL('../src/lib/admin-lead-overview.ts', import.meta.url), 'utf8');
   assert.match(db, /getLatestPriceOffersByInquiryIds\(inquiryIds: string\[\]\)/);
   assert.match(db, /DISTINCT ON \(lead_id\)[\s\S]*?deleted_at IS NULL[\s\S]*?created_at DESC, number DESC/);
   assert.match(page, /getLatestPriceOffersByInquiryIds\(leadPage\.items\.map\(\(lead\) => lead\.id\)\)/);
-  assert.match(page, /Pripravená · neodoslaná/);
-  assert.match(page, /Odoslaná/);
-  assert.match(page, /Bez ponuky/);
-  assert.match(page, /const offer = latestOffers\.get\(lead\.id\);[\s\S]*?href=\{`\/admin\/ponuky\/\$\{offer\.id\}`\}>Otvoriť CP<\/a>[\s\S]*?: <a className="admin-row-link is-plum" href=\{`\/admin\/ponuky\/nova\?lead=\$\{lead\.id\}`\}>Vytvoriť CP<\/a>/);
+  assert.match(overview, /Hotová – neodoslaná/);
+  assert.match(overview, /Odoslaná – čakáme/);
+  assert.match(overview, /Bez CP/);
+  assert.match(page, /const currentOffer = latestOffers\.get\(lead\.id\);[\s\S]*?href=\{`\/admin\/ponuky\/\$\{currentOffer\.id\}`\}>Otvoriť CP<\/a>[\s\S]*?: <a className="admin-row-link is-plum" href=\{`\/admin\/ponuky\/nova\?lead=\$\{lead\.id\}`\}>Vytvoriť CP<\/a>/);
 });
 
 test('detail dopytu zobrazuje novú cenovú ponuku a jej stav', async () => {

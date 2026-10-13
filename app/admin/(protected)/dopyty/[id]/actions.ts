@@ -106,6 +106,26 @@ export async function setLeadTestDataAction(formData: FormData) {
   revalidatePath('/realizacie');
 }
 
+export async function archiveTestLeadFromListAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = (await requireSuperAdmin()).email;
+  const id = String(formData.get('id') || '');
+  if (!id) throw new Error('Chýba identifikátor testovacieho dopytu.');
+
+  const lead = await getLeadWithFiles(id, true);
+  if (!lead || lead.deletedAt) throw new Error('Dopyt sa nenašiel alebo už je archivovaný.');
+  if (!lead.isTestData) throw new Error('Zo zoznamu možno týmto tlačidlom odstrániť iba dopyt označený ako testovací.');
+
+  const archived = await archiveLeadRecord(id, actor, 'Testovací dopyt odstránený z aktívneho zoznamu');
+  if (!archived) throw new Error('Testovací dopyt sa nepodarilo archivovať. Obnovte stránku a skúste to znova.');
+
+  revalidatePath('/admin/dopyty');
+  revalidatePath(`/admin/dopyty/${id}`);
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/zakazky');
+  revalidatePath('/admin/asistent');
+}
+
 export async function deleteLeadFileAction(formData: FormData) {
   await verifyCsrf(formData);
   const actor = await requireAdmin();

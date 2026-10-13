@@ -214,6 +214,7 @@ export function canAccessAdminPath(role: AdminRole, pathname: string) {
   if (role === 'SUPER_ADMIN') return true;
   return !(
     pathname.startsWith('/admin/analytics') ||
+    pathname.startsWith('/admin/rok') ||
     pathname.startsWith('/admin/nastavenia') ||
     pathname.startsWith('/admin/import') ||
     pathname.startsWith('/admin/users') ||
