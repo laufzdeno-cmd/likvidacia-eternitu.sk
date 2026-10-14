@@ -92,3 +92,30 @@ test('outdated generic authorization FAQ is replaced without overwriting unrelat
     + '\nJe reklamácia oprávnená pri likvidácii azbestu?|Vlastný reklamačný text zostáva zachovaný.'
     + '\nTreba na práce povolenie od RÚVZ?|Plánované práce sa oznamujú najmenej 30 dní vopred; nejde o žiadosť o povolenie.');
 });
+
+test('legacy early-arrival CMS copy is replaced by the approved 8:00–18:00 wording', () => {
+  const currentRooferLine = 'Zladenie termínu|Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Konkrétny čas nástupu dohodneme podľa lokality.';
+  const currentFaqLine = 'Pomôžete zladiť likvidáciu so strechárom?|Áno. Práce plánujeme v pracovných dňoch od 8:00 do 18:00.';
+  const result = mergeSiteContent(
+    {
+      rooferItems: `${currentRooferLine}\nSledujeme počasie|Vlastný text zostáva.`,
+      faqItems: `${currentFaqLine}\nPotrebujete fotky?|Fotky sú dobrovoľné.`,
+    },
+    [
+      {
+        key: 'rooferItems',
+        value: 'Zladenie termínu|Z Popradu vyrážame skoro ráno, aby sme boli na stavbe medzi 6:00 a 6:30.\nSledujeme počasie|Vlastný text majiteľa zostáva.',
+        updatedAt: '2026-10-14T00:00:00.000Z',
+      },
+      {
+        key: 'faqItems',
+        value: 'Pomôžete zladiť likvidáciu so strechárom?|Pri vzdialenejších strechách vyrážame skoro ráno o 6.00.\nPotrebujete fotky?|Vlastná odpoveď zostáva.',
+        updatedAt: '2026-10-14T00:00:00.000Z',
+      },
+    ],
+  );
+
+  assert.equal(result.rooferItems, `${currentRooferLine}\nSledujeme počasie|Vlastný text majiteľa zostáva.`);
+  assert.equal(result.faqItems, `${currentFaqLine}\nPotrebujete fotky?|Vlastná odpoveď zostáva.`);
+  assert.doesNotMatch(`${result.rooferItems}\n${result.faqItems}`, /6[:.]00|6[:.]30|skoro ráno/i);
+});

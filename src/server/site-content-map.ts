@@ -9,6 +9,34 @@ function normalizeFaqQuestion(question: string) {
     .trim();
 }
 
+function containsLegacyEarlyArrivalClaim(value: string) {
+  const normalized = value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('sk-SK')
+    .replace(/\s+/g, ' ');
+  return /\b6[:.]00\b|\b6[:.]30\b|skoro rano|skory (?:prichod|vyjazd)/.test(normalized);
+}
+
+function keepWorkingHoursCurrent(savedValue: string, defaultValue: string) {
+  const currentByKey = new Map(
+    defaultValue
+      .split('\n')
+      .filter((line) => /8:00[^\n]*18:00/.test(line))
+      .map((line) => [normalizeFaqQuestion(line.split('|', 1)[0] ?? ''), line]),
+  );
+  if (currentByKey.size === 0) return savedValue;
+
+  return savedValue
+    .split('\n')
+    .map((line) => {
+      if (!containsLegacyEarlyArrivalClaim(line)) return line;
+      const key = normalizeFaqQuestion(line.split('|', 1)[0] ?? '');
+      return currentByKey.get(key) ?? line;
+    })
+    .join('\n');
+}
+
 type CanonicalLegalFaq = 'notice' | 'authorization-scope';
 
 function legalFaqKind(question: string): CanonicalLegalFaq | undefined {
@@ -65,6 +93,10 @@ export function mergeSiteContent(defaults: Record<string, string>, items: SiteCo
   const saved = Object.fromEntries(items.map(({ key, value }) => [key, value]));
   if (typeof saved.faqItems === 'string' && typeof defaults.faqItems === 'string') {
     saved.faqItems = keepLegalFaqCurrent(saved.faqItems, defaults.faqItems);
+    saved.faqItems = keepWorkingHoursCurrent(saved.faqItems, defaults.faqItems);
+  }
+  if (typeof saved.rooferItems === 'string' && typeof defaults.rooferItems === 'string') {
+    saved.rooferItems = keepWorkingHoursCurrent(saved.rooferItems, defaults.rooferItems);
   }
   return { ...defaults, ...saved };
 }
