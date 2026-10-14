@@ -5403,7 +5403,7 @@ body .admin-main .admin-page .admin-card,
 }
 
 .admin-queue-link {
-  grid-template-columns: 38px minmax(0, 1fr) auto !important;
+  grid-template-columns: 38px minmax(0, 1fr) !important;
   grid-template-rows: auto !important;
   align-items: start;
   gap: 11px !important;
@@ -5426,23 +5426,30 @@ body .admin-main .admin-page .admin-card,
 }
 
 .admin-queue-content {
+  position: relative;
   display: grid !important;
   min-width: 0;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 7px 10px;
+  padding-right: 52px;
 }
 
 .admin-queue-content > small {
-  grid-column: 1 / -1 !important;
   align-self: end;
 }
 
+.admin-queue-count {
+  position: absolute;
+  top: -2px;
+  right: 0;
+  min-width: 3ch;
+  font-size: 26px !important;
+  line-height: 1;
+  text-align: right;
+}
+
 .admin-queue-indicator {
-  width: 25px;
-  height: 25px;
-  background: rgba(20, 42, 61, .08);
-  color: #49657a !important;
-  font-size: 12px !important;
+  display: none !important;
 }
 
 .admin-queue-link.tone-sky { border-color: #b8d8f4; background: #eff8ff; }
