@@ -102,6 +102,28 @@ test('draft and hidden references do not require publication consent', () => {
   assert.equal(canUseTestimonialStatus('hidden', false), true);
 });
 
+test('manual testimonial publishing is superadmin-only and an edit cannot silently keep changed approved content public', async () => {
+  const [page, actions] = await Promise.all([
+    readFile(new URL('../app/admin/(protected)/referencie/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/admin/(protected)/referencie/actions.ts', import.meta.url), 'utf8'),
+  ]);
+
+  assert.match(actions, /import \{ requireAdminUser, requireSuperAdmin, verifyCsrf \}/);
+  assert.equal((actions.match(/if \(status === 'approved'\) await requireSuperAdmin\(\);/g) || []).length, 3,
+    'create, status transition and edit must all require the superadmin guard before publishing');
+  assert.match(actions, /status === 'approved' && existing\.reviewRequestId/,
+    'linked customer-submitted testimonials must keep the separate approval and publish lifecycle');
+  assert.match(actions, /const updated = await updateTestimonialStatus[\s\S]*if \(!updated\) redirect\('\/admin\/referencie\?chyba=nenajdene'\)/,
+    'status actions must not report success after a missing-record update');
+
+  assert.equal((page.match(/admin\.role === 'SUPER_ADMIN' \? <option value="approved">zverejnená na webe ihneď po uložení<\/option> : null/g) || []).length, 2,
+    'only a superadmin may see the publish option in create and edit forms');
+  assert.match(page, /defaultValue=\{item\.status === 'approved' \? 'draft' : item\.status\}/,
+    'editing an already public testimonial must default to a non-public state and demand an explicit new approval');
+  assert.match(page, /Po uložení úpravy sa referencia stiahne z verejného webu/);
+  assert.match(page, /Stav „zverejnená na webe“ zobrazí referenciu verejne/);
+});
+
 test('every canonical reference mutation form submits its CSRF token and legacy admin URL consolidates', async () => {
   const [page, legacyPage, nav, database, adminActions] = await Promise.all([
     readFile(new URL('../app/admin/(protected)/referencie/page.tsx', import.meta.url), 'utf8'),
@@ -165,7 +187,7 @@ test('public testimonial form cannot leak personal fields through a native GET s
     readFile(new URL('../app/api/testimonial/route.ts', import.meta.url), 'utf8'),
   ]);
   assert.match(page, /randomUUID\(\)/);
-  assert.match(form, /method="post" action="\/api\/testimonial"/);
+  assert.match(form, /method="post"[\s\S]{0,120}action="\/api\/testimonial"/);
   assert.match(form, /type="hidden" name="submissionId" value=\{submissionId\.current\}/);
   assert.match(route, /request\.formData\(\)/);
   assert.match(route, /createTestimonialReceiptToken\(testimonialReceiptSecret\(\)\)/);

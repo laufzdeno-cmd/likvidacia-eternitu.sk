@@ -96,6 +96,7 @@ function approvedArguments(fixture, overrides = {}) {
     '--protected-baseline', overrides.protectedBaseline ?? fixture.protectedBaseline,
     '--rollback-sha', overrides.rollbackSha ?? fixture.rollbackSha,
     '--rollback-deployment', overrides.rollbackDeployment ?? 'dpl_ReleaseGuard123',
+    '--previous-production-deployment', overrides.previousProductionDeployment ?? 'dpl_PreviousProduction123',
     '--acknowledge-vercel-iam-boundary',
     '--allow', overrides.allow ?? 'docs/release-note.md',
     '--protected', overrides.protected ?? 'runtime/protected.ts',
@@ -140,6 +141,7 @@ test('passes only for exact reviewed inputs and writes a PASS manifest under ign
     assert.equal(manifest.protectedBaseline, fixture.protectedBaseline);
     assert.equal(manifest.rollback.sourceSha, fixture.rollbackSha);
     assert.equal(manifest.rollback.deployment, 'dpl_ReleaseGuard123');
+    assert.equal(manifest.previousProduction.deployment, 'dpl_PreviousProduction123');
     assert.equal(manifest.checks.vercelIamBoundary.passed, true);
     assert.deepEqual(manifest.checks.allowedReleaseScope.changedFiles, ['docs/release-note.md']);
     assert.equal(git(fixture.repo, ['status', '--porcelain=v1', '--untracked-files=all']), '');

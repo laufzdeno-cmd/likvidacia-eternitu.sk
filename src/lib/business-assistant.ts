@@ -12,6 +12,7 @@ export type BusinessAssistantPriority = {
   metric: string;
   href: string;
   actionLabel: string;
+  timing?: 'overdue' | 'today' | 'upcoming';
 };
 
 export type BusinessAssistantInput = {
@@ -36,6 +37,15 @@ export type BusinessAssistantInput = {
     todayOpen: number;
     tomorrowOpen: number;
   };
+  operations?: {
+    stalledJobs: number;
+    silentOffers: number;
+    referenceCandidates: number;
+    overdueInvoices: number;
+    overdueInvoicesCents: number;
+    capacityCollisions: number;
+    dataQualityIssues: number;
+  };
   superadmin?: {
     finance: {
       currentOverdueCents: number;
@@ -51,9 +61,13 @@ export type BusinessAssistantInput = {
     };
     funnel: {
       leadsReceived: number;
+      contactedLeads: number;
       offersCreated: number;
       offersSent: number;
       offersAccepted: number;
+      completedJobs: number;
+      paidJobs: number;
+      reviewsReceived: number;
     };
   };
 };
@@ -69,6 +83,20 @@ export function buildBusinessAssistantPriorities(input: BusinessAssistantInput):
   const priorities: BusinessAssistantPriority[] = [];
   const mailAttention = input.mail.overduePending + input.mail.staleSending + input.mail.failed + input.mail.unknown;
 
+  if (input.operations?.stalledJobs) priorities.push({
+    id: 'stalled-jobs', rank: 8, tone: 'critical', eyebrow: 'Zaseknuté zákazky',
+    title: 'Posuňte zákazky bez aktivity',
+    detail: 'Otvorené zákazky sa viac ako 7 dní nezmenili. Skontrolujte ďalší krok, termín a zodpovednosť.',
+    metric: String(input.operations.stalledJobs), href: '/admin/kontrola-dat#zaseknute-zakazky', actionLabel: 'Skontrolovať zákazky', timing: 'overdue',
+  });
+
+  if (input.operations?.silentOffers) priorities.push({
+    id: 'silent-offers', rank: 11, tone: 'warning', eyebrow: 'Ponuky bez reakcie',
+    title: 'Urobte follow-up po odoslanej ponuke',
+    detail: 'Ponuky sú odoslané najmenej 5 dní bez prijatia alebo zrušenia. Kontakt zostáva manuálny.',
+    metric: String(input.operations.silentOffers), href: '/admin/kontrola-dat#ponuky-bez-reakcie', actionLabel: 'Otvoriť zoznam', timing: 'overdue',
+  });
+
   if (mailAttention > 0) {
     const unknownWarning = input.mail.unknown > 0
       ? ` ${countLabel(input.mail.unknown, 'email má', 'emailov má')} neznámy výsledok; bez overenia ich neposielajte znova.`
@@ -83,6 +111,7 @@ export function buildBusinessAssistantPriorities(input: BusinessAssistantInput):
       metric: String(mailAttention),
       href: input.mail.oldestAttentionLeadId ? `/admin/dopyty/${input.mail.oldestAttentionLeadId}` : '/admin/dopyty',
       actionLabel: 'Otvoriť najstarší problém',
+      timing: 'overdue',
     });
   }
 
@@ -96,6 +125,7 @@ export function buildBusinessAssistantPriorities(input: BusinessAssistantInput):
     metric: String(input.queues.followups),
     href: '/admin/dopyty?queue=followup',
     actionLabel: 'Otvoriť follow-upy',
+    timing: 'overdue',
   });
 
   if (input.queues.newLeads > 0) priorities.push({
@@ -144,6 +174,7 @@ export function buildBusinessAssistantPriorities(input: BusinessAssistantInput):
     metric: String(input.planner.todayOpen || input.planner.tomorrowOpen),
     href: '/admin/planovac',
     actionLabel: 'Otvoriť plánovač',
+    timing: input.planner.todayOpen > 0 ? 'today' : 'upcoming',
   });
 
   if (input.queues.waiting > 0) priorities.push({
@@ -183,6 +214,7 @@ export function buildBusinessAssistantPriorities(input: BusinessAssistantInput):
       metric: cents(finance.currentOverdueCents),
       href: '/admin/zakazky',
       actionLabel: 'Otvoriť zákazky',
+      timing: 'overdue',
     });
 
     if (finance.currentUnallocatedCents > 0) priorities.push({
@@ -221,6 +253,27 @@ export function buildBusinessAssistantPriorities(input: BusinessAssistantInput):
       actionLabel: 'Skontrolovať dopyty',
     });
   }
+
+  if (input.operations?.capacityCollisions) priorities.push({
+    id: 'capacity-collisions', rank: 18, tone: 'critical', eyebrow: 'Kapacita tímu',
+    title: 'Vyriešte kolízie v plánovači',
+    detail: 'Rovnaká zákazka alebo pracovník je evidovaný v prekrývajúcich sa časoch.',
+    metric: String(input.operations.capacityCollisions), href: '/admin/kontrola-dat#kapacita', actionLabel: 'Skontrolovať kapacitu', timing: 'today',
+  });
+
+  if (input.operations?.dataQualityIssues) priorities.push({
+    id: 'data-quality', rank: 44, tone: 'warning', eyebrow: 'Kvalita dát',
+    title: 'Doplňte chýbajúce údaje',
+    detail: 'Chýbajúci vlastník, ďalší krok, kontakt, pracovníci alebo náklady znižujú spoľahlivosť prehľadov.',
+    metric: String(input.operations.dataQualityIssues), href: '/admin/kontrola-dat#kvalita-dat', actionLabel: 'Otvoriť kontrolu dát', timing: 'upcoming',
+  });
+
+  if (input.operations?.referenceCandidates) priorities.push({
+    id: 'reference-candidates', rank: 60, tone: 'opportunity', eyebrow: 'Referencie',
+    title: 'Vyberte dokončené zákazky na referenciu',
+    detail: 'Dokončené zákazky ešte nemajú evidovanú žiadosť. Výber a odoslanie zostáva na človeku.',
+    metric: String(input.operations.referenceCandidates), href: '/admin/referencie', actionLabel: 'Otvoriť žiadosti', timing: 'upcoming',
+  });
 
   if (priorities.length === 0) priorities.push({
     id: 'all-clear',

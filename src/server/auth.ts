@@ -220,7 +220,8 @@ export function canAccessAdminPath(role: AdminRole, pathname: string) {
     pathname.startsWith('/admin/users') ||
     pathname.startsWith('/admin/health') ||
     pathname.startsWith('/admin/audit') ||
-    pathname.startsWith('/admin/obsah')
+    pathname.startsWith('/admin/obsah') ||
+    pathname.startsWith('/admin/automatizacie')
   );
 }
 

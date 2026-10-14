@@ -15,7 +15,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <a className="admin-brand" href="/admin/dashboard">
+        <a className="admin-brand" href="/admin/asistent">
           <img src="/assets/astana-logo.png" alt="ASTANA" width="156" height="52" />
         </a>
         <div className="admin-navigation-desktop">

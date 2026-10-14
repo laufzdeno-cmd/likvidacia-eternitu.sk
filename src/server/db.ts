@@ -1,6 +1,6 @@
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Pool, type PoolClient } from 'pg';
 import { ANALYTICS_EVENTS_LIMIT, bratislavaMidnightUtc, dateInBratislava, getAnalyticsPeriod, getMeasuredSessionSets, getSequentialMeasuredFunnel, getSessionEntryDevice, getSessionEntryEvents, limitAnalyticsEventRows, summarizeCrmCohort, type AnalyticsPeriod } from './analytics-metrics';
 import { isApproximateLocality, isPhotoCategory, isPublishableRealizationLocality } from './photo-intake-policy';
@@ -28,7 +28,13 @@ import type {
   AnalyticsTrafficSummary,
   LeadAttributionReportRow,
   AdminRole,
+  AdminTaskAssignee,
   AdminUser,
+  AdminWorkItem,
+  AdminWorkItemInput,
+  AdminWorkItemPriority,
+  AdminWorkItemStatus,
+  AdminWorkItemVisibility,
   ApplicationNotification,
   ApplicationNotificationEntity,
   ApplicationNotificationRecipient,
@@ -39,6 +45,8 @@ import type {
   BusinessFinanceSummary,
   BusinessJobFinance,
   BusinessJobInput,
+  BusinessJobOfferEvidence,
+  BusinessJobOperationalInput,
   BusinessJobInvoice,
   BusinessJobInvoiceCancellationInput,
   BusinessJobInvoiceInput,
@@ -69,7 +77,14 @@ import type {
   MetaCapiOutboxClaim,
   MetaCapiOutboxStatus,
   MetaCapiOutboxSummary,
+  OperationalBusinessJob,
+  OperationalBusinessJobWithActivity,
+  OperationalWorker,
   PriceOffer,
+  PriceOfferFollowUpClaim,
+  PriceOfferFollowUpHistoryItem,
+  PriceOfferFollowUpRecord,
+  PriceOfferFollowUpStatus,
   PriceOfferInput,
   PriceOfferMaterialType,
   PriceOfferSettings,
@@ -87,8 +102,11 @@ import type {
   RealizationInput,
   RealizationStatus,
   ReviewRequest,
+  ReviewEligibleJob,
+  ReviewReminderDeliveryStatus,
   ReviewRequestInput,
   ReviewRequestStatus,
+  PublicReviewRequest,
   Roofer,
   RooferInput,
   RooferRegistration,
@@ -165,11 +183,13 @@ type LocalDb = {
   reviewRequests: ReviewRequest[];
   workers: Worker[];
   adminUsers: AdminUser[];
+  adminWorkItems: AdminWorkItem[];
   plannerActions: PlannerAction[];
   businessJobs: BusinessJob[];
   businessJobInvoices: BusinessJobInvoice[];
   businessJobPaymentEvents: BusinessJobPaymentEvent[];
   priceOffers: PriceOffer[];
+  priceOfferFollowUps: PriceOfferFollowUpRecord[];
   landfillPrices: LandfillPrice[];
   realizations: Realization[];
   roofers: Roofer[];
@@ -212,8 +232,33 @@ let schemaInitialization: Promise<void> | undefined;
 let localLeadSubmissionQueue: Promise<void> = Promise.resolve();
 let localDbWriteQueue: Promise<void> = Promise.resolve();
 
+async function withLocalFileLock<T>(operation: () => Promise<T>): Promise<T> {
+  const lockPath = `${localDbPath}.mutation-lock`;
+  await mkdir(path.dirname(lockPath), { recursive: true });
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await mkdir(lockPath);
+      break;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== 'EEXIST') throw error;
+      // Fail closed: a lock is never reclaimed while its owning process may
+      // still be running. A crashed local development process requires manual
+      // removal of this exact lock directory instead of risking lost writes.
+      if (attempt >= 300) throw new Error('Lokálna databáza je zaneprázdnená. Skúste to znova.');
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+  try {
+    return await operation();
+  } finally {
+    await rmdir(lockPath).catch(() => undefined);
+  }
+}
+
 function withLocalLeadSubmissionLock<T>(operation: () => Promise<T>): Promise<T> {
-  const result = localLeadSubmissionQueue.then(operation, operation);
+  const guarded = () => withLocalFileLock(operation);
+  const result = localLeadSubmissionQueue.then(guarded, guarded);
   localLeadSubmissionQueue = result.then(() => undefined, () => undefined);
   return result;
 }
@@ -758,12 +803,14 @@ async function initializeSchema() {
     ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS realization_date date;
     ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS internal_note text NOT NULL DEFAULT '';
     ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS photo_url text NOT NULL DEFAULT '';
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS review_request_id uuid;
+    ALTER TABLE testimonials ADD COLUMN IF NOT EXISTS business_job_id uuid;
 
     CREATE TABLE IF NOT EXISTS review_requests (
       id uuid PRIMARY KEY,
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
-      status text NOT NULL DEFAULT 'sent',
+      status text NOT NULL DEFAULT 'pending_approval',
       customer_name text NOT NULL,
       phone text NOT NULL,
       location text NOT NULL DEFAULT '',
@@ -774,6 +821,38 @@ async function initializeSchema() {
       created_by text NOT NULL DEFAULT '',
       lead_id uuid REFERENCES leads(id) ON DELETE SET NULL
     );
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS job_id uuid;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT '';
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS subject text NOT NULL DEFAULT '';
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS token_hash char(64);
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS token_expires_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS sent_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS opened_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS submitted_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS approved_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS published_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_allowed boolean NOT NULL DEFAULT false;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_due_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_attempted_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_sent_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_status text;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_token_hash char(64);
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_token_expires_at timestamptz;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_delivery_reason_code text NOT NULL DEFAULT '';
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS reminder_message_id_hash char(64);
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS delivery_reason_code text NOT NULL DEFAULT '';
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS delivery_message_id_hash char(64);
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS testimonial_id uuid;
+    ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 1;
+    ALTER TABLE review_requests ALTER COLUMN status SET DEFAULT 'pending_approval';
+    UPDATE review_requests
+       SET reminder_status='delivery_unknown',
+           reminder_attempted_at=COALESCE(reminder_attempted_at, reminder_sent_at),
+           reminder_delivery_reason_code=CASE
+             WHEN BTRIM(reminder_delivery_reason_code)='' THEN 'legacy_attempt_result_unknown'
+             ELSE reminder_delivery_reason_code
+           END
+     WHERE reminder_status IS NULL AND reminder_sent_at IS NOT NULL;
 
     CREATE TABLE IF NOT EXISTS realizations (
       id uuid PRIMARY KEY,
@@ -1328,6 +1407,9 @@ async function initializeSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ruvz_approved_date date;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ouzp_approved_date date;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS demolition_finished_date date;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS review_request_blocked_at timestamptz;
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS review_request_blocked_by text NOT NULL DEFAULT '';
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS review_request_blocked_reason text NOT NULL DEFAULT '';
 
     -- Internal financial evidence only. Existing jobs are intentionally not backfilled:
     -- a quoted value, job status or preferred payment type is not proof of an invoice or payment.
@@ -1496,6 +1578,32 @@ async function initializeSchema() {
     UPDATE price_offers o SET lead_id = l.id FROM leads l
       WHERE o.lead_id IS NULL AND o.source_inquiry = 'dopyt:' || l.id::text;
 
+    CREATE TABLE IF NOT EXISTS price_offer_follow_ups (
+      id uuid PRIMARY KEY,
+      offer_id uuid NOT NULL REFERENCES price_offers(id) ON DELETE RESTRICT,
+      operation_id uuid NOT NULL UNIQUE,
+      recipient text NOT NULL,
+      subject text NOT NULL,
+      body text NOT NULL,
+      status text NOT NULL CHECK (status IN ('sending', 'sent', 'failed', 'unknown')),
+      message_id text NOT NULL DEFAULT '',
+      error_code text NOT NULL DEFAULT '',
+      resolution text CHECK (resolution IS NULL OR resolution IN ('sent', 'not_sent')),
+      resolution_evidence_code text NOT NULL DEFAULT '',
+      resolution_operation_id uuid,
+      revision integer NOT NULL DEFAULT 1,
+      created_at timestamptz NOT NULL,
+      created_by text NOT NULL,
+      updated_at timestamptz NOT NULL
+    );
+    ALTER TABLE price_offer_follow_ups ADD COLUMN IF NOT EXISTS resolution text;
+    ALTER TABLE price_offer_follow_ups ADD COLUMN IF NOT EXISTS resolution_evidence_code text NOT NULL DEFAULT '';
+    ALTER TABLE price_offer_follow_ups ADD COLUMN IF NOT EXISTS resolution_operation_id uuid;
+    ALTER TABLE price_offer_follow_ups ADD COLUMN IF NOT EXISTS revision integer NOT NULL DEFAULT 1;
+    ALTER TABLE price_offer_follow_ups DROP CONSTRAINT IF EXISTS price_offer_follow_ups_resolution_check;
+    ALTER TABLE price_offer_follow_ups ADD CONSTRAINT price_offer_follow_ups_resolution_check
+      CHECK (resolution IS NULL OR resolution IN ('sent', 'not_sent'));
+
     CREATE TABLE IF NOT EXISTS business_job_workers (
       id uuid PRIMARY KEY,
       job_id uuid NOT NULL REFERENCES business_jobs(id) ON DELETE CASCADE,
@@ -1542,6 +1650,32 @@ async function initializeSchema() {
       notif_zakaznik_odoslana boolean NOT NULL DEFAULT false
     );
 
+    CREATE TABLE IF NOT EXISTS admin_work_items (
+      id uuid PRIMARY KEY,
+      title text NOT NULL,
+      note text NOT NULL DEFAULT '',
+      priority text NOT NULL DEFAULT 'NORMAL',
+      due_date date,
+      owner_email text NOT NULL DEFAULT '',
+      visibility text NOT NULL DEFAULT 'TEAM',
+      status text NOT NULL DEFAULT 'OPEN',
+      revision integer NOT NULL DEFAULT 1,
+      cancel_reason text NOT NULL DEFAULT '',
+      created_by text NOT NULL,
+      completed_by text NOT NULL DEFAULT '',
+      completed_at timestamptz,
+      cancelled_by text NOT NULL DEFAULT '',
+      cancelled_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT admin_work_items_priority_check CHECK (priority IN ('CRITICAL','HIGH','NORMAL','LOW')),
+      CONSTRAINT admin_work_items_status_check CHECK (status IN ('OPEN','DONE','CANCELLED')),
+      CONSTRAINT admin_work_items_visibility_check CHECK (visibility IN ('TEAM','SUPER_ADMIN')),
+      CONSTRAINT admin_work_items_title_length_check CHECK (char_length(btrim(title)) BETWEEN 3 AND 120),
+      CONSTRAINT admin_work_items_note_length_check CHECK (char_length(note) <= 1200),
+      CONSTRAINT admin_work_items_cancel_reason_length_check CHECK (char_length(cancel_reason) <= 500)
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS leads_owner_followup_idx ON leads (owner_email, followup_date, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
@@ -1555,7 +1689,14 @@ async function initializeSchema() {
     CREATE INDEX IF NOT EXISTS quotes_lead_id_idx ON quotes (lead_id);
     CREATE INDEX IF NOT EXISTS testimonials_status_created_at_idx ON testimonials (status, created_at DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS testimonials_submission_id_unique_idx ON testimonials (submission_id) WHERE submission_id IS NOT NULL AND submission_id <> '';
+    CREATE UNIQUE INDEX IF NOT EXISTS testimonials_review_request_unique_idx ON testimonials (review_request_id) WHERE review_request_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS review_requests_status_created_at_idx ON review_requests (status, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS review_requests_job_unique_idx ON review_requests (job_id) WHERE job_id IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS review_requests_token_hash_unique_idx ON review_requests (token_hash) WHERE token_hash IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS review_requests_reminder_due_idx ON review_requests (reminder_due_at) WHERE reminder_allowed = true AND reminder_sent_at IS NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS review_requests_reminder_token_hash_unique_idx ON review_requests (reminder_token_hash) WHERE reminder_token_hash IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS review_requests_reminder_due_v2_idx ON review_requests (reminder_due_at)
+      WHERE reminder_allowed = true AND reminder_attempted_at IS NULL AND reminder_status IS NULL;
     CREATE INDEX IF NOT EXISTS realizations_status_created_at_idx ON realizations (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS photo_upload_invites_expiry_idx ON photo_upload_invites (expires_at, revoked_at);
     CREATE INDEX IF NOT EXISTS realization_media_intake_invite_idx ON realization_media_intake (invite_id, created_at DESC);
@@ -1581,8 +1722,13 @@ async function initializeSchema() {
     CREATE INDEX IF NOT EXISTS business_job_workers_worker_idx ON business_job_workers (worker_id);
     CREATE INDEX IF NOT EXISTS price_offers_created_status_idx ON price_offers (created_at DESC, status);
     CREATE INDEX IF NOT EXISTS price_offers_job_idx ON price_offers (job_id);
+    CREATE INDEX IF NOT EXISTS price_offer_follow_ups_offer_created_idx ON price_offer_follow_ups (offer_id, created_at DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS price_offer_follow_ups_sending_offer_uq ON price_offer_follow_ups (offer_id) WHERE status = 'sending';
+    CREATE UNIQUE INDEX IF NOT EXISTS price_offer_follow_ups_resolution_operation_uq ON price_offer_follow_ups (resolution_operation_id) WHERE resolution_operation_id IS NOT NULL;
     CREATE INDEX IF NOT EXISTS admin_users_email_idx ON admin_users (lower(email));
     CREATE INDEX IF NOT EXISTS planner_actions_date_idx ON planner_actions (datum, stav);
+    CREATE INDEX IF NOT EXISTS admin_work_items_status_due_idx ON admin_work_items (status, due_date, priority, updated_at DESC);
+    CREATE INDEX IF NOT EXISTS admin_work_items_owner_status_idx ON admin_work_items (lower(owner_email), status, due_date);
   `;
   // DDL edits change this signature automatically. Bump the data version when
   // changing cleanupLegacyData without changing DDL.
@@ -1691,6 +1837,30 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
   };
 }
 
+function toPriceOfferFollowUp(row: Record<string, unknown>): PriceOfferFollowUpRecord {
+  const createdAtValue = row.created_at ?? row.createdAt ?? now();
+  const updatedAtValue = row.updated_at ?? row.updatedAt ?? createdAtValue;
+  return {
+    id: String(row.id),
+    offerId: String(row.offer_id ?? row.offerId ?? ''),
+    operationId: String(row.operation_id ?? row.operationId ?? ''),
+    recipient: String(row.recipient ?? ''),
+    subject: String(row.subject ?? ''),
+    body: String(row.body ?? ''),
+    status: String(row.status ?? 'unknown') as PriceOfferFollowUpStatus,
+    messageId: String(row.message_id ?? row.messageId ?? ''),
+    errorCode: String(row.error_code ?? row.errorCode ?? ''),
+    resolution: row.resolution === 'sent' || row.resolution === 'not_sent' ? row.resolution : undefined,
+    resolutionEvidenceCode: String(row.resolution_evidence_code ?? row.resolutionEvidenceCode ?? ''),
+    resolutionOperationId: row.resolution_operation_id || row.resolutionOperationId
+      ? String(row.resolution_operation_id ?? row.resolutionOperationId) : undefined,
+    revision: Math.max(1, Number(row.revision ?? 1) || 1),
+    createdAt: new Date(String(createdAtValue)).toISOString(),
+    createdBy: String(row.created_by ?? row.createdBy ?? ''),
+    updatedAt: new Date(String(updatedAtValue)).toISOString(),
+  };
+}
+
 function normalizeLocalMetaCapiOutbox(rows: unknown[]): MetaCapiOutboxRecord[] {
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const metaEventId = /^lead:[a-f0-9]{64}$/;
@@ -1769,13 +1939,14 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     quotes: data.quotes ?? [],
     testimonials: data.testimonials ?? [],
     testimonialConsentHistory: data.testimonialConsentHistory ?? [],
-    reviewRequests: data.reviewRequests ?? [],
+    reviewRequests: (data.reviewRequests ?? []).map((item) => toReviewRequest(item as unknown as Record<string, unknown>)),
     workers: data.workers ?? [],
     adminUsers: (data.adminUsers ?? []).map((user) => ({
       ...user,
       twoFactorLastUsedStep: Number(user.twoFactorLastUsedStep ?? -1),
       sessionEpoch: normalizeAdminSessionEpoch(user.sessionEpoch),
     })),
+    adminWorkItems: (data.adminWorkItems ?? []).map((item) => toAdminWorkItem(item as unknown as Record<string, unknown>)),
     plannerActions: data.plannerActions ?? [],
     businessJobs: data.businessJobs ?? [],
     businessJobInvoices: data.businessJobInvoices ?? [],
@@ -1791,6 +1962,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
       vatRate: resolvePriceOfferVatRate(offer, 23),
       sourceJobIds: [...new Set([...(offer.sourceJobIds ?? []), ...(offer.jobId ? [offer.jobId] : []), ...(auditedJobsByOfferNumber.get(offer.number) ?? [])])],
     })),
+    priceOfferFollowUps: (data.priceOfferFollowUps ?? []).map((item) => toPriceOfferFollowUp(item as unknown as Record<string, unknown>)),
     landfillPrices: data.landfillPrices ?? [],
     realizations: data.realizations ?? [],
     roofers: data.roofers ?? [],
@@ -1983,20 +2155,51 @@ function toSiteContent(row: Record<string, unknown>): SiteContentItem {
 }
 
 function toReviewRequest(row: Record<string, unknown>): ReviewRequest {
+  const rawStatus = String(row.status ?? 'pending_approval');
+  const status = rawStatus === 'sent' || rawStatus === 'delivered' ? 'smtp_accepted'
+    : rawStatus === 'review_received' ? 'submitted'
+      : rawStatus as ReviewRequestStatus;
+  const iso = (value: unknown) => value ? new Date(String(value)).toISOString() : undefined;
+  const legacyReminderAttempt = row.reminder_sent_at ?? row.reminderSentAt;
+  const rawReminderStatus = String(row.reminder_status ?? row.reminderStatus ?? '');
+  const reminderStatus = (rawReminderStatus || (legacyReminderAttempt ? 'delivery_unknown' : '')) as ReviewReminderDeliveryStatus | '';
   return {
     id: String(row.id),
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
-    status: String(row.status ?? 'sent') as ReviewRequestStatus,
+    status,
+    jobId: String(row.job_id ?? row.jobId ?? ''),
     customerName: cleanSlovakText(String(row.customer_name ?? row.customerName ?? '')),
+    customerEmail: String(row.customer_email ?? row.customerEmail ?? '').trim().toLowerCase(),
     phone: String(row.phone ?? ''),
     location: String(row.location ?? ''),
     objectType: String(row.object_type ?? row.objectType ?? ''),
-    realizationDate: row.realization_date || row.realizationDate ? String(row.realization_date ?? row.realizationDate) : '',
+    realizationDate: row.realization_date || row.realizationDate ? dateOnly(row.realization_date ?? row.realizationDate) : '',
     googleReviewLink: String(row.google_review_link ?? row.googleReviewLink ?? ''),
+    subject: cleanSlovakText(String(row.subject ?? '')),
     message: String(row.message ?? ''),
     createdBy: String(row.created_by ?? row.createdBy ?? ''),
     leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : '',
+    tokenHash: String(row.token_hash ?? row.tokenHash ?? '') || undefined,
+    tokenExpiresAt: iso(row.token_expires_at ?? row.tokenExpiresAt),
+    sentAt: iso(row.sent_at ?? row.sentAt),
+    openedAt: iso(row.opened_at ?? row.openedAt),
+    submittedAt: iso(row.submitted_at ?? row.submittedAt),
+    approvedAt: iso(row.approved_at ?? row.approvedAt),
+    publishedAt: iso(row.published_at ?? row.publishedAt),
+    reminderAllowed: Boolean(row.reminder_allowed ?? row.reminderAllowed),
+    reminderDueAt: iso(row.reminder_due_at ?? row.reminderDueAt),
+    reminderAttemptedAt: iso(row.reminder_attempted_at ?? row.reminderAttemptedAt ?? legacyReminderAttempt),
+    reminderSentAt: iso(row.reminder_sent_at ?? row.reminderSentAt),
+    reminderStatus: reminderStatus || undefined,
+    reminderTokenHash: String(row.reminder_token_hash ?? row.reminderTokenHash ?? '') || undefined,
+    reminderTokenExpiresAt: iso(row.reminder_token_expires_at ?? row.reminderTokenExpiresAt),
+    reminderDeliveryReasonCode: String(row.reminder_delivery_reason_code ?? row.reminderDeliveryReasonCode ?? '') || undefined,
+    reminderMessageIdHash: String(row.reminder_message_id_hash ?? row.reminderMessageIdHash ?? '') || undefined,
+    deliveryReasonCode: String(row.delivery_reason_code ?? row.deliveryReasonCode ?? '') || undefined,
+    deliveryMessageIdHash: String(row.delivery_message_id_hash ?? row.deliveryMessageIdHash ?? '') || undefined,
+    testimonialId: String(row.testimonial_id ?? row.testimonialId ?? '') || undefined,
+    revision: Math.max(1, Number(row.revision ?? 1)),
   };
 }
 
@@ -2060,6 +2263,32 @@ function toPlannerAction(row: Record<string, unknown>): PlannerAction {
   };
 }
 
+function toAdminWorkItem(row: Record<string, unknown>): AdminWorkItem {
+  const createdAt = new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString();
+  const updatedAt = new Date(String(row.updated_at ?? row.updatedAt ?? createdAt)).toISOString();
+  const completedValue = row.completed_at ?? row.completedAt;
+  const cancelledValue = row.cancelled_at ?? row.cancelledAt;
+  return {
+    id: String(row.id),
+    title: String(row.title ?? '').trim(),
+    note: String(row.note ?? '').trim(),
+    priority: String(row.priority ?? 'NORMAL') as AdminWorkItemPriority,
+    dueDate: dateOnly(row.due_date ?? row.dueDate),
+    ownerEmail: String(row.owner_email ?? row.ownerEmail ?? '').trim().toLowerCase(),
+    visibility: String(row.visibility ?? 'TEAM') as AdminWorkItemVisibility,
+    status: String(row.status ?? 'OPEN') as AdminWorkItemStatus,
+    revision: Math.max(1, Number(row.revision ?? 1)),
+    cancelReason: String(row.cancel_reason ?? row.cancelReason ?? '').trim(),
+    createdBy: String(row.created_by ?? row.createdBy ?? '').trim().toLowerCase(),
+    completedBy: String(row.completed_by ?? row.completedBy ?? '').trim().toLowerCase(),
+    completedAt: completedValue ? new Date(String(completedValue)).toISOString() : '',
+    cancelledBy: String(row.cancelled_by ?? row.cancelledBy ?? '').trim().toLowerCase(),
+    cancelledAt: cancelledValue ? new Date(String(cancelledValue)).toISOString() : '',
+    createdAt,
+    updatedAt,
+  };
+}
+
 function toLandfillPrice(row: Record<string, unknown>): LandfillPrice {
   return {
     id: String(row.id),
@@ -2103,6 +2332,10 @@ function enrichBusinessJob(
     createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
+    reviewRequestBlockedAt: row.review_request_blocked_at || row.reviewRequestBlockedAt
+      ? new Date(String(row.review_request_blocked_at ?? row.reviewRequestBlockedAt)).toISOString() : undefined,
+    reviewRequestBlockedBy: String(row.review_request_blocked_by ?? row.reviewRequestBlockedBy ?? '') || undefined,
+    reviewRequestBlockedReason: cleanSlovakText(String(row.review_request_blocked_reason ?? row.reviewRequestBlockedReason ?? '')) || undefined,
     demolitionDate: dateOnly(row.demolition_date ?? row.demolitionDate),
     customerName: String(row.customer_name ?? row.customerName ?? ''),
     customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
@@ -2129,6 +2362,64 @@ function enrichBusinessJob(
     grossProfit,
     marginPercent: totalPrice ? Math.round((grossProfit / totalPrice) * 1000) / 10 : 0,
   };
+}
+
+function operationalBusinessJobFromRow(
+  row: Record<string, unknown>,
+  workers: OperationalBusinessJob['workers'] = [],
+): OperationalBusinessJob {
+  return {
+    id: String(row.id),
+    leadId: row.lead_id || row.leadId ? String(row.lead_id ?? row.leadId) : undefined,
+    isTestData: Boolean(row.is_test_data ?? row.isTestData ?? false),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
+    deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
+    demolitionDate: dateOnly(row.demolition_date ?? row.demolitionDate),
+    customerName: String(row.customer_name ?? row.customerName ?? ''),
+    customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
+    customerEmail: String(row.customer_email ?? row.customerEmail ?? ''),
+    location: cleanSlovakText(String(row.location ?? '')),
+    district: cleanSlovakText(String(row.district ?? '')),
+    materialType: cleanSlovakText(String(row.material_type ?? row.materialType ?? '')),
+    objectType: cleanSlovakText(String(row.object_type ?? row.objectType ?? '')),
+    term: cleanSlovakText(String(row.term ?? '')),
+    leadSource: String(row.lead_source ?? row.leadSource ?? ''),
+    preferredContact: String(row.preferovany_kontakt ?? row.preferredContact ?? ''),
+    m2: Number(row.m2 ?? 0),
+    workType: String(row.work_type ?? row.workType ?? 'DEMONTAZ_A_ODVOZ') as BusinessWorkType,
+    wasteKg: Number(row.waste_kg ?? row.wasteKg ?? 0),
+    landfill: String(row.landfill ?? 'INA') as BusinessLandfill,
+    status: String(row.status ?? 'DOPYT') as BusinessJobStatus,
+    note: String(row.note ?? ''),
+    workers,
+  };
+}
+
+function operationalBusinessJobFromJob(job: BusinessJob): OperationalBusinessJob {
+  return operationalBusinessJobFromRow(job, job.workers.map((worker) => ({
+    workerId: worker.workerId,
+    workerName: worker.workerName,
+  })));
+}
+
+const operationalBusinessJobAuditActions = new Set([
+  'business_job_lead_received',
+  'business_job_created',
+  'business_job_updated',
+  'business_job_status_changed',
+  'business_job_quote_sent',
+  'business_job_note_added',
+]);
+
+function toOperationalBusinessJobAudit(log: AuditLog): AuditLog | null {
+  if (!operationalBusinessJobAuditActions.has(log.action)) return null;
+  const changes = log.action === 'business_job_note_added'
+    ? { note: String(log.changes.note ?? '').slice(0, 1200) }
+    : log.action === 'business_job_status_changed'
+      ? { previous: String(log.changes.previous ?? ''), next: String(log.changes.next ?? '') }
+      : {};
+  return { ...log, changes };
 }
 
 function toAnalyticsEvent(row: Record<string, unknown>): AnalyticsEvent {
@@ -2169,11 +2460,13 @@ async function readLocalDb(): Promise<LocalDb> {
       reviewRequests: [],
       workers: [],
       adminUsers: [],
+      adminWorkItems: [],
       plannerActions: [],
       businessJobs: [],
       businessJobInvoices: [],
       businessJobPaymentEvents: [],
       priceOffers: [],
+      priceOfferFollowUps: [],
       landfillPrices: [],
       realizations: [],
       roofers: [],
@@ -2249,6 +2542,27 @@ async function writeLocalDb(data: LocalDb, options: {
         const persisted = durableOpsAlertStates.get(alertState.workerKey);
         if (!persisted || alertState.updatedAt >= persisted.updatedAt) durableOpsAlertStates.set(alertState.workerKey, alertState);
       }
+      const durableAdminWorkItems = new Map(existingDb.adminWorkItems.map((item) => [item.id, item]));
+      for (const item of data.adminWorkItems) {
+        const persisted = durableAdminWorkItems.get(item.id);
+        if (!persisted || item.revision > persisted.revision
+          || (item.revision === persisted.revision && item.updatedAt >= persisted.updatedAt)) {
+          durableAdminWorkItems.set(item.id, item);
+        }
+      }
+      const durableReviewRequests = new Map(existingDb.reviewRequests.map((item) => [item.id, item]));
+      for (const item of data.reviewRequests) {
+        const persisted = durableReviewRequests.get(item.id);
+        if (!persisted || item.revision > persisted.revision
+          || (item.revision === persisted.revision && item.updatedAt >= persisted.updatedAt)) {
+          durableReviewRequests.set(item.id, item);
+        }
+      }
+      const durablePriceOfferFollowUps = new Map(existingDb.priceOfferFollowUps.map((item) => [item.id, item]));
+      for (const item of data.priceOfferFollowUps) {
+        const persisted = durablePriceOfferFollowUps.get(item.id);
+        if (!persisted || item.updatedAt >= persisted.updatedAt) durablePriceOfferFollowUps.set(item.id, item);
+      }
       const durableData = {
         ...data,
         // Only locked, fresh-read owners may replace authentication state.
@@ -2263,6 +2577,9 @@ async function writeLocalDb(data: LocalDb, options: {
         businessJobInvoices: [...durableInvoices.values()],
         businessJobPaymentEvents: uniqueById(existingDb.businessJobPaymentEvents, data.businessJobPaymentEvents),
         testimonials: [...latestTestimonials.values()],
+        reviewRequests: [...durableReviewRequests.values()],
+        priceOfferFollowUps: [...durablePriceOfferFollowUps.values()],
+        adminWorkItems: [...durableAdminWorkItems.values()],
         auditLogs: durableAuditLogs,
         testimonialConsentHistory: uniqueById(existingDb.testimonialConsentHistory, data.testimonialConsentHistory)
           .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt)),
@@ -5217,6 +5534,83 @@ export type LeadDashboardMetrics = {
   followupsDue: number;
 };
 
+export type OperationalFunnelEventMetrics = {
+  contactedLeads: number;
+  completedJobs: number;
+  lastContactedAt?: string;
+  lastCompletedAt?: string;
+};
+
+const contactedLeadStatuses = ['kontaktovany', 'naceneny', 'cenova_ponuka_odoslana', 'objednane', 'v_realizacii', 'dokoncena'];
+
+export async function getOperationalFunnelEventMetrics(from: string, to: string): Promise<OperationalFunnelEventMetrics> {
+  await ensureSchema();
+  const window = bratislavaTimestampRange(from, to);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const leadById = new Map(local.leads.map((lead) => [lead.id, lead]));
+    const jobById = new Map(local.businessJobs.map((job) => [job.id, job]));
+    const inWindow = (value: string) => value >= window.from && value < window.toExclusive;
+    const contactEvents = local.auditLogs.filter((log) => {
+      const lead = leadById.get(log.entityId);
+      return log.entityType === 'lead' && log.action === 'status_changed' && inWindow(log.createdAt)
+        && contactedLeadStatuses.includes(String(log.changes.next ?? '')) && Boolean(lead && !lead.deletedAt && !lead.isTestData);
+    });
+    const completedEvents = local.auditLogs.filter((log) => {
+      const job = jobById.get(log.entityId);
+      const linkedLead = job?.leadId ? leadById.get(job.leadId) : undefined;
+      return log.entityType === 'business_job' && log.action === 'business_job_status_changed' && inWindow(log.createdAt)
+        && String(log.changes.next ?? '') === 'DOKONCENA'
+        && Boolean(job && !job.deletedAt && !job.isTestData && !linkedLead?.isTestData);
+    });
+    return {
+      contactedLeads: new Set(contactEvents.map((event) => event.entityId)).size,
+      completedJobs: new Set(completedEvents.map((event) => event.entityId)).size,
+      lastContactedAt: contactEvents.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.createdAt,
+      lastCompletedAt: completedEvents.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0]?.createdAt,
+    };
+  }
+  const { rows } = await db.query(
+    `SELECT
+       count(DISTINCT audit.entity_id) FILTER (
+         WHERE audit.entity_type='lead' AND audit.action='status_changed'
+           AND audit.changes->>'next'=ANY($3::text[])
+           AND lead.id IS NOT NULL AND lead.deleted_at IS NULL AND COALESCE(lead.is_test_data, false)=false
+       )::int AS contacted_leads,
+       max(audit.created_at) FILTER (
+         WHERE audit.entity_type='lead' AND audit.action='status_changed'
+           AND audit.changes->>'next'=ANY($3::text[])
+           AND lead.id IS NOT NULL AND lead.deleted_at IS NULL AND COALESCE(lead.is_test_data, false)=false
+       ) AS last_contacted_at,
+       count(DISTINCT audit.entity_id) FILTER (
+         WHERE audit.entity_type='business_job' AND audit.action='business_job_status_changed'
+           AND audit.changes->>'next'='DOKONCENA'
+           AND job.id IS NOT NULL AND job.deleted_at IS NULL AND COALESCE(job.is_test_data, false)=false
+           AND COALESCE(job_lead.is_test_data, false)=false
+       )::int AS completed_jobs,
+       max(audit.created_at) FILTER (
+         WHERE audit.entity_type='business_job' AND audit.action='business_job_status_changed'
+           AND audit.changes->>'next'='DOKONCENA'
+           AND job.id IS NOT NULL AND job.deleted_at IS NULL AND COALESCE(job.is_test_data, false)=false
+           AND COALESCE(job_lead.is_test_data, false)=false
+       ) AS last_completed_at
+     FROM audit_logs audit
+     LEFT JOIN leads lead ON audit.entity_type='lead' AND lead.id::text=audit.entity_id::text
+     LEFT JOIN business_jobs job ON audit.entity_type='business_job' AND job.id::text=audit.entity_id::text
+     LEFT JOIN leads job_lead ON job_lead.id::text=job.lead_id::text
+     WHERE audit.created_at >= $1::timestamptz AND audit.created_at < $2::timestamptz`,
+    [window.from, window.toExclusive, contactedLeadStatuses],
+  );
+  const row = rows[0] ?? {};
+  return {
+    contactedLeads: Number(row.contacted_leads ?? 0),
+    completedJobs: Number(row.completed_jobs ?? 0),
+    lastContactedAt: row.last_contacted_at ? new Date(row.last_contacted_at).toISOString() : undefined,
+    lastCompletedAt: row.last_completed_at ? new Date(row.last_completed_at).toISOString() : undefined,
+  };
+}
+
 export type BusinessJobDashboardRow = {
   id: string;
   demolitionDate: string;
@@ -5980,6 +6374,22 @@ export async function updateTestimonial(id: string, input: TestimonialInput, act
         recordedAt: localTimestamp,
       });
     }
+    const linkedRequest = testimonial.reviewRequestId
+      ? local.reviewRequests.find((item) => item.id === testimonial.reviewRequestId)
+      : undefined;
+    if (linkedRequest && ['approved', 'published'].includes(linkedRequest.status)) {
+      const previousRequestStatus = linkedRequest.status;
+      linkedRequest.status = 'submitted';
+      linkedRequest.approvedAt = undefined;
+      linkedRequest.publishedAt = undefined;
+      linkedRequest.updatedAt = localTimestamp;
+      linkedRequest.revision += 1;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'review_request', entityId: linkedRequest.id,
+        action: 'review_request_content_changed_reapproval_required', actorEmail,
+        changes: reviewRequestAudit(previousRequestStatus, 'submitted', linkedRequest.revision), createdAt: localTimestamp,
+      });
+    }
     local.auditLogs.unshift({
       id: randomUUID(),
       entityType: 'testimonial',
@@ -6084,6 +6494,26 @@ export async function updateTestimonial(id: string, input: TestimonialInput, act
     }
 
     const updatedRow = rows[0];
+    if (previousRow.review_request_id) {
+      const linkedRequest = await client.query(
+        'SELECT status, revision FROM review_requests WHERE id=$1 FOR UPDATE',
+        [previousRow.review_request_id],
+      );
+      const previousRequestStatus = String(linkedRequest.rows[0]?.status || '') as ReviewRequestStatus;
+      if (['approved', 'published'].includes(previousRequestStatus)) {
+        const reset = await client.query(
+          `UPDATE review_requests SET status='submitted', approved_at=NULL, published_at=NULL,
+           updated_at=$1, revision=revision+1 WHERE id=$2 RETURNING revision`,
+          [timestamp, previousRow.review_request_id],
+        );
+        await client.query(
+          `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+           VALUES ($1,'review_request',$2,'review_request_content_changed_reapproval_required',$3,$4::jsonb,$5)`,
+          [randomUUID(), previousRow.review_request_id, actorEmail,
+            JSON.stringify(reviewRequestAudit(previousRequestStatus, 'submitted', Number(reset.rows[0].revision))), timestamp],
+        );
+      }
+    }
     const nextConsent = {
       consentPublication: Boolean(updatedRow.consent_publication),
       consentEvidence: String(updatedRow.consent_evidence || ''),
@@ -6147,6 +6577,22 @@ export async function updateTestimonialStatus(id: string, status: TestimonialSta
     testimonial.updatedAt = localTimestamp;
     testimonial.approvedAt = status === 'approved' ? localTimestamp : undefined;
     testimonial.approvedBy = status === 'approved' ? actorEmail : undefined;
+    const linkedRequest = testimonial.reviewRequestId
+      ? local.reviewRequests.find((item) => item.id === testimonial.reviewRequestId)
+      : undefined;
+    if (linkedRequest && status !== 'approved' && ['approved', 'published'].includes(linkedRequest.status)) {
+      const previousRequestStatus = linkedRequest.status;
+      linkedRequest.status = 'submitted';
+      linkedRequest.approvedAt = undefined;
+      linkedRequest.publishedAt = undefined;
+      linkedRequest.updatedAt = localTimestamp;
+      linkedRequest.revision += 1;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'review_request', entityId: linkedRequest.id,
+        action: 'review_request_content_changed_reapproval_required', actorEmail,
+        changes: reviewRequestAudit(previousRequestStatus, 'submitted', linkedRequest.revision), createdAt: localTimestamp,
+      });
+    }
     local.auditLogs.unshift({
       id: randomUUID(), entityType: 'testimonial', entityId: id, action: 'testimonial_status_changed', actorEmail,
       changes: { previous, next: status }, createdAt: localTimestamp,
@@ -6200,6 +6646,26 @@ export async function updateTestimonialStatus(id: string, status: TestimonialSta
       await client.query('ROLLBACK');
       return null;
     }
+    if (prior.review_request_id && status !== 'approved') {
+      const linkedRequest = await client.query(
+        'SELECT status, revision FROM review_requests WHERE id=$1 FOR UPDATE',
+        [prior.review_request_id],
+      );
+      const previousRequestStatus = String(linkedRequest.rows[0]?.status || '') as ReviewRequestStatus;
+      if (['approved', 'published'].includes(previousRequestStatus)) {
+        const reset = await client.query(
+          `UPDATE review_requests SET status='submitted', approved_at=NULL, published_at=NULL,
+           updated_at=$1, revision=revision+1 WHERE id=$2 RETURNING revision`,
+          [timestamp, prior.review_request_id],
+        );
+        await client.query(
+          `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+           VALUES ($1,'review_request',$2,'review_request_content_changed_reapproval_required',$3,$4::jsonb,$5)`,
+          [randomUUID(), prior.review_request_id, actorEmail,
+            JSON.stringify(reviewRequestAudit(previousRequestStatus, 'submitted', Number(reset.rows[0].revision))), timestamp],
+        );
+      }
+    }
     await client.query(
       `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
        VALUES ($1, 'testimonial', $2, 'testimonial_status_changed', $3, $4::jsonb, $5)`,
@@ -6215,14 +6681,123 @@ export async function updateTestimonialStatus(id: string, status: TestimonialSta
   }
 }
 
+const staleReviewSendingMs = 15 * 60 * 1000;
+
+export async function recoverStaleReviewRequestDeliveries(actorEmail = 'system:review-recovery') {
+  await ensureSchema();
+  const timestamp = now();
+  const staleBefore = new Date(Date.now() - staleReviewSendingMs).toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const recoveredDeliveries = local.reviewRequests.filter((item) => item.status === 'sending' && item.updatedAt <= staleBefore);
+      for (const request of recoveredDeliveries) {
+        request.status = 'delivery_unknown';
+        request.deliveryReasonCode = 'interrupted_after_claim';
+        request.revision += 1;
+        request.updatedAt = timestamp;
+        local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: request.id,
+          action: 'review_request_delivery_recovered_unknown', actorEmail,
+          changes: reviewRequestAudit('sending', 'delivery_unknown', request.revision), createdAt: timestamp });
+      }
+      const recoveredReminders = local.reviewRequests.filter((item) => item.reminderStatus === 'sending' && item.updatedAt <= staleBefore);
+      for (const request of recoveredReminders) {
+        request.reminderStatus = 'delivery_unknown';
+        request.reminderDeliveryReasonCode = 'interrupted_after_claim';
+        request.revision += 1;
+        request.updatedAt = timestamp;
+        local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: request.id,
+          action: 'review_request_reminder_recovered_unknown', actorEmail,
+          changes: { reminderNumber: 1, status: 'delivery_unknown', reasonCode: 'interrupted_after_claim', revision: request.revision },
+          createdAt: timestamp });
+      }
+      const recoveredCount = recoveredDeliveries.length + recoveredReminders.length;
+      if (recoveredCount) await writeLocalDb(local);
+      return recoveredCount;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const recovered = await client.query(
+      `UPDATE review_requests SET status='delivery_unknown', delivery_reason_code='interrupted_after_claim',
+       revision=revision+1, updated_at=$1 WHERE status='sending' AND updated_at <= $2 RETURNING id, revision`,
+      [timestamp, staleBefore],
+    );
+    for (const row of recovered.rows) {
+      await client.query(
+        `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+         VALUES ($1,'review_request',$2,'review_request_delivery_recovered_unknown',$3,$4::jsonb,$5)`,
+        [randomUUID(), row.id, actorEmail,
+          JSON.stringify(reviewRequestAudit('sending', 'delivery_unknown', Number(row.revision))), timestamp],
+      );
+    }
+    const recoveredReminders = await client.query(
+      `UPDATE review_requests SET reminder_status='delivery_unknown', reminder_delivery_reason_code='interrupted_after_claim',
+       revision=revision+1, updated_at=$1 WHERE reminder_status='sending' AND updated_at <= $2 RETURNING id, revision`,
+      [timestamp, staleBefore],
+    );
+    for (const row of recoveredReminders.rows) {
+      await client.query(
+        `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+         VALUES ($1,'review_request',$2,'review_request_reminder_recovered_unknown',$3,$4::jsonb,$5)`,
+        [randomUUID(), row.id, actorEmail, JSON.stringify({ reminderNumber: 1, status: 'delivery_unknown',
+          reasonCode: 'interrupted_after_claim', revision: Number(row.revision) }), timestamp],
+      );
+    }
+    await client.query('COMMIT');
+    return (recovered.rowCount || 0) + (recoveredReminders.rowCount || 0);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function listReviewRequests(): Promise<ReviewRequest[]> {
   await ensureSchema();
+  await recoverStaleReviewRequestDeliveries();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     return [...local.reviewRequests].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
-  const { rows } = await db.query('SELECT * FROM review_requests ORDER BY created_at DESC LIMIT 300');
+  const { rows } = await db.query('SELECT * FROM review_requests ORDER BY created_at DESC, id DESC LIMIT 500');
+  return rows.map(toReviewRequest);
+}
+
+export async function listDueReviewReminders(limit = 20): Promise<ReviewRequest[]> {
+  await ensureSchema();
+  const timestamp = now();
+  const safeLimit = Math.max(1, Math.min(50, Math.trunc(limit) || 20));
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const eligibleJobs = new Map(local.businessJobs.filter((job) => !job.deletedAt && !job.isTestData
+      && job.status === 'DOKONCENA' && !job.reviewRequestBlockedAt && !(job.leadId && testLeadIds.has(job.leadId)))
+      .map((job) => [job.id, job] as const));
+    return local.reviewRequests.filter((request) => request.reminderAllowed && !request.reminderAttemptedAt && !request.reminderStatus
+      && Boolean(request.reminderDueAt && request.reminderDueAt <= timestamp)
+      && ['smtp_accepted', 'opened'].includes(request.status)
+      && eligibleJobs.get(request.jobId)?.customerEmail.trim().toLowerCase() === request.customerEmail.trim().toLowerCase())
+      .sort((a, b) => String(a.reminderDueAt).localeCompare(String(b.reminderDueAt)))
+      .slice(0, safeLimit);
+  }
+  const { rows } = await db.query(
+    `SELECT r.* FROM review_requests r
+     JOIN business_jobs j ON j.id=r.job_id
+     WHERE r.reminder_allowed=true AND r.reminder_attempted_at IS NULL AND r.reminder_status IS NULL AND r.reminder_due_at <= $1
+       AND r.status IN ('smtp_accepted','opened')
+       AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false AND j.status='DOKONCENA'
+       AND j.review_request_blocked_at IS NULL
+       AND LOWER(BTRIM(j.customer_email))=LOWER(BTRIM(r.customer_email))
+       AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+     ORDER BY r.reminder_due_at ASC, r.id ASC LIMIT $2`,
+    [timestamp, safeLimit],
+  );
   return rows.map(toReviewRequest);
 }
 
@@ -6233,75 +6808,876 @@ export async function createReviewRequest(input: ReviewRequestInput): Promise<Re
     id: randomUUID(),
     createdAt: timestamp,
     updatedAt: timestamp,
-    status: input.status ?? 'sent',
+    status: input.status ?? 'pending_approval',
+    jobId: input.jobId,
     customerName: input.customerName.trim(),
-    phone: input.phone.trim(),
+    customerEmail: input.customerEmail.trim().toLowerCase(),
+    phone: input.phone?.trim() ?? '',
     location: input.location?.trim() ?? '',
     objectType: input.objectType?.trim() ?? '',
     realizationDate: input.realizationDate || '',
-    googleReviewLink: input.googleReviewLink.trim(),
+    googleReviewLink: input.googleReviewLink?.trim() ?? '',
+    subject: input.subject.trim(),
     message: input.message.trim(),
     createdBy: input.createdBy,
     leadId: input.leadId || '',
+    reminderAllowed: Boolean(input.reminderAllowed),
+    revision: 1,
   };
+  if (!request.jobId || !request.customerName || !request.customerEmail || !request.subject || !request.message) {
+    throw new Error('REVIEW_REQUEST_INVALID');
+  }
 
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    local.reviewRequests.unshift(request);
-    await writeLocalDb(local);
-    await addAuditLog('review_request', request.id, 'review_request_created', input.createdBy, { status: request.status });
-    return request;
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const existing = local.reviewRequests.find((item) => item.jobId === request.jobId);
+      if (existing) return existing;
+      const job = local.businessJobs.find((item) => item.id === request.jobId);
+      const linkedLeadIsTest = job?.leadId ? local.leads.some((lead) => lead.id === job.leadId && lead.isTestData) : false;
+      if (!job || job.deletedAt || job.isTestData || linkedLeadIsTest || job.status !== 'DOKONCENA'
+        || job.reviewRequestBlockedAt || job.customerEmail.trim().toLowerCase() !== request.customerEmail) {
+        throw new Error('REVIEW_REQUEST_JOB_NOT_ELIGIBLE');
+      }
+      local.reviewRequests.unshift(request);
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'review_request', entityId: request.id,
+        action: 'review_request_prepared', actorEmail: input.createdBy,
+        changes: { status: request.status, jobId: request.jobId, reminderAllowed: request.reminderAllowed }, createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return request;
+    });
   }
 
-  await db.query(
-    `INSERT INTO review_requests (
-      id, created_at, updated_at, status, customer_name, phone, location, object_type,
-      realization_date, google_review_link, message, created_by, lead_id
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-    [
-      request.id,
-      request.createdAt,
-      request.updatedAt,
-      request.status,
-      request.customerName,
-      request.phone,
-      request.location,
-      request.objectType,
-      request.realizationDate || null,
-      request.googleReviewLink,
-      request.message,
-      request.createdBy,
-      request.leadId || null,
-    ],
-  );
-  await addAuditLog('review_request', request.id, 'review_request_created', input.createdBy, { status: request.status });
-  return request;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const job = await client.query(
+      `SELECT j.id, j.customer_email FROM business_jobs j
+       WHERE j.id=$1 AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false
+         AND j.status='DOKONCENA' AND j.review_request_blocked_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       FOR UPDATE`,
+      [request.jobId],
+    );
+    if (!job.rows[0] || String(job.rows[0].customer_email).trim().toLowerCase() !== request.customerEmail) {
+      throw new Error('REVIEW_REQUEST_JOB_NOT_ELIGIBLE');
+    }
+    const inserted = await client.query(
+      `INSERT INTO review_requests (
+        id, created_at, updated_at, status, job_id, customer_name, customer_email, phone, location, object_type,
+        realization_date, google_review_link, subject, message, created_by, lead_id, reminder_allowed, revision
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,1)
+      ON CONFLICT (job_id) WHERE job_id IS NOT NULL DO NOTHING RETURNING *`,
+      [request.id, request.createdAt, request.updatedAt, request.status, request.jobId, request.customerName,
+        request.customerEmail, request.phone, request.location, request.objectType, request.realizationDate || null,
+        request.googleReviewLink, request.subject, request.message, request.createdBy, request.leadId || null,
+        request.reminderAllowed],
+    );
+    if (!inserted.rows[0]) {
+      const existing = await client.query('SELECT * FROM review_requests WHERE job_id=$1 LIMIT 1', [request.jobId]);
+      await client.query('COMMIT');
+      return toReviewRequest(existing.rows[0]);
+    }
+    await client.query(
+      `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
+       VALUES ($1,'review_request',$2,'review_request_prepared',$3,$4::jsonb,$5)`,
+      [randomUUID(), request.id, input.createdBy, JSON.stringify({ status: request.status, jobId: request.jobId, reminderAllowed: request.reminderAllowed }), timestamp],
+    );
+    await client.query('COMMIT');
+    return toReviewRequest(inserted.rows[0]);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateReviewRequestStatus(id: string, status: ReviewRequestStatus, actorEmail: string): Promise<ReviewRequest | null> {
+  if (status !== 'cancelled') throw new Error('REVIEW_REQUEST_STATUS_TRANSITION_RESTRICTED');
+  return cancelReviewRequest(id, actorEmail);
+}
+
+const reviewTokenTtlMs = 30 * 24 * 60 * 60 * 1000;
+const reviewReminderDelayDays = 6;
+
+function reviewTokenHash(token: string) {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+function reviewRequestAudit(previous: ReviewRequestStatus, next: ReviewRequestStatus, revision: number) {
+  return { previous, next, revision };
+}
+
+export async function listEligibleReviewJobs(): Promise<ReviewEligibleJob[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const requested = new Set(local.reviewRequests.map((item) => item.jobId).filter(Boolean));
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    return local.businessJobs
+      .filter((job) => job.status === 'DOKONCENA' && !job.deletedAt && !job.isTestData
+        && !(job.leadId && testLeadIds.has(job.leadId)) && Boolean(job.customerEmail.trim())
+        && !job.reviewRequestBlockedAt && !requested.has(job.id))
+      .sort((a, b) => b.demolitionDate.localeCompare(a.demolitionDate))
+      .map((job) => ({ id: job.id, leadId: job.leadId, customerName: job.customerName,
+        customerEmail: job.customerEmail, customerPhone: job.customerPhone, location: job.location,
+        objectType: job.objectType, realizationDate: job.demolitionDate }));
+  }
+  const { rows } = await db.query(
+    `SELECT j.id, j.lead_id, j.customer_name, j.customer_email, j.customer_phone, j.location, j.object_type, j.demolition_date
+     FROM business_jobs j
+     WHERE j.status='DOKONCENA' AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false
+       AND BTRIM(j.customer_email) <> '' AND j.review_request_blocked_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       AND NOT EXISTS (SELECT 1 FROM review_requests r WHERE r.job_id=j.id)
+     ORDER BY j.demolition_date DESC, j.created_at DESC LIMIT 500`,
+  );
+  return rows.map((row) => ({
+    id: String(row.id), leadId: row.lead_id ? String(row.lead_id) : undefined,
+    customerName: String(row.customer_name), customerEmail: String(row.customer_email),
+    customerPhone: String(row.customer_phone || ''), location: String(row.location || ''),
+    objectType: String(row.object_type || ''), realizationDate: dateOnly(row.demolition_date),
+  }));
+}
+
+export type ReviewRequestEventMetrics = { created: number; submitted: number };
+
+export async function getReviewRequestEventMetrics(from: string, to: string): Promise<ReviewRequestEventMetrics> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const jobsById = new Map(local.businessJobs.map((job) => [job.id, job]));
+    const isBusinessRequest = (request: ReviewRequest) => {
+      const job = request.jobId ? jobsById.get(request.jobId) : undefined;
+      return !job?.isTestData
+        && !(job?.leadId && testLeadIds.has(job.leadId))
+        && !(request.leadId && testLeadIds.has(request.leadId));
+    };
+    const inPeriod = (value?: string) => {
+      if (!value) return false;
+      const date = dateInBratislava(value);
+      return date >= from && date <= to;
+    };
+    const requests = local.reviewRequests.filter(isBusinessRequest);
+    return {
+      created: requests.filter((request) => inPeriod(request.createdAt)).length,
+      submitted: requests.filter((request) => inPeriod(request.submittedAt)).length,
+    };
+  }
+  const window = bratislavaTimestampRange(from, to);
+  const { rows } = await db.query(
+    `SELECT
+       count(*) FILTER (WHERE r.created_at >= $1::timestamptz AND r.created_at < $2::timestamptz)::int AS created,
+       count(*) FILTER (WHERE r.submitted_at >= $1::timestamptz AND r.submitted_at < $2::timestamptz)::int AS submitted
+     FROM review_requests r
+     LEFT JOIN business_jobs j ON j.id = r.job_id
+     LEFT JOIN leads request_lead ON request_lead.id = r.lead_id
+     LEFT JOIN leads job_lead ON job_lead.id = j.lead_id
+     WHERE COALESCE(j.is_test_data, false) = false
+       AND COALESCE(request_lead.is_test_data, false) = false
+       AND COALESCE(job_lead.is_test_data, false) = false`,
+    [window.from, window.toExclusive],
+  );
+  const row = rows[0] ?? {};
+  return { created: Number(row.created ?? 0), submitted: Number(row.submitted ?? 0) };
+}
+
+export async function listBlockedReviewJobs(): Promise<ReviewEligibleJob[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.businessJobs.filter((job) => !job.deletedAt && Boolean(job.reviewRequestBlockedAt)).map((job) => ({
+      id: job.id, leadId: job.leadId, customerName: job.customerName, customerEmail: job.customerEmail,
+      customerPhone: job.customerPhone, location: job.location, objectType: job.objectType,
+      realizationDate: job.demolitionDate, blockedReason: job.reviewRequestBlockedReason,
+    }));
+  }
+  const { rows } = await db.query(
+    `SELECT id, lead_id, customer_name, customer_email, customer_phone, location, object_type, demolition_date,
+            review_request_blocked_reason
+     FROM business_jobs WHERE deleted_at IS NULL AND review_request_blocked_at IS NOT NULL
+     ORDER BY review_request_blocked_at DESC LIMIT 200`,
+  );
+  return rows.map((row) => ({ id: String(row.id), leadId: row.lead_id ? String(row.lead_id) : undefined,
+    customerName: String(row.customer_name), customerEmail: String(row.customer_email), customerPhone: String(row.customer_phone || ''),
+    location: String(row.location || ''), objectType: String(row.object_type || ''), realizationDate: dateOnly(row.demolition_date),
+    blockedReason: String(row.review_request_blocked_reason || '') }));
+}
+
+export async function setReviewJobBlocked(jobId: string, blocked: boolean, reason: string, actorEmail: string) {
+  await ensureSchema();
+  const timestamp = now();
+  const safeReason = cleanSlovakText(reason.trim()).slice(0, 500);
+  if (blocked && safeReason.length < 3) throw new Error('REVIEW_BLOCK_REASON_REQUIRED');
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const job = local.businessJobs.find((item) => item.id === jobId && !item.deletedAt);
+      if (!job) return false;
+      job.reviewRequestBlockedAt = blocked ? timestamp : undefined;
+      job.reviewRequestBlockedBy = blocked ? actorEmail : undefined;
+      job.reviewRequestBlockedReason = blocked ? safeReason : undefined;
+      job.updatedAt = timestamp;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: jobId,
+        action: blocked ? 'review_request_blocked' : 'review_request_unblocked', actorEmail,
+        changes: { blocked }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return true;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const updated = await client.query(
+      `UPDATE business_jobs SET review_request_blocked_at=$1, review_request_blocked_by=$2,
+       review_request_blocked_reason=$3, updated_at=$4 WHERE id=$5 AND deleted_at IS NULL RETURNING id`,
+      [blocked ? timestamp : null, blocked ? actorEmail : '', blocked ? safeReason : '', timestamp, jobId],
+    );
+    if (!updated.rows[0]) { await client.query('COMMIT'); return false; }
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'business_job',$2,$3,$4,$5::jsonb,$6)`,
+      [randomUUID(), jobId, blocked ? 'review_request_blocked' : 'review_request_unblocked', actorEmail, JSON.stringify({ blocked }), timestamp],
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function claimReviewRequestForDelivery(id: string, expectedRevision: number, actorEmail: string) {
+  await ensureSchema();
+  const timestamp = now();
+  const token = randomBytes(32).toString('base64url');
+  const tokenHash = reviewTokenHash(token);
+  const expiresAt = new Date(Date.now() + reviewTokenTtlMs).toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === id);
+      if (!request || request.revision !== expectedRevision || !['pending_approval', 'delivery_failed'].includes(request.status)) return null;
+      const job = local.businessJobs.find((item) => item.id === request.jobId);
+      const linkedLeadIsTest = job?.leadId ? local.leads.some((lead) => lead.id === job.leadId && lead.isTestData) : false;
+      if (!job || job.deletedAt || job.isTestData || linkedLeadIsTest || job.status !== 'DOKONCENA'
+        || job.reviewRequestBlockedAt || job.customerEmail.trim().toLowerCase() !== request.customerEmail) return null;
+      const previous = request.status;
+      Object.assign(request, { status: 'sending' as const, tokenHash, tokenExpiresAt: expiresAt,
+        deliveryReasonCode: undefined, deliveryMessageIdHash: undefined, revision: request.revision + 1, updatedAt: timestamp });
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
+        action: 'review_request_delivery_claimed', actorEmail,
+        changes: reviewRequestAudit(previous, request.status, request.revision), createdAt: timestamp });
+      await writeLocalDb(local);
+      return { request: { ...request }, token };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const previousResult = await client.query(
+      `SELECT r.status FROM review_requests r
+       JOIN business_jobs j ON j.id=r.job_id
+       WHERE r.id=$1 AND r.revision=$2 AND r.status IN ('pending_approval','delivery_failed')
+         AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false AND j.status='DOKONCENA'
+         AND j.review_request_blocked_at IS NULL AND LOWER(BTRIM(j.customer_email))=LOWER(BTRIM(r.customer_email))
+         AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       FOR UPDATE OF r`, [id, expectedRevision]);
+    if (!previousResult.rows[0]) { await client.query('COMMIT'); return null; }
+    const { rows } = await client.query(
+      `UPDATE review_requests SET status='sending', token_hash=$1, token_expires_at=$2,
+       delivery_reason_code='', delivery_message_id_hash=NULL, revision=revision+1, updated_at=$3
+       WHERE id=$4 AND revision=$5 AND status IN ('pending_approval','delivery_failed') RETURNING *`,
+      [tokenHash, expiresAt, timestamp, id, expectedRevision],
+    );
+    if (!rows[0]) { await client.query('COMMIT'); return null; }
+    const saved = toReviewRequest(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'review_request',$2,'review_request_delivery_claimed',$3,$4::jsonb,$5)`,
+      [randomUUID(), id, actorEmail, JSON.stringify(reviewRequestAudit(String(previousResult.rows[0].status) as ReviewRequestStatus, 'sending', saved.revision)), timestamp],
+    );
+    await client.query('COMMIT');
+    return { request: saved, token };
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export type ReviewDeliveryResult = { status: 'smtp_accepted' | 'delivery_failed' | 'delivery_unknown'; reasonCode?: string; messageId?: string };
+
+export async function completeReviewRequestDelivery(id: string, expectedRevision: number, result: ReviewDeliveryResult, actorEmail: string, reminderDelayDays = reviewReminderDelayDays) {
+  await ensureSchema();
+  const timestamp = now();
+  const safeReminderDays = Math.max(5, Math.min(7, Math.trunc(reminderDelayDays) || reviewReminderDelayDays));
+  const reminderDueAt = result.status === 'smtp_accepted'
+    ? new Date(Date.now() + safeReminderDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
+  const messageIdHash = result.messageId ? createHash('sha256').update(result.messageId).digest('hex') : undefined;
+  const reasonCode = (result.reasonCode || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 80);
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === id);
+      if (!request || request.revision !== expectedRevision || request.status !== 'sending') return null;
+      Object.assign(request, { status: result.status, sentAt: result.status === 'smtp_accepted' ? timestamp : undefined,
+        reminderDueAt: request.reminderAllowed ? reminderDueAt : undefined,
+        deliveryReasonCode: reasonCode || undefined, deliveryMessageIdHash: messageIdHash,
+        tokenHash: result.status === 'delivery_failed' ? undefined : request.tokenHash,
+        tokenExpiresAt: result.status === 'delivery_failed' ? undefined : request.tokenExpiresAt,
+        revision: request.revision + 1, updatedAt: timestamp });
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
+        action: `review_request_${result.status}`, actorEmail,
+        changes: { status: result.status, reasonCode: reasonCode || null, revision: request.revision }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return { ...request };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE review_requests SET status=$1, sent_at=CASE WHEN $1='smtp_accepted' THEN $2::timestamptz ELSE sent_at END,
+       reminder_due_at=CASE WHEN reminder_allowed AND $1='smtp_accepted' THEN $3::timestamptz ELSE NULL END,
+       delivery_reason_code=$4, delivery_message_id_hash=$5,
+       token_hash=CASE WHEN $1='delivery_failed' THEN NULL ELSE token_hash END,
+       token_expires_at=CASE WHEN $1='delivery_failed' THEN NULL ELSE token_expires_at END,
+       revision=revision+1, updated_at=$2 WHERE id=$6 AND revision=$7 AND status='sending' RETURNING *`,
+      [result.status, timestamp, reminderDueAt || null, reasonCode, messageIdHash || null, id, expectedRevision],
+    );
+    if (!rows[0]) { await client.query('COMMIT'); return null; }
+    const saved = toReviewRequest(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'review_request',$2,$3,$4,$5::jsonb,$6)`,
+      [randomUUID(), id, `review_request_${result.status}`, actorEmail,
+        JSON.stringify({ status: result.status, reasonCode: reasonCode || null, revision: saved.revision }), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function resolveUnknownReviewRequestDelivery(
+  id: string,
+  expectedRevision: number,
+  resolution: 'smtp_accepted' | 'not_sent',
+  actorEmail: string,
+  reminderDelayDays = reviewReminderDelayDays,
+) {
+  await ensureSchema();
+  const timestamp = now();
+  const nextStatus: ReviewRequestStatus = resolution === 'smtp_accepted' ? 'smtp_accepted' : 'delivery_failed';
+  const safeReminderDays = Math.max(5, Math.min(7, Math.trunc(reminderDelayDays) || reviewReminderDelayDays));
+  const reminderDueAt = resolution === 'smtp_accepted'
+    ? new Date(Date.now() + safeReminderDays * 24 * 60 * 60 * 1000).toISOString() : undefined;
+  const reasonCode = resolution === 'smtp_accepted' ? 'manual_smtp_provider_evidence' : 'manual_no_provider_record';
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === id);
+      if (!request || request.revision !== expectedRevision || request.status !== 'delivery_unknown') return null;
+      request.status = nextStatus;
+      request.deliveryReasonCode = reasonCode;
+      request.sentAt = resolution === 'smtp_accepted' ? (request.sentAt || timestamp) : undefined;
+      request.reminderDueAt = resolution === 'smtp_accepted' && request.reminderAllowed ? reminderDueAt : undefined;
+      if (resolution === 'not_sent') { request.tokenHash = undefined; request.tokenExpiresAt = undefined; }
+      request.revision += 1;
+      request.updatedAt = timestamp;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
+        action: 'review_request_delivery_manually_resolved', actorEmail,
+        changes: { ...reviewRequestAudit('delivery_unknown', nextStatus, request.revision), resolution }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return { ...request };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE review_requests SET status=$1, delivery_reason_code=$2,
+       sent_at=CASE WHEN $1='smtp_accepted' THEN COALESCE(sent_at,$3::timestamptz) ELSE NULL END,
+       reminder_due_at=CASE WHEN reminder_allowed AND $1='smtp_accepted' THEN $4::timestamptz ELSE NULL END,
+       token_hash=CASE WHEN $1='delivery_failed' THEN NULL ELSE token_hash END,
+       token_expires_at=CASE WHEN $1='delivery_failed' THEN NULL ELSE token_expires_at END,
+       revision=revision+1, updated_at=$3
+       WHERE id=$5 AND revision=$6 AND status='delivery_unknown' RETURNING *`,
+      [nextStatus, reasonCode, timestamp, reminderDueAt || null, id, expectedRevision],
+    );
+    if (!rows[0]) { await client.query('COMMIT'); return null; }
+    const saved = toReviewRequest(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'review_request',$2,'review_request_delivery_manually_resolved',$3,$4::jsonb,$5)`,
+      [randomUUID(), id, actorEmail,
+        JSON.stringify({ ...reviewRequestAudit('delivery_unknown', nextStatus, saved.revision), resolution }), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function cancelReviewRequest(id: string, actorEmail: string) {
   await ensureSchema();
   const timestamp = now();
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    const request = local.reviewRequests.find((item) => item.id === id);
-    if (!request) return null;
-    const previous = request.status;
-    request.status = status;
-    request.updatedAt = timestamp;
-    await writeLocalDb(local);
-    await addAuditLog('review_request', id, 'review_request_status_changed', actorEmail, { previous, next: status });
-    return request;
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === id);
+      if (!request || ['submitted', 'approved', 'published'].includes(request.status)) return null;
+      const previous = request.status;
+      request.status = 'cancelled'; request.tokenHash = undefined; request.tokenExpiresAt = undefined;
+      request.reminderTokenHash = undefined; request.reminderTokenExpiresAt = undefined;
+      request.updatedAt = timestamp; request.revision += 1;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
+        action: 'review_request_cancelled', actorEmail, changes: reviewRequestAudit(previous, 'cancelled', request.revision), createdAt: timestamp });
+      await writeLocalDb(local); return { ...request };
+    });
   }
-  const previous = await db.query('SELECT status FROM review_requests WHERE id = $1 LIMIT 1', [id]);
-  const { rows } = await db.query(
-    'UPDATE review_requests SET status = $1, updated_at = $2 WHERE id = $3 RETURNING *',
-    [status, timestamp, id],
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const previous = await client.query('SELECT status FROM review_requests WHERE id=$1 FOR UPDATE', [id]);
+    if (!previous.rows[0] || ['submitted', 'approved', 'published'].includes(String(previous.rows[0].status))) { await client.query('COMMIT'); return null; }
+    const { rows } = await client.query(
+      `UPDATE review_requests SET status='cancelled', token_hash=NULL, token_expires_at=NULL,
+       reminder_token_hash=NULL, reminder_token_expires_at=NULL,
+       revision=revision+1, updated_at=$1 WHERE id=$2 RETURNING *`, [timestamp, id]);
+    const saved = toReviewRequest(rows[0]);
+    await client.query(`INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+      VALUES ($1,'review_request',$2,'review_request_cancelled',$3,$4::jsonb,$5)`,
+      [randomUUID(), id, actorEmail, JSON.stringify(reviewRequestAudit(String(previous.rows[0].status) as ReviewRequestStatus, 'cancelled', saved.revision)), timestamp]);
+    await client.query('COMMIT'); return saved;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function claimReviewReminder(id: string, expectedRevision: number, actorEmail: string) {
+  await ensureSchema();
+  const timestamp = now();
+  const token = randomBytes(32).toString('base64url');
+  const tokenHash = reviewTokenHash(token);
+  const expiresAt = new Date(Date.now() + reviewTokenTtlMs).toISOString();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === id);
+      if (!request || request.revision !== expectedRevision || !request.reminderAllowed
+        || request.reminderAttemptedAt || request.reminderStatus
+        || !request.reminderDueAt || request.reminderDueAt > timestamp || !['smtp_accepted', 'opened'].includes(request.status)) return null;
+      const job = local.businessJobs.find((item) => item.id === request.jobId);
+      const linkedLeadIsTest = job?.leadId ? local.leads.some((lead) => lead.id === job.leadId && lead.isTestData) : false;
+      if (!job || job.deletedAt || job.isTestData || linkedLeadIsTest || job.status !== 'DOKONCENA' || job.reviewRequestBlockedAt
+        || job.customerEmail.trim().toLowerCase() !== request.customerEmail.trim().toLowerCase()) return null;
+      request.reminderTokenHash = tokenHash;
+      request.reminderTokenExpiresAt = expiresAt;
+      request.reminderAttemptedAt = timestamp;
+      request.reminderStatus = 'sending';
+      request.reminderDeliveryReasonCode = undefined;
+      request.reminderMessageIdHash = undefined;
+      request.updatedAt = timestamp; request.revision += 1;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
+        action: 'review_request_reminder_claimed', actorEmail,
+        changes: { reminderNumber: 1, revision: request.revision }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return { request: { ...request }, token };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE review_requests SET reminder_token_hash=$1, reminder_token_expires_at=$2,
+       reminder_attempted_at=$3, reminder_status='sending', reminder_delivery_reason_code='', reminder_message_id_hash=NULL,
+       revision=revision+1, updated_at=$3
+       WHERE id=$4 AND revision=$5 AND reminder_allowed=true AND reminder_attempted_at IS NULL AND reminder_status IS NULL
+         AND reminder_due_at <= $3 AND status IN ('smtp_accepted','opened')
+         AND EXISTS (
+           SELECT 1 FROM business_jobs j WHERE j.id=review_requests.job_id AND j.deleted_at IS NULL
+             AND COALESCE(j.is_test_data,false)=false AND j.status='DOKONCENA' AND j.review_request_blocked_at IS NULL
+              AND LOWER(BTRIM(j.customer_email))=LOWER(BTRIM(review_requests.customer_email))
+             AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+         ) RETURNING *`,
+      [tokenHash, expiresAt, timestamp, id, expectedRevision],
+    );
+    if (!rows[0]) { await client.query('COMMIT'); return null; }
+    const saved = toReviewRequest(rows[0]);
+    await client.query(`INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+      VALUES ($1,'review_request',$2,'review_request_reminder_claimed',$3,$4::jsonb,$5)`,
+      [randomUUID(), id, actorEmail, JSON.stringify({ reminderNumber: 1, revision: saved.revision }), timestamp]);
+    await client.query('COMMIT');
+    return { request: saved, token };
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function recordReviewReminderResult(
+  id: string,
+  expectedRevision: number,
+  result: ReviewDeliveryResult,
+  actorEmail: string,
+) {
+  await ensureSchema();
+  const timestamp = now();
+  const safeReason = (result.reasonCode || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 80);
+  const messageIdHash = result.messageId ? createHash('sha256').update(result.messageId).digest('hex') : undefined;
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === id);
+      if (!request || request.revision !== expectedRevision || request.reminderStatus !== 'sending') return null;
+      request.reminderStatus = result.status;
+      request.reminderSentAt = result.status === 'smtp_accepted' ? timestamp : undefined;
+      request.reminderDeliveryReasonCode = safeReason || undefined;
+      request.reminderMessageIdHash = messageIdHash;
+      if (result.status === 'delivery_failed') {
+        request.reminderTokenHash = undefined;
+        request.reminderTokenExpiresAt = undefined;
+      }
+      request.updatedAt = timestamp;
+      request.revision += 1;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
+        action: `review_request_reminder_${result.status}`, actorEmail,
+        changes: { reminderNumber: 1, status: result.status, reasonCode: safeReason || null, revision: request.revision },
+        createdAt: timestamp });
+      await writeLocalDb(local);
+      return { ...request };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE review_requests SET reminder_status=$1,
+       reminder_sent_at=CASE WHEN $1='smtp_accepted' THEN $2::timestamptz ELSE NULL END,
+       reminder_delivery_reason_code=$3, reminder_message_id_hash=$4,
+       reminder_token_hash=CASE WHEN $1='delivery_failed' THEN NULL ELSE reminder_token_hash END,
+       reminder_token_expires_at=CASE WHEN $1='delivery_failed' THEN NULL ELSE reminder_token_expires_at END,
+       revision=revision+1, updated_at=$2
+       WHERE id=$5 AND revision=$6 AND reminder_status='sending' RETURNING *`,
+      [result.status, timestamp, safeReason, messageIdHash || null, id, expectedRevision],
+    );
+    if (!rows[0]) { await client.query('COMMIT'); return null; }
+    const saved = toReviewRequest(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'review_request',$2,$3,$4,$5::jsonb,$6)`,
+      [randomUUID(), id, `review_request_reminder_${result.status}`, actorEmail,
+        JSON.stringify({ reminderNumber: 1, status: result.status, reasonCode: safeReason || null, revision: saved.revision }), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+const reviewPublicStatuses: ReviewRequestStatus[] = ['sending', 'smtp_accepted', 'delivery_unknown', 'opened', 'submitted', 'approved', 'published'];
+
+function matchingReviewTokenExpiry(request: ReviewRequest, tokenHash: string, timestamp: string) {
+  if (request.tokenHash === tokenHash && request.tokenExpiresAt && request.tokenExpiresAt > timestamp) {
+    return request.tokenExpiresAt;
+  }
+  if (request.reminderTokenHash === tokenHash && request.reminderTokenExpiresAt && request.reminderTokenExpiresAt > timestamp) {
+    return request.reminderTokenExpiresAt;
+  }
+  return undefined;
+}
+
+export async function openPublicReviewRequest(token: string): Promise<PublicReviewRequest | null> {
+  await ensureSchema();
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return null;
+  const tokenHash = reviewTokenHash(token);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const request = local.reviewRequests.find((item) => item.tokenHash === tokenHash || item.reminderTokenHash === tokenHash);
+    const expiresAt = request ? matchingReviewTokenExpiry(request, tokenHash, timestamp) : undefined;
+    if (!request || !expiresAt || !reviewPublicStatuses.includes(request.status)) return null;
+      return { id: request.id, customerName: request.customerName, location: request.location || '',
+        objectType: request.objectType || '', realizationDate: request.realizationDate || '', expiresAt,
+        alreadySubmitted: ['submitted', 'approved', 'published'].includes(request.status), googleReviewLink: request.googleReviewLink || '' };
+  }
+  const result = await db.query(
+    `SELECT * FROM review_requests
+     WHERE ((token_hash=$1 AND token_expires_at > $2)
+       OR (reminder_token_hash=$1 AND reminder_token_expires_at > $2))
+       AND status = ANY($3::text[]) LIMIT 1`,
+    [tokenHash, timestamp, reviewPublicStatuses],
   );
-  if (!rows[0]) return null;
-  await addAuditLog('review_request', id, 'review_request_status_changed', actorEmail, { previous: previous.rows[0]?.status, next: status });
-  return toReviewRequest(rows[0]);
+  if (!result.rows[0]) return null;
+  const request = toReviewRequest(result.rows[0]);
+  const expiresAt = matchingReviewTokenExpiry(request, tokenHash, timestamp);
+  if (!expiresAt) return null;
+  return { id: request.id, customerName: request.customerName, location: request.location || '', objectType: request.objectType || '',
+    realizationDate: request.realizationDate || '', expiresAt,
+    alreadySubmitted: ['submitted', 'approved', 'published'].includes(request.status), googleReviewLink: request.googleReviewLink || '' };
+}
+
+export async function recordPublicReviewInteraction(token: string): Promise<ReviewRequest | null> {
+  await ensureSchema();
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return null;
+  const tokenHash = reviewTokenHash(token);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.tokenHash === tokenHash || item.reminderTokenHash === tokenHash);
+      if (!request || !matchingReviewTokenExpiry(request, tokenHash, timestamp) || !reviewPublicStatuses.includes(request.status)) return null;
+      if (!['sending', 'smtp_accepted', 'delivery_unknown'].includes(request.status)) return { ...request };
+      const previous = request.status;
+      request.status = 'opened';
+      request.openedAt = request.openedAt || timestamp;
+      request.updatedAt = timestamp;
+      request.revision += 1;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'review_request', entityId: request.id,
+        action: 'review_request_form_interaction_recorded', actorEmail: 'public-review-form',
+        changes: reviewRequestAudit(previous, 'opened', request.revision), createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return { ...request };
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT * FROM review_requests
+       WHERE ((token_hash=$1 AND token_expires_at > $2)
+         OR (reminder_token_hash=$1 AND reminder_token_expires_at > $2))
+         AND status = ANY($3::text[]) LIMIT 1 FOR UPDATE`,
+      [tokenHash, timestamp, reviewPublicStatuses],
+    );
+    if (!result.rows[0]) {
+      await client.query('COMMIT');
+      return null;
+    }
+    const request = toReviewRequest(result.rows[0]);
+    if (!matchingReviewTokenExpiry(request, tokenHash, timestamp)) {
+      await client.query('COMMIT');
+      return null;
+    }
+    if (!['sending', 'smtp_accepted', 'delivery_unknown'].includes(request.status)) {
+      await client.query('COMMIT');
+      return request;
+    }
+    const updated = await client.query(
+      `UPDATE review_requests SET status='opened', opened_at=COALESCE(opened_at,$1), updated_at=$1,
+       revision=revision+1 WHERE id=$2 RETURNING *`,
+      [timestamp, request.id],
+    );
+    const saved = toReviewRequest(updated.rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'review_request',$2,'review_request_form_interaction_recorded','public-review-form',$3::jsonb,$4)`,
+      [randomUUID(), request.id, JSON.stringify(reviewRequestAudit(request.status, 'opened', saved.revision)), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export type RequestedTestimonialSubmission = {
+  token: string;
+  submissionId: string;
+  customerName: string;
+  rating: number;
+  text: string;
+};
+
+export async function submitRequestedTestimonial(input: RequestedTestimonialSubmission): Promise<Testimonial> {
+  await ensureSchema();
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(input.token)) throw new Error('REVIEW_REQUEST_INVALID_TOKEN');
+  const tokenHash = reviewTokenHash(input.token);
+  const timestamp = now();
+  const rating = Math.min(5, Math.max(1, Math.round(input.rating)));
+  const customerName = cleanSlovakText(input.customerName.trim());
+  const text = cleanSlovakText(input.text.trim());
+  const contentHash = testimonialPublicContentHash(customerName, rating, text);
+  const consentEvidence = bindPublicTestimonialConsent(contentHash);
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.tokenHash === tokenHash || item.reminderTokenHash === tokenHash);
+      if (!request || !matchingReviewTokenExpiry(request, tokenHash, timestamp)
+        || !['sending', 'smtp_accepted', 'delivery_unknown', 'opened', 'submitted'].includes(request.status)) throw new Error('REVIEW_REQUEST_INVALID_TOKEN');
+      const existing = local.testimonials.find((item) => item.submissionId === input.submissionId || item.reviewRequestId === request.id);
+      if (existing) {
+        if (existing.reviewRequestId !== request.id) throw new Error('TESTIMONIAL_IDEMPOTENCY_CONFLICT');
+        return existing;
+      }
+      const testimonial: Testimonial = {
+        id: randomUUID(), submissionId: input.submissionId, reviewRequestId: request.id, businessJobId: request.jobId,
+        customerName, customerEmail: request.customerEmail, location: request.location || '', objectType: request.objectType || '',
+        realizationDate: request.realizationDate || '', rating, text, status: 'draft', consentPublication: true,
+        consentEvidence, consentCapturedAt: timestamp, consentVersion: publicTestimonialConsentVersion,
+        source: 'public', internalNote: '', photoUrl: '', createdAt: timestamp, updatedAt: timestamp,
+      };
+      local.testimonials.unshift(testimonial);
+      const previous = request.status;
+      request.status = 'submitted'; request.submittedAt = request.submittedAt || timestamp;
+      request.testimonialId = testimonial.id; request.updatedAt = timestamp; request.revision += 1;
+      local.auditLogs.unshift(
+        { id: randomUUID(), entityType: 'review_request', entityId: request.id, action: 'review_request_submitted',
+          actorEmail: 'public-review-form', changes: reviewRequestAudit(previous, 'submitted', request.revision), createdAt: timestamp },
+        { id: randomUUID(), entityType: 'testimonial', entityId: testimonial.id, action: 'testimonial_created',
+          actorEmail: 'public-review-form', changes: { status: 'draft', linkedReviewRequest: true, consentPublication: true,
+            consentEvidenceRecorded: true, consentVersion: publicTestimonialConsentVersion }, createdAt: timestamp },
+      );
+      await writeLocalDb(local);
+      return testimonial;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const requestResult = await client.query(
+      `SELECT * FROM review_requests WHERE ((token_hash=$1 AND token_expires_at > $2)
+        OR (reminder_token_hash=$1 AND reminder_token_expires_at > $2))
+       AND status IN ('sending','smtp_accepted','delivery_unknown','opened','submitted') LIMIT 1 FOR UPDATE`, [tokenHash, timestamp]);
+    if (!requestResult.rows[0]) throw new Error('REVIEW_REQUEST_INVALID_TOKEN');
+    const request = toReviewRequest(requestResult.rows[0]);
+    const existingResult = await client.query(
+      `SELECT * FROM testimonials WHERE submission_id=$1 OR review_request_id=$2 LIMIT 1 FOR UPDATE`, [input.submissionId, request.id]);
+    if (existingResult.rows[0]) {
+      const existing = toTestimonial(existingResult.rows[0]);
+      if (existing.reviewRequestId !== request.id) throw new Error('TESTIMONIAL_IDEMPOTENCY_CONFLICT');
+      await client.query('COMMIT'); return existing;
+    }
+    const testimonialId = randomUUID();
+    const inserted = await client.query(
+      `INSERT INTO testimonials (
+        id, created_at, updated_at, status, customer_name, location, rating, text, customer_email,
+        consent_publication, consent_evidence, consent_captured_at, consent_version, source, object_type,
+        realization_date, internal_note, photo_url, submission_id, review_request_id, business_job_id
+      ) VALUES ($1,$2,$2,'draft',$3,$4,$5,$6,$7,true,$8,$2,$9,'public',$10,$11,'','',$12,$13,$14) RETURNING *`,
+      [testimonialId, timestamp, customerName, request.location || '', rating, text, request.customerEmail,
+        consentEvidence, publicTestimonialConsentVersion, request.objectType || '', request.realizationDate || null,
+        input.submissionId, request.id, request.jobId],
+    );
+    const updatedRequest = await client.query(
+      `UPDATE review_requests SET status='submitted', submitted_at=COALESCE(submitted_at,$1), testimonial_id=$2,
+       updated_at=$1, revision=revision+1 WHERE id=$3 RETURNING *`, [timestamp, testimonialId, request.id]);
+    const savedRequest = toReviewRequest(updatedRequest.rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES
+       ($1,'review_request',$2,'review_request_submitted','public-review-form',$3::jsonb,$4),
+       ($5,'testimonial',$6,'testimonial_created','public-review-form',$7::jsonb,$4)`,
+      [randomUUID(), request.id, JSON.stringify(reviewRequestAudit(request.status, 'submitted', savedRequest.revision)), timestamp,
+        randomUUID(), testimonialId, JSON.stringify({ status: 'draft', linkedReviewRequest: true, consentPublication: true,
+          consentEvidenceRecorded: true, consentVersion: publicTestimonialConsentVersion })],
+    );
+    await client.query('COMMIT');
+    return toTestimonial(inserted.rows[0]);
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function approveRequestedTestimonial(testimonialId: string, actorEmail: string) {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const testimonial = local.testimonials.find((item) => item.id === testimonialId && item.reviewRequestId);
+      const request = testimonial ? local.reviewRequests.find((item) => item.id === testimonial.reviewRequestId) : undefined;
+      if (!testimonial || !request || request.status !== 'submitted' || testimonial.status !== 'draft') return null;
+      request.status = 'approved'; request.approvedAt = timestamp; request.updatedAt = timestamp; request.revision += 1;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: request.id,
+        action: 'review_request_approved', actorEmail, changes: reviewRequestAudit('submitted', 'approved', request.revision), createdAt: timestamp });
+      await writeLocalDb(local); return { ...request };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT r.* FROM review_requests r JOIN testimonials t ON t.review_request_id=r.id
+       WHERE t.id=$1 AND t.status='draft' AND r.status='submitted' FOR UPDATE OF r`, [testimonialId]);
+    if (!result.rows[0]) { await client.query('COMMIT'); return null; }
+    const updated = await client.query(
+      `UPDATE review_requests SET status='approved', approved_at=$1, updated_at=$1, revision=revision+1
+       WHERE id=$2 RETURNING *`, [timestamp, result.rows[0].id]);
+    const request = toReviewRequest(updated.rows[0]);
+    await client.query(`INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+      VALUES ($1,'review_request',$2,'review_request_approved',$3,$4::jsonb,$5)`,
+      [randomUUID(), request.id, actorEmail, JSON.stringify(reviewRequestAudit('submitted', 'approved', request.revision)), timestamp]);
+    await client.query('COMMIT'); return request;
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+}
+
+export async function publishRequestedTestimonial(testimonialId: string, actorEmail: string) {
+  await ensureSchema();
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const testimonial = local.testimonials.find((item) => item.id === testimonialId && item.reviewRequestId);
+      const request = testimonial ? local.reviewRequests.find((item) => item.id === testimonial.reviewRequestId) : undefined;
+      if (!testimonial || !request || request.status !== 'approved' || testimonial.status !== 'draft'
+        || !canUseTestimonialStatus('approved', Boolean(testimonial.consentPublication), testimonial.consentEvidence || '',
+          testimonial.consentCapturedAt, testimonial.consentRevokedAt, testimonial.consentVersion,
+          testimonial.customerName, testimonial.rating, testimonial.text)) return null;
+      testimonial.status = 'approved'; testimonial.approvedAt = timestamp; testimonial.approvedBy = actorEmail; testimonial.updatedAt = timestamp;
+      request.status = 'published'; request.publishedAt = timestamp; request.updatedAt = timestamp; request.revision += 1;
+      local.auditLogs.unshift(
+        { id: randomUUID(), entityType: 'review_request', entityId: request.id, action: 'review_request_published', actorEmail,
+          changes: reviewRequestAudit('approved', 'published', request.revision), createdAt: timestamp },
+        { id: randomUUID(), entityType: 'testimonial', entityId: testimonial.id, action: 'testimonial_status_changed', actorEmail,
+          changes: { previous: 'draft', next: 'approved', linkedReviewRequest: true }, createdAt: timestamp },
+      );
+      await writeLocalDb(local); return { ...testimonial };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      `SELECT t.*, r.id AS linked_request_id, r.revision AS request_revision FROM testimonials t
+       JOIN review_requests r ON r.id=t.review_request_id
+       WHERE t.id=$1 AND t.status='draft' AND r.status='approved' FOR UPDATE OF t,r`, [testimonialId]);
+    if (!result.rows[0]) { await client.query('COMMIT'); return null; }
+    const testimonial = toTestimonial(result.rows[0]);
+    if (!canUseTestimonialStatus('approved', Boolean(testimonial.consentPublication), testimonial.consentEvidence || '',
+      testimonial.consentCapturedAt, testimonial.consentRevokedAt, testimonial.consentVersion,
+      testimonial.customerName, testimonial.rating, testimonial.text)) throw new Error('TESTIMONIAL_PUBLICATION_CONSENT_REQUIRED');
+    const published = await client.query(
+      `UPDATE testimonials SET status='approved', approved_at=$1, approved_by=$2, updated_at=$1 WHERE id=$3 RETURNING *`,
+      [timestamp, actorEmail, testimonialId]);
+    const requestResult = await client.query(
+      `UPDATE review_requests SET status='published', published_at=$1, updated_at=$1, revision=revision+1
+       WHERE id=$2 RETURNING *`, [timestamp, result.rows[0].linked_request_id]);
+    const request = toReviewRequest(requestResult.rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES
+       ($1,'review_request',$2,'review_request_published',$3,$4::jsonb,$5),
+       ($6,'testimonial',$7,'testimonial_status_changed',$3,$8::jsonb,$5)`,
+      [randomUUID(), request.id, actorEmail, JSON.stringify(reviewRequestAudit('approved', 'published', request.revision)), timestamp,
+        randomUUID(), testimonialId, JSON.stringify({ previous: 'draft', next: 'approved', linkedReviewRequest: true })],
+    );
+    await client.query('COMMIT'); return toTestimonial(published.rows[0]);
+  } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
 const defaultWorkers = [
@@ -6398,6 +7774,22 @@ export async function listWorkers(includeInactive = false): Promise<Worker[]> {
   }
   const { rows } = await db.query(`SELECT * FROM workers ${includeInactive ? '' : 'WHERE active = true'} ORDER BY name ASC`);
   return rows.map(toWorker);
+}
+
+export async function listOperationalWorkers(includeInactive = false): Promise<OperationalWorker[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await ensureLocalBusinessDefaults();
+    return local.workers
+      .filter((worker) => includeInactive || worker.active)
+      .map(({ id, name, active }) => ({ id, name, active }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'sk'));
+  }
+  const { rows } = await db.query(
+    `SELECT id, name, active FROM workers ${includeInactive ? '' : 'WHERE active = true'} ORDER BY name ASC`,
+  );
+  return rows.map((row) => ({ id: String(row.id), name: String(row.name), active: Boolean(row.active) }));
 }
 
 export async function upsertWorker(input: { id?: string; name: string; ratePerM2: number; active?: boolean }): Promise<Worker> {
@@ -6608,6 +8000,32 @@ async function hydrateBusinessJobs(rows: Record<string, unknown>[]): Promise<Bus
   return rows.map((row) => enrichBusinessJob(row, workerMap.get(String(row.id)) ?? [], costMap.get(String(row.id))));
 }
 
+async function hydrateOperationalBusinessJobs(rows: Record<string, unknown>[]): Promise<OperationalBusinessJob[]> {
+  const ids = rows.map((row) => String(row.id));
+  if (!ids.length) return [];
+  const db = getPool();
+  if (!db) return [];
+  const workerRows = await db.query(
+    'SELECT job_id, worker_id, worker_name FROM business_job_workers WHERE job_id = ANY($1::uuid[])',
+    [ids],
+  );
+  const workerMap = new Map<string, OperationalBusinessJob['workers']>();
+  for (const row of workerRows.rows) {
+    const jobId = String(row.job_id);
+    const items = workerMap.get(jobId) ?? [];
+    items.push({ workerId: String(row.worker_id), workerName: String(row.worker_name) });
+    workerMap.set(jobId, items);
+  }
+  return rows.map((row) => operationalBusinessJobFromRow(row, workerMap.get(String(row.id)) ?? []));
+}
+
+const operationalBusinessJobColumns = `
+  j.id, j.lead_id, j.is_test_data, j.created_at, j.updated_at, j.deleted_at,
+  j.demolition_date, j.customer_name, j.customer_phone, j.customer_email,
+  j.location, j.district, j.material_type, j.object_type, j.term, j.lead_source,
+  j.preferovany_kontakt, j.m2, j.work_type, j.waste_kg, j.landfill, j.status, j.note
+`;
+
 export type BusinessJobListFilters = {
   from?: string;
   to?: string;
@@ -6729,6 +8147,38 @@ export async function listBusinessJobs(filters: BusinessJobListFilters = {}): Pr
   return hydrateBusinessJobs(rows);
 }
 
+export async function listOperationalBusinessJobs(filters: BusinessJobListFilters = {}): Promise<OperationalBusinessJob[]> {
+  await ensureSchema();
+  const { limit, offset } = businessJobPage(filters);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const matching = [...local.businessJobs]
+      .filter((job) => businessJobMatchesFilters(job, filters, testLeadIds))
+      .sort((a, b) => b.demolitionDate.localeCompare(a.demolitionDate) || b.createdAt.localeCompare(a.createdAt));
+    return matching
+      .slice(offset, limit === undefined ? undefined : offset + limit)
+      .map(operationalBusinessJobFromJob);
+  }
+  const query = buildBusinessJobsWhere(filters);
+  const pageValues = [...query.values];
+  let pageSql = '';
+  if (limit !== undefined) {
+    pageValues.push(limit);
+    pageSql += ` LIMIT $${pageValues.length}`;
+  }
+  if (offset > 0) {
+    pageValues.push(offset);
+    pageSql += ` OFFSET $${pageValues.length}`;
+  }
+  const { rows } = await db.query(
+    `SELECT ${operationalBusinessJobColumns} FROM business_jobs j ${query.where} ORDER BY j.demolition_date DESC, j.created_at DESC, j.id DESC${pageSql}`,
+    pageValues,
+  );
+  return hydrateOperationalBusinessJobs(rows);
+}
+
 export async function countBusinessJobs(filters: BusinessJobListFilters = {}): Promise<number> {
   await ensureSchema();
   const db = getPool();
@@ -6844,6 +8294,44 @@ export async function getBusinessJobWithActivity(id: string): Promise<BusinessJo
   }
   const { rows } = await db.query('SELECT * FROM audit_logs WHERE entity_id = $1 ORDER BY created_at DESC', [id]);
   return { ...job, activityLogs: rows.map(toAuditLog) };
+}
+
+export async function getOperationalBusinessJobWithActivity(id: string): Promise<OperationalBusinessJobWithActivity | null> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const job = local.businessJobs.find((item) => item.id === id && !item.deletedAt);
+    if (!job) return null;
+    return {
+      ...operationalBusinessJobFromJob(job),
+      activityLogs: local.auditLogs
+        .filter((log) => log.entityType === 'business_job' && log.entityId === id)
+        .map(toOperationalBusinessJobAudit)
+        .filter((log): log is AuditLog => Boolean(log))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    };
+  }
+  const jobResult = await db.query(
+    `SELECT ${operationalBusinessJobColumns} FROM business_jobs j WHERE j.id = $1 AND j.deleted_at IS NULL LIMIT 1`,
+    [id],
+  );
+  if (!jobResult.rows[0]) return null;
+  const [job] = await hydrateOperationalBusinessJobs(jobResult.rows);
+  const auditResult = await db.query(
+    `SELECT id, entity_type, entity_id, action, actor_email, changes, created_at
+     FROM audit_logs
+     WHERE entity_type = 'business_job' AND entity_id = $1 AND action = ANY($2::text[])
+     ORDER BY created_at DESC`,
+    [id, [...operationalBusinessJobAuditActions]],
+  );
+  return {
+    ...job,
+    activityLogs: auditResult.rows
+      .map(toAuditLog)
+      .map(toOperationalBusinessJobAudit)
+      .filter((log): log is AuditLog => Boolean(log)),
+  };
 }
 
 const financeReasonCodes = new Set(['DUPLICATE', 'DATA_ERROR', 'CUSTOMER_CANCELLED', 'REFUNDED', 'OTHER']);
@@ -7538,6 +9026,113 @@ export async function addBusinessJobNote(id: string, note: string, actorEmail: s
   return addAuditLog('business_job', id, 'business_job_note_added', actorEmail, { note: text });
 }
 
+const operationalBusinessJobStatuses = new Set<BusinessJobStatus>([
+  'DOPYT', 'DOPYT_PRIJATY', 'PONUKA_ODOSLANA', 'PRIJATA', 'PONUKA_POTVRDENA',
+  'URADY_PODANE', 'URADY_SCHVALENE', 'V_REALIZACII', 'DEMONT_NAPLANOVANA',
+  'DEMONT_DOKONCENA', 'VYUCTOVANIE', 'DOKONCENA', 'ZRUSENA',
+]);
+
+function normalizeOperationalBusinessJobInput(input: BusinessJobOperationalInput): BusinessJobOperationalInput {
+  if (!isValidIsoCalendarDate(input.demolitionDate)) throw new Error('Dátum realizácie nie je platný.');
+  if (!operationalBusinessJobStatuses.has(input.status)) throw new Error('Stav zákazky nie je platný.');
+  const limited = (value: string, max: number, label: string, required = false) => {
+    const text = cleanSlovakText(String(value ?? '').trim());
+    if (required && !text) throw new Error(`${label} je povinné pole.`);
+    if (text.length > max) throw new Error(`${label} je príliš dlhé.`);
+    return text;
+  };
+  const email = String(input.customerEmail ?? '').trim().toLowerCase();
+  if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new Error('Email zákazníka nie je platný.');
+  return {
+    demolitionDate: input.demolitionDate,
+    customerName: limited(input.customerName, 160, 'Meno zákazníka', true),
+    customerPhone: limited(input.customerPhone, 60, 'Telefón'),
+    customerEmail: email,
+    location: limited(input.location, 240, 'Lokalita', true),
+    district: limited(input.district, 120, 'Okres'),
+    materialType: limited(input.materialType, 160, 'Materiál'),
+    objectType: limited(input.objectType, 160, 'Objekt'),
+    term: limited(input.term, 160, 'Termín'),
+    preferredContact: limited(input.preferredContact, 160, 'Preferovaný kontakt'),
+    status: input.status,
+    note: limited(input.note, 4000, 'Poznámka'),
+  };
+}
+
+export async function updateBusinessJobOperational(
+  id: string,
+  input: BusinessJobOperationalInput,
+  actorEmail: string,
+): Promise<OperationalBusinessJob> {
+  await ensureSchema();
+  if (!uuidPattern.test(id)) throw new Error('Zákazka nemá platný identifikátor.');
+  const normalized = normalizeOperationalBusinessJobInput(input);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const current = local.businessJobs.find((job) => job.id === id);
+      if (!current) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
+      if (current.deletedAt) throw new Error('Archivovanú zákazku nemožno upravovať.');
+      const previousStatus = current.status;
+      Object.assign(current, normalized, { updatedAt: timestamp });
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'business_job', entityId: id, action: 'business_job_updated',
+        actorEmail, changes: { scope: 'operational' }, createdAt: timestamp,
+      });
+      if (previousStatus !== normalized.status) {
+        local.auditLogs.unshift({
+          id: randomUUID(), entityType: 'business_job', entityId: id, action: 'business_job_status_changed',
+          actorEmail, changes: { previous: previousStatus, next: normalized.status }, createdAt: timestamp,
+        });
+      }
+      await writeLocalDb(local);
+      return operationalBusinessJobFromJob(current);
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query('SELECT status, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [id]);
+    if (!current.rowCount) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
+    if (current.rows[0].deleted_at) throw new Error('Archivovanú zákazku nemožno upravovať.');
+    await client.query(
+      `UPDATE business_jobs SET
+        updated_at=$2, demolition_date=$3, customer_name=$4, customer_phone=$5, customer_email=$6,
+        location=$7, district=$8, material_type=$9, object_type=$10, term=$11,
+        preferovany_kontakt=$12, status=$13, note=$14
+       WHERE id=$1 AND deleted_at IS NULL`,
+      [
+        id, timestamp, normalized.demolitionDate, normalized.customerName, normalized.customerPhone,
+        normalized.customerEmail, normalized.location, normalized.district, normalized.materialType,
+        normalized.objectType, normalized.term, normalized.preferredContact, normalized.status, normalized.note,
+      ],
+    );
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', id, 'business_job_updated', actorEmail, { scope: 'operational' }, timestamp],
+    );
+    const previousStatus = String(current.rows[0].status) as BusinessJobStatus;
+    if (previousStatus !== normalized.status) {
+      await client.query(
+        'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [randomUUID(), 'business_job', id, 'business_job_status_changed', actorEmail, { previous: previousStatus, next: normalized.status }, timestamp],
+      );
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+  const saved = await getOperationalBusinessJobWithActivity(id);
+  if (!saved) throw new Error('Zákazku sa nepodarilo uložiť.');
+  const { activityLogs: _activityLogs, ...job } = saved;
+  return job;
+}
+
 export async function saveBusinessJob(input: BusinessJobInput, actorEmail: string, id?: string): Promise<BusinessJob> {
   await ensureSchema();
   if (id && (await getBusinessJob(id, true))?.deletedAt) throw new Error('Archivovanú zákazku nemožno upravovať.');
@@ -8163,6 +9758,40 @@ export async function listPriceOffers(filters: { status?: PriceOfferStatus | '';
   return rows.map(toPriceOffer);
 }
 
+export async function listBusinessJobOfferEvidence(
+  jobId: string,
+  includeArchived = false,
+): Promise<BusinessJobOfferEvidence[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.priceOffers
+      .filter((offer) => offer.jobId === jobId && (includeArchived || !offer.deletedAt))
+      .map(({ id, jobId: linkedJobId, number, status, createdAt, sentAt, acceptedAt, deletedAt }) => ({
+        id, jobId: linkedJobId, number, status, createdAt, sentAt, acceptedAt, deletedAt,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  const { rows } = await db.query(
+    `SELECT id, job_id, number, status, created_at, sent_at, accepted_at, deleted_at
+     FROM price_offers
+     WHERE job_id = $1 ${includeArchived ? '' : 'AND deleted_at IS NULL'}
+     ORDER BY created_at DESC`,
+    [jobId],
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    jobId: row.job_id ? String(row.job_id) : undefined,
+    number: String(row.number),
+    status: String(row.status) as PriceOfferStatus,
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    sentAt: row.sent_at ? new Date(String(row.sent_at)).toISOString() : undefined,
+    acceptedAt: row.accepted_at ? new Date(String(row.accepted_at)).toISOString() : undefined,
+    deletedAt: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : undefined,
+  }));
+}
+
 export async function getLatestPriceOffersByInquiryIds(inquiryIds: string[]): Promise<Map<string, PriceOffer>> {
   await ensureSchema();
   const ids = [...new Set(inquiryIds.filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))];
@@ -8269,6 +9898,158 @@ export async function getPriceOfferEventMetrics(from: string, to: string): Promi
   return { created: Number(row.created ?? 0), sent: Number(row.sent ?? 0), accepted: Number(row.accepted ?? 0) };
 }
 
+export type AdminSearchData = {
+  leads: Array<{ id: string; fullName: string; phone: string; email: string; city: string; status: string }>;
+  jobs: Array<{ id: string; customerName: string; location: string; demolitionDate: string; status: string }>;
+  offers: Array<{ id: string; number: string; contactPerson: string; objectAddress: string; totalWithVat: number }>;
+  reviews: Array<{ id: string; customerName: string; customerEmail: string; phone: string; location: string; status: string }>;
+  finance: Array<{ id: string; jobId: string; invoiceNumber: string; issuedOn: string; dueOn: string; amountWithVatCents: number }>;
+};
+
+function foldAdminSearchText(value: unknown) {
+  return String(value ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('sk');
+}
+
+export async function searchAdminData(query: string, includeFinance: boolean): Promise<AdminSearchData> {
+  const needle = foldAdminSearchText(query.trim().slice(0, 100));
+  const compactNeedle = needle.replace(/[^a-z0-9]+/g, '');
+  const empty: AdminSearchData = { leads: [], jobs: [], offers: [], reviews: [], finance: [] };
+  if (needle.length < 2) return empty;
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const matches = (...values: unknown[]) => values.some((value) => {
+      const folded = foldAdminSearchText(value);
+      const compact = folded.replace(/[^a-z0-9]+/g, '');
+      return folded.includes(needle) || (compactNeedle.length >= 2 && compact.includes(compactNeedle));
+    });
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const testJobIds = new Set(local.businessJobs
+      .filter((job) => job.isTestData || Boolean(job.leadId && testLeadIds.has(job.leadId)))
+      .map((job) => job.id));
+    const jobsById = new Map(local.businessJobs.map((job) => [job.id, job]));
+    const leads = local.leads
+      .filter((lead) => !lead.deletedAt && !lead.isTestData
+        && matches(lead.fullName, lead.phone, lead.email, lead.city, lead.district, lead.id))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((lead) => ({ id: lead.id, fullName: lead.fullName, phone: lead.phone, email: lead.email,
+        city: lead.city, status: lead.status }));
+    const jobs = local.businessJobs
+      .filter((job) => !job.deletedAt && !testJobIds.has(job.id)
+        && matches(job.customerName, job.customerPhone, job.customerEmail, job.location, job.district, job.id))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((job) => ({ id: job.id, customerName: job.customerName, location: job.location,
+        demolitionDate: job.demolitionDate, status: job.status }));
+    const offers = localBusinessPriceOffers(local)
+      .filter((offer) => matches(offer.number, offer.contactPerson, offer.phone, offer.email,
+        offer.objectAddress, offer.municipality, offer.district, offer.id))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((offer) => ({ id: offer.id, number: offer.number, contactPerson: offer.contactPerson,
+        objectAddress: offer.objectAddress, totalWithVat: offer.totalWithVat }));
+    const reviews = local.reviewRequests
+      .filter((request) => {
+        const job = request.jobId ? jobsById.get(request.jobId) : undefined;
+        return !job?.isTestData
+          && !(job?.leadId && testLeadIds.has(job.leadId))
+          && !(request.leadId && testLeadIds.has(request.leadId))
+          && matches(request.customerName, request.customerEmail, request.phone, request.location, request.id);
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((request) => ({ id: request.id, customerName: request.customerName,
+        customerEmail: request.customerEmail, phone: request.phone || '', location: request.location || '',
+        status: request.status }));
+    const finance = includeFinance
+      ? local.businessJobInvoices
+        .filter((invoice) => !testJobIds.has(invoice.jobId)
+          && matches(invoice.invoiceNumber, invoice.id, invoice.jobId))
+        .sort((left, right) => right.issuedOn.localeCompare(left.issuedOn) || right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 20)
+        .map((invoice) => ({ id: invoice.id, jobId: invoice.jobId, invoiceNumber: invoice.invoiceNumber,
+          issuedOn: invoice.issuedOn, dueOn: invoice.dueOn || '', amountWithVatCents: invoice.amountWithVatCents }))
+      : [];
+    return { leads, jobs, offers, reviews, finance };
+  }
+
+  const folded = (column: string) => {
+    const expression = `translate(lower(COALESCE(${column}::text, '')), 'áäčďéíĺľňóôŕšťúýž', 'aacdeillnoorstuyz')`;
+    return `(strpos(${expression}, $1) > 0 OR ($2 <> '' AND strpos(regexp_replace(${expression}, '[^a-z0-9]+', '', 'g'), $2) > 0))`;
+  };
+  const [leadRows, jobRows, offerRows, reviewRows, financeRows] = await Promise.all([
+    db.query(
+      `SELECT l.id, l.full_name, l.phone, l.email, l.city, l.status
+       FROM leads l
+       WHERE l.deleted_at IS NULL AND COALESCE(l.is_test_data, false) = false
+         AND (${[folded('l.full_name'), folded('l.phone'), folded('l.email'), folded('l.city'), folded('l.district'), folded('l.id')].join(' OR ')})
+       ORDER BY l.created_at DESC, l.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    db.query(
+      `SELECT j.id, j.customer_name, j.location, j.demolition_date, j.status
+       FROM business_jobs j
+       LEFT JOIN leads source_lead ON source_lead.id = j.lead_id
+       WHERE j.deleted_at IS NULL AND COALESCE(j.is_test_data, false) = false
+         AND COALESCE(source_lead.is_test_data, false) = false
+         AND (${[folded('j.customer_name'), folded('j.customer_phone'), folded('j.customer_email'), folded('j.location'), folded('j.district'), folded('j.id')].join(' OR ')})
+       ORDER BY j.created_at DESC, j.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    db.query(
+      `SELECT o.id, o.number, o.contact_person, o.object_address, o.total_with_vat
+       FROM price_offers o
+       WHERE o.deleted_at IS NULL AND ${businessPriceOfferCondition}
+         AND (${[folded('o.number'), folded('o.contact_person'), folded('o.phone'), folded('o.email'), folded('o.object_address'), folded('o.municipality'), folded('o.district'), folded('o.id')].join(' OR ')})
+       ORDER BY o.created_at DESC, o.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    db.query(
+      `SELECT r.id, r.customer_name, r.customer_email, r.phone, r.location, r.status
+       FROM review_requests r
+       LEFT JOIN business_jobs j ON j.id = r.job_id
+       LEFT JOIN leads request_lead ON request_lead.id = r.lead_id
+       LEFT JOIN leads job_lead ON job_lead.id = j.lead_id
+       WHERE COALESCE(j.is_test_data, false) = false
+         AND COALESCE(request_lead.is_test_data, false) = false
+         AND COALESCE(job_lead.is_test_data, false) = false
+         AND (${[folded('r.customer_name'), folded('r.customer_email'), folded('r.phone'), folded('r.location'), folded('r.id')].join(' OR ')})
+       ORDER BY r.created_at DESC, r.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    includeFinance
+      ? db.query(
+        `SELECT invoice.id, invoice.job_id, invoice.invoice_number, invoice.issued_on, invoice.due_on,
+                invoice.amount_with_vat_cents
+         FROM business_job_invoices invoice
+         JOIN business_jobs job ON job.id = invoice.job_id
+         LEFT JOIN leads source_lead ON source_lead.id = job.lead_id
+         WHERE COALESCE(job.is_test_data, false) = false AND COALESCE(source_lead.is_test_data, false) = false
+           AND (${[folded('invoice.invoice_number'), folded('invoice.id'), folded('invoice.job_id')].join(' OR ')})
+         ORDER BY invoice.issued_on DESC, invoice.created_at DESC, invoice.id DESC LIMIT 20`,
+        [needle, compactNeedle],
+      )
+      : Promise.resolve({ rows: [] }),
+  ]);
+  return {
+    leads: leadRows.rows.map((row) => ({ id: String(row.id), fullName: String(row.full_name), phone: String(row.phone),
+      email: String(row.email), city: String(row.city), status: String(row.status) })),
+    jobs: jobRows.rows.map((row) => ({ id: String(row.id), customerName: String(row.customer_name),
+      location: String(row.location || ''), demolitionDate: dateOnly(row.demolition_date), status: String(row.status) })),
+    offers: offerRows.rows.map((row) => ({ id: String(row.id), number: String(row.number),
+      contactPerson: String(row.contact_person || ''), objectAddress: String(row.object_address || ''),
+      totalWithVat: Number(row.total_with_vat || 0) })),
+    reviews: reviewRows.rows.map((row) => ({ id: String(row.id), customerName: String(row.customer_name),
+      customerEmail: String(row.customer_email || ''), phone: String(row.phone || ''),
+      location: String(row.location || ''), status: String(row.status) })),
+    finance: financeRows.rows.map((row) => ({ id: String(row.id), jobId: String(row.job_id),
+      invoiceNumber: String(row.invoice_number), issuedOn: dateOnly(row.issued_on), dueOn: dateOnly(row.due_on),
+      amountWithVatCents: Number(row.amount_with_vat_cents) })),
+  };
+}
+
 export type PriceOfferStatusSummary = { created: number; sent: number; accepted: number; acceptedValue: number };
 
 function priceOfferMonthRange(month: string) {
@@ -8315,6 +10096,448 @@ export async function getPriceOffer(id: string): Promise<PriceOffer | null> {
   }
   const { rows } = await db.query('SELECT * FROM price_offers WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
   return rows[0] ? toPriceOffer(rows[0]) : null;
+}
+
+type PriceOfferFollowUpInput = {
+  offerId: string;
+  subject: string;
+  body: string;
+  actorEmail: string;
+  operationId: string;
+};
+
+function normalizePriceOfferFollowUpInput(input: PriceOfferFollowUpInput) {
+  const normalized = {
+    offerId: input.offerId.trim(),
+    operationId: input.operationId.trim(),
+    subject: input.subject.trim(),
+    body: input.body.trim(),
+    actorEmail: input.actorEmail.trim().toLowerCase().slice(0, 254),
+  };
+  if (!uuidPattern.test(normalized.offerId) || !uuidPattern.test(normalized.operationId)) {
+    throw new Error('Neplatný identifikátor follow-upu.');
+  }
+  if (normalized.subject.length < 3 || normalized.subject.length > 180
+    || normalized.body.length < 20 || normalized.body.length > 4000) {
+    throw new Error('Skontrolujte predmet a text follow-upu.');
+  }
+  if (!normalized.actorEmail) throw new Error('Chýba oprávnený používateľ follow-upu.');
+  return normalized;
+}
+
+function isSinglePriceOfferEmail(value: string) {
+  return /^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]+$/.test(value.trim());
+}
+
+function priceOfferFollowUpClaim(item: PriceOfferFollowUpRecord): PriceOfferFollowUpClaim {
+  return {
+    id: item.id,
+    offerId: item.offerId,
+    operationId: item.operationId,
+    recipient: item.recipient,
+    subject: item.subject,
+    body: item.body,
+  };
+}
+
+function priceOfferFollowUpHistory(item: PriceOfferFollowUpRecord): PriceOfferFollowUpHistoryItem {
+  return {
+    id: item.id,
+    createdAt: item.createdAt,
+    createdBy: item.createdBy,
+    status: item.status,
+    subject: item.subject,
+    messageId: item.messageId,
+    updatedAt: item.updatedAt,
+    revision: item.revision,
+  };
+}
+
+export async function claimPriceOfferFollowUp(input: PriceOfferFollowUpInput): Promise<PriceOfferFollowUpClaim | null> {
+  const normalized = normalizePriceOfferFollowUpInput(input);
+  await ensureSchema();
+  await recoverStalePriceOfferFollowUps(normalized.offerId);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      if (local.priceOfferFollowUps.some((item) => item.operationId === normalized.operationId)) return null;
+      const offer = local.priceOffers.find((item) => item.id === normalized.offerId && !item.deletedAt);
+      if (!offer || offer.status !== 'ODOSLANA' || !isSinglePriceOfferEmail(offer.email)) return null;
+      if (local.priceOfferFollowUps.some((item) => item.offerId === offer.id && (item.status === 'sending' || item.status === 'unknown'))) return null;
+      const followUp: PriceOfferFollowUpRecord = {
+        id: randomUUID(),
+        offerId: offer.id,
+        operationId: normalized.operationId,
+        recipient: offer.email.trim(),
+        subject: normalized.subject,
+        body: normalized.body,
+        status: 'sending',
+        messageId: '',
+        errorCode: '',
+        resolutionEvidenceCode: '',
+        revision: 1,
+        createdAt: timestamp,
+        createdBy: normalized.actorEmail,
+        updatedAt: timestamp,
+      };
+      local.priceOfferFollowUps.push(followUp);
+      local.auditLogs.unshift({
+        id: randomUUID(),
+        entityType: 'business_job',
+        entityId: offer.jobId || offer.id,
+        action: 'price_offer_follow_up_claimed',
+        actorEmail: normalized.actorEmail,
+        changes: { followUpId: followUp.id, offerId: offer.id, operationId: followUp.operationId, status: followUp.status },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return priceOfferFollowUpClaim(followUp);
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const offerResult = await client.query(
+      "SELECT * FROM price_offers WHERE id = $1 AND deleted_at IS NULL FOR UPDATE",
+      [normalized.offerId],
+    );
+    const offer = offerResult.rows[0] ? toPriceOffer(offerResult.rows[0]) : null;
+    if (!offer || offer.status !== 'ODOSLANA' || !isSinglePriceOfferEmail(offer.email)) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const alreadyUsed = await client.query(
+      "SELECT 1 FROM price_offer_follow_ups WHERE operation_id = $1 OR (offer_id = $2 AND status IN ('sending', 'unknown')) LIMIT 1",
+      [normalized.operationId, offer.id],
+    );
+    if (alreadyUsed.rowCount) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const followUpId = randomUUID();
+    const { rows } = await client.query(
+      `INSERT INTO price_offer_follow_ups (
+         id, offer_id, operation_id, recipient, subject, body, status,
+         message_id, error_code, created_at, created_by, updated_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,'sending','','',$7,$8,$7)
+       RETURNING *`,
+      [followUpId, offer.id, normalized.operationId, offer.email.trim(), normalized.subject, normalized.body, timestamp, normalized.actorEmail],
+    );
+    const followUp = toPriceOfferFollowUp(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_follow_up_claimed', normalized.actorEmail,
+        { followUpId: followUp.id, offerId: offer.id, operationId: followUp.operationId, status: followUp.status }, timestamp],
+    );
+    await client.query('COMMIT');
+    return priceOfferFollowUpClaim(followUp);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if ((error as { code?: string }).code === '23505') return null;
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function finishPriceOfferFollowUp(
+  id: string,
+  outcome: 'sent' | 'not_sent' | 'unknown',
+  messageId: string,
+  error: string,
+  actorEmail: string,
+): Promise<void> {
+  if (!uuidPattern.test(id)) throw new Error('Neplatný identifikátor follow-upu.');
+  const status: PriceOfferFollowUpStatus = outcome === 'sent' ? 'sent' : outcome === 'not_sent' ? 'failed' : 'unknown';
+  const normalizedActor = actorEmail.trim().toLowerCase().slice(0, 254);
+  if (!normalizedActor) throw new Error('Chýba oprávnený používateľ follow-upu.');
+  const normalizedMessageId = messageId.trim().slice(0, 500);
+  const errorCode = error.trim() ? (status === 'failed' ? 'smtp_not_sent' : status === 'unknown' ? 'smtp_unknown' : 'smtp_warning') : '';
+  const timestamp = now();
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    await withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const followUp = local.priceOfferFollowUps.find((item) => item.id === id && item.status === 'sending');
+      if (!followUp) return;
+      followUp.status = status;
+      followUp.messageId = normalizedMessageId;
+      followUp.errorCode = errorCode;
+      followUp.revision += 1;
+      followUp.updatedAt = timestamp;
+      const offer = local.priceOffers.find((item) => item.id === followUp.offerId);
+      local.auditLogs.unshift({
+        id: randomUUID(),
+        entityType: 'business_job',
+        entityId: offer?.jobId || followUp.offerId,
+        action: `price_offer_follow_up_${status}`,
+        actorEmail: normalizedActor,
+        changes: { followUpId: followUp.id, offerId: followUp.offerId, status, revision: followUp.revision,
+          messageIdRecorded: Boolean(normalizedMessageId), hasError: Boolean(errorCode) },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+    });
+    return;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE price_offer_follow_ups
+       SET status = $2, message_id = $3, error_code = $4, revision = revision + 1, updated_at = $5
+       WHERE id = $1 AND status = 'sending'
+       RETURNING offer_id, revision`,
+      [id, status, normalizedMessageId, errorCode, timestamp],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return;
+    }
+    const offerId = String(rows[0].offer_id);
+    const offerResult = await client.query('SELECT job_id FROM price_offers WHERE id = $1', [offerId]);
+    const entityId = String(offerResult.rows[0]?.job_id || offerId);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', entityId, `price_offer_follow_up_${status}`, normalizedActor,
+        { followUpId: id, offerId, status, revision: Number(rows[0].revision),
+          messageIdRecorded: Boolean(normalizedMessageId), hasError: Boolean(errorCode) }, timestamp],
+    );
+    await client.query('COMMIT');
+  } catch (finishError) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw finishError;
+  } finally {
+    client.release();
+  }
+}
+
+const priceOfferFollowUpClaimTimeoutMs = 15 * 60_000;
+
+export async function recoverStalePriceOfferFollowUps(offerId?: string, actorEmail = 'system'): Promise<number> {
+  if (offerId && !uuidPattern.test(offerId)) return 0;
+  await ensureSchema();
+  const timestamp = now();
+  const cutoff = new Date(Date.now() - priceOfferFollowUpClaimTimeoutMs).toISOString();
+  const normalizedActor = actorEmail.trim().toLowerCase().slice(0, 254) || 'system';
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const recovered = local.priceOfferFollowUps.filter((item) => item.status === 'sending'
+        && item.updatedAt <= cutoff && (!offerId || item.offerId === offerId));
+      for (const followUp of recovered) {
+        followUp.status = 'unknown';
+        followUp.errorCode = 'interrupted_after_claim';
+        followUp.revision += 1;
+        followUp.updatedAt = timestamp;
+        const offer = local.priceOffers.find((item) => item.id === followUp.offerId);
+        local.auditLogs.unshift({
+          id: randomUUID(), entityType: 'business_job', entityId: offer?.jobId || followUp.offerId,
+          action: 'price_offer_follow_up_delivery_unknown', actorEmail: normalizedActor,
+          changes: { followUpId: followUp.id, offerId: followUp.offerId, status: followUp.status,
+            reasonCode: followUp.errorCode, revision: followUp.revision }, createdAt: timestamp,
+        });
+      }
+      if (recovered.length) await writeLocalDb(local);
+      return recovered.length;
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const due = await client.query(
+      `SELECT f.id, f.offer_id, o.job_id
+       FROM price_offer_follow_ups f
+       JOIN price_offers o ON o.id = f.offer_id
+       WHERE f.status = 'sending' AND f.updated_at <= $1::timestamptz
+         AND ($2::uuid IS NULL OR f.offer_id = $2::uuid)
+       ORDER BY f.updated_at ASC LIMIT 100
+       FOR UPDATE OF f SKIP LOCKED`,
+      [cutoff, offerId || null],
+    );
+    for (const item of due.rows) {
+      const updated = await client.query(
+        `UPDATE price_offer_follow_ups
+         SET status = 'unknown', error_code = 'interrupted_after_claim', revision = revision + 1, updated_at = $2
+         WHERE id = $1 AND status = 'sending' RETURNING revision`,
+        [item.id, timestamp],
+      );
+      if (!updated.rows[0]) continue;
+      await client.query(
+        'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+        [randomUUID(), 'business_job', String(item.job_id || item.offer_id), 'price_offer_follow_up_delivery_unknown', normalizedActor,
+          { followUpId: String(item.id), offerId: String(item.offer_id), status: 'unknown',
+            reasonCode: 'interrupted_after_claim', revision: Number(updated.rows[0].revision) }, timestamp],
+      );
+    }
+    await client.query('COMMIT');
+    return due.rows.length;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+type PriceOfferFollowUpResolutionInput = {
+  id: string;
+  offerId: string;
+  expectedRevision: number;
+  resolution: 'sent' | 'not_sent';
+  evidenceCode: string;
+  operationId: string;
+  actorEmail: string;
+};
+
+const sentPriceOfferFollowUpEvidence = new Set(['provider_accepted', 'sent_folder_verified', 'recipient_confirmed']);
+const notSentPriceOfferFollowUpEvidence = new Set(['provider_no_record', 'sent_folder_empty']);
+
+export async function resolveUnknownPriceOfferFollowUp(
+  input: PriceOfferFollowUpResolutionInput,
+): Promise<PriceOfferFollowUpHistoryItem | null> {
+  const id = input.id.trim();
+  const offerId = input.offerId.trim();
+  const operationId = input.operationId.trim();
+  const actorEmail = input.actorEmail.trim().toLowerCase().slice(0, 254);
+  const evidenceCode = input.evidenceCode.trim();
+  const allowedEvidence = input.resolution === 'sent' ? sentPriceOfferFollowUpEvidence : notSentPriceOfferFollowUpEvidence;
+  if ((input.resolution !== 'sent' && input.resolution !== 'not_sent')
+    || !uuidPattern.test(id) || !uuidPattern.test(offerId) || !uuidPattern.test(operationId)
+    || !Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 1
+    || !actorEmail || !allowedEvidence.has(evidenceCode)) {
+    throw new Error('Neplatné manuálne potvrdenie výsledku follow-upu.');
+  }
+  await recoverStalePriceOfferFollowUps(offerId, actorEmail);
+  const timestamp = now();
+  const nextStatus: PriceOfferFollowUpStatus = input.resolution === 'sent' ? 'sent' : 'failed';
+  const errorCode = input.resolution === 'sent' ? 'manual_smtp_accepted' : 'manual_not_sent';
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const usedOperation = local.priceOfferFollowUps.find((item) => item.resolutionOperationId === operationId);
+      if (usedOperation) {
+        return usedOperation.id === id && usedOperation.offerId === offerId
+          && usedOperation.resolution === input.resolution && usedOperation.resolutionEvidenceCode === evidenceCode
+          ? priceOfferFollowUpHistory(usedOperation) : null;
+      }
+      const followUp = local.priceOfferFollowUps.find((item) => item.id === id && item.offerId === offerId);
+      if (!followUp || followUp.status !== 'unknown' || followUp.revision !== input.expectedRevision) return null;
+      followUp.status = nextStatus;
+      followUp.errorCode = errorCode;
+      followUp.resolution = input.resolution;
+      followUp.resolutionEvidenceCode = evidenceCode;
+      followUp.resolutionOperationId = operationId;
+      if (input.resolution === 'not_sent') followUp.messageId = '';
+      followUp.revision += 1;
+      followUp.updatedAt = timestamp;
+      const offer = local.priceOffers.find((item) => item.id === followUp.offerId);
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'business_job', entityId: offer?.jobId || followUp.offerId,
+        action: 'price_offer_follow_up_manually_resolved', actorEmail,
+        changes: { followUpId: followUp.id, offerId: followUp.offerId, resolution: input.resolution,
+          evidenceCode, operationId, status: nextStatus, revision: followUp.revision }, createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return priceOfferFollowUpHistory(followUp);
+    });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query(
+      `SELECT f.*, o.job_id FROM price_offer_follow_ups f
+       JOIN price_offers o ON o.id = f.offer_id
+       WHERE f.id = $1 AND f.offer_id = $2 FOR UPDATE OF f`,
+      [id, offerId],
+    );
+    if (!currentResult.rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const current = toPriceOfferFollowUp(currentResult.rows[0]);
+    if (current.resolutionOperationId === operationId) {
+      await client.query('COMMIT');
+      return current.resolution === input.resolution && current.resolutionEvidenceCode === evidenceCode
+        ? priceOfferFollowUpHistory(current) : null;
+    }
+    const reusedOperation = await client.query(
+      'SELECT 1 FROM price_offer_follow_ups WHERE resolution_operation_id = $1 LIMIT 1',
+      [operationId],
+    );
+    if (reusedOperation.rowCount || current.status !== 'unknown' || current.revision !== input.expectedRevision) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const { rows } = await client.query(
+      `UPDATE price_offer_follow_ups SET status = $2, error_code = $3, resolution = $4,
+         resolution_evidence_code = $5, resolution_operation_id = $6,
+         message_id = CASE WHEN $4 = 'not_sent' THEN '' ELSE message_id END,
+         revision = revision + 1, updated_at = $7
+       WHERE id = $1 AND offer_id = $8 AND status = 'unknown' AND revision = $9
+       RETURNING *`,
+      [id, nextStatus, errorCode, input.resolution, evidenceCode, operationId, timestamp, offerId, input.expectedRevision],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    const saved = toPriceOfferFollowUp(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'business_job', String(currentResult.rows[0].job_id || offerId),
+        'price_offer_follow_up_manually_resolved', actorEmail,
+        { followUpId: id, offerId, resolution: input.resolution, evidenceCode, operationId,
+          status: nextStatus, revision: saved.revision }, timestamp],
+    );
+    await client.query('COMMIT');
+    return priceOfferFollowUpHistory(saved);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    if ((error as { code?: string }).code === '23505') return null;
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function listPriceOfferFollowUps(offerId: string): Promise<PriceOfferFollowUpHistoryItem[]> {
+  if (!uuidPattern.test(offerId)) return [];
+  await ensureSchema();
+  await recoverStalePriceOfferFollowUps(offerId);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.priceOfferFollowUps
+      .filter((item) => item.offerId === offerId)
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 100)
+      .map(priceOfferFollowUpHistory);
+  }
+  const { rows } = await db.query(
+    `SELECT id, created_at, updated_at, created_by, status, subject, message_id, revision
+     FROM price_offer_follow_ups WHERE offer_id = $1 ORDER BY created_at DESC LIMIT 100`,
+    [offerId],
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
+    createdBy: String(row.created_by),
+    status: String(row.status) as PriceOfferFollowUpStatus,
+    subject: String(row.subject),
+    messageId: String(row.message_id ?? ''),
+    revision: Number(row.revision ?? 1),
+  }));
 }
 
 export async function updatePriceOfferStatus(id: string, status: PriceOfferStatus, actorEmail: string) {
@@ -12996,16 +15219,35 @@ export async function savePlannerAction(input: PlannerActionInput, actorEmail: s
   };
   const db = getPool();
   if (!db) {
-    const local = await readLocalDb();
-    const existingIndex = local.plannerActions.findIndex((item) => item.id === action.id);
-    if (existingIndex >= 0) {
-      local.plannerActions[existingIndex] = { ...local.plannerActions[existingIndex], ...action, createdAt: local.plannerActions[existingIndex].createdAt };
-    } else {
-      local.plannerActions.push(action);
-    }
-    await writeLocalDb(local);
-    await addAuditLog('planner_action', action.id, id ? 'planner_action_updated' : 'planner_action_created', actorEmail, { date: action.date, type: action.type });
-    return action;
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const existingIndex = local.plannerActions.findIndex((item) => item.id === action.id);
+      if (existingIndex >= 0) {
+        const existing = local.plannerActions[existingIndex];
+        const scheduleChanged = existing.date !== action.date
+          || existing.timeFrom !== action.timeFrom
+          || existing.timeTo !== action.timeTo;
+        const customerRecipientChanged = (existing.customerEmail ?? '').trim().toLowerCase()
+          !== (action.customerEmail ?? '').trim().toLowerCase();
+        action.createdAt = existing.createdAt;
+        action.notify2DaysSent = scheduleChanged || existing.notify2Days !== action.notify2Days
+          ? false : existing.notify2DaysSent;
+        action.notify1DaySent = scheduleChanged || existing.notify1Day !== action.notify1Day
+          ? false : existing.notify1DaySent;
+        action.notifyCustomerSent = scheduleChanged || customerRecipientChanged || existing.notifyCustomer !== action.notifyCustomer
+          ? false : existing.notifyCustomerSent;
+        local.plannerActions[existingIndex] = action;
+      } else {
+        local.plannerActions.push(action);
+      }
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'planner_action', entityId: action.id,
+        action: id ? 'planner_action_updated' : 'planner_action_created', actorEmail,
+        changes: { date: action.date, type: action.type }, createdAt: now(),
+      });
+      await writeLocalDb(local);
+      return action;
+    });
   }
   const { rows } = await db.query(
     `INSERT INTO planner_actions (
@@ -13029,7 +15271,26 @@ export async function savePlannerAction(input: PlannerActionInput, actorEmail: s
       stav = EXCLUDED.stav,
       notif_2dni = EXCLUDED.notif_2dni,
       notif_1den = EXCLUDED.notif_1den,
-      notif_zakaznik = EXCLUDED.notif_zakaznik
+      notif_zakaznik = EXCLUDED.notif_zakaznik,
+      notif_2dni_odoslana = CASE WHEN
+        planner_actions.datum IS DISTINCT FROM EXCLUDED.datum
+        OR planner_actions.cas_od IS DISTINCT FROM EXCLUDED.cas_od
+        OR planner_actions.cas_do IS DISTINCT FROM EXCLUDED.cas_do
+        OR planner_actions.notif_2dni IS DISTINCT FROM EXCLUDED.notif_2dni
+        THEN false ELSE planner_actions.notif_2dni_odoslana END,
+      notif_1den_odoslana = CASE WHEN
+        planner_actions.datum IS DISTINCT FROM EXCLUDED.datum
+        OR planner_actions.cas_od IS DISTINCT FROM EXCLUDED.cas_od
+        OR planner_actions.cas_do IS DISTINCT FROM EXCLUDED.cas_do
+        OR planner_actions.notif_1den IS DISTINCT FROM EXCLUDED.notif_1den
+        THEN false ELSE planner_actions.notif_1den_odoslana END,
+      notif_zakaznik_odoslana = CASE WHEN
+        planner_actions.datum IS DISTINCT FROM EXCLUDED.datum
+        OR planner_actions.cas_od IS DISTINCT FROM EXCLUDED.cas_od
+        OR planner_actions.cas_do IS DISTINCT FROM EXCLUDED.cas_do
+        OR lower(btrim(planner_actions.zakaznik_email)) IS DISTINCT FROM lower(btrim(EXCLUDED.zakaznik_email))
+        OR planner_actions.notif_zakaznik IS DISTINCT FROM EXCLUDED.notif_zakaznik
+        THEN false ELSE planner_actions.notif_zakaznik_odoslana END
     RETURNING *`,
     [
       action.id,
@@ -13068,6 +15329,399 @@ export async function markPlannerNotificationSent(id: string, field: 'notify2Day
     return;
   }
   await db.query(`UPDATE planner_actions SET ${dbField} = true WHERE id = $1`, [id]);
+}
+
+function normalizeAdminWorkItemInput(input: AdminWorkItemInput, actorRole: AdminRole): AdminWorkItemInput {
+  const title = input.title.trim().replace(/\s+/g, ' ');
+  const note = input.note.trim();
+  const ownerEmail = input.ownerEmail.trim().toLowerCase();
+  const dueDate = input.dueDate.trim();
+  if (title.length < 3 || title.length > 120) throw new Error('Názov úlohy musí mať 3 až 120 znakov.');
+  if (note.length > 1200) throw new Error('Poznámka môže mať najviac 1 200 znakov.');
+  if (!(['CRITICAL', 'HIGH', 'NORMAL', 'LOW'] as AdminWorkItemPriority[]).includes(input.priority)) throw new Error('Neplatná priorita úlohy.');
+  if (dueDate && !isValidIsoCalendarDate(dueDate)) throw new Error('Neplatný termín úlohy.');
+  if (!(['TEAM', 'SUPER_ADMIN'] as AdminWorkItemVisibility[]).includes(input.visibility)) throw new Error('Neplatná viditeľnosť úlohy.');
+  if (input.visibility === 'SUPER_ADMIN' && actorRole !== 'SUPER_ADMIN') throw new Error('Túto viditeľnosť môže nastaviť iba superadmin.');
+  return { title, note, priority: input.priority, dueDate, ownerEmail, visibility: input.visibility };
+}
+
+function canAccessAdminWorkItem(item: AdminWorkItem, role: AdminRole) {
+  return role === 'SUPER_ADMIN' || item.visibility === 'TEAM';
+}
+
+function workItemAuditChanges(item: AdminWorkItem, extra: Record<string, unknown> = {}) {
+  return {
+    status: item.status,
+    priority: item.priority,
+    dueDate: item.dueDate,
+    hasOwner: Boolean(item.ownerEmail),
+    visibility: item.visibility,
+    revision: item.revision,
+    ...extra,
+  };
+}
+
+export async function listAdminTaskAssignees(): Promise<AdminTaskAssignee[]> {
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await ensureLocalBusinessDefaults();
+    return local.adminUsers.filter((user) => user.active).map((user) => ({ email: user.email, name: user.name || user.email }))
+      .sort((left, right) => left.name.localeCompare(right.name, 'sk'));
+  }
+  const { rows } = await db.query('SELECT email, name FROM admin_users WHERE active = true ORDER BY lower(COALESCE(NULLIF(name,\'\'), email)) ASC');
+  return rows.map((row) => ({ email: String(row.email).trim().toLowerCase(), name: String(row.name || row.email) }));
+}
+
+export type AdminWorkItemListOptions = {
+  view?: 'all' | 'overdue' | 'today' | 'critical' | 'mine' | 'unassigned' | 'done' | 'done_today' | 'cancelled';
+  source?: 'all' | 'automatic' | 'manual';
+  query?: string;
+  currentEmail?: string;
+  today?: string;
+};
+
+export type AdminWorkItemCounts = {
+  overdue: number;
+  today: number;
+  mine: number;
+  unassigned: number;
+  doneToday: number;
+  cancelled: number;
+};
+
+function adminWorkItemMatchesOptions(item: AdminWorkItem, options: AdminWorkItemListOptions) {
+  const view = options.view ?? '';
+  if (options.source === 'automatic') return false;
+  if ((view === 'done' || view === 'done_today') && item.status !== 'DONE') return false;
+  if (view === 'cancelled' && item.status !== 'CANCELLED') return false;
+  if (!['done', 'done_today', 'cancelled'].includes(view) && view && item.status !== 'OPEN') return false;
+  if (view === 'critical' && item.priority !== 'CRITICAL') return false;
+  if (view === 'mine' && item.ownerEmail !== String(options.currentEmail ?? '').trim().toLowerCase()) return false;
+  if (view === 'unassigned' && item.ownerEmail) return false;
+  if (view === 'overdue' && (!item.dueDate || item.dueDate >= options.today!)) return false;
+  if (view === 'today' && item.dueDate !== options.today) return false;
+  if (view === 'done_today' && (!item.completedAt || dateInBratislava(item.completedAt) !== options.today)) return false;
+  const query = String(options.query ?? '').trim().toLocaleLowerCase('sk');
+  return !query || `${item.title} ${item.note} ${item.ownerEmail}`.toLocaleLowerCase('sk').includes(query);
+}
+
+export async function listAdminWorkItems(
+  role: AdminRole,
+  limit = 250,
+  options: AdminWorkItemListOptions = {},
+): Promise<AdminWorkItem[]> {
+  await ensureSchema();
+  const safeLimit = Math.min(500, Math.max(1, Math.trunc(limit)));
+  const isPageQuery = Boolean(options.view || options.source || options.query);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.adminWorkItems.filter((item) => canAccessAdminWorkItem(item, role))
+      .filter((item) => adminWorkItemMatchesOptions(item, options))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      .slice(0, isPageQuery ? undefined : safeLimit);
+  }
+  if (options.source === 'automatic') return [];
+  const values: unknown[] = [role === 'SUPER_ADMIN'];
+  const where = [`($1::boolean = true OR visibility = 'TEAM')`];
+  const add = (value: unknown) => { values.push(value); return `$${values.length}`; };
+  const view = options.view ?? '';
+  if (view === 'done' || view === 'done_today') where.push(`status = 'DONE'`);
+  else if (view === 'cancelled') where.push(`status = 'CANCELLED'`);
+  else if (view) where.push(`status = 'OPEN'`);
+  if (view === 'critical') where.push(`priority = 'CRITICAL'`);
+  if (view === 'mine') where.push(`lower(owner_email) = lower(${add(String(options.currentEmail ?? '').trim())})`);
+  if (view === 'unassigned') where.push(`owner_email = ''`);
+  if (view === 'overdue') where.push(`due_date < ${add(options.today ?? '')}::date`);
+  if (view === 'today') where.push(`due_date = ${add(options.today ?? '')}::date`);
+  if (view === 'done_today') where.push(`(completed_at AT TIME ZONE 'Europe/Bratislava')::date = ${add(options.today ?? '')}::date`);
+  const query = String(options.query ?? '').trim().slice(0, 80);
+  if (query) {
+    const queryParameter = add(`%${query}%`);
+    where.push(`(title ILIKE ${queryParameter} OR note ILIKE ${queryParameter} OR owner_email ILIKE ${queryParameter})`);
+  }
+  const limitSql = isPageQuery ? '' : `LIMIT ${add(safeLimit)}::integer`;
+  const { rows } = await db.query(
+    `SELECT * FROM admin_work_items
+     WHERE ${where.join(' AND ')}
+     ORDER BY CASE status WHEN 'OPEN' THEN 0 WHEN 'DONE' THEN 1 ELSE 2 END,
+       due_date ASC NULLS LAST, updated_at DESC
+     ${limitSql}`,
+    values,
+  );
+  return rows.map(toAdminWorkItem);
+}
+
+export async function countAdminWorkItems(role: AdminRole, currentEmail: string, today: string): Promise<AdminWorkItemCounts> {
+  await ensureSchema();
+  const normalizedEmail = currentEmail.trim().toLowerCase();
+  const db = getPool();
+  if (!db) {
+    const visible = (await readLocalDb()).adminWorkItems.filter((item) => canAccessAdminWorkItem(item, role));
+    return {
+      overdue: visible.filter((item) => item.status === 'OPEN' && item.dueDate && item.dueDate < today).length,
+      today: visible.filter((item) => item.status === 'OPEN' && item.dueDate === today).length,
+      mine: visible.filter((item) => item.status === 'OPEN' && item.ownerEmail === normalizedEmail).length,
+      unassigned: visible.filter((item) => item.status === 'OPEN' && !item.ownerEmail).length,
+      doneToday: visible.filter((item) => item.status === 'DONE' && item.completedAt && dateInBratislava(item.completedAt) === today).length,
+      cancelled: visible.filter((item) => item.status === 'CANCELLED').length,
+    };
+  }
+  const { rows } = await db.query(
+    `SELECT
+       count(*) FILTER (WHERE status='OPEN' AND due_date < $3::date)::integer AS overdue,
+       count(*) FILTER (WHERE status='OPEN' AND due_date = $3::date)::integer AS today,
+       count(*) FILTER (WHERE status='OPEN' AND lower(owner_email)=lower($2))::integer AS mine,
+       count(*) FILTER (WHERE status='OPEN' AND owner_email='')::integer AS unassigned,
+       count(*) FILTER (WHERE status='DONE' AND (completed_at AT TIME ZONE 'Europe/Bratislava')::date = $3::date)::integer AS done_today,
+       count(*) FILTER (WHERE status='CANCELLED')::integer AS cancelled
+     FROM admin_work_items WHERE ($1::boolean = true OR visibility='TEAM')`,
+    [role === 'SUPER_ADMIN', normalizedEmail, today],
+  );
+  return {
+    overdue: Number(rows[0]?.overdue ?? 0), today: Number(rows[0]?.today ?? 0), mine: Number(rows[0]?.mine ?? 0),
+    unassigned: Number(rows[0]?.unassigned ?? 0), doneToday: Number(rows[0]?.done_today ?? 0), cancelled: Number(rows[0]?.cancelled ?? 0),
+  };
+}
+
+export async function createAdminWorkItem(
+  input: AdminWorkItemInput, actorEmail: string, actorRole: AdminRole, idempotencyKey?: string,
+): Promise<AdminWorkItem> {
+  await ensureSchema();
+  const normalized = normalizeAdminWorkItemInput(input, actorRole);
+  const timestamp = now();
+  const requestedId = String(idempotencyKey ?? '').trim();
+  if (requestedId && !uuidPattern.test(requestedId)) throw new Error('Neplatný identifikátor úlohy.');
+  const item: AdminWorkItem = {
+    ...normalized,
+    id: requestedId || randomUUID(), status: 'OPEN', revision: 1, cancelReason: '',
+    createdBy: actorEmail.trim().toLowerCase(), completedBy: '', completedAt: '', cancelledBy: '', cancelledAt: '',
+    createdAt: timestamp, updatedAt: timestamp,
+  };
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const existing = local.adminWorkItems.find((candidate) => candidate.id === item.id);
+      if (existing) {
+        if (existing.createdBy !== item.createdBy || !canAccessAdminWorkItem(existing, actorRole)) throw new Error('Identifikátor úlohy už existuje.');
+        return existing;
+      }
+      if (item.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.toLowerCase() === item.ownerEmail)) {
+        throw new Error('Vybraný vlastník nie je aktívny používateľ.');
+      }
+      local.adminWorkItems.unshift(item);
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_work_item', entityId: item.id, action: 'admin_work_item_created',
+        actorEmail: item.createdBy, changes: workItemAuditChanges(item), createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return item;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const preexisting = await client.query('SELECT * FROM admin_work_items WHERE id = $1 FOR UPDATE', [item.id]);
+    if (preexisting.rows[0]) {
+      const existingItem = toAdminWorkItem(preexisting.rows[0]);
+      if (existingItem.createdBy !== item.createdBy || !canAccessAdminWorkItem(existingItem, actorRole)) throw new Error('Identifikátor úlohy už existuje.');
+      await client.query('COMMIT');
+      return existingItem;
+    }
+    if (item.ownerEmail) {
+      const owner = await client.query('SELECT 1 FROM admin_users WHERE active = true AND lower(email) = lower($1) LIMIT 1', [item.ownerEmail]);
+      if (!owner.rowCount) throw new Error('Vybraný vlastník nie je aktívny používateľ.');
+    }
+    const { rows } = await client.query(
+      `INSERT INTO admin_work_items (
+        id,title,note,priority,due_date,owner_email,visibility,status,revision,cancel_reason,created_by,
+        completed_by,completed_at,cancelled_by,cancelled_at,created_at,updated_at
+      ) VALUES ($1,$2,$3,$4,NULLIF($5,'')::date,$6,$7,'OPEN',1,'',$8,'',NULL,'',NULL,$9,$9)
+      ON CONFLICT (id) DO NOTHING RETURNING *`,
+      [item.id, item.title, item.note, item.priority, item.dueDate, item.ownerEmail, item.visibility, item.createdBy, timestamp],
+    );
+    if (!rows[0]) {
+      const existing = await client.query('SELECT * FROM admin_work_items WHERE id = $1 FOR UPDATE', [item.id]);
+      const existingItem = existing.rows[0] ? toAdminWorkItem(existing.rows[0]) : undefined;
+      if (!existingItem || existingItem.createdBy !== item.createdBy || !canAccessAdminWorkItem(existingItem, actorRole)) {
+        throw new Error('Identifikátor úlohy už existuje.');
+      }
+      await client.query('COMMIT');
+      return existingItem;
+    }
+    const saved = toAdminWorkItem(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'admin_work_item', saved.id, 'admin_work_item_created', item.createdBy, workItemAuditChanges(saved), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function updateAdminWorkItem(
+  id: string, input: AdminWorkItemInput, expectedRevision: number, actorEmail: string, actorRole: AdminRole,
+): Promise<AdminWorkItem> {
+  await ensureSchema();
+  const normalized = normalizeAdminWorkItemInput(input, actorRole);
+  const timestamp = now();
+  const actor = actorEmail.trim().toLowerCase();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const index = local.adminWorkItems.findIndex((item) => item.id === id);
+      if (index < 0 || !canAccessAdminWorkItem(local.adminWorkItems[index], actorRole)) throw new Error('Úloha sa nenašla.');
+      const current = local.adminWorkItems[index];
+      if (current.revision !== expectedRevision) throw new Error('Úlohu medzičasom upravil niekto iný. Obnovte stránku.');
+      if (current.status !== 'OPEN') throw new Error('Dokončenú alebo zrušenú úlohu treba najprv znovu otvoriť.');
+      if (normalized.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.toLowerCase() === normalized.ownerEmail)) {
+        throw new Error('Vybraný vlastník nie je aktívny používateľ.');
+      }
+      const changedFields = (Object.keys(normalized) as Array<keyof AdminWorkItemInput>)
+        .filter((key) => current[key] !== normalized[key]);
+      if (!changedFields.length) return current;
+      const saved = { ...current, ...normalized, revision: current.revision + 1, updatedAt: timestamp };
+      local.adminWorkItems[index] = saved;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_work_item', entityId: id, action: 'admin_work_item_updated', actorEmail: actor,
+        changes: workItemAuditChanges(saved, { changedFields }), createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return saved;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query('SELECT * FROM admin_work_items WHERE id = $1 FOR UPDATE', [id]);
+    if (!currentResult.rows[0]) throw new Error('Úloha sa nenašla.');
+    const current = toAdminWorkItem(currentResult.rows[0]);
+    if (!canAccessAdminWorkItem(current, actorRole)) throw new Error('Úloha sa nenašla.');
+    if (current.revision !== expectedRevision) throw new Error('Úlohu medzičasom upravil niekto iný. Obnovte stránku.');
+    if (current.status !== 'OPEN') throw new Error('Dokončenú alebo zrušenú úlohu treba najprv znovu otvoriť.');
+    if (normalized.ownerEmail) {
+      const owner = await client.query('SELECT 1 FROM admin_users WHERE active = true AND lower(email) = lower($1) LIMIT 1', [normalized.ownerEmail]);
+      if (!owner.rowCount) throw new Error('Vybraný vlastník nie je aktívny používateľ.');
+    }
+    const changedFields = (Object.keys(normalized) as Array<keyof AdminWorkItemInput>)
+      .filter((key) => current[key] !== normalized[key]);
+    if (!changedFields.length) {
+      await client.query('COMMIT');
+      return current;
+    }
+    const { rows } = await client.query(
+      `UPDATE admin_work_items SET title=$2,note=$3,priority=$4,due_date=NULLIF($5,'')::date,owner_email=$6,
+       visibility=$7,revision=revision+1,updated_at=$8 WHERE id=$1 RETURNING *`,
+      [id, normalized.title, normalized.note, normalized.priority, normalized.dueDate, normalized.ownerEmail, normalized.visibility, timestamp],
+    );
+    const saved = toAdminWorkItem(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'admin_work_item', id, 'admin_work_item_updated', actor, workItemAuditChanges(saved, { changedFields }), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function transitionAdminWorkItem(input: {
+  id: string;
+  status: AdminWorkItemStatus;
+  expectedRevision: number;
+  cancelReason?: string;
+  actorEmail: string;
+  actorRole: AdminRole;
+}): Promise<AdminWorkItem> {
+  await ensureSchema();
+  if (!(['OPEN', 'DONE', 'CANCELLED'] as AdminWorkItemStatus[]).includes(input.status)) throw new Error('Neplatný stav úlohy.');
+  const cancelReason = String(input.cancelReason ?? '').trim();
+  if (input.status === 'CANCELLED' && (cancelReason.length < 3 || cancelReason.length > 500)) {
+    throw new Error('Pri zrušení uveďte dôvod v rozsahu 3 až 500 znakov.');
+  }
+  const actor = input.actorEmail.trim().toLowerCase();
+  const timestamp = now();
+  const applyTransition = (current: AdminWorkItem): AdminWorkItem => ({
+    ...current,
+    status: input.status,
+    revision: current.revision + 1,
+    cancelReason: input.status === 'CANCELLED' ? cancelReason : '',
+    completedBy: input.status === 'DONE' ? actor : '',
+    completedAt: input.status === 'DONE' ? timestamp : '',
+    cancelledBy: input.status === 'CANCELLED' ? actor : '',
+    cancelledAt: input.status === 'CANCELLED' ? timestamp : '',
+    updatedAt: timestamp,
+  });
+  const action = input.status === 'DONE' ? 'admin_work_item_completed'
+    : input.status === 'CANCELLED' ? 'admin_work_item_cancelled' : 'admin_work_item_reopened';
+  const transitionAllowed = (current: AdminWorkItemStatus) => (
+    current === 'OPEN' ? input.status === 'DONE' || input.status === 'CANCELLED' : input.status === 'OPEN'
+  );
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const index = local.adminWorkItems.findIndex((item) => item.id === input.id);
+      if (index < 0 || !canAccessAdminWorkItem(local.adminWorkItems[index], input.actorRole)) throw new Error('Úloha sa nenašla.');
+      const current = local.adminWorkItems[index];
+      if (current.status === input.status) return current;
+      if (current.revision !== input.expectedRevision) throw new Error('Úlohu medzičasom upravil niekto iný. Obnovte stránku.');
+      if (!transitionAllowed(current.status)) throw new Error('Neplatná zmena stavu úlohy. Úlohu treba najprv znovu otvoriť.');
+      const saved = applyTransition(current);
+      local.adminWorkItems[index] = saved;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_work_item', entityId: saved.id, action, actorEmail: actor,
+        changes: workItemAuditChanges(saved), createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return saved;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query('SELECT * FROM admin_work_items WHERE id = $1 FOR UPDATE', [input.id]);
+    if (!currentResult.rows[0]) throw new Error('Úloha sa nenašla.');
+    const current = toAdminWorkItem(currentResult.rows[0]);
+    if (!canAccessAdminWorkItem(current, input.actorRole)) throw new Error('Úloha sa nenašla.');
+    if (current.status === input.status) {
+      await client.query('COMMIT');
+      return current;
+    }
+    if (current.revision !== input.expectedRevision) throw new Error('Úlohu medzičasom upravil niekto iný. Obnovte stránku.');
+    if (!transitionAllowed(current.status)) throw new Error('Neplatná zmena stavu úlohy. Úlohu treba najprv znovu otvoriť.');
+    const next = applyTransition(current);
+    const { rows } = await client.query(
+      `UPDATE admin_work_items SET status=$2,revision=$3,cancel_reason=$4,completed_by=$5,completed_at=$6,
+       cancelled_by=$7,cancelled_at=$8,updated_at=$9 WHERE id=$1 RETURNING *`,
+      [next.id, next.status, next.revision, next.cancelReason, next.completedBy, next.completedAt || null,
+        next.cancelledBy, next.cancelledAt || null, next.updatedAt],
+    );
+    const saved = toAdminWorkItem(rows[0]);
+    await client.query(
+      'INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'admin_work_item', saved.id, action, actor, workItemAuditChanges(saved), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function setAdminSetting(key: string, value: string, actorEmail: string) {
@@ -13657,6 +16311,8 @@ function toTestimonial(row: Record<string, unknown>): Testimonial {
   return {
     id: String(row.id),
     submissionId: row.submission_id ? String(row.submission_id) : undefined,
+    reviewRequestId: row.review_request_id || row.reviewRequestId ? String(row.review_request_id ?? row.reviewRequestId) : undefined,
+    businessJobId: row.business_job_id || row.businessJobId ? String(row.business_job_id ?? row.businessJobId) : undefined,
     customerName: String(row.customer_name),
     location: row.location ? String(row.location) : '',
     rating: Number(row.rating ?? 5),

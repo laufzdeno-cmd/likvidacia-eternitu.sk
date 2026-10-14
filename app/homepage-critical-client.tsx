@@ -138,7 +138,7 @@ export default function initializeHomepageCriticalClient({
           '<span>Nezáväznú cenovú ponuku vám pošleme čo najskôr, najneskôr do 24 hodín.</span>',
           '<small>Máte otázky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
-          '<small>Po-Pia 7:00-18:00</small>',
+          '<small>Po-Pia 8:00-18:00</small>',
         ].join('');
         return;
       }

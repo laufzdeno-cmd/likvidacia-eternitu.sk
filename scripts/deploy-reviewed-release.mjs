@@ -181,6 +181,7 @@ export async function runReviewedDeployment({
   if (parsed.promote && parsed.confirmProduction !== guarded.sha) throw new Error('--confirm-production sa nezhoduje s HEAD schváleným release guardom.');
   const rollbackId = manifest?.rollback?.deployment;
   const rollbackSha = manifest?.rollback?.sourceSha;
+  const previousProductionId = manifest?.previousProduction?.deployment;
   if (parsed.staging) {
     const stagingDeployment = await inspectDeployment({
       deploymentId: parsed.candidateDeployment,
@@ -193,7 +194,9 @@ export async function runReviewedDeployment({
     return { action: 'verified-staging', candidate: parsed.candidateDeployment, sha: guarded.sha };
   }
   if (!deploymentPattern.test(rollbackId || '') || !fullShaPattern.test(rollbackSha || '')) throw new Error('Release manifest neobsahuje platnú rollback väzbu.');
+  if (!deploymentPattern.test(previousProductionId || '')) throw new Error('Release manifest neobsahuje platnú väzbu na predchádzajúcu produkciu.');
   if (rollbackId === parsed.candidateDeployment) throw new Error('Candidate a rollback deployment musia byť rozdielne.');
+  if (previousProductionId === parsed.candidateDeployment) throw new Error('Candidate a predchádzajúca produkcia musia byť rozdielne.');
 
   const [candidate, rollback, currentBefore] = await Promise.all([
     inspectDeployment({ deploymentId: parsed.candidateDeployment, env, fetchImpl, signal: abortSignalFactory(apiRequestTimeoutMs) }),
@@ -202,8 +205,11 @@ export async function runReviewedDeployment({
   ]);
   requireDeploymentCommit(candidate, guarded.sha, 'Candidate');
   requireDeploymentCommit(rollback, rollbackSha.toLowerCase(), 'Rollback');
-  const productionAliases = requireCurrent(currentBefore, rollbackId);
-  if (!parsed.promote) return { action: 'verified', candidate: parsed.candidateDeployment, rollback: rollbackId, sha: guarded.sha };
+  const productionAliases = requireCurrent(currentBefore, previousProductionId);
+  if (!parsed.promote) return {
+    action: 'verified', candidate: parsed.candidateDeployment, rollback: rollbackId,
+    previousProduction: previousProductionId, sha: guarded.sha,
+  };
 
   const rechecked = await guardRunner({ argv: parsed.guardArguments, cwd });
   verifiedManifest(rechecked);
@@ -212,7 +218,7 @@ export async function runReviewedDeployment({
   }
   requireCurrent(
     await currentProductionAliases({ env, fetchImpl, signal: abortSignalFactory(apiRequestTimeoutMs) }),
-    rollbackId,
+    previousProductionId,
     productionAliases,
   );
   let promoteTransportError = null;
@@ -239,6 +245,7 @@ export async function runReviewedDeployment({
     action: 'promoted',
     candidate: parsed.candidateDeployment,
     rollback: rollbackId,
+    previousProduction: previousProductionId,
     sha: guarded.sha,
     transportRecoveredByAliasVerification: Boolean(promoteTransportError),
   };

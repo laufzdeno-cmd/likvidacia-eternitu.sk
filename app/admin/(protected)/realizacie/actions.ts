@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireAdmin, verifyCsrf } from '@/src/server/auth';
+import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { createRealization, updateRealizationStatus } from '@/src/server/db';
 import { normalizePublicRealizationImageUrl } from '@/src/server/public-realization-image.mjs';
 import type { RealizationStatus } from '@/src/server/types';
@@ -52,9 +52,11 @@ export async function createRealizationAction(formData: FormData) {
 
 export async function updateRealizationStatusAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actorEmail = await requireAdmin();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '') as RealizationStatus;
+  const actorEmail = status === 'published'
+    ? (await requireSuperAdmin()).email
+    : await requireAdmin();
   const rightsConfirmed = formData.get('publicationRightsConfirmed') === 'on';
   const locationConfirmed = formData.get('publicationLocationConfirmed') === 'on';
   const evidence = String(formData.get('publicationEvidence') || '').trim();

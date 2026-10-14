@@ -1,35 +1,150 @@
 import { notFound } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
-import { getBusinessJobFinance, getBusinessJobWithActivity, getBusinessSettings, isLeadTestData, listLandfillPrices, listWorkers } from '@/src/server/db';
-import { addBusinessJobNoteAction, saveBusinessJobAction, setBusinessJobTestDataAction } from '../actions';
+import {
+  getBusinessJobFinance,
+  getBusinessJobWithActivity,
+  getOperationalBusinessJobWithActivity,
+  getBusinessSettings,
+  isLeadTestData,
+  listLandfillPrices,
+  listBusinessJobOfferEvidence,
+  listLeadEmailOutbox,
+  listPhotoIntakeRecords,
+  listPlannerActions,
+  listPriceOffers,
+  listPriceOfferFollowUps,
+  listReviewRequests,
+  listWorkers,
+} from '@/src/server/db';
+import { buildJobClosureChecklist, buildOperationalJobChecklist, buildOperationalTimeline, buildOperationsTimeline, getJobAttention } from '@/src/lib/admin-operations';
+import type { AdminUser } from '@/src/server/types';
+import { addBusinessJobNoteAction, saveBusinessJobAction, saveOperationalBusinessJobAction, setBusinessJobTestDataAction } from '../actions';
 import JobForm from '../job-form';
+import OperationalJobForm from '../operational-job-form';
 import BillingPanel from './billing-panel';
-import { euro, jobStatusLabels, normalizeWorkflowStatus, workflowStatuses } from '../constants';
+import { euro, jobStatusLabels, normalizeWorkflowStatus, numberSk, workflowStatuses } from '../constants';
 
-function activityTitle(action: string) {
-  const labels: Record<string, string> = {
-    business_job_lead_received: 'Dopyt prijatý z webstránky',
-    business_job_created: 'Zákazka vytvorená',
-    business_job_updated: 'Zákazka upravená',
-    business_job_status_changed: 'Stav zmenený',
-    business_job_quote_sent: 'Cenová ponuka odoslaná',
-    business_job_note_added: 'Poznámka pridaná',
-    business_job_archived: 'Zákazka archivovaná',
-    business_job_deleted: 'Zákazka archivovaná',
-    business_invoice_recorded: 'Faktúra zaevidovaná',
-    business_invoice_cancelled: 'Faktúra stornovaná',
-    business_payment_recorded: 'Úhrada zaevidovaná',
-    business_payment_reversed: 'Úhrada stornovaná',
-  };
-  return labels[action] || action;
-}
+type AdminSessionUser = Pick<AdminUser, 'email' | 'role'>;
 
 export default async function BusinessJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [job, adminUser, workers, landfillPrices, settings, finance] = await Promise.all([
+  const adminUser = await requireAdminUser();
+  if (adminUser.role !== 'SUPER_ADMIN') return <OperationalBusinessJobDetailPage id={id} adminUser={adminUser} />;
+  return <SuperAdminBusinessJobDetailPage id={id} adminUser={adminUser} />;
+}
+
+async function OperationalBusinessJobDetailPage({ id, adminUser }: { id: string; adminUser: AdminSessionUser }) {
+  const job = await getOperationalBusinessJobWithActivity(id);
+  if (!job) notFound();
+  const timelineEnd = new Date(`${job.demolitionDate}T12:00:00Z`);
+  timelineEnd.setUTCDate(timelineEnd.getUTCDate() + 365);
+  const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoRecords] = await Promise.all([
+    job.leadId ? isLeadTestData(job.leadId) : false,
+    listBusinessJobOfferEvidence(job.id),
+    listPlannerActions({ from: job.createdAt.slice(0, 10), to: timelineEnd.toISOString().slice(0, 10) }),
+    listReviewRequests(),
+    job.leadId ? listLeadEmailOutbox(job.leadId) : [],
+    listPhotoIntakeRecords({ businessJobId: job.id, pageSize: 100 }).catch(() => null),
+  ]);
+  const jobPlannerActions = plannerActions.filter((action) => action.jobId === job.id);
+  const reviewRequest = reviewRequests.find((request) => request.jobId === job.id || Boolean(job.leadId && request.leadId === job.leadId));
+  const photoEvidence = photoRecords
+    ? {
+        status: 'available' as const,
+        approvedCount: photoRecords.records.filter((record) => record.status === 'approved_private').length,
+        pendingCount: photoRecords.records.filter((record) => record.status === 'pending_review').length,
+      }
+    : { status: 'unknown' as const };
+  const followUps = (await Promise.all(offers.map(async (offer) =>
+    (await listPriceOfferFollowUps(offer.id)).map((followUp) => ({ ...followUp, offerNumber: offer.number })),
+  ))).flat();
+  const checklist = buildOperationalJobChecklist({ job, offers, plannerActions: jobPlannerActions, photoEvidence, reviewRequest });
+  const timeline = buildOperationalTimeline({ auditLogs: job.activityLogs, offers, plannerActions: jobPlannerActions, followUps, emailDeliveries, reviewRequest });
+  const attention = getJobAttention(job, undefined, {
+    hasActivePlannerAction: jobPlannerActions.some((action) => !['ZRUSENA', 'PRESUNUTA'].includes(action.status)),
+    hasRecordedFollowUp: followUps.length > 0,
+  });
+  const activeStatus = normalizeWorkflowStatus(job.status);
+  const activeIndex = workflowStatuses.indexOf(activeStatus);
+  const closureDone = checklist.filter((item) => item.state === 'done').length;
+  const csrfToken = csrfTokenForEmail(adminUser.email);
+  const isEffectivelyTestData = Boolean(job.isTestData || linkedLeadIsTestData);
+
+  return (
+    <main className="admin-page">
+      <div className="print-report-heading">
+        <img src="/assets/astana-logo.png" alt="ASTANA" />
+        <p>Operatívny detail zákazky · generované {new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date())}</p>
+      </div>
+      <div className="admin-heading no-print">
+        <div><p>{jobStatusLabels[job.status]}{isEffectivelyTestData ? ' · TEST' : ''}</p><h1>{job.customerName}</h1></div>
+        <div className="admin-action-row">
+          <button type="button" className="admin-primary-link" data-print>Tlačiť / PDF</button>
+          <a className="admin-primary-link" href={`/admin/ponuky/nova?zakazka=${job.id}`}>+ Vytvoriť cenovú ponuku</a>
+          <a className="admin-secondary-link" href={`/admin/planovac?zakazka=${job.id}&mesiac=${job.demolitionDate.slice(0, 7)}`}>Naplánovať akciu</a>
+          <a className="admin-secondary-link" href={`/admin/zakazky/${job.id}/podklady`}>Balík podkladov</a>
+          <a className="admin-primary-link" href="/admin/referencie">Referencie a hodnotenia</a>
+        </div>
+      </div>
+
+      <section className="admin-stat-grid">
+        <article><span>Termín demontáže</span><strong>{job.demolitionDate}</strong></article>
+        <article><span>Rozsah</span><strong>{numberSk(job.m2, ' m²')}</strong></article>
+        <article><span>Pracovný tím</span><strong>{job.workers.map((worker) => worker.workerName).join(', ') || 'Bez tímu'}</strong></article>
+        <article><span>Aktuálny stav</span><strong>{jobStatusLabels[job.status]}</strong></article>
+      </section>
+      <p className="admin-muted-note">Finančné údaje zákazky sú oddelené a dostupné iba superadminovi.</p>
+
+      {attention ? <section className={`ops-alert ${attention.severity === 'critical' ? 'ops-alert-danger' : 'ops-alert-warning'} no-print`}>
+        <div><span>Zaseknutá zákazka · {attention.ageDays} dní bez posunu</span><h2>{attention.title}</h2></div><p>{attention.detail}</p>
+      </section> : null}
+
+      <section className="admin-card ops-panel" aria-labelledby="closure-title">
+        <div className="ops-section-heading"><div><span>Dokončenie zákazky</span><h2 id="closure-title">Operatívny kontrolný zoznam · {closureDone}/{checklist.length}</h2></div><p>Kontrola zobrazuje iba nefinančné pracovné kroky.</p></div>
+        <div className="ops-checklist">{checklist.map((item) => <a key={item.id} className={`ops-check-item is-${item.state}`} href={item.href || '#'}><span aria-hidden="true">{item.state === 'done' ? '✓' : item.state === 'attention' ? '!' : item.state === 'unknown' ? '?' : '○'}</span><div><strong>{item.label}</strong><small>{item.detail}</small></div></a>)}</div>
+      </section>
+
+      <section className="admin-card no-print">
+        <h2>Workflow zákazky</h2>
+        <div className="admin-workflow-stepper">{workflowStatuses.map((status, index) => <div key={status} className={index <= activeIndex ? 'is-active' : ''}><span>{index + 1}</span><strong>{jobStatusLabels[status]}</strong></div>)}</div>
+        <div className="admin-workflow-action">
+          {activeStatus === 'PONUKA_POTVRDENA' ? <p>✅ Zákazník potvrdil ponuku. Pripravte oznámenie a podklady podľa zákazky.</p> : null}
+          {activeStatus === 'URADY_PODANE' ? <p>Oznámenie plánovaných prác RÚVZ a súvisiace podklady sú odoslané. Sledujte stav príslušného úradu.</p> : null}
+          {activeStatus === 'URADY_SCHVALENE' ? <p>Potrebný postup a prípadné rozhodnutia podľa konkrétnej zákazky sú vybavené. Naplánujte demontáž.</p> : null}
+          {activeStatus === 'DEMONT_DOKONCENA' ? <p>Demontáž je hotová. Superadmin uzavrie finančnú časť zákazky.</p> : null}
+          {activeStatus === 'DOKONCENA' ? <p>✅ Zákazka je dokončená. Žiadosť o referenciu spravujte v pracovisku Referencie a hodnotenia.</p> : null}
+        </div>
+      </section>
+
+      <section className="admin-card" id="udaje-zakazky">
+        <h2>Operatívne údaje zákazky</h2>
+        <form action={saveOperationalBusinessJobAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <OperationalJobForm job={job} />
+          <button className="admin-primary-button no-print" type="submit">Uložiť operatívne zmeny</button>
+        </form>
+      </section>
+
+      <section className="admin-card">
+        <div className="ops-section-heading"><div><span>Komunikácia a udalosti</span><h2>Operatívna časová os</h2></div><p>Finančné udalosti sa v operátorskom pohľade nenačítavajú.</p></div>
+        <form className="admin-quote-form no-print" action={addBusinessJobNoteAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={job.id} />
+          <label className="admin-form-wide">Pridať poznámku<textarea name="activityNote" rows={3} maxLength={1200} /></label>
+          <button className="admin-secondary-link admin-form-wide" type="submit">Uložiť poznámku</button>
+        </form>
+        <div className="admin-timeline ops-timeline">
+          {timeline.map((item) => <article key={item.id} className={`is-${item.tone}`}><span>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Bratislava' }).format(new Date(item.at))} · {item.category}</span><strong>{item.title}</strong><p>{item.detail}</p></article>)}
+          {!timeline.length ? <p>Zatiaľ bez aktivity.</p> : null}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+async function SuperAdminBusinessJobDetailPage({ id, adminUser }: { id: string; adminUser: AdminSessionUser }) {
+  const [job, workers, landfillPrices, settings, finance] = await Promise.all([
     getBusinessJobWithActivity(id),
-    requireAdminUser(),
     listWorkers(true),
     listLandfillPrices(),
     getBusinessSettings(),
@@ -37,14 +152,42 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
   ]);
   if (!job) notFound();
   if (job.deletedAt && adminUser.role !== 'SUPER_ADMIN') notFound();
-  const linkedLeadIsTestData = job.leadId ? await isLeadTestData(job.leadId) : false;
+  const timelineEnd = new Date(`${job.demolitionDate}T12:00:00Z`);
+  timelineEnd.setUTCDate(timelineEnd.getUTCDate() + 365);
+  const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoRecords] = await Promise.all([
+    job.leadId ? isLeadTestData(job.leadId) : false,
+    listPriceOffers({ jobId: job.id, includeArchived: adminUser.role === 'SUPER_ADMIN' }),
+    listPlannerActions({ from: job.createdAt.slice(0, 10), to: timelineEnd.toISOString().slice(0, 10) }),
+    listReviewRequests(),
+    job.leadId ? listLeadEmailOutbox(job.leadId) : [],
+    listPhotoIntakeRecords({ businessJobId: job.id, pageSize: 100 }).catch(() => null),
+  ]);
   const isEffectivelyTestData = Boolean(job.isTestData || linkedLeadIsTestData);
+  const jobPlannerActions = plannerActions.filter((action) => action.jobId === job.id);
+  const reviewRequest = reviewRequests.find((request) => request.jobId === job.id || Boolean(job.leadId && request.leadId === job.leadId));
+  const photoEvidence = photoRecords
+    ? {
+        status: 'available' as const,
+        approvedCount: photoRecords.records.filter((record) => record.status === 'approved_private').length,
+        pendingCount: photoRecords.records.filter((record) => record.status === 'pending_review').length,
+      }
+    : { status: 'unknown' as const };
+  const followUps = (await Promise.all(offers.map(async (offer) =>
+    (await listPriceOfferFollowUps(offer.id)).map((followUp) => ({ ...followUp, offerNumber: offer.number })),
+  ))).flat();
+  const checklist = buildJobClosureChecklist({ job, offers, finance, plannerActions: jobPlannerActions, photoEvidence, reviewRequest });
+  const timeline = buildOperationsTimeline({ auditLogs: job.activityLogs, offers, finance, plannerActions: jobPlannerActions, followUps, emailDeliveries, reviewRequest });
+  const attention = getJobAttention(job, undefined, {
+    hasActivePlannerAction: jobPlannerActions.some((action) => !['ZRUSENA', 'PRESUNUTA'].includes(action.status)),
+    hasRecordedFollowUp: followUps.length > 0,
+  });
+  const closureDone = checklist.filter((item) => item.state === 'done').length;
 
   const activeStatus = normalizeWorkflowStatus(job.status);
   const activeIndex = workflowStatuses.indexOf(activeStatus);
   const phoneForWhatsApp = job.customerPhone.replace(/\D/g, '').replace(/^0/, '421');
   const reviewText = encodeURIComponent(`Dobrý deň ${job.customerName}, ďakujeme za dôveru pri likvidácii azbestu v ${job.location}. Ak ste boli spokojní, veľmi by nám pomohla krátka recenzia na Google — trvá 2 minúty: ${settings.googleReviewLink || '[DOPLNIŤ GOOGLE ODKAZ]'}. Ďakujeme, tím ASTANA`);
-  const reviewRequestHref = `/admin/reviews/request?meno=${encodeURIComponent(job.customerName)}&lokalita=${encodeURIComponent(job.location)}`;
+  const reviewRequestHref = '/admin/referencie';
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const dueDate = new Date(`${today}T12:00:00+02:00`);
@@ -68,7 +211,9 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
         <div className="admin-action-row">
           <button type="button" className="admin-primary-link" data-print>Tlačiť / PDF</button>
           {!job.deletedAt ? <a className="admin-primary-link" href={`/admin/ponuky/nova?zakazka=${job.id}`}>+ Vytvoriť cenovú ponuku</a> : null}
-          {!job.deletedAt ? <a className="admin-primary-link" href={reviewRequestHref}>Žiadosť o recenziu</a> : null}
+          {!job.deletedAt ? <a className="admin-secondary-link" href={`/admin/planovac?zakazka=${job.id}&mesiac=${job.demolitionDate.slice(0, 7)}`}>Naplánovať akciu</a> : null}
+          <a className="admin-secondary-link" href={`/admin/zakazky/${job.id}/podklady`}>Balík podkladov</a>
+          {!job.deletedAt ? <a className="admin-primary-link" href={reviewRequestHref}>Referencie a hodnotenia</a> : null}
         </div>
       </div>
 
@@ -80,16 +225,36 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
       </section>
       <p className="admin-muted-note">Evidovaná suma nie je doklad o fakturácii ani úhrade. Náklady môžu byť neúplné; orientačný rozdiel nie je účtovný zisk. Stav „zrušená“ sa v súhrnných aktívnych hodnotách nezapočítava.</p>
 
-      <BillingPanel
-        jobId={job.id}
-        finance={finance}
-        canWrite={adminUser.role === 'SUPER_ADMIN'}
-        archived={Boolean(job.deletedAt)}
-        csrfToken={csrfToken}
-        today={today}
-        dueOn={dueOn}
-        operationIds={operationIds}
-      />
+      {attention ? <section className={`ops-alert ${attention.severity === 'critical' ? 'ops-alert-danger' : 'ops-alert-warning'} no-print`}>
+        <div><span>Zaseknutá zákazka · {attention.ageDays} dní bez posunu</span><h2>{attention.title}</h2></div>
+        <p>{attention.detail}</p>
+      </section> : null}
+
+      <section className="admin-card ops-panel" aria-labelledby="closure-title">
+        <div className="ops-section-heading">
+          <div><span>Dokončenie zákazky</span><h2 id="closure-title">Kontrolný zoznam · {closureDone}/{checklist.length}</h2></div>
+          <p>Stav vychádza iba z evidovaných údajov. Chýbajúci dôkaz sa nepovažuje za splnený.</p>
+        </div>
+        <div className="ops-checklist">
+          {checklist.map((item) => <a key={item.id} className={`ops-check-item is-${item.state}`} href={item.href || '#'}>
+            <span aria-hidden="true">{item.state === 'done' ? '✓' : item.state === 'attention' ? '!' : item.state === 'unknown' ? '?' : '○'}</span>
+            <div><strong>{item.label}</strong><small>{item.detail}</small></div>
+          </a>)}
+        </div>
+      </section>
+
+      <div id="fakturacia">
+        <BillingPanel
+          jobId={job.id}
+          finance={finance}
+          canWrite={adminUser.role === 'SUPER_ADMIN'}
+          archived={Boolean(job.deletedAt)}
+          csrfToken={csrfToken}
+          today={today}
+          dueOn={dueOn}
+          operationIds={operationIds}
+        />
+      </div>
 
       {adminUser.role === 'SUPER_ADMIN' ? <section className="admin-card no-print" aria-labelledby="job-test-classification-title">
         <h2 id="job-test-classification-title">Obchodné reporty</h2>
@@ -132,9 +297,10 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
         </div> : null}
       </section>
 
-      <section className="admin-card">
+      <section className="admin-card" id="udaje-zakazky">
         <h2>{activeStatus === 'VYUCTOVANIE' || activeStatus === 'DOKONCENA' ? 'Vyúčtovanie zákazky' : 'Údaje zákazky'}</h2>
         {job.deletedAt ? <p className="admin-muted-note">Archivovaná zákazka je len na čítanie. Superadmin môže vyššie opraviť jej označenie pre obchodné súhrny.</p> : <form action={saveBusinessJobAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <JobForm workers={workers} landfillPrices={landfillPrices} defaultPricePerM2={settings.defaultPricePerM2} job={job} />
           <button className="admin-primary-button no-print" type="submit">Uložiť zmeny</button>
         </form>}
@@ -146,28 +312,27 @@ export default async function BusinessJobDetailPage({ params }: { params: Promis
           <p>Po dokončení pošlite zákazníkovi krátku žiadosť o Google recenziu.</p>
           <a className="admin-primary-link" href={`https://wa.me/${phoneForWhatsApp}?text=${reviewText}`} target="_blank" rel="noopener">📱 Vygenerovať WhatsApp</a>
           <p className="admin-muted-note">Odoslanie a prijatie recenzie evidujte v samostatnom pracovnom toku, aby sa stav po obnovení stránky nestratil.</p>
-          <a className="admin-secondary-link" href={reviewRequestHref}>Otvoriť žiadosť o recenziu</a>
+          <a className="admin-secondary-link" href={reviewRequestHref}>Otvoriť referencie a hodnotenia</a>
         </section>
       ) : null}
 
       <section className="admin-card">
-        <h2>História aktivít</h2>
+        <div className="ops-section-heading"><div><span>Komunikácia a udalosti</span><h2>Jednotná časová os</h2></div><p>Email, ponuky, plánovanie, financie aj interné poznámky na jednom mieste.</p></div>
         {!job.deletedAt ? <form className="admin-quote-form no-print" action={addBusinessJobNoteAction}>
+          <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="id" value={job.id} />
-          <label className="admin-form-wide">Pridať poznámku<textarea name="activityNote" rows={3} /></label>
+          <label className="admin-form-wide">Pridať poznámku<textarea name="activityNote" rows={3} maxLength={1200} /></label>
           <button className="admin-secondary-link admin-form-wide" type="submit">Uložiť poznámku</button>
         </form> : null}
-        <div className="admin-timeline">
-          {job.activityLogs.map((log) => (
-            <article key={log.id}>
-              <span>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(log.createdAt))} · {log.actorEmail}</span>
-              <strong>{activityTitle(log.action)}</strong>
-              {log.changes?.note ? <p>{String(log.changes.note)}</p> : null}
-              {log.action === 'business_job_status_changed' ? <p>{String(log.changes.previous || '')} → {String(log.changes.next || '')}</p> : null}
-              {log.action === 'business_job_quote_sent' ? <p>Cena: {euro(Number(log.changes.totalPrice || 0))}</p> : null}
+        <div className="admin-timeline ops-timeline">
+          {timeline.map((item) => (
+            <article key={item.id} className={`is-${item.tone}`}>
+              <span>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Bratislava' }).format(new Date(item.at))} · {item.category}</span>
+              <strong>{item.title}</strong>
+              <p>{item.detail}</p>
             </article>
           ))}
-          {!job.activityLogs.length ? <p>Zatiaľ bez aktivity.</p> : null}
+          {!timeline.length ? <p>Zatiaľ bez aktivity.</p> : null}
         </div>
       </section>
     </main>

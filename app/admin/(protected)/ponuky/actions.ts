@@ -14,7 +14,7 @@ import {
   resetUncertainPriceOfferSend,
   updatePriceOfferStatus,
 } from '@/src/server/db';
-import { sendPriceOfferDocumentEmail } from '@/src/server/mail';
+import { sendPlannerNotificationEmail, sendPriceOfferDocumentEmail } from '@/src/server/mail';
 import { renderPriceOfferPdf } from '@/src/server/price-offer-pdf';
 import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
 import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
@@ -282,4 +282,114 @@ export async function deletePriceOfferAction(formData: FormData) {
   const id = String(formData.get('id') || '');
   if (id) await deletePriceOffer(id, actor);
   revalidatePath('/admin/ponuky');
+}
+
+type FollowUpClaim = {
+  id: string;
+  offerId: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  operationId: string;
+};
+
+type FollowUpPersistence = {
+  claimPriceOfferFollowUp(input: { offerId: string; subject: string; body: string; actorEmail: string; operationId: string }): Promise<FollowUpClaim | null>;
+  finishPriceOfferFollowUp(id: string, outcome: 'sent' | 'not_sent' | 'unknown', messageId: string, error: string, actorEmail: string): Promise<void>;
+  resolveUnknownPriceOfferFollowUp(input: {
+    id: string;
+    offerId: string;
+    expectedRevision: number;
+    resolution: 'sent' | 'not_sent';
+    evidenceCode: string;
+    operationId: string;
+    actorEmail: string;
+  }): Promise<{ status: 'sent' | 'failed' } | null>;
+};
+
+function escapeFollowUpHtml(value: string) {
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll('\n', '<br />');
+}
+
+export async function sendPriceOfferFollowUpAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = await requireAdmin();
+  const offerId = String(formData.get('offerId') || '');
+  const operationId = String(formData.get('operationId') || '');
+  const subject = String(formData.get('subject') || '').trim();
+  const body = String(formData.get('body') || '').trim();
+  if (formData.get('confirmed') !== 'yes') throw new Error('Pred odoslaním musíte potvrdiť kontrolu adresáta a textu.');
+  if (!/^[0-9a-f-]{36}$/i.test(offerId) || !/^[0-9a-f-]{36}$/i.test(operationId)) throw new Error('Požiadavka na follow-up nie je platná.');
+  if (subject.length < 3 || subject.length > 180 || body.length < 20 || body.length > 4000) throw new Error('Skontrolujte predmet a text follow-upu.');
+  const offer = await getPriceOffer(offerId);
+  if (!offer || offer.deletedAt || offer.status !== 'ODOSLANA') throw new Error('Follow-up možno odoslať iba k aktívnej odoslanej ponuke, ktorá ešte nebola prijatá.');
+  if (!isSingleEmailAddress(offer.email)) throw new Error('Ponuka nemá platný email zákazníka.');
+
+  const persistence = await import('@/src/server/db') as unknown as FollowUpPersistence;
+  if (typeof persistence.claimPriceOfferFollowUp !== 'function' || typeof persistence.finishPriceOfferFollowUp !== 'function') {
+    throw new Error('Bezpečné odoslanie follow-upu ešte nie je aktivované. Koncept zostáva uložený iba vo formulári.');
+  }
+  const claim = await persistence.claimPriceOfferFollowUp({ offerId, subject, body, actorEmail: actor, operationId });
+  if (!claim) throw new Error('Follow-up už spracúva iná požiadavka alebo sa stav ponuky zmenil. Obnovte stránku.');
+
+  let outcome: 'sent' | 'not_sent' | 'unknown' = 'unknown';
+  let error = '';
+  let messageId = '';
+  try {
+    const result = await sendPlannerNotificationEmail({
+      to: claim.recipient,
+      subject: claim.subject,
+      text: claim.body,
+      html: `<div style="font-family:Arial,sans-serif;line-height:1.65;color:#17233d;max-width:640px">${escapeFollowUpHtml(claim.body)}</div>`,
+    });
+    outcome = result.status === 'sent' ? 'sent' : result.status === 'failed' ? 'not_sent' : 'unknown';
+    error = result.reason || '';
+    messageId = result.messageId || '';
+  } catch (sendError) {
+    error = sendError instanceof Error ? sendError.message : 'Výsledok odoslania sa nepodarilo potvrdiť.';
+  }
+  await persistence.finishPriceOfferFollowUp(claim.id, outcome, messageId, error.slice(0, 300), actor);
+  revalidatePath('/admin/ponuky');
+  revalidatePath(`/admin/ponuky/${offerId}`);
+  revalidatePath(`/admin/ponuky/${offerId}/follow-up`);
+  if (offer.jobId) revalidatePath(`/admin/zakazky/${offer.jobId}`);
+  if (outcome === 'sent') redirect(`/admin/ponuky/${offerId}/follow-up?sent=1`);
+  const message = outcome === 'unknown'
+    ? 'Výsledok odoslania nie je potvrdený. Pred ďalším pokusom skontrolujte odoslanú poštu.'
+    : error || 'Email sa neodoslal. Skontrolujte nastavenie a skúste to znova.';
+  redirect(`/admin/ponuky/${offerId}/follow-up?error=${encodeURIComponent(message)}`);
+}
+
+const followUpResolutionEvidence = {
+  sent: new Set(['provider_accepted', 'sent_folder_verified', 'recipient_confirmed']),
+  not_sent: new Set(['provider_no_record', 'sent_folder_empty']),
+};
+
+export async function resolveUnknownPriceOfferFollowUpAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = await requireAdmin();
+  const id = String(formData.get('id') || '');
+  const offerId = String(formData.get('offerId') || '');
+  const operationId = String(formData.get('operationId') || '');
+  const expectedRevision = Number(formData.get('expectedRevision'));
+  const resolution = String(formData.get('resolution') || '') as 'sent' | 'not_sent';
+  const evidenceCode = String(formData.get('evidenceCode') || '');
+  if (formData.get('confirmedResolution') !== 'yes'
+    || !/^[0-9a-f-]{36}$/i.test(id) || !/^[0-9a-f-]{36}$/i.test(offerId) || !/^[0-9a-f-]{36}$/i.test(operationId)
+    || !Number.isSafeInteger(expectedRevision) || expectedRevision < 1
+    || (resolution !== 'sent' && resolution !== 'not_sent')
+    || !followUpResolutionEvidence[resolution].has(evidenceCode)) {
+    redirect(`/admin/ponuky/${offerId}/follow-up?error=${encodeURIComponent('Skontrolujte výsledok, dôkaz aj povinné potvrdenie.')}`);
+  }
+  const persistence = await import('@/src/server/db') as unknown as FollowUpPersistence;
+  const saved = await persistence.resolveUnknownPriceOfferFollowUp({
+    id, offerId, expectedRevision, resolution, evidenceCode, operationId, actorEmail: actor,
+  });
+  if (!saved) {
+    redirect(`/admin/ponuky/${offerId}/follow-up?error=${encodeURIComponent('Výsledok sa nezmenil. Obnovte stránku a skontrolujte aktuálny stav.')}`);
+  }
+  revalidatePath('/admin/ponuky');
+  revalidatePath(`/admin/ponuky/${offerId}`);
+  revalidatePath(`/admin/ponuky/${offerId}/follow-up`);
+  redirect(`/admin/ponuky/${offerId}/follow-up?resolved=${resolution}`);
 }

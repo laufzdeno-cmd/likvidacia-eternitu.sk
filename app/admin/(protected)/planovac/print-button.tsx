@@ -1,9 +1,9 @@
 'use client';
 
-export default function PrintButton() {
+export default function PrintButton({ label = 'Tlačiť zoznam' }: { label?: string }) {
   return (
     <button className="admin-primary-link" type="button" onClick={() => window.print()}>
-      🖨 Tlačiť zoznam
+      🖨 {label}
     </button>
   );
 }

@@ -25,6 +25,7 @@ const syntheticIds = Object.freeze({
   offer: '33333333-3333-4333-8333-333333333333',
   career: '44444444-4444-4444-8444-444444444444',
   submission: '55555555-5555-4555-8555-555555555555',
+  workItem: '66666666-6666-4666-8666-666666666666',
 });
 const logs = [];
 const pageErrors = [];
@@ -35,19 +36,36 @@ let database, socket, browser, child;
 
 const allRoutes = [
   ['/admin/dashboard/', 'dashboard'],
+  ['/admin/asistent/', 'asistent'],
+  ['/admin/asistent/?source=manual&q=ziadna-taka-uloha', 'asistent-empty'],
+  ['/admin/vyhladavanie/?q=synteticky', 'vyhladavanie'],
+  ['/admin/kontrola-dat/', 'kontrola-dat'],
+  ['/admin/automatizacie/', 'automatizacie'],
+  ['/admin/ai-asistent/', 'ai-asistent'],
   ['/admin/dopyty/', 'dopyty'],
   [`/admin/dopyty/${syntheticIds.lead}/`, 'dopyt-detail'],
   ['/admin/ponuky/', 'ponuky'],
   ['/admin/ponuky/nova/', 'ponuka-nova'],
   [`/admin/ponuky/${syntheticIds.offer}/`, 'ponuka-detail'],
+  [`/admin/ponuky/${syntheticIds.offer}/follow-up/`, 'ponuka-follow-up'],
   ['/admin/zakazky/', 'zakazky'],
   ['/admin/zakazky/nova/', 'zakazka-nova'],
   [`/admin/zakazky/${syntheticIds.job}/`, 'zakazka-detail'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/`, 'zakazka-podklady'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/?dokument=ponuka`, 'zakazka-podklady-ponuka'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/?dokument=pracovny-list`, 'zakazka-podklady-pracovny-list'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/?dokument=ruvz`, 'zakazka-podklady-ruvz'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/?dokument=odpad`, 'zakazka-podklady-odpad'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/?dokument=protokol`, 'zakazka-podklady-protokol'],
+  [`/admin/zakazky/${syntheticIds.job}/podklady/?dokument=vyuctovanie`, 'zakazka-podklady-vyuctovanie'],
+  ['/admin/zakazky/pohladavky/', 'pohladavky'],
+  [`/admin/planovac/?mesiac=2026-11&zakazka=${syntheticIds.job}`, 'planovac'],
   ['/admin/kariera/', 'kariera'],
   [`/admin/kariera/${syntheticIds.career}/`, 'kariera-detail'],
   ['/admin/obsah/', 'obsah'],
   ['/admin/realizacie/fotky/', 'fotky'],
   ['/admin/realizacie/pripady/', 'realizacie-pripady'],
+  ['/admin/referencie/', 'referencie'],
   ['/admin/reviews/request/', 'review-request'],
   ['/admin/reviews/request/?result=invalid&attempt=visual-invalid', 'review-request-invalid'],
   ['/admin/reviews/request/?result=saved&attempt=visual-saved', 'review-request-saved'],
@@ -57,12 +75,18 @@ const allRoutes = [
   ['/admin/health/', 'health'],
 ];
 const routes = process.argv.includes('--review-only')
-  ? allRoutes.filter(([, slug]) => slug.startsWith('review-request'))
+  ? allRoutes.filter(([, slug]) => slug === 'referencie' || slug.startsWith('review-request'))
   : process.argv.includes('--users-only')
     ? allRoutes.filter(([, slug]) => slug === 'users')
     : process.argv.includes('--dopyty-only')
       ? allRoutes.filter(([, slug]) => slug === 'dopyty')
-      : allRoutes;
+      : process.argv.includes('--assistant-only')
+        ? allRoutes.filter(([, slug]) => slug.startsWith('asistent'))
+        : process.argv.includes('--documents-only')
+          ? allRoutes.filter(([, slug]) => slug.startsWith('zakazka-podklady'))
+        : process.argv.includes('--intelligence-only')
+          ? allRoutes.filter(([, slug]) => ['vyhladavanie', 'kontrola-dat', 'automatizacie', 'ai-asistent'].includes(slug))
+        : allRoutes;
 
 const viewports = [
   { width: 1440, height: 1000, name: 'desktop', screenshot: true },
@@ -85,6 +109,18 @@ async function seedSyntheticAdminData(database) {
   await database.query(
     `UPDATE admin_users SET name = $2, role = 'SUPER_ADMIN', active = true WHERE email = $1`,
     [adminEmail, longName],
+  );
+  await database.query(
+    `INSERT INTO admin_work_items (
+       id, title, note, priority, due_date, owner_email, visibility, status, revision,
+       cancel_reason, created_by, created_at, updated_at
+     ) VALUES ($1, $2, $3, 'CRITICAL', DATE '2026-10-13', $4, 'TEAM', 'OPEN', 1, '', $4, now(), now())`,
+    [
+      syntheticIds.workItem,
+      'Skontrolovať veľmi dlhú syntetickú manuálnu úlohu pred kontaktovaním zákazníka',
+      'Iba lokálny vizuálny audit. Táto poznámka preveruje zalomenie, čitateľnosť, farebné stavy a ovládanie bez odoslania formulára.',
+      adminEmail,
+    ],
   );
   await database.query(
     `INSERT INTO leads (
@@ -205,6 +241,19 @@ async function waitForApp(origin) {
   throw new Error(`Next sa nespustil do 90 sekúnd: ${logs.join('').slice(-3500)}`);
 }
 
+async function captureStableScreenshot(page, screenshotPath) {
+  // Playwright hides carets by temporarily writing an inline `caret-color`
+  // style to every input. If React is still completing hydration, that
+  // harness-owned mutation can create a false hydration mismatch. Blurring
+  // removes the visible caret without touching rendered attributes, while
+  // `caret: initial` disables Playwright's DOM mutation.
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  });
+  await page.screenshot({ path: screenshotPath, fullPage: true, caret: 'initial' });
+}
+
 async function stopChild(processHandle) {
   if (!processHandle || processHandle.exitCode !== null || processHandle.signalCode !== null) return;
   const waitForExit = (milliseconds) => Promise.race([
@@ -258,7 +307,7 @@ try {
     AUTH_SECRET: secret, ADMIN_EMAIL: adminEmail, ALLOWED_ORIGINS: origin,
     TEMP: tempRoot, TMP: tempRoot, ASTANA_TEST_NETWORK_GUARD: '1',
     ASTANA_TEST_APP_ROOT: tempRoot, ASTANA_TEST_APP_PORT: String(appPort),
-    NODE_OPTIONS: `--import=${pathToFileURL(path.join(projectRoot, 'scripts', 'test-loopback-network-guard.mjs')).href}`,
+    NODE_OPTIONS: `--max-old-space-size=8192 --import=${pathToFileURL(path.join(projectRoot, 'scripts', 'test-loopback-network-guard.mjs')).href}`,
   });
   child = spawn(process.execPath, [path.join(projectRoot, 'scripts', 'testimonial-admin-form-server.mjs')],
     { cwd: tempRoot, env: childEnv, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
@@ -377,7 +426,7 @@ try {
         };
       });
       if (viewport.screenshot) {
-        await page.screenshot({ path: path.join(outputRoot, `${viewport.name}-${slug}.png`), fullPage: true });
+        await captureStableScreenshot(page, path.join(outputRoot, `${viewport.name}-${slug}.png`));
       }
       assert.ok(metrics.documentWidth <= metrics.viewportWidth + 1 && metrics.bodyWidth <= metrics.viewportWidth + 1,
         `${routePath} preteká pri ${viewport.width}px: ${JSON.stringify(metrics)}`);
@@ -428,6 +477,16 @@ try {
           `${routePath} musí mať mobilné definície v jednom čitateľnom stĺpci: ${JSON.stringify(metrics.definitionLists)}`);
       }
       assert.deepEqual(metrics.clippedControls, [], `${routePath} orezáva ovládací alebo nadpisový text.`);
+      if (slug === 'asistent' && viewport.screenshot && (viewport.name === 'desktop' || viewport.name === 'mobile-390')) {
+        const editor = page.locator('.work-inline-details').first();
+        await editor.locator('summary').click();
+        await editor.locator('input[name="title"]').waitFor({ state: 'visible' });
+        const openWidth = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth, body: document.body.scrollWidth }));
+        assert.ok(openWidth.document <= openWidth.viewport + 1 && openWidth.body <= openWidth.viewport + 1,
+          `${routePath} preteká s otvorenou editáciou pri ${viewport.width}px: ${JSON.stringify(openWidth)}`);
+        await captureStableScreenshot(page, path.join(outputRoot, `${viewport.name}-${slug}-edit-open.png`));
+        await editor.locator('summary').click();
+      }
       report.push({ route: routePath, viewport: `${viewport.width}x${viewport.height}`, documentWidth: metrics.documentWidth });
     }
   }

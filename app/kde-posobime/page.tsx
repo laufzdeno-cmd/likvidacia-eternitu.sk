@@ -1,4 +1,4 @@
-import type { FaqItem } from '@/src/content/seo-content';
+import { locationPages, type FaqItem } from '@/src/content/seo-content';
 import { site, phoneLink } from '@/src/content/site';
 import { buildPageMetadata, QuickAnswer } from '../seo-components';
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
@@ -11,7 +11,7 @@ const areaFaqs: FaqItem[] = [
   },
   {
     question: 'Kedy môžete prísť, ak na nás nadväzuje strechár?',
-    answer: 'Pri výmene strechy plánujeme skorý výjazd z Popradu. Po dohode sa vieme dostať na stavbu približne medzi 6:00 a 6:30, aby sa strechár prichádzajúci okolo 8:00 mohol pripraviť na svoju prácu. Presný čas potvrdíme podľa lokality, počasia a rozsahu.',
+    answer: 'Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Pri výmene strechy konkrétny čas nástupu dohodneme podľa lokality, počasia, rozsahu a nadväznosti so strechárom.',
   },
   {
     question: 'Čo potrebujete vedieť pred potvrdením výjazdu?',
@@ -47,16 +47,36 @@ export default function ServiceAreaPage() {
 
         <QuickAnswer>{quickAnswer}</QuickAnswer>
 
+        <section className="seo-section" aria-labelledby="regional-pages-title">
+          <p className="eyebrow">Regionálne informácie</p>
+          <h2 id="regional-pages-title">Vyberte oblasť, kde sa nachádza objekt</h2>
+          <p className="seo-lead">
+            Na každej regionálnej stránke nájdete územný rozsah, údaje potrebné pre ponuku a praktické podmienky
+            výjazdu. Uvedené mestá a okresy označujú pôsobnosť, nie pobočky ani potvrdené realizácie.
+          </p>
+          <div className="seo-card-grid">
+            {locationPages.map((location) => (
+              <article key={location.slug}>
+                <h3>{location.name}</h3>
+                <p>{location.coverageHeading}: {location.coverageAreas.join(', ')}.</p>
+                <a href={`/likvidacia-azbestu-${location.slug}/`}>
+                  Praktické informácie pre oblasť {location.name}
+                </a>
+              </article>
+            ))}
+          </div>
+        </section>
+
         <section className="seo-section" aria-labelledby="area-planning-title">
           <p className="eyebrow">Nadväznosť prác</p>
           <h2 id="area-planning-title">Pri streche plánujeme aj čas strechárov</h2>
           <p className="seo-lead">
-            Pri výmene strechy vyrážame z Popradu skoro ráno. Po dohode plánujeme príchod na stavbu približne medzi
-            6:00 a 6:30, aby sa strechár, ktorý prichádza okolo 8:00, mohol pripraviť na nadväzujúcu prácu.
+            Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Pri výmene strechy konkrétny čas nástupu dohodneme
+            podľa lokality, počasia, rozsahu a nadväznosti so strechárom.
           </p>
           <p>
-            Presný čas potvrdíme podľa obce, prístupu, rozsahu demontáže a počasia. Skorý príchod preto nie je
-            automatický sľub pre každú lokalitu; dohodneme ho pri konkrétnej zákazke.
+              Presný čas nástupu nie je automatický sľub pre každú lokalitu; dohodneme ho pri konkrétnej zákazke
+              v rámci pracovných dní od 8:00 do 18:00.
           </p>
           <p><a href="/postup/#nadvazujuca-strecha">Pozrite si, ako koordinujeme prácu so strechárom</a>.</p>
         </section>

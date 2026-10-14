@@ -13,6 +13,9 @@ export default async function RealizationsPage({ searchParams }: { searchParams?
   const [realizations, admin] = await Promise.all([listRealizations(), requireAdminUser()]);
   const params = await searchParams;
   const csrfToken = csrfTokenForEmail(admin.email);
+  const availableStatuses: RealizationStatus[] = admin.role === 'SUPER_ADMIN'
+    ? ['published', 'draft', 'hidden']
+    : ['draft', 'hidden'];
 
   return (
     <main className="admin-page">
@@ -71,6 +74,7 @@ export default async function RealizationsPage({ searchParams }: { searchParams?
 
       <section className="admin-card">
         <h2>Schvaľovanie a poradie</h2>
+        {admin.role !== 'SUPER_ADMIN' ? <p>Rozpracované realizácie môžete pripraviť alebo skryť. Zverejnenie po kontrole fotografií a podkladov vykoná superadmin.</p> : null}
         <div className="admin-table-wrap">
           <table className="admin-table">
             <thead>
@@ -101,7 +105,7 @@ export default async function RealizationsPage({ searchParams }: { searchParams?
                   <td><span className="status-pill">{statusLabels[realization.status]}</span></td>
                   <td>
                     <div className="admin-action-row">
-                      {(['published', 'draft', 'hidden'] as RealizationStatus[]).map((status) => (
+                      {availableStatuses.map((status) => (
                         <form key={status} action={updateRealizationStatusAction}>
                           <input type="hidden" name="_csrf" value={csrfToken} />
                           <input type="hidden" name="id" value={realization.id} />

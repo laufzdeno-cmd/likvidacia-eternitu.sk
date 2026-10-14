@@ -14,7 +14,7 @@ export const site = {
   ico: '46 157 701',
   dic: '2023253771',
   icDph: 'SK2023253771',
-  openingHours: 'Po–Pia 7:00–18:00',
+  openingHours: 'Po–Pia 8:00–18:00',
   areaServed: 'Slovensko',
   brandColor: '#DA251D',
   claimedStats: {

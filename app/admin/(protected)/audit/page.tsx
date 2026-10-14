@@ -15,6 +15,7 @@ const entityLabels: Record<string, string> = {
   testimonial: 'Referencia',
   realization: 'Realizácia',
   planner_action: 'Plánovač',
+  admin_work_item: 'Interná úloha',
 };
 
 const actionLabels: Record<string, string> = {
@@ -44,6 +45,12 @@ const actionLabels: Record<string, string> = {
   admin_user_created: 'Používateľ vytvorený',
   admin_user_updated: 'Používateľ upravený',
   admin_user_active_changed: 'Aktivita používateľa zmenená',
+  admin_work_item_created: 'Interná úloha vytvorená',
+  admin_work_item_updated: 'Interná úloha upravená',
+  admin_work_item_completed: 'Interná úloha dokončená',
+  admin_work_item_reopened: 'Interná úloha znovu otvorená',
+  admin_work_item_cancelled: 'Interná úloha zrušená',
+  review_request_form_interaction_recorded: 'Zaznamenaná interakcia s formulárom referencie',
 };
 
 const changeLabels: Record<string, string> = {
@@ -61,6 +68,23 @@ const changeLabels: Record<string, string> = {
   method: 'Spôsob úhrady',
   allocated: 'Priradená k faktúre',
   reasonCode: 'Dôvod opravy',
+  status: 'Stav',
+  priority: 'Priorita',
+  dueDate: 'Termín',
+  hasOwner: 'Má vlastníka',
+  visibility: 'Viditeľnosť',
+  revision: 'Revízia',
+  changedFields: 'Zmenené polia',
+  previous: 'Predchádzajúci stav',
+  next: 'Nový stav',
+};
+
+const workItemValueLabels: Record<string, string> = {
+  OPEN: 'Otvorená', DONE: 'Dokončená', CANCELLED: 'Zrušená',
+  CRITICAL: 'Kritická', HIGH: 'Vysoká', NORMAL: 'Bežná', LOW: 'Nízka',
+  TEAM: 'Celý tím', SUPER_ADMIN: 'Iba superadmin',
+  opened: 'Interakcia s formulárom zaznamenaná',
+  title: 'názov', note: 'poznámka', priority: 'priorita', dueDate: 'termín', ownerEmail: 'vlastník', visibility: 'viditeľnosť',
 };
 
 const money = new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' });
@@ -84,8 +108,11 @@ function formatChangeValue(key: string, value: unknown) {
   }
   if (key === 'vatRateBasisPoints' && typeof value === 'number') return `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 2 }).format(value / 100)} %`;
   if (key === 'allocated' && typeof value === 'boolean') return value ? 'Áno' : 'Nie';
+  if (key === 'hasOwner' && typeof value === 'boolean') return value ? 'Áno' : 'Nie';
   if (key === 'method' && typeof value === 'string') return paymentMethodLabels[value] || value;
   if (key === 'reasonCode' && typeof value === 'string') return reasonLabels[value] || value;
+  if (key === 'changedFields' && Array.isArray(value)) return value.map((item) => workItemValueLabels[String(item)] || String(item)).join(', ');
+  if (typeof value === 'string' && workItemValueLabels[value]) return workItemValueLabels[value];
   if (typeof value === 'string') return value;
   return JSON.stringify(value);
 }

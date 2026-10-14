@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { getPriceOffer, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
+import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, savePriceOfferAction, sendPriceOfferAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 import PendingOfferButton from '../pending-offer-button';
@@ -28,8 +29,9 @@ function canConfirmUncertainSend(offer: { status: string; sendStartedAt?: string
 export default async function PriceOfferDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const query = await searchParams;
-  const [offer, jobs, settings] = await Promise.all([getPriceOffer(id), listBusinessJobs(), getPriceOfferSettings()]);
+  const [adminUser, offer, jobs, settings] = await Promise.all([requireAdminUser(), getPriceOffer(id), listBusinessJobs(), getPriceOfferSettings()]);
   if (!offer) notFound();
+  const csrfToken = csrfTokenForEmail(adminUser.email);
 
   return (
     <main className="admin-page">
@@ -41,6 +43,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         <div className="admin-action-row">
           <a className="admin-secondary-link" href={`/api/admin/ponuka/${offer.id}/pdf`} target="_blank">Náhľad PDF</a>
           {offer.status === 'PRIPRAVENA' ? <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}?send=1`}>Odoslať zákazníkovi</a> : null}
+          {offer.status === 'ODOSLANA' ? <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}/follow-up`}>Pripraviť follow-up</a> : null}
           <a className="admin-text-link" href="/admin/ponuky">Späť na ponuky</a>
         </div>
       </div>
@@ -64,6 +67,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           <h2>Odoslanie bolo overené</h2>
           <p>Túto možnosť použite iba vtedy, keď máte dôkaz, že pôvodný e-mail odišiel. Nový e-mail sa neposiela.</p>
           <form action={confirmUncertainPriceOfferSentAction} className="admin-pending-form">
+            <input type="hidden" name="_csrf" value={csrfToken} />
             <input type="hidden" name="id" value={offer.id} />
             <label>Spôsob overenia
               <select name="confirmationEvidence" required defaultValue="">
@@ -83,6 +87,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           <h2>Overený opakovaný pokus</h2>
           <p>Možnosť sa zobrazí až 15 minút po pokuse. Stav obnovte iba vtedy, ak ste skontrolovali odoslanú poštu aj schránku ASTANA a pôvodná ponuka neodišla.</p>
           <form action={resetUncertainPriceOfferSendAction} className="admin-pending-form">
+            <input type="hidden" name="_csrf" value={csrfToken} />
             <input type="hidden" name="id" value={offer.id} />
             <label className="admin-check-label"><input type="checkbox" name="confirmedNotSent" value="yes" required /> Potvrdzujem, že som overil schránku a pôvodný e-mail nebol odoslaný.</label>
             <button className="admin-secondary-button" type="submit">Obnoviť na pripravenú</button>
@@ -97,6 +102,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
             action={sendPriceOfferAction}
             className="admin-pending-form admin-send-offer-form"
           >
+            <input type="hidden" name="_csrf" value={csrfToken} />
             <input type="hidden" name="id" value={offer.id} />
             <PendingOfferButton
               idleText="Odoslať zákazníkovi"
@@ -117,6 +123,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         action={savePriceOfferAction}
         className="admin-pending-form"
       >
+        <input type="hidden" name="_csrf" value={csrfToken} />
         <PriceOfferForm jobs={jobs} settings={settings} offer={offer} />
       </form> : <section className="admin-card">
         <h2>Odoslaná verzia je uzamknutá</h2>

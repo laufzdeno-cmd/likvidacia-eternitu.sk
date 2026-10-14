@@ -252,7 +252,7 @@ export default function LandingClient() {
           '<div class="success-next"><em>&#268;o sa stane &#271;alej:</em><span>1. Skontrolujeme v&aacute;&scaron; dopyt</span><span>2. Priprav&iacute;me cenov&uacute; ponuku</span><span>3. Po&scaron;leme v&aacute;m ju do 24 hod&iacute;n</span></div>',
           '<small>M&aacute;te ot&aacute;zky? Zavolajte:</small>',
           '<a class="success-phone" href="tel:+421905217946">0905 217 946</a>',
-          '<small>Po&ndash;Pia 7:00&ndash;18:00</small>',
+          '<small>Po&ndash;Pia 8:00&ndash;18:00</small>',
         ].join('');
         return;
       }

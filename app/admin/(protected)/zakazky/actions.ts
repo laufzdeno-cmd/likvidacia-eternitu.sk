@@ -13,8 +13,9 @@ import {
   reverseBusinessPayment,
   saveBusinessJob,
   setBusinessJobTestData,
+  updateBusinessJobOperational,
 } from '@/src/server/db';
-import type { BusinessJobInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
+import type { BusinessJobInput, BusinessJobOperationalInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
 
 function num(value: FormDataEntryValue | null) {
   return Number(String(value || '').replace(',', '.')) || 0;
@@ -61,7 +62,7 @@ function parseJob(formData: FormData): BusinessJobInput {
 
 export async function saveBusinessJobAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const id = String(formData.get('id') || '') || undefined;
   const next = String(formData.get('next') || '');
   const job = await saveBusinessJob(parseJob(formData), actor, id);
@@ -72,6 +73,45 @@ export async function saveBusinessJobAction(formData: FormData) {
   if (next === 'new') redirect('/admin/zakazky/nova');
   if (!id) redirect('/admin/zakazky');
   redirect(`/admin/zakazky/${job.id}`);
+}
+
+const forbiddenOperationalJobFields = new Set([
+  'm2', 'pricePerM2', 'paymentType', 'workType', 'wasteKg', 'landfill',
+  'fuel', 'suits', 'gloves', 'penetrant', 'landfillCost', 'otherName', 'otherAmount',
+  'totalPrice', 'rewardsTotal', 'grossProfit', 'marginPercent', 'workerId',
+]);
+
+function parseOperationalJob(formData: FormData): BusinessJobOperationalInput {
+  for (const key of formData.keys()) {
+    if (forbiddenOperationalJobFields.has(key) || key.startsWith('workerRate_') || key.startsWith('workerReward_') || key.startsWith('workerManual_')) {
+      throw new Error('Operatívne uloženie nesmie meniť finančné údaje zákazky.');
+    }
+  }
+  return {
+    demolitionDate: String(formData.get('demolitionDate') || ''),
+    customerName: String(formData.get('customerName') || ''),
+    customerPhone: String(formData.get('customerPhone') || ''),
+    customerEmail: String(formData.get('customerEmail') || ''),
+    location: String(formData.get('location') || ''),
+    district: String(formData.get('district') || ''),
+    materialType: String(formData.get('materialType') || ''),
+    objectType: String(formData.get('objectType') || ''),
+    term: String(formData.get('term') || ''),
+    preferredContact: String(formData.get('preferredContact') || ''),
+    status: String(formData.get('status') || '') as BusinessJobStatus,
+    note: String(formData.get('note') || ''),
+  };
+}
+
+export async function saveOperationalBusinessJobAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = await requireAdmin();
+  const id = String(formData.get('id') || '');
+  if (!id) throw new Error('Chýba identifikátor zákazky.');
+  await updateBusinessJobOperational(id, parseOperationalJob(formData), actor);
+  revalidatePath('/admin/zakazky');
+  revalidatePath(`/admin/zakazky/${id}`);
+  redirect(`/admin/zakazky/${id}`);
 }
 
 export type FinanceActionState = {

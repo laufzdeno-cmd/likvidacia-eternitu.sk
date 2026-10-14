@@ -10,7 +10,11 @@ const rollbackId = 'dpl_Rollback123';
 const env = { VERCEL_TOKEN: 'test-token', VERCEL_ORG_ID: 'team_test', VERCEL_PROJECT_ID: 'prj_test', SMTP_PASS: 'must-not-leak' };
 
 function guarded(overrides = {}) {
-  const stableManifest = { result: 'PASS', currentHead: candidateSha, rollback: { deployment: rollbackId, sourceSha: rollbackSha } };
+  const stableManifest = {
+    result: 'PASS', currentHead: candidateSha,
+    rollback: { deployment: rollbackId, sourceSha: rollbackSha },
+    previousProduction: { deployment: rollbackId },
+  };
   const releaseStateDigest = createHash('sha256').update(JSON.stringify(stableManifest)).digest('hex');
   const manifestSnapshot = `${JSON.stringify({ ...stableManifest, releaseStateDigest }, null, 2)}\n`;
   return {
@@ -92,6 +96,39 @@ test('verify-only binds candidate, rollback and current production without POST'
   assert.equal(f.calls.some((call) => call.method === 'POST'), false);
   assert.ok(f.calls.every((call) => call.headers.Authorization === 'Bearer test-token'));
   assert.ok(f.calls.every((call) => Object.keys(call.headers).length === 1), 'requests expose only Authorization');
+});
+
+test('rollback without source metadata is always rejected', async () => {
+  const noSource = { id: rollbackId, projectId: env.VERCEL_PROJECT_ID, target: 'production', readyState: 'READY' };
+  const rejected = fixture({ deployments: { [rollbackId]: noSource } });
+  await assert.rejects(
+    () => runReviewedDeployment({ argv: baseArgs, env, fetchImpl: rejected.fetchImpl, guardRunner: async () => guarded() }),
+    /Rollback deployment nie je jednoznačne naviazaný/,
+  );
+});
+
+test('current production and source-bound rollback may be separate deployments', async () => {
+  const currentId = 'dpl_LegacyCurrent123';
+  const f = fixture({ current: currentId });
+  const approval = guarded();
+  const manifest = JSON.parse(approval.manifestSnapshot);
+  manifest.previousProduction.deployment = currentId;
+  const { generatedAt: _generatedAt, releaseStateDigest: _digest, ...stableManifest } = manifest;
+  manifest.releaseStateDigest = createHash('sha256').update(JSON.stringify(stableManifest)).digest('hex');
+  const manifestSnapshot = `${JSON.stringify(manifest, null, 2)}\n`;
+  const result = await runReviewedDeployment({
+    argv: baseArgs,
+    env,
+    fetchImpl: f.fetchImpl,
+    guardRunner: async () => ({
+      ...approval,
+      manifestSnapshot,
+      manifestDigest: createHash('sha256').update(manifestSnapshot).digest('hex'),
+      releaseStateDigest: manifest.releaseStateDigest,
+    }),
+  });
+  assert.equal(result.previousProduction, currentId);
+  assert.equal(result.rollback, rollbackId);
 });
 
 test('legacy project alias response remains accepted', async () => {

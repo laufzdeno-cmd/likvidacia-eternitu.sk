@@ -3,6 +3,7 @@ import 'server-only';
 import { businessPeriodBounds, businessTodayKey } from '@/src/lib/business-period';
 import { summarizeBusinessJobs } from '@/src/lib/business-dashboard-metrics';
 import { buildBusinessAssistantPriorities } from '@/src/lib/business-assistant';
+import { getAdminOperationsOverview } from './admin-intelligence';
 import type { AdminRole, LeadSummary, PlannerAction } from './types';
 import {
   getBusinessFinanceSummary,
@@ -54,7 +55,7 @@ export async function getBusinessAssistantBriefing(role: AdminRole, now = new Da
       ])
     : Promise.resolve(null);
 
-  const [queues, mail, todayActions, tomorrowActions, newLeads, followups, quoteLeads, superData] = await Promise.all([
+  const [queues, mail, todayActions, tomorrowActions, newLeads, followups, quoteLeads, superData, operations] = await Promise.all([
     getLeadQueueCounts(today, true),
     getLeadEmailOutboxAttention(),
     listPlannerActions({ from: today, to: today }),
@@ -63,6 +64,7 @@ export async function getBusinessAssistantBriefing(role: AdminRole, now = new Da
     listLeadSummaryPage({ queue: 'followup', today, page: 1, pageSize: 10, excludeTestData: true }),
     listLeadSummaryPage({ queue: 'quote', today, page: 1, pageSize: 10, excludeTestData: true }),
     superadminData,
+    getAdminOperationsOverview(role, now),
   ]);
 
   const openTodayActions = todayActions.filter(isOpenPlannerAction);
@@ -82,9 +84,13 @@ export async function getBusinessAssistantBriefing(role: AdminRole, now = new Da
           health,
           funnel: {
             leadsReceived: leadMetrics.receivedInPeriod,
+            contactedLeads: operations.performance.contactedLeads,
             offersCreated: offerEvents.created,
             offersSent: offerEvents.sent,
             offersAccepted: offerEvents.accepted,
+            completedJobs: operations.performance.completedJobs,
+            paidJobs: 'paidJobs' in operations.performance ? operations.performance.paidJobs ?? 0 : 0,
+            reviewsReceived: operations.performance.reviewsReceived,
           },
         };
       })()
@@ -95,6 +101,15 @@ export async function getBusinessAssistantBriefing(role: AdminRole, now = new Da
     queues,
     mail,
     planner: { todayOpen: openTodayActions.length, tomorrowOpen: openTomorrowActions.length },
+    operations: {
+      stalledJobs: operations.stalledJobs.length,
+      silentOffers: operations.silentOffers.length,
+      referenceCandidates: operations.referenceCandidates.length,
+      overdueInvoices: operations.overdueInvoices.length,
+      overdueInvoicesCents: operations.overdueInvoices.reduce((sum, item) => sum + item.outstandingCents, 0),
+      capacityCollisions: operations.capacity.collisions.length,
+      dataQualityIssues: Object.values(operations.qualityIssues).reduce((sum, items) => sum + items.length, 0),
+    },
     superadmin: superadmin
       ? {
           finance: superadmin.finance,

@@ -4,6 +4,7 @@ import {
   articleEditorialBySlug,
   articles,
   commonProcessSteps,
+  locationPages,
   type FaqItem,
   type ServicePageContent,
 } from '@/src/content/seo-content';
@@ -314,21 +315,14 @@ export function ServicePage({ page }: { page: ServicePageContent }) {
 export function LocationPage({
   location,
 }: {
-  location: {
-    slug: string;
-    name: string;
-    area: string;
-    title: string;
-    description: string;
-    localNote: string;
-    coverageHeading: string;
-    coverageAreas: readonly string[];
-    requestChecklist: readonly string[];
-  };
+  location: (typeof locationPages)[number];
 }) {
   const path = `/likvidacia-azbestu-${location.slug}/`;
   const h1 = `Likvidácia azbestu a eternitu - ${location.name}`;
   const quickAnswer = `ASTANA, s.r.o. so sídlom v Poprade zabezpečuje po dohode odbornú likvidáciu azbestu a eternitu v ${location.area}. Výjazd a termín potvrdíme podľa obce, rozsahu prác a aktuálnej kapacity; v tejto lokalite nemáme pobočku.`;
+  const relatedLocations = location.relatedSlugs
+    .map((slug) => locationPages.find((item) => item.slug === slug))
+    .filter((item): item is (typeof locationPages)[number] => Boolean(item));
   const faqs: FaqItem[] = [
     { question: `Riešite likvidáciu azbestu v ${location.area}?`, answer: `Áno, ${site.legalName} pôsobí po celom Slovensku a zákazky prijíma aj v ${location.area}.` },
     { question: 'Čo poslať v dopyte na cenovú ponuku?', answer: 'Pošlite približnú výmeru v m2, obec alebo okres, typ objektu a informáciu o prístupe. Fotky materiálu sú voliteľné; ak ich máte, pomôžu ponuku spresniť.' },
@@ -336,7 +330,11 @@ export function LocationPage({
   ];
 
   return (
-    <PublicPageShell breadcrumb={{ name: h1, path }} hideWhatsappOnMobile>
+    <PublicPageShell
+      breadcrumb={{ name: h1, path }}
+      breadcrumbParents={[{ name: 'Kde pôsobíme', path: '/kde-posobime/' }]}
+      hideWhatsappOnMobile
+    >
       <main className="seo-page">
         <JsonLd data={[buildServiceJsonLd(h1, quickAnswer, path), buildFaqJsonLd(faqs)]} />
         <section className="seo-hero">
@@ -373,12 +371,39 @@ export function LocationPage({
             <p>Ak niektorý údaj neviete, pošlite odhad. Fotografie sú voliteľné.</p>
           </article>
         </section>
+        <section className="seo-section" aria-labelledby={`regional-planning-${location.slug}`}>
+          <p className="eyebrow">Praktické plánovanie</p>
+          <h2 id={`regional-planning-${location.slug}`}>Čo rozhoduje o výjazde v oblasti {location.coverageHeading}</h2>
+          <div className="seo-card-grid">
+            {location.planningPoints.map(([title, text]) => (
+              <article key={title}>
+                <h3>{title}</h3>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
         <ProcessSteps title="Ako prebieha objednávka" />
         <section className="seo-section">
           <h2>Čo ovplyvňuje cenu v danej lokalite</h2>
           <p className="seo-lead">Cenu ovplyvňuje výmera, typ materiálu, prístup k objektu, výška strechy, objem odpadu, logistika v regióne a rozsah dokumentácie.</p>
         </section>
         <ContactStrip />
+        <section className="seo-section" aria-labelledby={`related-regions-${location.slug}`}>
+          <h2 id={`related-regions-${location.slug}`}>Ďalšie oblasti, ktoré obsluhujeme</h2>
+          <p className="seo-lead">
+            Každú zákazku posudzujeme podľa presnej obce, rozsahu a kapacity. Ak je objekt v inom kraji, vyberte
+            jeho regionálnu stránku alebo si pozrite celú pôsobnosť ASTANY.
+          </p>
+          <div className="seo-included-list">
+            {relatedLocations.map((item) => (
+              <a key={item.slug} href={`/likvidacia-azbestu-${item.slug}/`}>
+                Likvidácia azbestu – {item.name}
+              </a>
+            ))}
+            <a href="/kde-posobime/">Všetky oblasti a plánovanie výjazdov</a>
+          </div>
+        </section>
         <InternalLinks context="location" />
         <FaqSection faqs={faqs} title="FAQ pre lokalitu" />
         <QuoteCTA />

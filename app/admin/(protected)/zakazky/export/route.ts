@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminUser } from '@/src/server/auth';
+import { requireSuperAdmin } from '@/src/server/auth';
 import { addAuditLog, countBusinessJobs, listBusinessJobs } from '@/src/server/db';
 import { csvCell } from '@/src/server/csv';
 import { jobStatusLabels, jobStatuses, landfillLabels, landfills, paymentLabels, paymentTypes, workTypeLabels } from '../constants';
 import type { BusinessJobStatus, BusinessLandfill, BusinessPaymentType } from '@/src/server/types';
 
 export async function GET(request: NextRequest) {
-  const adminUser = await requireAdminUser();
+  const adminUser = await requireSuperAdmin();
   const params = request.nextUrl.searchParams;
   const rawMonth = params.get('month') || '';
   if (rawMonth && !/^\d{4}-(0[1-9]|1[0-2])$/.test(rawMonth)) {

@@ -8,42 +8,56 @@ const navGroups = [
   {
     title: 'HLAVNÉ',
     items: [
+      { href: '/admin/asistent', label: 'Dnes', icon: 'spark' },
       { href: '/admin/dashboard', label: 'Prehľad', icon: 'chart' },
-      { href: '/admin/asistent', label: 'Asistent', icon: 'spark' },
-      { href: '/admin/zakazky', label: 'Zákazky', icon: 'list' },
-      { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
-      { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
+      { href: '/admin/vyhladavanie', label: 'Vyhľadávanie', icon: 'search' },
+      { href: '/admin/ai-asistent', label: 'Návrhy textov', icon: 'spark' },
+    ],
+  },
+  {
+    title: 'OBCHOD',
+    items: [
       { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
+      { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
       { href: '/admin/strechari', label: 'Strechári', icon: 'users' },
-      { href: '/admin/kariera', label: 'Kariéra', icon: 'users' },
     ],
   },
   {
-    title: 'VÝKAZY',
+    title: 'REALIZÁCIA',
     items: [
-      { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar', superOnly: true },
-      { href: '/admin/analytics', label: 'Analytika', icon: 'trend', superOnly: true },
-    ],
-  },
-  {
-    title: 'KOMUNIKÁCIA',
-    items: [
-      { href: '/admin/reviews/request', label: 'Žiadosť o recenziu', icon: 'chat' },
+      { href: '/admin/zakazky', label: 'Zákazky', icon: 'list' },
+      { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
       { href: '/admin/realizacie', label: 'Realizácie', icon: 'image' },
-      { href: '/admin/realizacie/pripady', label: 'Koncepty prípadov', icon: 'doc', superOnly: true },
       { href: '/admin/realizacie/fotky', label: 'Fotky z terénu', icon: 'image', superOnly: true },
-      { href: '/admin/referencie', label: 'Referencie', icon: 'badge' },
     ],
   },
   {
-    title: 'ADMIN',
+    title: 'FINANCIE',
     items: [
+      { href: '/admin/zakazky/pohladavky', label: 'Pohľadávky a platby', icon: 'trend', superOnly: true },
+      { href: '/admin/rok', label: 'Ročný prehľad', icon: 'calendar', superOnly: true },
+    ],
+  },
+  {
+    title: 'MARKETING',
+    items: [
+      { href: '/admin/analytics', label: 'Analytika', icon: 'trend', superOnly: true },
+      { href: '/admin/realizacie/pripady', label: 'Koncepty prípadov', icon: 'doc', superOnly: true },
+      { href: '/admin/referencie', label: 'Referencie a hodnotenia', icon: 'badge' },
+      { href: '/admin/obsah', label: 'Obsah a GEO', icon: 'doc', superOnly: true },
+    ],
+  },
+  {
+    title: 'SPRÁVA',
+    items: [
+      { href: '/admin/kontrola-dat', label: 'Kontrola prevádzky', icon: 'shield' },
+      { href: '/admin/automatizacie', label: 'Automatizácie', icon: 'bolt', superOnly: true },
+      { href: '/admin/kariera', label: 'Kariéra', icon: 'users' },
       { href: '/admin/nastavenia', label: 'Nastavenia', icon: 'gear', superOnly: true },
       { href: '/admin/profil', label: 'Profil', icon: 'user' },
       { href: '/admin/import', label: 'Import', icon: 'upload', superOnly: true },
       { href: '/admin/users', label: 'Používatelia', icon: 'users', superOnly: true },
       { href: '/admin/audit', label: 'Audit aktivít', icon: 'shield', superOnly: true },
-      { href: '/admin/obsah', label: 'Obsah a GEO', icon: 'doc', superOnly: true },
       { href: '/admin/health', label: 'Kontrola systému', icon: 'shield', superOnly: true },
     ],
   },
@@ -68,6 +82,8 @@ function Icon({ name }: { name: string }) {
     badge: <><path d="m12 3 2.2 2.2 3.1-.2.9 3 2.6 1.7-1.5 2.7.6 3-3 1-1.3 2.8-3-1-2.7 1.5-1.8-2.6-3-.6.2-3-2.2-2.1 2.1-2.2-.2-3 3-.8z" /><path d="m9 12 2 2 4-4" /></>,
     shield: <><path d="M12 3 20 6v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6z" /><path d="m8.5 12 2.2 2.2 4.8-4.8" /></>,
     spark: <><path d="m12 3 1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z" /><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" /></>,
+    search: <><circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /></>,
+    bolt: <path d="m13 2-9 12h8l-1 8 9-12h-8z" />,
   };
   return <svg aria-hidden="true" viewBox="0 0 24 24" width="16" height="16" {...common}>{paths[name]}</svg>;
 }

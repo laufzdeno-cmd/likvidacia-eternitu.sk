@@ -102,7 +102,8 @@ test('local JSON store excludes only classified test leads and linked business r
       objectType: 'Rodinný dom', objectAddress: 'Testovacia lokalita', municipality: 'Poprad', district: 'Poprad',
       contactPerson: 'Synthetic QA', phone: '+421900000000', email: 'test@example.invalid', realizationTerm: 'test',
       materialType: 'VLNITY_ETERNIT', areaM2: 50, pricePerM2WithoutVat: 1, documentationFeeWithoutVat: 0,
-      includeDocumentation: false, validUntil: '2026-12-31', sourceInquiry: 'test',
+      includeDocumentation: false, transportFrom: 'Poprad', transportTo: 'Testovacia lokalita',
+      validUntil: '2026-12-31', sourceInquiry: 'test',
     };
     const oldJobOfferId = afterDelete.priceOffers.find((item) => item.number === 'LOCAL-TEST').id;
     await savePriceOffer(offerInput, 'superadmin@example.invalid', oldJobOfferId);

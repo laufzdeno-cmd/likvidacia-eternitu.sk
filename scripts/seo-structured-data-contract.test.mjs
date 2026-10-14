@@ -108,13 +108,13 @@ test('approved company opening hours stay aligned across public and email surfac
   const homepageClient = read('../app/homepage-critical-client.tsx');
   const landingClient = read('../app/landing-client.tsx');
   const roofers = read('../app/strechari/page.tsx');
-  assert.match(siteFacts, /openingHours:\s*'Po–Pia 7:00–18:00'/);
-  assert.match(seoJsonLd, /opens:\s*'07:00'[\s\S]*closes:\s*'18:00'/);
-  assert.match(publicCompany, /"opening_hours":\s*"Po–Pia 7:00–18:00"/);
-  assert.match(read('../public/llms.txt'), /Telefonické informácie a objednávky: Po–Pia 7:00–18:00\./);
+  assert.match(siteFacts, /openingHours:\s*'Po–Pia 8:00–18:00'/);
+  assert.match(seoJsonLd, /opens:\s*'08:00'[\s\S]*closes:\s*'18:00'/);
+  assert.match(publicCompany, /"opening_hours":\s*"Po–Pia 8:00–18:00"/);
+  assert.match(read('../public/llms.txt'), /Telefonické informácie a objednávky: Po–Pia 8:00–18:00\./);
   for (const surface of [mail, homepageClient, landingClient, roofers]) {
-    assert.match(surface, /7:00.{0,24}18:00/);
-    assert.doesNotMatch(surface, /(?:8:00.{0,24}16:00|08:00.{0,24}18:00)/);
+    assert.match(surface, /8:00.{0,24}18:00/);
+    assert.doesNotMatch(surface, /(?:7:00.{0,24}18:00|8:00.{0,24}16:00)/);
   }
 });
 

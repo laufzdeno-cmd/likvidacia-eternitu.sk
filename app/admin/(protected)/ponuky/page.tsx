@@ -1,6 +1,6 @@
 import { getPriceOfferStatusSummary, listPriceOffers } from '@/src/server/db';
 import { dateInBratislava } from '@/src/server/analytics-metrics';
-import { requireAdminUser } from '@/src/server/auth';
+import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import type { PriceOfferStatus } from '@/src/server/types';
 import { deletePriceOfferAction, updatePriceOfferStatusAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
@@ -12,9 +12,12 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month || '') ? params.month! : '';
   const jobId = params.jobId || '';
   const includeArchived = adminUser.role === 'SUPER_ADMIN' && params.archived === '1';
-  const offers = await listPriceOffers({ status, month, jobId, includeArchived });
   const monthKey = month || dateInBratislava(new Date()).slice(0, 7);
-  const summary = await getPriceOfferStatusSummary(monthKey);
+  const [offers, summary] = await Promise.all([
+    listPriceOffers({ status, month, jobId, includeArchived }),
+    getPriceOfferStatusSummary(monthKey),
+  ]);
+  const csrfToken = csrfTokenForEmail(adminUser.email);
   const conversion = summary.sent ? Math.round((summary.accepted / summary.sent) * 1000) / 10 : 0;
 
   return (
@@ -57,9 +60,10 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   <td className="admin-action-row">
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
-                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Označiť ako prijatú</button></form> : null}
+                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a className="admin-row-link" href={`/admin/ponuky/${offer.id}/follow-up`}>Follow-up</a> : null}
+                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Označiť ako prijatú</button></form> : null}
                     {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
-                      <form action={deletePriceOfferAction}><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
+                      <form action={deletePriceOfferAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
                     ) : null}
                   </td>
                 </tr>

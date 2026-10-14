@@ -216,7 +216,7 @@ export default function CareerFormClient() {
         </label>
         <label className={`career-form-wide ${styles.formWide}`}>Kde viete pracovať? *
           <input name="workRegions" placeholder="napr. celé Slovensko alebo Poprad a okolie" required disabled={isSubmitting} />
-          <small>Pracujeme po celom Slovensku. Z Popradu vyrážame skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na svoju prácu.</small>
+          <small>Pracujeme po celom Slovensku v pracovných dňoch od 8:00 do 18:00. Konkrétny čas nástupu potvrdíme podľa lokality, počasia a nadväznosti prác.</small>
         </label>
         <label>Máte už skúsenosť s azbestom? *
           <select name="hasAsbestosExperience" value={hasAsbestosExperience} onChange={(event) => setHasAsbestosExperience(event.target.value as 'yes' | 'no' | '')} required disabled={isSubmitting}>

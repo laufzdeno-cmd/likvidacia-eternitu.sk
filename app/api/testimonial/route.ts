@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
-import { consumeApiRateLimit, createTestimonial } from '@/src/server/db';
+import { consumeApiRateLimit, createTestimonial, openPublicReviewRequest, submitRequestedTestimonial } from '@/src/server/db';
 import { publicTestimonialConsentVersion } from '@/src/lib/testimonial-consent';
 import { testimonialPublicContentHash } from '@/src/server/testimonial-policy';
 import { bindPublicTestimonialConsent } from '@/src/lib/testimonial-consent';
@@ -22,6 +22,7 @@ const testimonialSchema = z.object({
   text: z.string().trim().min(20, 'Referencia musí mať aspoň 20 znakov.').max(1200),
   consentPublication: z.union([z.literal('on'), z.literal('true'), z.literal(true)]),
   website: z.string().trim().max(1000).optional().or(z.literal('')),
+  requestToken: z.string().trim().regex(/^[A-Za-z0-9_-]{40,80}$/).optional().or(z.literal('')),
 });
 
 async function rateLimited(request: NextRequest) {
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
     text: formData.get('text'),
     consentPublication: formData.get('consentPublication'),
     website: formData.get('website') || '',
+    requestToken: formData.get('requestToken') || '',
   });
 
   if (!parsed.success) {
@@ -85,6 +87,31 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    if (parsed.data.requestToken) {
+      await submitRequestedTestimonial({
+        token: parsed.data.requestToken,
+        submissionId: parsed.data.submissionId,
+        customerName: parsed.data.customerName,
+        rating: parsed.data.rating,
+        text: parsed.data.text,
+      });
+      const publicRequest = await openPublicReviewRequest(parsed.data.requestToken);
+      if ((request.headers.get('accept') || '').includes('text/html')) {
+        return new NextResponse(null, {
+          status: 303,
+          headers: {
+            Location: `/recenzie/${encodeURIComponent(parsed.data.requestToken)}/`,
+            'Cache-Control': 'no-store',
+            'Referrer-Policy': 'no-referrer',
+          },
+        });
+      }
+      return NextResponse.json({
+        ok: true,
+        message: 'Ďakujeme. Referenciu sme prijali a zobrazí sa až po schválení.',
+        googleReviewLink: publicRequest?.googleReviewLink || '',
+      }, { headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+    }
     await createTestimonial({
       submissionId: parsed.data.submissionId,
       customerName: parsed.data.customerName,

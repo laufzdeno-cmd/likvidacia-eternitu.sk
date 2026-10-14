@@ -17,6 +17,7 @@ const tempParent = path.resolve(tmpdir());
 const tempRoot = await mkdtemp(path.join(tempParent, 'astana-testimonial-form-'));
 const owner = randomUUID();
 const adminEmail = 'admin@local.test';
+const operatorEmail = 'operator@local.test';
 const testName = `Izolovaný test referencie ${randomUUID()}`;
 const secret = Buffer.from(randomUUID() + randomUUID()).toString('hex');
 const logs = [];
@@ -68,8 +69,8 @@ async function stopChild(processHandle) {
   throw new Error(`Owned local Next process ${processHandle.pid} did not exit; database and temp directory are being preserved.`);
 }
 
-function sessionCookie() {
-  const payload = Buffer.from(JSON.stringify({ kind: 'admin-session', email: adminEmail, iat: Date.now(), epoch: 0 })).toString('base64url');
+function sessionCookie(email = adminEmail) {
+  const payload = Buffer.from(JSON.stringify({ kind: 'admin-session', email, iat: Date.now(), epoch: 0 })).toString('base64url');
   const signature = createHmac('sha256', secret).update(payload).digest('base64url');
   return `${payload}.${signature}`;
 }
@@ -103,7 +104,7 @@ try {
     .filter((key) => process.env[key]).map((key) => [key, process.env[key]]));
   Object.assign(childEnv, {
     NODE_ENV: 'development', NEXT_TELEMETRY_DISABLED: '1',
-    DATABASE_URL: databaseUrl, AUTH_SECRET: secret, ADMIN_EMAIL: adminEmail,
+    DATABASE_URL: databaseUrl, DATABASE_POOL_MAX: '1', AUTH_SECRET: secret, ADMIN_EMAIL: adminEmail,
     ALLOWED_ORIGINS: origin, TEMP: tempRoot, TMP: tempRoot,
     ASTANA_TEST_NETWORK_GUARD: '1', ASTANA_TEST_APP_ROOT: tempRoot, ASTANA_TEST_APP_PORT: String(port),
     NODE_OPTIONS: `--import=${pathToFileURL(path.join(projectRoot, 'scripts', 'test-loopback-network-guard.mjs')).href}`,
@@ -120,7 +121,14 @@ try {
   const deniedOrigins = [];
   await context.route('**/*', async (route) => {
     const target = new URL(route.request().url());
-    if (target.origin === origin) return route.continue();
+    if (target.origin === origin) {
+      const headers = route.request().headers();
+      if (headers['next-router-prefetch'] || headers.purpose === 'prefetch') return route.abort('blockedbyclient');
+      if (target.pathname.startsWith('/admin/') && !target.pathname.startsWith('/admin/referencie')) {
+        return route.abort('blockedbyclient');
+      }
+      return route.continue();
+    }
     deniedOrigins.push(target.origin);
     return route.abort('blockedbyclient');
   });
@@ -128,7 +136,7 @@ try {
   const page = await context.newPage();
   const response = await page.goto(origin + '/admin/referencie/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
   assert.equal(response?.status(), 200, 'isolated admin page must render');
-  await page.getByRole('heading', { name: 'Referencie', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Referencie a hodnotenia', exact: true }).waitFor();
 
   const createForm = page.locator('form.admin-quote-form').last();
   await createForm.locator('input[name="customerName"]').fill(testName);
@@ -142,7 +150,7 @@ try {
   const id = String(row.rows[0].id);
   await page.goto(`${origin}/admin/referencie/?edit=${encodeURIComponent(id)}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.waitForLoadState('networkidle');
-  await page.getByRole('heading', { name: 'Referencie', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Referencie a hodnotenia', exact: true }).waitFor();
   const card = page.locator('article.admin-card').filter({ hasText: testName });
   const editForm = card.locator('form.admin-quote-form');
   await editForm.getByRole('button', { name: 'Uložiť zmeny' }).waitFor();
@@ -183,12 +191,46 @@ try {
   assert.deepEqual(saved.rows[0], {
     status: 'approved', customer_name: approvedName, text: approvedText, consent_publication: true,
   }, 'the same DB row must persist the approved state, edited text and explicit consent');
+
+  await database.query(
+    `INSERT INTO admin_users (id, email, name, role, active, password_hash, session_epoch)
+     VALUES ($1, $2, $3, 'OPERATOR', true, '', 0)`,
+    [randomUUID(), operatorEmail, 'Izolovaný operátor'],
+  );
+  const operatorContext = await browser.newContext({ serviceWorkers: 'block' });
+  await operatorContext.route('**/*', async (route) => {
+    const target = new URL(route.request().url());
+    if (target.origin === origin) {
+      const headers = route.request().headers();
+      if (headers['next-router-prefetch'] || headers.purpose === 'prefetch') return route.abort('blockedbyclient');
+      if (target.pathname.startsWith('/admin/') && !target.pathname.startsWith('/admin/referencie')) return route.abort('blockedbyclient');
+      return route.continue();
+    }
+    deniedOrigins.push(target.origin);
+    return route.abort('blockedbyclient');
+  });
+  await operatorContext.addCookies([{ name: 'astana_admin_session', value: sessionCookie(operatorEmail), url: origin, httpOnly: true, sameSite: 'Lax' }]);
+  const operatorPage = await operatorContext.newPage();
+  const operatorResponse = await operatorPage.goto(`${origin}/admin/referencie/?edit=${encodeURIComponent(id)}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+  assert.equal(operatorResponse?.status(), 200, 'operator reference page must render');
+  await operatorPage.getByRole('heading', { name: 'Referencie a hodnotenia', exact: true }).waitFor();
+  const operatorEditForm = operatorPage.locator('article.admin-card').filter({ hasText: approvedName }).locator('form.admin-quote-form');
+  const operatorStatus = operatorEditForm.locator('select[name="status"]');
+  assert.deepEqual(await operatorStatus.locator('option').evaluateAll((options) => options.map((option) => option.value)), ['draft', 'hidden'],
+    'operator edit UI must never expose the public approved state');
+  assert.equal(await operatorStatus.inputValue(), 'draft', 'editing a public testimonial as operator must default to taking it out of public state');
+  assert.match(await operatorEditForm.innerText(), /Znovu ju môže zverejniť iba superadmin/);
+  const operatorCreateStatus = operatorPage.locator('form.admin-quote-form').last().locator('select[name="status"]');
+  assert.deepEqual(await operatorCreateStatus.locator('option').evaluateAll((options) => options.map((option) => option.value)), ['draft', 'hidden'],
+    'operator create UI must be limited to draft and hidden states');
+  await operatorContext.close();
+
   assert.equal(deniedOrigins.length, 0, `browser attempted external requests: ${deniedOrigins.join(', ')}`);
   assert.equal((await database.query('SELECT COUNT(*)::int AS count FROM leads')).rows[0].count, 0,
     'the isolated reference workflow must not create leads');
   const outboxCount = (await database.query('SELECT COUNT(*)::int AS count FROM lead_email_outbox')).rows[0].count;
   assert.equal(outboxCount, 0, 'the isolated reference workflow must not enqueue email');
-  console.log(JSON.stringify({ result: 'PASS', submittedStatus: 'approved', persistedStatus: 'approved', syntheticOnly: true, leads: 0, emailOutbox: outboxCount, browserExternalOrigins: deniedOrigins.length, serverNodeApiGuard: 'TCP/HTTP/HTTPS/Undici + DNS/UDP blocked; not an OS-level subprocess sandbox' }));
+  console.log(JSON.stringify({ result: 'PASS', submittedStatus: 'approved', persistedStatus: 'approved', operatorPublishOptions: 0, syntheticOnly: true, leads: 0, emailOutbox: outboxCount, browserExternalOrigins: deniedOrigins.length, serverNodeApiGuard: 'TCP/HTTP/HTTPS/Undici + DNS/UDP blocked; not an OS-level subprocess sandbox' }));
 } catch (error) {
   console.error('Isolated testimonial admin browser test failed:', error.message);
   console.error('Local Next diagnostics:', logs.join('').slice(-4500));

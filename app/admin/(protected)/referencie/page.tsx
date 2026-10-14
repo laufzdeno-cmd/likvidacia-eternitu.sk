@@ -1,4 +1,4 @@
-import { getTestimonial, listTestimonialAdminHistory, listTestimonialsPage } from '@/src/server/db';
+import { getTestimonial, listBlockedReviewJobs, listEligibleReviewJobs, listReviewRequests, listTestimonialAdminHistory, listTestimonials, listTestimonialsPage } from '@/src/server/db';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import type { TestimonialStatus } from '@/src/server/types';
 import { testimonialPublicContentHash } from '@/src/server/testimonial-policy';
@@ -9,10 +9,13 @@ import {
   publicTestimonialConsentVersion,
   testimonialConsentEvidenceSources,
 } from '@/src/lib/testimonial-consent';
+import { getReviewRequestSettings } from '@/src/server/review-request-settings';
+import ReviewWorkspace from './review-workspace';
+import './reviews-admin.css';
 
 const statusLabels: Record<TestimonialStatus, string> = {
   draft: 'rozpracovaná',
-  approved: 'schválená',
+  approved: 'zverejnená na webe',
   hidden: 'skrytá',
 };
 
@@ -34,9 +37,14 @@ export default async function TestimonialsPage({
   const query = searchParams ? await searchParams : {};
   const statusFilter = ['draft', 'approved', 'hidden'].includes(query.status || '') ? query.status as TestimonialStatus : undefined;
   const requestedPage = Number(query.page);
-  const [pageData, admin] = await Promise.all([
+  const [pageData, admin, eligibleReviewJobs, blockedReviewJobs, reviewRequests, allTestimonials, reviewSettings] = await Promise.all([
     listTestimonialsPage({ page: Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1, pageSize: 50, status: statusFilter }),
     requireAdminUser(),
+    listEligibleReviewJobs(),
+    listBlockedReviewJobs(),
+    listReviewRequests(),
+    listTestimonials(),
+    getReviewRequestSettings(),
   ]);
   const selectedInPage = pageData.records.find((item) => item.id === query.edit);
   const selected = selectedInPage ?? (query.edit ? await getTestimonial(query.edit) : undefined);
@@ -64,24 +72,33 @@ export default async function TestimonialsPage({
 
   return (
     <main className="admin-page">
-      <div className="admin-heading"><div><p>Dôvera na webe</p><h1>Referencie</h1></div></div>
+      <ReviewWorkspace
+        eligible={eligibleReviewJobs}
+        blocked={blockedReviewJobs}
+        requests={reviewRequests}
+        testimonials={allTestimonials}
+        settings={reviewSettings}
+        csrfToken={csrfToken}
+        role={admin.role}
+        notice={query.notice}
+      />
       {query.ulozene === '1' ? <p role="status" aria-live="polite">Zmeny referencie boli uložené.</p> : null}
       {query.chyba ? (
         <p role="alert" aria-live="assertive">
           {query.chyba === 'udaje' ? 'Skontrolujte vyplnené údaje a skúste uloženie znova.'
             : query.chyba === 'nenajdene' ? 'Referenciu sa nepodarilo nájsť. Zoznam bol obnovený.'
           : query.chyba === 'suhlas' ? 'Referenciu nemožno schváliť bez presného znenia súhlasu zákazníka a jeho zdroja a dátumu. Nič sa neuložilo.'
-                : query.chyba === 'schvalenie' ? 'Schválenie nastavte v úprave referencie. Vyžaduje sa súhlas so zverejnením.'
+                : query.chyba === 'schvalenie' ? 'Referenciu z automatickej žiadosti možno zverejniť iba cez kontrolu a schválenie v pracovnom priestore vyššie.'
                   : 'Požiadavku sa nepodarilo spracovať. Zoznam bol obnovený.'}
         </p>
       ) : null}
 
       <section className="admin-card" aria-labelledby="testimonials-list-title">
         <h2 id="testimonials-list-title">Existujúce referencie</h2>
-        <p>Rozpracované referencie sú navrchu. Schválenie sa nastavuje pri úprave a vyžaduje súhlas zákazníka.</p>
+        <p>Rozpracované referencie sú navrchu. Stav „zverejnená na webe“ zobrazí referenciu verejne a môže ho nastaviť iba superadmin po overení súhlasu zákazníka.</p>
         {selectedOutsidePage ? <p role="status">Otvorená referencia je mimo aktuálnej strany alebo zvoleného filtra.</p> : null}
         <form className="admin-filter-bar" method="get" action="/admin/referencie">
-          <label>Stav referencie<select name="status" defaultValue={statusFilter ?? ''}><option value="">Všetky stavy</option><option value="draft">Rozpracované</option><option value="approved">Schválené</option><option value="hidden">Skryté</option></select></label>
+          <label>Stav referencie<select name="status" defaultValue={statusFilter ?? ''}><option value="">Všetky stavy</option><option value="draft">Rozpracované</option><option value="approved">Zverejnené na webe</option><option value="hidden">Skryté</option></select></label>
           <button type="submit">Filtrovať</button>
         </form>
         <p aria-live="polite">Zobrazené {pageData.total ? ((pageData.page - 1) * pageData.pageSize) + 1 : 0}–{Math.min(pageData.page * pageData.pageSize, pageData.total)} z {pageData.total} referencií · strana {pageData.page} z {pageData.totalPages}</p>
@@ -130,7 +147,7 @@ export default async function TestimonialsPage({
                   <label>Dátum realizácie<input name="realizationDate" defaultValue={item.realizationDate || ''} maxLength={40} /></label>
                   <label>E-mail zákazníka (neverejný)<input name="customerEmail" type="email" defaultValue={item.customerEmail || ''} maxLength={160} /></label>
                   <label>Hodnotenie<select name="rating" defaultValue={String(item.rating)} required>{[1, 2, 3, 4, 5].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
-                  <label>Stav<select name="status" defaultValue={item.status === 'approved' ? 'draft' : item.status} required><option value="draft">rozpracovaná</option><option value="approved">schválená</option><option value="hidden">skrytá</option></select></label>
+                  <label>Stav<select name="status" defaultValue={item.status === 'approved' ? 'draft' : item.status} required><option value="draft">rozpracovaná</option>{admin.role === 'SUPER_ADMIN' ? <option value="approved">zverejnená na webe ihneď po uložení</option> : null}<option value="hidden">skrytá</option></select></label>
                   <label>Zdroj referencie<select name="source" defaultValue={item.source || 'admin'} required><option value="admin">Vložené adminom</option><option value="public">Poslané zákazníkom</option><option value="google">Google</option><option value="phone">Telefón</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="personal">Osobne</option></select></label>
                   <label className="admin-form-wide">Text referencie<textarea name="text" defaultValue={item.text} maxLength={1200} rows={5} required /></label>
                   <label className="admin-form-wide">Interná poznámka (neverejná)<textarea name="internalNote" defaultValue={item.internalNote || ''} maxLength={2000} rows={3} /></label>
@@ -139,6 +156,7 @@ export default async function TestimonialsPage({
                   <label className="admin-form-wide">Presné znenie súhlasu<textarea name="consentWording" maxLength={2000} rows={4} placeholder="Zadajte presné celé znenie nového súhlasu. Pole sa zámerne nepredvyplní." /></label>
                   <label>Zdroj nového súhlasu<select name="consentSource" defaultValue=""><option value="">Vyberte zdroj</option>{testimonialConsentEvidenceSources.map((source) => <option key={source} value={source}>{source}</option>)}</select></label>
                   <label>Dátum získania nového súhlasu<input name="consentDate" type="date" /></label>
+                  {item.status === 'approved' ? <p className="admin-form-wide" role="note">Po uložení úpravy sa referencia stiahne z verejného webu. {admin.role === 'SUPER_ADMIN' ? 'Ak ju chcete po kontrole nového znenia znovu zverejniť, výslovne zvoľte stav „zverejnená na webe“ a doložte nový súhlas.' : 'Znovu ju môže zverejniť iba superadmin po kontrole nového znenia a súhlasu.'}</p> : null}
                   <p className="admin-form-wide">{adminTestimonialConsentInstruction} Dôkaz je kryptograficky naviazaný na meno, hodnotenie a text, ktoré sa majú zverejniť. Presné znenie sa nepublikuje ani nepridáva do auditného logu. {parsedConsentEvidence ? `Predchádzajúci záznam súhlasu: ${parsedConsentEvidence.source}, ${parsedConsentEvidence.date}.` : freshPublicConsent ? 'Predchádzajúci súhlas z webového formulára nie je po tejto zmene automaticky potvrdením upraveného textu.' : 'Predchádzajúci dôkaz súhlasu nie je dostupný v novom formáte.'} {item.consentCapturedAt ? `Zaznamenané: ${new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.consentCapturedAt))}.` : ''}{item.consentRevokedAt ? ' Predchádzajúci súhlas bol odvolaný.' : ''}</p>
                   <div className="admin-action-row admin-form-wide"><button className="admin-primary-button" type="submit">Uložiť zmeny</button><a className="admin-secondary-link" href={editHref()}>Zrušiť</a></div>
                 </form>
@@ -178,14 +196,14 @@ export default async function TestimonialsPage({
 
       <section className="admin-card" aria-labelledby="testimonial-create-title">
         <h2 id="testimonial-create-title">Pridať referenciu</h2>
-        <p>Nové referencie sa ukladajú ako rozpracované. Na verejnom webe sa zobrazia až po výslovnom schválení a so súhlasom zákazníka.</p>
+        <p>{admin.role === 'SUPER_ADMIN' ? 'Novú referenciu môžete uložiť ako rozpracovanú alebo ju po doložení presného súhlasu výslovne zverejniť na webe.' : 'Novú referenciu môžete uložiť iba ako rozpracovanú alebo skrytú. Zverejnenie na webe schvaľuje superadmin po overení súhlasu zákazníka.'}</p>
         <form className="admin-quote-form" action={createTestimonialAction}>
           <input type="hidden" name="_csrf" value={csrfToken} />
           <label>Meno alebo iniciály<input name="customerName" placeholder="napr. Ján P." maxLength={120} required /></label>
           <label>Lokalita<input name="location" placeholder="napr. Poprad / Prešovský kraj" maxLength={120} /></label>
           <label>E-mail zákazníka (neverejný)<input name="customerEmail" type="email" placeholder="voliteľné" maxLength={160} /></label>
           <label>Hodnotenie<select name="rating" defaultValue="5">{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} hviezdičok</option>)}</select></label>
-          <label>Stav<select name="status" defaultValue="draft"><option value="draft">rozpracovaná</option><option value="approved">schválená</option><option value="hidden">skrytá</option></select></label>
+          <label>Stav<select name="status" defaultValue="draft"><option value="draft">rozpracovaná</option>{admin.role === 'SUPER_ADMIN' ? <option value="approved">zverejnená na webe ihneď po uložení</option> : null}<option value="hidden">skrytá</option></select></label>
           <label className="admin-form-wide">Text referencie<textarea name="text" rows={4} maxLength={1200} placeholder="Krátky, vecný text referencie..." required /></label>
           <label className="admin-checkbox admin-form-wide"><input name="consentPublication" type="checkbox" /> Mám doložený súhlas zákazníka so zverejnením referencie.</label>
           <label className="admin-form-wide">Presné znenie, ktoré zákazník odsúhlasil<textarea name="consentWording" maxLength={2000} rows={4} placeholder="Vložte celé znenie súhlasu, nie jeho zhrnutie." /></label>

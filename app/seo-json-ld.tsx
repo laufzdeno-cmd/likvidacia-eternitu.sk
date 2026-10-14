@@ -129,7 +129,7 @@ export function buildOrganizationJsonLd() {
           {
             '@type': 'OpeningHoursSpecification',
             dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-            opens: '07:00',
+            opens: '08:00',
             closes: '18:00',
           },
         ],

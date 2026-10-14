@@ -14,8 +14,10 @@ test('celoslovenský hub pridáva praktickú pôsobnosť bez mestských klonov',
   assert.match(page, /path: '\/kde-posobime\/'/);
   assert.match(page, /<h1>Likvidáciu azbestu riešime po celom Slovensku<\/h1>/);
   assert.match(page, /sídlo v Poprade/);
-  assert.match(page, /približne medzi\s*6:00 a 6:30/);
-  assert.match(page, /Presný čas potvrdíme podľa obce, prístupu, rozsahu demontáže a počasia/);
+  assert.match(page, /pracovných dňoch od 8:00 do 18:00/);
+  assert.match(page, /Presný čas nástupu nie je automatický sľub pre každú lokalitu/);
+  assert.match(page, /v rámci pracovných dní od 8:00 do 18:00/);
+  assert.doesNotMatch(page, /6:00|6:30|skoro ráno|skorý príchod/i);
   assert.match(page, /neznamená to miestne pobočky/);
   assert.match(page, /buildFaqJsonLd\(areaFaqs\)/);
   assert.match(page, /\/\#dopyt/);

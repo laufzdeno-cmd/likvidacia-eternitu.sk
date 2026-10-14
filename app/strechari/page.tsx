@@ -28,7 +28,7 @@ const benefits = [
   {
     icon: 'clock',
     title: 'Nestrácate deň na stavbe',
-    text: 'Termín zladíme s vašou partiou. Prídeme skoro ráno, odstránime eternit a vy môžete pokračovať s novou strechou.',
+    text: 'Termín zladíme s vašou partiou. Prídeme v dohodnutom čase, odstránime eternit a vy môžete pokračovať s novou strechou.',
   },
   {
     icon: 'document-check',
@@ -39,7 +39,7 @@ const benefits = [
 
 const steps = [
   ['Zaregistrujete sa', 'Vyplníte krátky formulár — región, typ zákaziek, kontakt.'],
-  ['Zladíme termín', 'Keď máte zákazníka s azbestom, napíšete nám. Dohodneme príchod na skoro ráno.'],
+  ['Zladíme termín', 'Keď máte zákazníka s azbestom, napíšete nám. Dohodneme konkrétny čas príchodu v pracovnom čase.'],
   ['My zlikvidujeme, vy staviate', 'Prídeme, urobíme svoju prácu čisto a odídeme. Vy nastúpite na čerstvú strechu.'],
   ['Dohadzujeme si zákazky navzájom', 'Ak zákazník nemá strechára, odporučíme vás. Funguje to oboma smermi.'],
 ] as const;
@@ -123,7 +123,7 @@ export default function RoofersPage() {
               </div>
               <p className="roofer-b2b-hero-trust">Vy sa nemusíte púšťať do azbestu. My sa nemusíme hrať na strechárov. Každý urobí svoju robotu dobre a zákazník dostane kompletné riešenie.</p>
               <div className="roofer-b2b-trust-row" aria-label="Výhody spolupráce s ASTANA">
-                <span><strong>6:00 – 7:00</strong><small>skorý nástup</small></span>
+                <span><strong>Nástup podľa dohody</strong><small>zladený s vašou partiou</small></span>
                 <span><strong>Čistá strecha</strong><small>pripravená pre vašu partiu</small></span>
                 <span><strong>Zákazky oboma smermi</strong><small>keď si sadneme regiónom</small></span>
               </div>
@@ -337,7 +337,7 @@ export default function RoofersPage() {
           <div className="roofer-b2b-inner">
             <h2 id="roofer-footer-title">Zaujíma vás spolupráca? Zavolajte.</h2>
             <a href="tel:+421905217946">0905 217 946</a>
-            <p>Po–Pia 7:00 – 18:00</p>
+            <p>Po–Pia 8:00 – 18:00</p>
           </div>
         </section>
       </main>

@@ -135,7 +135,7 @@ const defaultProcessSteps = [
 ] satisfies [string, string][];
 
 const defaultRooferItems = [
-  ['Zladenie termínu', 'Z Popradu vyrážame skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na svoju prácu.'],
+  ['Zladenie termínu', 'Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Konkrétny čas nástupu dohodneme podľa lokality, počasia a nadväznosti so strechármi.'],
   ['Sledujeme počasie', 'Termín plánujeme s ohľadom na počasie, rozsah prác a nadväznosť strechárskych prác.'],
   ['Bez zhadzovania eternitu', 'Materiál demontujeme kontrolovane. Nezhadzujeme eternit zo strechy a nevytvárame zbytočný chaos na stavbe.'],
   ['Stabilizácia materiálu', 'Pred manipuláciou sa materiál stabilizuje, aby sa znížilo riziko uvoľňovania prachu.'],
@@ -178,7 +178,7 @@ const defaultFaq = [
   ],
   [
     'Pomôžete zladiť likvidáciu so strechárom?',
-    'Áno. Pri výmenách striech vyrážame z Popradu skoro ráno, aby sme boli na stavbe spravidla medzi 6:00 a 6:30. Strechári, ktorí prídu okolo 8:00, sa tak môžu pripraviť na nadväzujúcu prácu.',
+    'Áno. Práce plánujeme v pracovných dňoch od 8:00 do 18:00 a konkrétny čas nástupu dohodneme podľa lokality, počasia a nadväznosti so strechárom.',
   ],
 ] satisfies [string, string][];
 

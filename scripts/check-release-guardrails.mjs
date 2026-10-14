@@ -27,6 +27,7 @@ const SINGLE_VALUE_ARGUMENTS = new Set([
   '--protected-baseline',
   '--rollback-sha',
   '--rollback-deployment',
+  '--previous-production-deployment',
 ]);
 const REPEATABLE_ARGUMENTS = new Set(['--allow', '--protected']);
 const BOOLEAN_ARGUMENTS = new Set([VERCEL_IAM_ACKNOWLEDGEMENT]);
@@ -117,6 +118,7 @@ function parseArguments(argv) {
     '--protected-baseline',
     '--rollback-sha',
     '--rollback-deployment',
+    '--previous-production-deployment',
   ]) {
     if (!single.has(name)) throw new Error(`Chýba povinný parameter ${name}.`);
   }
@@ -138,6 +140,7 @@ function parseArguments(argv) {
     protectedBaseline: single.get('--protected-baseline'),
     rollbackSha: single.get('--rollback-sha'),
     rollbackDeployment: single.get('--rollback-deployment'),
+    previousProductionDeployment: single.get('--previous-production-deployment'),
     allowedFiles: repeated.get('--allow'),
     protectedFiles: repeated.get('--protected'),
     vercelIamBoundaryAcknowledged: true,
@@ -285,6 +288,7 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
   const rollbackSha = validateFullCommit(repo, parsed.rollbackSha, '--rollback-sha');
   const expectedBranch = validateBranch(parsed.expectedBranch);
   const rollbackDeployment = validateRollbackDeployment(parsed.rollbackDeployment);
+  const previousProductionDeployment = validateRollbackDeployment(parsed.previousProductionDeployment);
   const allowedFiles = parsed.allowedFiles.map((file) => validateRepositoryPath(file, '--allow'));
   const protectedFiles = [...new Set([...DEFAULT_PROTECTED_FILES, ...parsed.protectedFiles])]
     .map((file) => validateRepositoryPath(file, '--protected'));
@@ -441,7 +445,17 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     failures.push('Nepodarilo sa overiť vercel.json.');
   }
 
-  checks.rollback = { sourceSha: rollbackSha, deployment: rollbackDeployment, sourceIsAncestor: true, passed: true };
+  checks.rollback = {
+    sourceSha: rollbackSha,
+    deployment: rollbackDeployment,
+    sourceIsAncestor: true,
+    passed: true,
+  };
+  checks.previousProduction = {
+    deployment: previousProductionDeployment,
+    purpose: 'Nemenný bod produkcie overený bezprostredne pred povýšením kandidáta.',
+    passed: true,
+  };
   checks.vercelIamBoundary = {
     acknowledged: parsed.vercelIamBoundaryAcknowledged,
     repositoryEnforcement: 'git.deploymentEnabled=false + jediný npm deploy vstup',
@@ -455,7 +469,11 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     currentBranch: actualBranch,
     protectedBaseline,
     expectedHead,
-    rollback: { sourceSha: rollbackSha, deployment: rollbackDeployment },
+    rollback: {
+      sourceSha: rollbackSha,
+      deployment: rollbackDeployment,
+    },
+    previousProduction: { deployment: previousProductionDeployment },
     checks,
     result: failures.length === 0 ? 'PASS' : 'FAIL',
     failures,

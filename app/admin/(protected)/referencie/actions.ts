@@ -1,8 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin, verifyCsrf } from '@/src/server/auth';
-import { createTestimonial, updateTestimonial, updateTestimonialStatus } from '@/src/server/db';
+import { requireAdminUser, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
+import { createTestimonial, getTestimonial, updateTestimonial, updateTestimonialStatus } from '@/src/server/db';
 import type { TestimonialInput, TestimonialStatus } from '@/src/server/types';
 import { redirect } from 'next/navigation';
 import {
@@ -36,7 +36,7 @@ function isValidOptionalEmail(value: string) {
 
 export async function createTestimonialAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actorEmail = await requireAdmin();
+  const admin = await requireAdminUser();
   const customerName = String(formData.get('customerName') || '').trim();
   const location = String(formData.get('location') || '').trim();
   const objectType = String(formData.get('objectType') || '').trim();
@@ -61,6 +61,7 @@ export async function createTestimonialAction(formData: FormData) {
   if (!customerName || !text || !allowedStatuses.includes(status)) {
     redirect('/admin/referencie?chyba=udaje');
   }
+  if (status === 'approved') await requireSuperAdmin();
   if (consentPublication && (consentWording === null || !testimonialConsentEvidenceSources.includes(consentSource as (typeof testimonialConsentEvidenceSources)[number]) || !consentDate || !isValidAdminTestimonialConsentEvidence(consentEvidence))) redirect('/admin/referencie?chyba=suhlas');
   if (status === 'approved' && !consentPublication) redirect('/admin/referencie?chyba=suhlas');
 
@@ -82,7 +83,7 @@ export async function createTestimonialAction(formData: FormData) {
       internalNote,
       photoUrl,
     },
-    actorEmail,
+    admin.email,
   );
 
   revalidatePath('/admin/referencie');
@@ -93,15 +94,20 @@ export async function createTestimonialAction(formData: FormData) {
 
 export async function updateTestimonialStatusAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actorEmail = await requireAdmin();
+  const admin = await requireAdminUser();
   const id = String(formData.get('id') || '');
   const status = String(formData.get('status') || '') as TestimonialStatus;
 
   if (!UUID_RE.test(id)) redirect('/admin/referencie?chyba=id');
   if (!allowedStatuses.includes(status)) redirect('/admin/referencie?chyba=udaje');
-  if (status === 'approved') redirect('/admin/referencie?chyba=schvalenie');
+  if (status === 'approved') await requireSuperAdmin();
 
-  await updateTestimonialStatus(id, status, actorEmail);
+  const existing = await getTestimonial(id);
+  if (!existing) redirect('/admin/referencie?chyba=nenajdene');
+  if (status === 'approved' && existing.reviewRequestId) redirect('/admin/referencie?chyba=schvalenie');
+
+  const updated = await updateTestimonialStatus(id, status, admin.email);
+  if (!updated) redirect('/admin/referencie?chyba=nenajdene');
   revalidatePath('/admin/referencie');
   revalidatePath('/recenzie/');
   revalidatePath('/');
@@ -109,9 +115,11 @@ export async function updateTestimonialStatusAction(formData: FormData) {
 
 export async function updateTestimonialAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actorEmail = await requireAdmin();
+  const admin = await requireAdminUser();
   const id = String(formData.get('id') || '').trim();
   if (!UUID_RE.test(id)) redirect('/admin/referencie?chyba=id');
+  const existing = await getTestimonial(id);
+  if (!existing) redirect('/admin/referencie?chyba=nenajdene');
 
   const editUrl = `/admin/referencie?edit=${encodeURIComponent(id)}`;
   const customerName = readText(formData, 'customerName', 120);
@@ -146,9 +154,11 @@ export async function updateTestimonialAction(formData: FormData) {
     redirect(`${editUrl}&chyba=udaje`);
   }
 
+  if (status === 'approved') await requireSuperAdmin();
   if (consentWording === null) redirect(`${editUrl}&chyba=suhlas`);
   if (consentPublication && (!testimonialConsentEvidenceSources.includes(consentSource as (typeof testimonialConsentEvidenceSources)[number]) || !consentDate || !isValidAdminTestimonialConsentEvidence(consentEvidence))) redirect(`${editUrl}&chyba=suhlas`);
   if (status === 'approved' && !consentPublication) redirect(`${editUrl}&chyba=suhlas`);
+  if (existing.reviewRequestId && status !== 'draft') redirect(`${editUrl}&chyba=schvalenie`);
 
   const input: TestimonialInput = {
     customerName,
@@ -167,7 +177,7 @@ export async function updateTestimonialAction(formData: FormData) {
     consentCapturedAt: consentPublication ? new Date().toISOString() : undefined,
     consentVersion: consentPublication ? adminTestimonialConsentVersion : '',
   };
-  const updated = await updateTestimonial(id, input, actorEmail);
+  const updated = await updateTestimonial(id, input, admin.email);
   if (!updated) redirect('/admin/referencie?chyba=nenajdene');
 
   revalidatePath('/admin/referencie');

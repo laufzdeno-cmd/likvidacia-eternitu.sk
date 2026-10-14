@@ -146,6 +146,7 @@ export type AuditLog = {
     | 'business_job'
     | 'admin_user'
     | 'planner_action'
+    | 'admin_work_item'
     | 'realization_media';
   entityId: string;
   action: string;
@@ -184,6 +185,8 @@ export type TestimonialStatus = 'draft' | 'approved' | 'hidden';
 
 export type TestimonialInput = {
   submissionId?: string;
+  reviewRequestId?: string;
+  businessJobId?: string;
   customerName: string;
   location?: string;
   objectType?: string;
@@ -230,26 +233,88 @@ export type TestimonialAdminHistoryItem = {
   };
 };
 
-export type ReviewRequestStatus = 'sent' | 'review_received';
+export type ReviewRequestStatus =
+  | 'pending_approval'
+  | 'sending'
+  | 'smtp_accepted'
+  | 'delivery_failed'
+  | 'delivery_unknown'
+  | 'opened'
+  | 'submitted'
+  | 'approved'
+  | 'published'
+  | 'cancelled';
+
+export type ReviewReminderDeliveryStatus =
+  | 'sending'
+  | 'smtp_accepted'
+  | 'delivery_failed'
+  | 'delivery_unknown';
 
 export type ReviewRequestInput = {
+  jobId: string;
   customerName: string;
-  phone: string;
+  customerEmail: string;
+  phone?: string;
   location?: string;
   objectType?: string;
   realizationDate?: string;
-  googleReviewLink: string;
+  googleReviewLink?: string;
+  subject: string;
   message: string;
   status?: ReviewRequestStatus;
   createdBy: string;
   leadId?: string;
+  reminderAllowed?: boolean;
 };
 
 export type ReviewRequest = ReviewRequestInput & {
   id: string;
   status: ReviewRequestStatus;
+  tokenHash?: string;
+  tokenExpiresAt?: string;
+  sentAt?: string;
+  openedAt?: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  publishedAt?: string;
+  reminderDueAt?: string;
+  reminderAttemptedAt?: string;
+  reminderSentAt?: string;
+  reminderStatus?: ReviewReminderDeliveryStatus;
+  reminderTokenHash?: string;
+  reminderTokenExpiresAt?: string;
+  reminderDeliveryReasonCode?: string;
+  reminderMessageIdHash?: string;
+  deliveryReasonCode?: string;
+  deliveryMessageIdHash?: string;
+  testimonialId?: string;
+  revision: number;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ReviewEligibleJob = {
+  id: string;
+  leadId?: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  location: string;
+  objectType: string;
+  realizationDate: string;
+  blockedReason?: string;
+};
+
+export type PublicReviewRequest = {
+  id: string;
+  customerName: string;
+  location: string;
+  objectType: string;
+  realizationDate: string;
+  expiresAt: string;
+  alreadySubmitted: boolean;
+  googleReviewLink: string;
 };
 
 export type BusinessPaymentType = 'FAKTURA' | 'CASH';
@@ -328,6 +393,38 @@ export type PlannerAction = PlannerActionInput & {
   notify2DaysSent: boolean;
   notify1DaySent: boolean;
   notifyCustomerSent: boolean;
+};
+
+export type AdminWorkItemPriority = 'CRITICAL' | 'HIGH' | 'NORMAL' | 'LOW';
+export type AdminWorkItemStatus = 'OPEN' | 'DONE' | 'CANCELLED';
+export type AdminWorkItemVisibility = 'TEAM' | 'SUPER_ADMIN';
+
+export type AdminWorkItemInput = {
+  title: string;
+  note: string;
+  priority: AdminWorkItemPriority;
+  dueDate: string;
+  ownerEmail: string;
+  visibility: AdminWorkItemVisibility;
+};
+
+export type AdminWorkItem = AdminWorkItemInput & {
+  id: string;
+  status: AdminWorkItemStatus;
+  revision: number;
+  cancelReason: string;
+  createdBy: string;
+  completedBy: string;
+  completedAt: string;
+  cancelledBy: string;
+  cancelledAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AdminTaskAssignee = {
+  email: string;
+  name: string;
 };
 
 export type Worker = {
@@ -518,6 +615,9 @@ export type BusinessJob = {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  reviewRequestBlockedAt?: string;
+  reviewRequestBlockedBy?: string;
+  reviewRequestBlockedReason?: string;
   demolitionDate: string;
   customerName: string;
   customerPhone: string;
@@ -544,6 +644,51 @@ export type BusinessJob = {
   grossProfit: number;
   marginPercent: number;
 };
+
+/**
+ * Finance-free projection used by operator-facing job screens.
+ * Keep this type explicit: adding a field to BusinessJob must never silently
+ * expose it to an operator response.
+ */
+export type OperationalBusinessJob = {
+  id: string;
+  leadId?: string;
+  isTestData?: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  demolitionDate: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+  location: string;
+  district: string;
+  materialType: string;
+  objectType: string;
+  term: string;
+  leadSource: string;
+  preferredContact: string;
+  m2: number;
+  workType: BusinessWorkType;
+  wasteKg: number;
+  landfill: BusinessLandfill;
+  status: BusinessJobStatus;
+  note: string;
+  workers: Array<{ workerId: string; workerName: string }>;
+};
+
+export type OperationalBusinessJobWithActivity = OperationalBusinessJob & { activityLogs: AuditLog[] };
+
+export type BusinessJobOperationalInput = Pick<OperationalBusinessJob,
+  'demolitionDate' | 'customerName' | 'customerPhone' | 'customerEmail' | 'location' | 'district'
+  | 'materialType' | 'objectType' | 'term' | 'preferredContact' | 'status' | 'note'
+>;
+
+export type OperationalWorker = Pick<Worker, 'id' | 'name' | 'active'>;
+
+export type BusinessJobOfferEvidence = Pick<PriceOffer,
+  'id' | 'jobId' | 'number' | 'status' | 'createdAt' | 'sentAt' | 'acceptedAt' | 'deletedAt'
+>;
 
 export type BusinessSettings = {
   defaultPricePerM2: number;
@@ -622,6 +767,33 @@ export type PriceOffer = PriceOfferInput & {
   totalWithVat: number;
   status: PriceOfferStatus;
 };
+
+export type PriceOfferFollowUpStatus = 'sending' | 'sent' | 'failed' | 'unknown';
+
+export type PriceOfferFollowUpRecord = {
+  id: string;
+  offerId: string;
+  operationId: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  status: PriceOfferFollowUpStatus;
+  messageId: string;
+  errorCode: string;
+  resolution?: 'sent' | 'not_sent';
+  resolutionEvidenceCode: string;
+  resolutionOperationId?: string;
+  revision: number;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+};
+
+export type PriceOfferFollowUpClaim = Pick<PriceOfferFollowUpRecord,
+  'id' | 'offerId' | 'operationId' | 'recipient' | 'subject' | 'body'>;
+
+export type PriceOfferFollowUpHistoryItem = Pick<PriceOfferFollowUpRecord,
+  'id' | 'createdAt' | 'updatedAt' | 'createdBy' | 'status' | 'subject' | 'messageId' | 'revision'>;
 
 export type RealizationStatus = 'draft' | 'published' | 'hidden';
 

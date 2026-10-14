@@ -19,13 +19,16 @@ test('every admin realization mutation form submits CSRF and actions keep verifi
     assert.match(form, /<input\s+type="hidden"\s+name="_csrf"\s+value=\{csrfToken\}\s*\/>/);
   }
 
-  for (const actionName of ['createRealizationAction', 'updateRealizationStatusAction']) {
-    assert.match(actions, new RegExp(`export async function ${actionName}\\(formData: FormData\\) \\{\\s*await verifyCsrf\\(formData\\);\\s*const actorEmail = await requireAdmin\\(\\);`));
-  }
+  assert.match(actions, /export async function createRealizationAction\(formData: FormData\) \{\s*await verifyCsrf\(formData\);\s*const actorEmail = await requireAdmin\(\);/);
+  assert.match(actions, /export async function updateRealizationStatusAction\(formData: FormData\) \{\s*await verifyCsrf\(formData\);[\s\S]*status === 'published'[\s\S]*requireSuperAdmin\(\)/);
   assert.equal((actions.match(/await verifyCsrf\(formData\);/g) || []).length, 2);
   assert.equal((actions.match(/await requireAdmin\(\);/g) || []).length, 2);
   assert.match(page, /Nová položka sa uloží ako rozpracovaná/);
   assert.match(page, /name="publicationRightsConfirmed" required/);
+  assert.match(actions, /status === 'published'[\s\S]*requireSuperAdmin\(\)/,
+    'publishing a realization must be enforced server-side for superadmins');
+  assert.match(page, /const availableStatuses: RealizationStatus\[\] = admin\.role === 'SUPER_ADMIN'\s*\? \['published', 'draft', 'hidden'\]\s*: \['draft', 'hidden'\]/,
+    'operators must not receive the publish control');
   assert.match(page, /name="publicationLocationConfirmed" required/);
   assert.match(page, /name="publicationEvidence" minLength=\{4\}/);
   assert.match(actions, /status === 'published' && \(!rightsConfirmed \|\| !locationConfirmed \|\| evidence\.length < 4\)/);

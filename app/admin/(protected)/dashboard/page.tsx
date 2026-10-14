@@ -65,50 +65,16 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
   const currentYear = String(currentMonth[0]);
   const trailingStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 12, 1)).toISOString().slice(0, 10);
   const allJobsFrom = trailingStart < `${currentYear}-01-01` ? trailingStart : `${currentYear}-01-01`;
-  const [jobs, chartJobs, leadMetrics, recentLeadPage, lostLeadPage, workers, offerEvents, health, todayActions, queueCounts, mailQueue, financeSummary] = await Promise.all([
-    bounds.valid ? listBusinessJobs({ ...bounds, limit: null, excludeTestData: true }) : Promise.resolve([]),
-    listBusinessJobDashboardRows(allJobsFrom, `${currentYear}-12-31`),
-    bounds.valid ? getLeadDashboardMetrics(bounds.from, bounds.to, today) : Promise.resolve({ receivedInPeriod: 0, newToday: 0, waitingForOffer: 0, followupsDue: 0 }),
-    listLeadSummaryPage({ page: 1, pageSize: 10, excludeTestData: true }),
-    listLeadSummaryPage({ page: 1, pageSize: 10, status: 'nevyslo', excludeTestData: true }),
-    listWorkers(true),
-    bounds.valid ? getPriceOfferEventMetrics(bounds.from, bounds.to) : Promise.resolve({ created: 0, sent: 0, accepted: 0 }),
-    adminUser.role === 'SUPER_ADMIN' ? getSystemHealth() : Promise.resolve(null),
-    listPlannerActions({ from: today, to: today }),
-    getLeadQueueCounts(today, true),
-    getLeadEmailOutboxAttention(),
-    bounds.valid ? getBusinessFinanceSummary(bounds.from, bounds.to) : Promise.resolve(null),
-  ]);
-  const businessMetrics = summarizeBusinessJobs(jobs);
-  const { activeJobs, cancelledJobs, recordedOrderValue, cancelledValue, area: m2, wasteKg, rewards, directCosts: costs, preOverheadRemainder, jobsWithoutRecordedDirectCosts, averageRecordedPricePerM2: averageM2 } = businessMetrics;
-  const wasteTons = wasteKg / 1000;
-  const last12 = Array.from({ length: 12 }, (_, index) => {
-    const monthStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 1 - (11 - index), 1));
-    const key = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, '0')}`;
-    const monthJobs = chartJobs.filter((job) => job.status !== 'ZRUSENA' && job.demolitionDate.startsWith(key));
-    return {
-      month: monthStart.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit', timeZone: 'Europe/Bratislava' }),
-      orderValue: monthJobs.reduce((sum, job) => sum + job.totalPrice, 0),
-      costs: monthJobs.reduce((sum, job) => sum + job.costsTotal + job.rewardsTotal, 0),
-    };
-  });
-  const workerRows = workers.map((worker) => {
-    const periodJobs = activeJobs.filter((job) => job.workers.some((item) => item.workerId === worker.id));
-    const yearJobs = chartJobs.filter((job) => job.status !== 'ZRUSENA' && job.demolitionDate.startsWith(currentYear) && job.workers.some((item) => item.workerId === worker.id));
-    const periodReward = periodJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0);
-    const yearReward = yearJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0);
-    return { worker, periodJobs, yearJobs, periodReward, yearReward };
-  });
-  const landfillRows = Object.entries(landfillLabels).map(([landfill, label]) => {
-    const rows = activeJobs.filter((job) => job.landfill === landfill);
-    return { label, count: rows.length, tons: rows.reduce((sum, job) => sum + job.wasteKg, 0) / 1000, cost: rows.reduce((sum, job) => sum + job.costs.landfillCost, 0) };
-  });
-  const leadsReceivedInPeriod = leadMetrics.receivedInPeriod;
-  const offersCreatedInPeriod = offerEvents.created;
-  const offersSentInPeriod = offerEvents.sent;
-  const offersAcceptedInPeriod = offerEvents.accepted;
-  const done = activeJobs.filter((job) => job.status === 'DOKONCENA' || job.status === 'DEMONT_DOKONCENA').length;
+
   if (adminUser.role === 'OPERATOR') {
+    const [leadMetrics, recentLeadPage, lostLeadPage, todayActions, queueCounts, mailQueue] = await Promise.all([
+      bounds.valid ? getLeadDashboardMetrics(bounds.from, bounds.to, today) : Promise.resolve({ receivedInPeriod: 0, newToday: 0, waitingForOffer: 0, followupsDue: 0 }),
+      listLeadSummaryPage({ page: 1, pageSize: 10, excludeTestData: true }),
+      listLeadSummaryPage({ page: 1, pageSize: 10, status: 'nevyslo', excludeTestData: true }),
+      listPlannerActions({ from: today, to: today }),
+      getLeadQueueCounts(today, true),
+      getLeadEmailOutboxAttention(),
+    ]);
     return (
       <main className="admin-page">
         <div className="admin-heading">
@@ -154,6 +120,49 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
     );
   }
 
+  const [jobs, chartJobs, leadMetrics, recentLeadPage, lostLeadPage, workers, offerEvents, health, todayActions, queueCounts, mailQueue, financeSummary] = await Promise.all([
+    bounds.valid ? listBusinessJobs({ ...bounds, limit: null, excludeTestData: true }) : Promise.resolve([]),
+    listBusinessJobDashboardRows(allJobsFrom, `${currentYear}-12-31`),
+    bounds.valid ? getLeadDashboardMetrics(bounds.from, bounds.to, today) : Promise.resolve({ receivedInPeriod: 0, newToday: 0, waitingForOffer: 0, followupsDue: 0 }),
+    listLeadSummaryPage({ page: 1, pageSize: 10, excludeTestData: true }),
+    listLeadSummaryPage({ page: 1, pageSize: 10, status: 'nevyslo', excludeTestData: true }),
+    listWorkers(true),
+    bounds.valid ? getPriceOfferEventMetrics(bounds.from, bounds.to) : Promise.resolve({ created: 0, sent: 0, accepted: 0 }),
+    getSystemHealth(),
+    listPlannerActions({ from: today, to: today }),
+    getLeadQueueCounts(today, true),
+    getLeadEmailOutboxAttention(),
+    bounds.valid ? getBusinessFinanceSummary(bounds.from, bounds.to) : Promise.resolve(null),
+  ]);
+  const businessMetrics = summarizeBusinessJobs(jobs);
+  const { activeJobs, cancelledJobs, recordedOrderValue, cancelledValue, area: m2, wasteKg, rewards, directCosts: costs, preOverheadRemainder, jobsWithoutRecordedDirectCosts, averageRecordedPricePerM2: averageM2 } = businessMetrics;
+  const wasteTons = wasteKg / 1000;
+  const last12 = Array.from({ length: 12 }, (_, index) => {
+    const monthStart = new Date(Date.UTC(currentMonth[0], currentMonth[1] - 1 - (11 - index), 1));
+    const key = `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, '0')}`;
+    const monthJobs = chartJobs.filter((job) => job.status !== 'ZRUSENA' && job.demolitionDate.startsWith(key));
+    return {
+      month: monthStart.toLocaleDateString('sk-SK', { month: 'short', year: '2-digit', timeZone: 'Europe/Bratislava' }),
+      orderValue: monthJobs.reduce((sum, job) => sum + job.totalPrice, 0),
+      costs: monthJobs.reduce((sum, job) => sum + job.costsTotal + job.rewardsTotal, 0),
+    };
+  });
+  const workerRows = workers.map((worker) => {
+    const periodJobs = activeJobs.filter((job) => job.workers.some((item) => item.workerId === worker.id));
+    const yearJobs = chartJobs.filter((job) => job.status !== 'ZRUSENA' && job.demolitionDate.startsWith(currentYear) && job.workers.some((item) => item.workerId === worker.id));
+    const periodReward = periodJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0);
+    const yearReward = yearJobs.reduce((sum, job) => sum + job.workers.filter((item) => item.workerId === worker.id).reduce((a, b) => a + b.reward, 0), 0);
+    return { worker, periodJobs, yearJobs, periodReward, yearReward };
+  });
+  const landfillRows = Object.entries(landfillLabels).map(([landfill, label]) => {
+    const rows = activeJobs.filter((job) => job.landfill === landfill);
+    return { label, count: rows.length, tons: rows.reduce((sum, job) => sum + job.wasteKg, 0) / 1000, cost: rows.reduce((sum, job) => sum + job.costs.landfillCost, 0) };
+  });
+  const leadsReceivedInPeriod = leadMetrics.receivedInPeriod;
+  const offersCreatedInPeriod = offerEvents.created;
+  const offersSentInPeriod = offerEvents.sent;
+  const offersAcceptedInPeriod = offerEvents.accepted;
+  const done = activeJobs.filter((job) => job.status === 'DOKONCENA' || job.status === 'DEMONT_DOKONCENA').length;
   return (
     <main className="admin-page">
       <div className="print-report-heading"><img src="/assets/astana-logo.png" alt="ASTANA" /><p>ASTANA — Mesačný report · {bounds.label}</p></div>

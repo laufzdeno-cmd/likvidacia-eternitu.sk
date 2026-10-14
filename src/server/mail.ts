@@ -302,7 +302,7 @@ function customerLeadEmailHtml(lead: Lead) {
             <tr><td style="padding:20px 24px;">
               <div style="color:#263451;font-size:13px;font-weight:600;">Máte otázky?</div>
               <a href="tel:+421905217946" style="display:block;margin:8px 0;color:#263451;font-size:22px;font-weight:700;text-decoration:none;">0905 217 946</a>
-              <div style="color:#687284;font-size:12px;">Po–Pia 7:00–18:00</div>
+              <div style="color:#687284;font-size:12px;">Po–Pia 8:00–18:00</div>
               <a href="mailto:astana@astana.sk" style="display:block;margin-top:8px;color:#B95A32;font-size:13px;text-decoration:none;">✉ astana@astana.sk</a>
             </td></tr>
           </table>
@@ -337,7 +337,7 @@ function customerLeadEmailText(lead: Lead) {
     `Typ objektu: ${plainText(lead.objectType)}`,
     `Kontakt: ${plainText(lead.preferredContact || 'Zavolajte mi')}`,
     '',
-    'Máte otázky? Zavolajte 0905 217 946 (Po-Pia 7:00-18:00).',
+    'Máte otázky? Zavolajte 0905 217 946 (Po-Pia 8:00-18:00).',
     'likvidacia-eternitu.sk',
   ].join('\n');
 }
@@ -651,23 +651,40 @@ export async function sendLeadEmailToRecipient(
 }
 
 export async function sendPlannerNotificationEmail(input: { to: string; subject: string; html: string; text: string; replyTo?: string }) {
-  const client = transporter();
-  if (!client) return { sent: false, reason: 'SMTP nie je nastavené.' };
+  let client: ReturnType<typeof transporter>;
+  try {
+    client = transporter();
+  } catch (error) {
+    const status = classifySmtpError(error);
+    return { sent: false, status, messageId: '', reason: mailErrorMessage(error) };
+  }
+  if (!client) return { sent: false, status: 'failed' as const, messageId: '', reason: 'SMTP nie je nastavené.' };
 
   try {
+    const requiredRecipient = resolveOutboundEmailRecipient(input.to);
     const info = await client.sendMail({
       from: namedFromHeader('ASTANA plánovač'),
-      to: resolveOutboundEmailRecipient(input.to),
+      to: requiredRecipient,
       replyTo: input.replyTo || leadRecipient(),
       subject: input.subject,
       text: input.text,
       html: input.html,
     });
+    const status = classifyRequiredSmtpRecipient(info, requiredRecipient);
+    return {
+      sent: status === 'sent',
+      status,
+      messageId: info.messageId || '',
+      reason: status === 'sent'
+        ? undefined
+        : status === 'failed'
+          ? 'SMTP odmietlo zvoleného adresáta.'
+          : 'SMTP nepotvrdilo prijatie zvoleným adresátom.',
+    };
   } catch (error) {
-    return { sent: false, reason: mailErrorMessage(error) };
+    const status = classifySmtpError(error);
+    return { sent: false, status, messageId: '', reason: mailErrorMessage(error) };
   }
-
-  return { sent: true };
 }
 
 const priceOfferMaterialLabels: Record<string, string> = {

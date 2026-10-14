@@ -21,8 +21,8 @@ test('llms.txt odkazuje na celoslovenský prehľad a drží sa jeho potvrdených
   assert.match(areaPage, /ASTANA, s\.r\.o\. má sídlo v Poprade a zákazky plánuje podľa konkrétnej obce, rozsahu práce a kapacity/);
   assert.match(areaPage, /Dostupnosť a podmienky potvrdíme po posúdení vašej stavby/);
   assert.match(llms, /ASTANA, s\.r\.o\. má sídlo v Poprade a zákazky rieši po celom Slovensku/);
-  assert.match(llms, /približne medzi 6:00 a 6:30/);
-  assert.match(llms, /Presný čas závisí od lokality, počasia, prístupu a rozsahu demontáže/);
+  assert.match(llms, /pracovných dňoch od 8:00 do 18:00/);
+  assert.match(llms, /konkrétny čas nástupu dohodne podľa lokality, počasia, prístupu, rozsahu demontáže/);
   assert.match(areaPage, /neznamená to miestne pobočky/);
   assert.ok(llms.includes(company.legal_name));
   assert.ok(llms.includes(company.email));

@@ -46,15 +46,15 @@ test('career form keeps an atomic live region mounted and focuses every settled 
   assert.doesNotMatch(source, /\{message \? <p[^>]*career-form-message/);
 });
 
-test('enhanced mobile lead form owns validation while no-JavaScript keeps native validation', async () => {
+test('continuous mobile lead form owns accessible validation while no-JavaScript keeps native validation', async () => {
   const [page, client] = await Promise.all([
     readFile(new URL('../app/page.tsx', import.meta.url), 'utf8'),
     readFile(new URL('../app/homepage-critical-client.tsx', import.meta.url), 'utf8'),
   ]);
 
   assert.doesNotMatch(page, /<form className="lead-form"[^>]*noValidate/);
-  assert.match(client, /const initializeMobileFormSteps = \(\) => \{[\s\S]{0,180}form\.noValidate = true/);
-  assert.match(client, /if \(!form\.checkValidity\(\)\)[\s\S]*renderFormStep\(\)[\s\S]*showValidationSummary\(invalid\)[\s\S]*invalid\[0\]\?\.focus\(\)/);
+  assert.doesNotMatch(client, /initializeMobileFormSteps|data-form-step-next|data-form-step-back|form\.noValidate = true/);
+  assert.match(client, /if \(!form\.checkValidity\(\)\)[\s\S]*showValidationSummary\(invalid\)[\s\S]*invalid\[0\]\?\.focus\(\)/);
   assert.match(client, /control\.name === 'gdpr'[\s\S]*Potvrďte súhlas so spracovaním údajov na vybavenie cenovej ponuky\./);
 });
 

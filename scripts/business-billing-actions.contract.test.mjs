@@ -72,6 +72,7 @@ test('admin financial evidence formats business units and local dates for people
   assert.match(detail, /settings, finance\] = await Promise\.all/);
   assert.doesNotMatch(detail, /const finance = await getBusinessJobFinance/);
   assert.doesNotMatch(detail, /Stav recenzie<select/);
-  assert.match(detail, /Otvoriť žiadosť o recenziu/);
+  assert.match(detail, /Referencie a hodnotenia/);
+  assert.match(detail, /const reviewRequestHref = '\/admin\/referencie'/);
   assert.match(detail, /stav po obnovení stránky nestratil/);
 });
