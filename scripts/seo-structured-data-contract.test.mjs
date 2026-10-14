@@ -220,6 +220,9 @@ test('public offer copy consistently treats customer photos as optional', () => 
 
 test('price content uses the approved asbestos roof social image', () => {
   assert.match(priceLanding, /image:\s*'\/og\/cena-strecha-realizacia\.jpg'/);
+  assert.match(priceLanding, /<Image[\s\S]*?src="\/og\/cena-strecha-realizacia\.jpg"/,
+    'the approved roof photo must be visibly rendered on the price page, not only used as social metadata');
+  assert.match(priceLanding, /alt="Pracovník ASTANA stabilizuje eternitovú strechu pred bezpečnou demontážou"/);
   assert.match(
     seoContent,
     /slug:\s*'kolko-stoji-likvidacia-azbestu'[\s\S]*?image:\s*'\/og\/cena-strecha-realizacia\.jpg'/,

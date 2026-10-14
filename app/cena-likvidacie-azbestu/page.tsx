@@ -1,10 +1,12 @@
 import { coreFaqs } from '@/src/content/seo-content';
+import Image from 'next/image';
 import { buildPageMetadata, FaqSection, QuoteCTA, QuickAnswer, SummaryBox } from '../seo-components';
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 import PricePageClient from '../price-page-client';
 import { PublicFontPreload } from '@/src/components/public-font-preload';
 import { transportPolicy } from '@/src/content/transport-policy.mjs';
+import './price-route.css';
 
 export const metadata = buildPageMetadata({
   title: 'Cena likvidácie azbestu a eternitu | Faktory ceny | ASTANA',
@@ -29,15 +31,28 @@ export default function AsbestosPricePage() {
       <PublicFontPreload />
       <main className="seo-page price-seo-page">
         <JsonLd data={[buildServiceJsonLd('Cena likvidácie azbestu a eternitu', `Cena závisí od výmery, typu materiálu, prístupu, lokality, dokumentácie a objemu odpadu. ${transportPolicy.full}`, '/cena-likvidacie-azbestu/'), buildFaqJsonLd(coreFaqs.slice(3, 7))]} />
-        <section className="seo-hero">
-          <p className="eyebrow">Cena</p>
-          <h1>Cena likvidácie azbestu a eternitu</h1>
-          <p>Cena je individuálna. Pošlite približnú výmeru a lokalitu. Fotky môžu ponuku spresniť, ale nie sú povinné.</p>
-          <div className="price-hero-actions">
-            <a className="button button-primary" href="/#dopyt">Získať nezáväznú ponuku</a>
-            <a className="button button-outline" href="#orientacna-cena">Vypočítať orientačne</a>
+        <section className="seo-hero price-media-hero">
+          <div className="price-hero-copy">
+            <p className="eyebrow">Cena</p>
+            <h1>Cena likvidácie azbestu a eternitu</h1>
+            <p>Cena je individuálna. Pošlite približnú výmeru a lokalitu. Fotky môžu ponuku spresniť, ale nie sú povinné.</p>
+            <div className="price-hero-actions">
+              <a className="button button-primary" href="/#dopyt">Získať nezáväznú ponuku</a>
+              <a className="button button-outline" href="#orientacna-cena">Vypočítať orientačne</a>
+            </div>
+            <p className="price-hero-note">Fotky sú voliteľné. Bez záväzku.</p>
           </div>
-          <p className="price-hero-note">Fotky sú voliteľné. Bez záväzku.</p>
+          <figure className="price-hero-photo">
+            <Image
+              src="/og/cena-strecha-realizacia.jpg"
+              alt="Pracovník ASTANA stabilizuje eternitovú strechu pred bezpečnou demontážou"
+              width={1200}
+              height={630}
+              sizes="(max-width: 820px) calc(100vw - 28px), 44vw"
+              preload
+            />
+            <figcaption>Reálna práca ASTANA na eternitovej streche pred demontážou.</figcaption>
+          </figure>
         </section>
         <QuickAnswer>
           Cena likvidácie azbestu a eternitu sa nedá zodpovedne určiť jednou sumou bez údajov o zákazke. Závisí od m2,
