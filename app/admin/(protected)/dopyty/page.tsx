@@ -33,18 +33,25 @@ const tagOptions: Array<['', string] | [LeadTag, string]> = [
 ];
 
 const queueOptions = [
-  { value: 'new', label: 'Nové dopyty', description: 'Ešte bez prvého kontaktu' },
-  { value: 'unassigned', label: 'Bez vlastníka', description: 'Treba priradiť zodpovednosť' },
-  { value: 'followup', label: 'Follow-up', description: 'Dnes alebo po termíne' },
-  { value: 'waiting', label: 'Čaká na doplnenie', description: 'Chýbajú údaje od zákazníka' },
-  { value: 'quote', label: 'Pripravené na ponuku', description: 'Možno naceniť' },
-  { value: 'active', label: 'V spracovaní', description: 'Kontaktované a rozpracované' },
+  { value: 'new', label: 'Nové dopyty', description: 'Ešte bez prvého kontaktu', tone: 'sky', icon: '✦' },
+  { value: 'unassigned', label: 'Bez vlastníka', description: 'Treba priradiť zodpovednosť', tone: 'amber', icon: '◌' },
+  { value: 'followup', label: 'Follow-up', description: 'Dnes alebo po termíne', tone: 'rose', icon: '↻' },
+  { value: 'waiting', label: 'Čaká na doplnenie', description: 'Chýbajú údaje od zákazníka', tone: 'teal', icon: '◷' },
+  { value: 'quote', label: 'Pripravené na ponuku', description: 'Možno naceniť', tone: 'violet', icon: '€' },
+  { value: 'active', label: 'V spracovaní', description: 'Kontaktované a rozpracované', tone: 'indigo', icon: '→' },
 ] as const;
 
 type QueueValue = (typeof queueOptions)[number]['value'];
 
 function isQueue(value: string): value is QueueValue {
   return queueOptions.some((item) => item.value === value);
+}
+
+function queueUrgency(value: QueueValue, count: number) {
+  if (count === 0) return 'clear';
+  if (value === 'unassigned' || value === 'followup') return 'high';
+  if (value === 'new' || value === 'waiting' || value === 'quote') return 'attention';
+  return 'normal';
 }
 
 function pageValue(value: string | undefined) {
@@ -119,7 +126,21 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                       : item.value === 'quote'
                         ? queueCounts.quote
                         : queueCounts.active;
-              return <a className={`admin-queue-link${queue === item.value ? ' is-active' : ''}`} href={`/admin/dopyty?queue=${item.value}`} key={item.value}><span>{item.label}</span><strong>{count}</strong><small>{item.description}</small></a>;
+              const urgency = queueUrgency(item.value, count);
+              return <a
+                aria-label={`${item.label}: ${count}. ${item.description}`}
+                className={`admin-queue-link tone-${item.tone} ${count === 0 ? 'is-empty' : 'has-items'} urgency-${urgency}${queue === item.value ? ' is-active' : ''}`}
+                href={`/admin/dopyty?queue=${item.value}`}
+                key={item.value}
+              >
+                <span className="admin-queue-icon" aria-hidden="true">{item.icon}</span>
+                <span className="admin-queue-content">
+                  <span>{item.label}</span>
+                  <strong className="admin-queue-count">{count}</strong>
+                  <small>{item.description}</small>
+                </span>
+                <span className="admin-queue-indicator" aria-hidden="true">{count === 0 ? '✓' : urgency === 'high' ? '!' : '→'}</span>
+              </a>;
             })}
           </div>
         </section>
@@ -232,35 +253,41 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 const currentOffer = latestOffers.get(lead.id);
                 const offerView = leadOfferPresentation(currentOffer?.status);
                 const followupView = leadFollowupPresentation(lead.followupDate, today);
-                return <tr className={lead.isTestData ? 'is-test-lead' : undefined} key={lead.id}>
-                  <td>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(lead.createdAt))}</td>
-                  <td>
+                const rowClasses = [
+                  'admin-lead-row',
+                  `is-status-${lead.status}`,
+                  lead.isTestData ? 'is-test-lead' : '',
+                  lead.deletedAt ? 'is-archived-lead' : '',
+                ].filter(Boolean).join(' ');
+                return <tr className={rowClasses} data-status={lead.status} key={lead.id}>
+                  <td data-label="Dátum">{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(lead.createdAt))}</td>
+                  <td data-label="Meno a telefón">
                     <strong>{cleanSlovakText(lead.fullName)}</strong>
                     {lead.isTestData ? <span className="admin-test-data-badge">TEST</span> : null}
                     <br />
                     <a className="admin-tel-link" href={`tel:${lead.phone}`}>{lead.phone}</a>
                     {lead.email ? <small> · {lead.email}</small> : null}
                   </td>
-                  <td>{cleanSlovakText(lead.city)}{lead.district ? `, ${cleanSlovakText(lead.district)}` : ''}</td>
-                  <td>
+                  <td data-label="Lokalita">{cleanSlovakText(lead.city)}{lead.district ? `, ${cleanSlovakText(lead.district)}` : ''}</td>
+                  <td data-label="Materiál + m2">
                     <strong>{cleanSlovakText(lead.materialType)}</strong>
                     <br />
                     <small>{formatLeadAreaCompact(lead)} · {cleanSlovakText(lead.objectType)}</small>
                   </td>
-                  <td><span className="score-pill">{insight.qualityScore}/100</span></td>
-                  <td>{lead.fileCount ? <span className="attachment-pill">📎 {lead.fileCount}</span> : <span className="muted">—</span>}</td>
-                  <td>
+                  <td data-label="Skóre"><span className="score-pill">{insight.qualityScore}/100</span></td>
+                  <td data-label="Prílohy">{lead.fileCount ? <span className="attachment-pill">📎 {lead.fileCount}</span> : <span className="muted">—</span>}</td>
+                  <td data-label="Vlastník / ďalší krok">
                     <strong>{lead.ownerEmail ? ownerName.get(lead.ownerEmail) || lead.ownerEmail : 'Bez vlastníka'}</strong>
                     {lead.nextAction ? <><br /><small>{cleanSlovakText(lead.nextAction)}</small></> : <><br /><small className="muted">Ďalší krok nie je určený</small></>}
                     {followupView ? <><br /><span className={`admin-followup-badge is-${followupView.tone}`}>{followupView.label}</span></> : null}
                   </td>
-                  <td>
+                  <td data-label="Cenová ponuka">
                     {currentOffer ? <a className="admin-offer-number" href={`/admin/ponuky/${currentOffer.id}`}>CP {currentOffer.number}</a> : null}
                     <span className={`admin-offer-state is-${offerView.state}`}>{offerView.label}</span>
                     <small className="admin-offer-detail">{offerView.detail}</small>
                   </td>
-                  <td><span className={`status-pill status-${lead.status}`}>{lead.deletedAt ? 'Archivovaný dopyt' : statusLabels[lead.status] || lead.status}</span></td>
-                  <td>
+                  <td data-label="Stav"><span className={`status-pill status-${lead.status}`}>{lead.deletedAt ? 'Archivovaný dopyt' : statusLabels[lead.status] || lead.status}</span></td>
+                  <td data-label="Akcie">
                     <div className="admin-row-actions">
                       {lead.deletedAt ? <><a className="admin-row-link is-muted" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{adminUser.role === 'SUPER_ADMIN' ? <form action={restoreLeadAction}><input type="hidden" name="id" value={lead.id} /><button className="admin-row-link is-plum" type="submit">Obnoviť</button></form> : null}</> : <><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a>{currentOffer
                         ? <a className="admin-row-link is-plum" href={`/admin/ponuky/${currentOffer.id}`}>Otvoriť CP</a>
