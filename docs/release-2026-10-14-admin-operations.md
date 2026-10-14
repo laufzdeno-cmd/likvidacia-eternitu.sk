@@ -1,6 +1,6 @@
 # ASTANA admin a prevádzka — release 2026-10-14
 
-Tento dokument je nemenná značka skontrolovaného produkčného vydania. Funkčný baseline je commit `175ca191`.
+Tento dokument je nemenná značka skontrolovaného produkčného vydania. Funkčný baseline je commit `617ef7ae`.
 
 ## Rozsah
 
@@ -18,7 +18,7 @@ Tento dokument je nemenná značka skontrolovaného produkčného vydania. Funk�
 ## Overenie pred kandidátom
 
 - TypeScript: PASS,
-- unit testy: 545/545 + 38/38 PASS,
+- unit testy: 547/547 + 38/38 PASS,
 - relevantné finálne testy pracovných časov a release auditu: 64/64 PASS,
 - opravený lokálny klasifikačný integračný test: 1/1 PASS,
 - databázové integračné toky: PASS,
@@ -28,5 +28,7 @@ Tento dokument je nemenná značka skontrolovaného produkčného vydania. Funk�
 - formuláre odoslané počas vizuálneho auditu: 0,
 - externé originy počas vizuálneho auditu: 0,
 - nezávislý release audit: PASS, bez nálezu P0–P3.
+
+Prvý izolovaný kandidát odhalil starý editovateľný text o príchode medzi 6:00 a 6:30 uložený v produkčnej databáze. Kandidát nebol povýšený. Kompatibilná normalizácia teraz nahrádza iba tento známy neplatný text schváleným pravidlom pracovných dní 8:00–18:00 a ostatné vlastné texty zachováva; regresný test je súčasťou uvedenej sady.
 
 Produkčné doručenie e-mailu sa pri overovaní zámerne nespúšťa. Cenová ponuka ani referencia sa nikdy neodosiela bez povolenej a auditovanej akcie.
