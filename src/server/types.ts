@@ -336,6 +336,7 @@ export type BusinessJobStatus =
   | 'ZRUSENA';
 export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
 export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSIELA' | 'NEISTY_STAV' | 'ODOSLANA' | 'ODLOZENA' | 'PRIJATA' | 'NEUSPESNA' | 'ZRUSENA';
+export type PriceOfferCustomerResponse = 'ACCEPTED' | 'DEFERRED' | 'DECLINED';
 export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR';
 
 export type AdminUser = {
@@ -423,8 +424,57 @@ export type AdminWorkItem = AdminWorkItemInput & {
 };
 
 export type AdminTaskAssignee = {
+  id: string;
   email: string;
   name: string;
+  role: AdminRole;
+};
+
+export type AdminTaskSuggestion = {
+  suggestionVersion: 1;
+  suggestedOwnerUserId: string;
+  suggestedOwnerEmail: string;
+  suggestedOwnerName: string;
+  suggestedDueDate: string;
+  loadScore: number;
+  reasonCode: 'lowest_open_workload';
+  sourceRevision: string;
+  generatedAt: string;
+};
+
+export type AdminAutopilotTrigger = 'cron' | 'manual' | 'test';
+export type AdminAutopilotRunStatus = 'running' | 'succeeded' | 'degraded' | 'failed';
+export type AdminAutopilotModule = 'offers' | 'review_requests' | 'photo_intake';
+export type AdminAutopilotRunItemOutcome = 'created' | 'blocked' | 'failed';
+
+export type AdminAutopilotRunCounts = {
+  priceOffersCreated: number;
+  reviewRequestsPrepared: number;
+  realizationDraftsCreated: number;
+  photosAttached: number;
+  blockedOffers: number;
+};
+
+export type AdminAutopilotRun = {
+  id: string;
+  trigger: AdminAutopilotTrigger;
+  actorKind: 'system' | 'superadmin';
+  status: AdminAutopilotRunStatus;
+  counts: AdminAutopilotRunCounts;
+  unavailableModules: AdminAutopilotModule[];
+  errorCode: string;
+  startedAt: string;
+  finishedAt?: string;
+};
+
+export type AdminAutopilotRunItem = {
+  id: string;
+  runId: string;
+  module: AdminAutopilotModule;
+  entityId: string;
+  outcome: AdminAutopilotRunItemOutcome;
+  reasonCode: string;
+  createdAt: string;
 };
 
 export type Worker = {
@@ -645,6 +695,37 @@ export type BusinessJob = {
   marginPercent: number;
 };
 
+export type BusinessJobCompletionDocumentsDecision = 'pending' | 'confirmed' | 'not_applicable';
+export type BusinessJobCompletionCostsDecision = 'pending' | 'confirmed_recorded' | 'confirmed_zero';
+export type BusinessJobCompletionPhotosDecision = 'pending' | 'waiting' | 'not_available' | 'ready_private';
+export type BusinessJobCompletionReviewDecision = 'pending' | 'prepare' | 'blocked';
+
+export type BusinessJobCompletion = {
+  jobId: string;
+  revision: number;
+  documentsDecision: BusinessJobCompletionDocumentsDecision;
+  documentsReason: string;
+  costsDecision: BusinessJobCompletionCostsDecision;
+  costsReason: string;
+  photosDecision: BusinessJobCompletionPhotosDecision;
+  photosReason: string;
+  reviewDecision: BusinessJobCompletionReviewDecision;
+  reviewBlockReason: string;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+  finalizedAt?: string;
+  finalizedBy?: string;
+};
+
+/**
+ * Finance-free completion projection for operator-facing screens. The
+ * financial decision and its reason must never be serialized into operator
+ * HTML, even as hidden form values.
+ */
+export type OperationalBusinessJobCompletion = Omit<BusinessJobCompletion, 'costsDecision' | 'costsReason'>;
+
 /**
  * Finance-free projection used by operator-facing job screens.
  * Keep this type explicit: adding a field to BusinessJob must never silently
@@ -767,10 +848,35 @@ export type PriceOffer = PriceOfferInput & {
   outcomeReason?: string;
   nextFollowUpAt?: string;
   outcomeUpdatedAt?: string;
+  responseTokenHash?: string;
+  responseTokenExpiresAt?: string;
+  customerResponse?: PriceOfferCustomerResponse;
+  customerResponseReasonCode?: string;
+  customerRequestedFollowUpAt?: string;
+  customerRespondedAt?: string;
+  customerResponsePayloadHash?: string;
+  customerResponseRevision: number;
+  customerResponseAppliedAt?: string;
+  customerResponseAppliedBy?: string;
+  customerResponseDismissedAt?: string;
+  customerResponseDismissedBy?: string;
+  customerResponseDismissReason?: string;
+  /** Exists only on the in-memory result of a manual send claim. Never persisted or serialized from storage. */
+  customerResponseToken?: string;
   materialPriceWithoutVat: number;
   totalWithoutVat: number;
   totalWithVat: number;
   status: PriceOfferStatus;
+};
+
+export type PublicPriceOfferResponse = {
+  offerNumber: string;
+  objectType: string;
+  municipality: string;
+  totalWithVat: number;
+  validUntil: string;
+  expiresAt: string;
+  alreadyResponded: boolean;
 };
 
 export type PriceOfferFollowUpStatus = 'sending' | 'sent' | 'failed' | 'unknown';

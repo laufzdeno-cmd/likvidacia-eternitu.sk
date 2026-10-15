@@ -15,6 +15,7 @@ import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '../lib/date
 import { priceOfferNumberYear } from '../lib/price-offer-number-year';
 import { leadOfferFilterMatches, type LeadOfferFilter } from '../lib/admin-lead-overview';
 import { normalizeAdminSessionEpoch } from './admin-session-policy';
+import { buildAdminTaskSuggestion, type AdminSuggestionLead, type AdminSuggestionWorkItem } from './admin-task-suggestion';
 import {
   shouldFallbackToDefaultSiteContent,
   shouldUseDefaultSiteContent,
@@ -29,7 +30,15 @@ import type {
   LeadAttributionReportRow,
   AdminRole,
   AdminTaskAssignee,
+  AdminTaskSuggestion,
   AdminUser,
+  AdminAutopilotModule,
+  AdminAutopilotRun,
+  AdminAutopilotRunCounts,
+  AdminAutopilotRunItem,
+  AdminAutopilotRunItemOutcome,
+  AdminAutopilotRunStatus,
+  AdminAutopilotTrigger,
   AdminWorkItem,
   AdminWorkItemInput,
   AdminWorkItemPriority,
@@ -40,6 +49,12 @@ import type {
   ApplicationNotificationRecipient,
   AdminUserInput,
   BusinessJob,
+  BusinessJobCompletion,
+  BusinessJobCompletionCostsDecision,
+  BusinessJobCompletionDocumentsDecision,
+  BusinessJobCompletionPhotosDecision,
+  BusinessJobCompletionReviewDecision,
+  OperationalBusinessJobCompletion,
   BusinessJobCosts,
   BusinessFinanceMonthlySummary,
   BusinessFinanceSummary,
@@ -81,6 +96,7 @@ import type {
   OperationalBusinessJobWithActivity,
   OperationalWorker,
   PriceOffer,
+  PriceOfferCustomerResponse,
   PriceOfferFollowUpClaim,
   PriceOfferFollowUpHistoryItem,
   PriceOfferFollowUpRecord,
@@ -89,6 +105,7 @@ import type {
   PriceOfferMaterialType,
   PriceOfferSettings,
   PriceOfferStatus,
+  PublicPriceOfferResponse,
   PublishedRealization,
   PublishedRealizationCase,
   PlannerAction,
@@ -184,9 +201,12 @@ type LocalDb = {
   reviewRequests: ReviewRequest[];
   workers: Worker[];
   adminUsers: AdminUser[];
+  adminAutopilotRuns: AdminAutopilotRun[];
+  adminAutopilotRunItems: AdminAutopilotRunItem[];
   adminWorkItems: AdminWorkItem[];
   plannerActions: PlannerAction[];
   businessJobs: BusinessJob[];
+  businessJobCompletions: BusinessJobCompletion[];
   businessJobInvoices: BusinessJobInvoice[];
   businessJobPaymentEvents: BusinessJobPaymentEvent[];
   priceOffers: PriceOffer[];
@@ -482,7 +502,7 @@ const adminAutopilotPriceOfferColumnDefinitions: Record<
  */
 export async function ensureAdminAutopilotSchema() {
   const db = getPool();
-  if (!db) return { columnsAdded: 0 };
+  if (!db) return { columnsAdded: 0, tablesAdded: 0 };
   const client = await db.connect();
   try {
     await client.query('BEGIN');
@@ -499,6 +519,12 @@ export async function ensureAdminAutopilotSchema() {
 }
 
 export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'query'>) {
+  const tableState = await client.query<{ runs_exists: boolean; items_exists: boolean }>(`
+    SELECT
+      to_regclass('public.admin_autopilot_runs') IS NOT NULL AS runs_exists,
+      to_regclass('public.admin_autopilot_run_items') IS NOT NULL AS items_exists
+  `);
+  const tablesAdded = Number(!tableState.rows[0]?.runs_exists) + Number(!tableState.rows[0]?.items_exists);
   const existing = await client.query<{ column_name: string }>(`
     SELECT column_name
     FROM information_schema.columns
@@ -512,7 +538,220 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
       `ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS ${adminAutopilotPriceOfferColumnDefinitions[column]}`,
     );
   }
-  return { columnsAdded: missingColumns.length };
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS admin_autopilot_runs (
+      id uuid PRIMARY KEY,
+      trigger text NOT NULL CHECK (trigger IN ('cron','manual','test')),
+      actor_kind text NOT NULL CHECK (actor_kind IN ('system','superadmin')),
+      status text NOT NULL CHECK (status IN ('running','succeeded','degraded','failed')),
+      counts jsonb NOT NULL DEFAULT '{}'::jsonb,
+      unavailable_modules jsonb NOT NULL DEFAULT '[]'::jsonb,
+      error_code text NOT NULL DEFAULT '',
+      started_at timestamptz NOT NULL DEFAULT now(),
+      finished_at timestamptz,
+      CONSTRAINT admin_autopilot_runs_error_code_length_check CHECK (char_length(error_code) <= 80)
+    )
+  `);
+  await client.query('CREATE INDEX IF NOT EXISTS admin_autopilot_runs_started_idx ON admin_autopilot_runs (started_at DESC, id DESC)');
+  await client.query('CREATE INDEX IF NOT EXISTS admin_autopilot_runs_status_idx ON admin_autopilot_runs (status, started_at DESC)');
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS admin_autopilot_run_items (
+      id uuid PRIMARY KEY,
+      run_id uuid NOT NULL REFERENCES admin_autopilot_runs(id) ON DELETE CASCADE,
+      module text NOT NULL CHECK (module IN ('offers','review_requests','photo_intake')),
+      entity_id uuid NOT NULL,
+      outcome text NOT NULL CHECK (outcome IN ('created','blocked','failed')),
+      reason_code text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT admin_autopilot_run_items_reason_code_length_check CHECK (char_length(reason_code) <= 80),
+      UNIQUE (run_id, module, entity_id, outcome, reason_code)
+    )
+  `);
+  await client.query('CREATE INDEX IF NOT EXISTS admin_autopilot_run_items_run_idx ON admin_autopilot_run_items (run_id, created_at, id)');
+  return { columnsAdded: missingColumns.length, tablesAdded };
+}
+
+export async function startAdminAutopilotRun(input: {
+  trigger: AdminAutopilotTrigger;
+  actorKind: AdminAutopilotRun['actorKind'];
+}): Promise<AdminAutopilotRun> {
+  await ensureAdminAutopilotSchema();
+  const run: AdminAutopilotRun = {
+    id: randomUUID(),
+    trigger: input.trigger,
+    actorKind: input.actorKind,
+    status: 'running',
+    counts: emptyAdminAutopilotCounts(),
+    unavailableModules: [],
+    errorCode: '',
+    startedAt: now(),
+  };
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const staleBefore = new Date(Date.now() - 30 * 60_000).toISOString();
+    for (const existing of local.adminAutopilotRuns) {
+      if (existing.status === 'running' && existing.startedAt < staleBefore) {
+        existing.status = 'failed';
+        existing.errorCode = 'stale_run_recovered';
+        existing.finishedAt = run.startedAt;
+      }
+    }
+    if (local.adminAutopilotRuns.some((existing) => existing.status === 'running')) {
+      throw new Error('Firemný asistent už práve beží.');
+    }
+    local.adminAutopilotRuns.unshift(run);
+    await writeLocalDb(local);
+    return run;
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('astana:admin-autopilot-run:v1'))");
+    await client.query(
+      `UPDATE admin_autopilot_runs SET status='failed', error_code='stale_run_recovered', finished_at=$1
+       WHERE status='running' AND started_at < ($1::timestamptz - interval '30 minutes')`,
+      [run.startedAt],
+    );
+    const active = await client.query("SELECT id FROM admin_autopilot_runs WHERE status='running' LIMIT 1");
+    if (active.rows[0]) throw new Error('Firemný asistent už práve beží.');
+    await client.query(
+      `INSERT INTO admin_autopilot_runs (id, trigger, actor_kind, status, counts, unavailable_modules, error_code, started_at)
+       VALUES ($1,$2,$3,'running',$4::jsonb,'[]'::jsonb,'',$5)`,
+      [run.id, run.trigger, run.actorKind, JSON.stringify(run.counts), run.startedAt],
+    );
+    await client.query('COMMIT');
+    return run;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function recordAdminAutopilotRunItem(input: {
+  runId: string;
+  module: AdminAutopilotModule;
+  entityId: string;
+  outcome: AdminAutopilotRunItemOutcome;
+  reasonCode?: string;
+}) {
+  if (!uuidPattern.test(input.runId) || !uuidPattern.test(input.entityId)) throw new Error('Neplatný interný identifikátor behu asistenta.');
+  const reasonCode = String(input.reasonCode ?? '').trim().slice(0, 80);
+  if (reasonCode && !/^[a-z0-9_]+$/.test(reasonCode)) throw new Error('Neplatný kód výsledku asistenta.');
+  const item: AdminAutopilotRunItem = {
+    id: randomUUID(),
+    runId: input.runId,
+    module: input.module,
+    entityId: input.entityId,
+    outcome: input.outcome,
+    reasonCode,
+    createdAt: now(),
+  };
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    if (!local.adminAutopilotRuns.some((run) => run.id === input.runId)) throw new Error('Beh asistenta sa nenašiel.');
+    const duplicate = local.adminAutopilotRunItems.some((entry) => entry.runId === input.runId
+      && entry.module === input.module && entry.entityId === input.entityId
+      && entry.outcome === input.outcome && entry.reasonCode === reasonCode);
+    if (!duplicate) {
+      local.adminAutopilotRunItems.push(item);
+      await writeLocalDb(local);
+    }
+    return;
+  }
+  await db.query(
+    `INSERT INTO admin_autopilot_run_items (id, run_id, module, entity_id, outcome, reason_code, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7)
+     ON CONFLICT (run_id, module, entity_id, outcome, reason_code) DO NOTHING`,
+    [item.id, item.runId, item.module, item.entityId, item.outcome, item.reasonCode, item.createdAt],
+  );
+}
+
+export async function finishAdminAutopilotRun(input: {
+  runId: string;
+  status: Exclude<AdminAutopilotRunStatus, 'running'>;
+  counts: AdminAutopilotRunCounts;
+  unavailableModules?: AdminAutopilotModule[];
+  errorCode?: string;
+}): Promise<AdminAutopilotRun> {
+  if (!uuidPattern.test(input.runId)) throw new Error('Neplatný interný identifikátor behu asistenta.');
+  const unavailableModules = [...new Set(input.unavailableModules ?? [])];
+  const errorCode = String(input.errorCode ?? '').trim().slice(0, 80);
+  if (errorCode && !/^[a-z0-9_]+$/.test(errorCode)) throw new Error('Neplatný kód chyby asistenta.');
+  const finishedAt = now();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const index = local.adminAutopilotRuns.findIndex((run) => run.id === input.runId);
+    if (index < 0) throw new Error('Beh asistenta sa nenašiel.');
+    if (local.adminAutopilotRuns[index].status !== 'running') return local.adminAutopilotRuns[index];
+    local.adminAutopilotRuns[index] = {
+      ...local.adminAutopilotRuns[index], status: input.status, counts: input.counts,
+      unavailableModules, errorCode, finishedAt,
+    };
+    await writeLocalDb(local);
+    return local.adminAutopilotRuns[index];
+  }
+  const { rows } = await db.query(
+    `UPDATE admin_autopilot_runs SET status=$2, counts=$3::jsonb, unavailable_modules=$4::jsonb,
+       error_code=$5, finished_at=$6 WHERE id=$1 AND status='running' RETURNING *`,
+    [input.runId, input.status, JSON.stringify(input.counts), JSON.stringify(unavailableModules), errorCode, finishedAt],
+  );
+  if (rows[0]) return toAdminAutopilotRun(rows[0]);
+  const current = await db.query('SELECT * FROM admin_autopilot_runs WHERE id=$1', [input.runId]);
+  if (!current.rows[0]) throw new Error('Beh asistenta sa nenašiel.');
+  return toAdminAutopilotRun(current.rows[0]);
+}
+
+export async function listAdminAutopilotRuns(limit = 20): Promise<AdminAutopilotRun[]> {
+  await ensureAdminAutopilotSchema();
+  const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit) || 20));
+  const db = getPool();
+  if (!db) return (await readLocalDb()).adminAutopilotRuns
+    .sort((left, right) => right.startedAt.localeCompare(left.startedAt) || right.id.localeCompare(left.id))
+    .slice(0, boundedLimit);
+  const { rows } = await db.query('SELECT * FROM admin_autopilot_runs ORDER BY started_at DESC, id DESC LIMIT $1', [boundedLimit]);
+  return rows.map(toAdminAutopilotRun);
+}
+
+export async function listAdminAutopilotRunItems(runId: string): Promise<AdminAutopilotRunItem[]> {
+  if (!uuidPattern.test(runId)) return [];
+  await ensureAdminAutopilotSchema();
+  const db = getPool();
+  if (!db) return (await readLocalDb()).adminAutopilotRunItems.filter((item) => item.runId === runId)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+  const { rows } = await db.query('SELECT * FROM admin_autopilot_run_items WHERE run_id=$1 ORDER BY created_at, id', [runId]);
+  return rows.map(toAdminAutopilotRunItem);
+}
+
+/**
+ * Read-only allow-list for assistant metrics. Historical photo events are
+ * excluded once their source photo, job or lead is removed or marked as test.
+ */
+export async function listEligibleAdminAssistantPhotoIds(entityIds: string[]): Promise<string[]> {
+  const ids = [...new Set(entityIds.filter((id) => uuidPattern.test(id)))].slice(0, 1000);
+  if (!ids.length) return [];
+  await ensureSchema();
+  const db = getPool();
+  if (!db) return [];
+  const { rows } = await db.query(
+    `SELECT media.id
+     FROM realization_media_intake AS media
+     JOIN photo_upload_invites AS invite ON invite.id = media.invite_id
+     JOIN business_jobs AS job ON job.id = invite.business_job_id
+     LEFT JOIN leads AS source_lead ON source_lead.id = job.lead_id
+     WHERE media.id = ANY($1::uuid[])
+       AND media.status <> 'deletion_pending'
+       AND job.deleted_at IS NULL
+       AND COALESCE(job.is_test_data, false) = false
+       AND (source_lead.id IS NULL OR source_lead.deleted_at IS NULL)
+       AND COALESCE(source_lead.is_test_data, false) = false`,
+    [ids],
+  );
+  return rows.map((row) => String(row.id));
 }
 
 export async function migrateLegacyMetaCapiOutbox(db: Pool | PoolClient) {
@@ -1556,6 +1795,40 @@ async function initializeSchema() {
       CHECK (lifecycle <> 'published' OR published_at IS NOT NULL);
     CREATE INDEX IF NOT EXISTS realization_case_drafts_business_job_idx ON realization_case_drafts (business_job_id);
 
+    CREATE TABLE IF NOT EXISTS business_job_completion (
+      job_id uuid PRIMARY KEY REFERENCES business_jobs(id) ON DELETE CASCADE,
+      revision integer NOT NULL DEFAULT 1,
+      documents_decision text NOT NULL DEFAULT 'pending',
+      documents_reason text NOT NULL DEFAULT '',
+      costs_decision text NOT NULL DEFAULT 'pending',
+      costs_reason text NOT NULL DEFAULT '',
+      photos_decision text NOT NULL DEFAULT 'pending',
+      photos_reason text NOT NULL DEFAULT '',
+      review_decision text NOT NULL DEFAULT 'pending',
+      review_block_reason text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      created_by text NOT NULL DEFAULT '',
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      updated_by text NOT NULL DEFAULT '',
+      finalized_at timestamptz,
+      finalized_by text NOT NULL DEFAULT '',
+      CONSTRAINT business_job_completion_documents_check CHECK (documents_decision IN ('pending','confirmed','not_applicable')),
+      CONSTRAINT business_job_completion_costs_check CHECK (costs_decision IN ('pending','confirmed_recorded','confirmed_zero')),
+      CONSTRAINT business_job_completion_photos_check CHECK (photos_decision IN ('pending','waiting','not_available','ready_private')),
+      CONSTRAINT business_job_completion_review_check CHECK (review_decision IN ('pending','prepare','blocked'))
+    );
+    ALTER TABLE business_job_completion ADD COLUMN IF NOT EXISTS costs_reason text NOT NULL DEFAULT '';
+    ALTER TABLE business_job_completion ADD COLUMN IF NOT EXISTS photos_reason text NOT NULL DEFAULT '';
+    ALTER TABLE business_job_completion DROP CONSTRAINT IF EXISTS business_job_completion_documents_reason_check;
+    ALTER TABLE business_job_completion ADD CONSTRAINT business_job_completion_documents_reason_check
+      CHECK (documents_decision <> 'not_applicable' OR length(btrim(documents_reason)) >= 3) NOT VALID;
+    ALTER TABLE business_job_completion DROP CONSTRAINT IF EXISTS business_job_completion_zero_costs_reason_check;
+    ALTER TABLE business_job_completion ADD CONSTRAINT business_job_completion_zero_costs_reason_check
+      CHECK (costs_decision <> 'confirmed_zero' OR length(btrim(costs_reason)) >= 3);
+    ALTER TABLE business_job_completion DROP CONSTRAINT IF EXISTS business_job_completion_no_photos_reason_check;
+    ALTER TABLE business_job_completion ADD CONSTRAINT business_job_completion_no_photos_reason_check
+      CHECK (photos_decision <> 'not_available' OR length(btrim(photos_reason)) >= 3);
+
     CREATE TABLE IF NOT EXISTS price_offers (
       id uuid PRIMARY KEY,
       number text NOT NULL UNIQUE,
@@ -1609,6 +1882,24 @@ async function initializeSchema() {
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS is_test_data boolean NOT NULL DEFAULT false;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_started_at timestamptz;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_attempt_id text;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS response_token_hash char(64);
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS response_token_expires_at timestamptz;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response text;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_reason_code text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_requested_follow_up_at date;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_responded_at timestamptz;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_payload_hash char(64);
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_revision integer NOT NULL DEFAULT 0;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_applied_at timestamptz;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_applied_by text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_dismissed_at timestamptz;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_dismissed_by text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS customer_response_dismiss_reason text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers DROP CONSTRAINT IF EXISTS price_offers_customer_response_check;
+    ALTER TABLE price_offers ADD CONSTRAINT price_offers_customer_response_check
+      CHECK (customer_response IS NULL OR customer_response IN ('ACCEPTED','DEFERRED','DECLINED'));
+    CREATE UNIQUE INDEX IF NOT EXISTS price_offers_response_token_hash_unique_idx
+      ON price_offers (response_token_hash) WHERE response_token_hash IS NOT NULL;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS documentation_promotion boolean NOT NULL DEFAULT false;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS include_transport boolean NOT NULL DEFAULT false;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_from text NOT NULL DEFAULT '';
@@ -1746,6 +2037,31 @@ async function initializeSchema() {
       CONSTRAINT admin_work_items_cancel_reason_length_check CHECK (char_length(cancel_reason) <= 500)
     );
 
+    CREATE TABLE IF NOT EXISTS admin_autopilot_runs (
+      id uuid PRIMARY KEY,
+      trigger text NOT NULL CHECK (trigger IN ('cron','manual','test')),
+      actor_kind text NOT NULL CHECK (actor_kind IN ('system','superadmin')),
+      status text NOT NULL CHECK (status IN ('running','succeeded','degraded','failed')),
+      counts jsonb NOT NULL DEFAULT '{}'::jsonb,
+      unavailable_modules jsonb NOT NULL DEFAULT '[]'::jsonb,
+      error_code text NOT NULL DEFAULT '',
+      started_at timestamptz NOT NULL DEFAULT now(),
+      finished_at timestamptz,
+      CONSTRAINT admin_autopilot_runs_error_code_length_check CHECK (char_length(error_code) <= 80)
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_autopilot_run_items (
+      id uuid PRIMARY KEY,
+      run_id uuid NOT NULL REFERENCES admin_autopilot_runs(id) ON DELETE CASCADE,
+      module text NOT NULL CHECK (module IN ('offers','review_requests','photo_intake')),
+      entity_id uuid NOT NULL,
+      outcome text NOT NULL CHECK (outcome IN ('created','blocked','failed')),
+      reason_code text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT admin_autopilot_run_items_reason_code_length_check CHECK (char_length(reason_code) <= 80),
+      UNIQUE (run_id, module, entity_id, outcome, reason_code)
+    );
+
     CREATE INDEX IF NOT EXISTS leads_status_created_at_idx ON leads (status, created_at DESC);
     CREATE INDEX IF NOT EXISTS leads_owner_followup_idx ON leads (owner_email, followup_date, created_at DESC);
     CREATE INDEX IF NOT EXISTS lead_files_lead_id_idx ON lead_files (lead_id);
@@ -1764,6 +2080,9 @@ async function initializeSchema() {
     CREATE UNIQUE INDEX IF NOT EXISTS review_requests_job_unique_idx ON review_requests (job_id) WHERE job_id IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS review_requests_token_hash_unique_idx ON review_requests (token_hash) WHERE token_hash IS NOT NULL;
     CREATE INDEX IF NOT EXISTS review_requests_reminder_due_idx ON review_requests (reminder_due_at) WHERE reminder_allowed = true AND reminder_sent_at IS NULL;
+    CREATE INDEX IF NOT EXISTS admin_autopilot_runs_started_idx ON admin_autopilot_runs (started_at DESC, id DESC);
+    CREATE INDEX IF NOT EXISTS admin_autopilot_runs_status_idx ON admin_autopilot_runs (status, started_at DESC);
+    CREATE INDEX IF NOT EXISTS admin_autopilot_run_items_run_idx ON admin_autopilot_run_items (run_id, created_at, id);
     CREATE UNIQUE INDEX IF NOT EXISTS review_requests_reminder_token_hash_unique_idx ON review_requests (reminder_token_hash) WHERE reminder_token_hash IS NOT NULL;
     CREATE INDEX IF NOT EXISTS review_requests_reminder_due_v2_idx ON review_requests (reminder_due_at)
       WHERE reminder_allowed = true AND reminder_attempted_at IS NULL AND reminder_status IS NULL;
@@ -1908,6 +2227,24 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
     outcomeReason: String(row.outcome_reason ?? row.outcomeReason ?? ''),
     nextFollowUpAt: dateOnly(row.next_follow_up_at ?? row.nextFollowUpAt),
     outcomeUpdatedAt: row.outcome_updated_at || row.outcomeUpdatedAt ? new Date(String(row.outcome_updated_at ?? row.outcomeUpdatedAt)).toISOString() : undefined,
+    responseTokenHash: String(row.response_token_hash ?? row.responseTokenHash ?? '') || undefined,
+    responseTokenExpiresAt: row.response_token_expires_at || row.responseTokenExpiresAt
+      ? new Date(String(row.response_token_expires_at ?? row.responseTokenExpiresAt)).toISOString() : undefined,
+    customerResponse: row.customer_response || row.customerResponse
+      ? String(row.customer_response ?? row.customerResponse) as PriceOfferCustomerResponse : undefined,
+    customerResponseReasonCode: String(row.customer_response_reason_code ?? row.customerResponseReasonCode ?? '') || undefined,
+    customerRequestedFollowUpAt: dateOnly(row.customer_requested_follow_up_at ?? row.customerRequestedFollowUpAt),
+    customerRespondedAt: row.customer_responded_at || row.customerRespondedAt
+      ? new Date(String(row.customer_responded_at ?? row.customerRespondedAt)).toISOString() : undefined,
+    customerResponsePayloadHash: String(row.customer_response_payload_hash ?? row.customerResponsePayloadHash ?? '') || undefined,
+    customerResponseRevision: Math.max(0, Number(row.customer_response_revision ?? row.customerResponseRevision ?? 0) || 0),
+    customerResponseAppliedAt: row.customer_response_applied_at || row.customerResponseAppliedAt
+      ? new Date(String(row.customer_response_applied_at ?? row.customerResponseAppliedAt)).toISOString() : undefined,
+    customerResponseAppliedBy: String(row.customer_response_applied_by ?? row.customerResponseAppliedBy ?? '') || undefined,
+    customerResponseDismissedAt: row.customer_response_dismissed_at || row.customerResponseDismissedAt
+      ? new Date(String(row.customer_response_dismissed_at ?? row.customerResponseDismissedAt)).toISOString() : undefined,
+    customerResponseDismissedBy: String(row.customer_response_dismissed_by ?? row.customerResponseDismissedBy ?? '') || undefined,
+    customerResponseDismissReason: String(row.customer_response_dismiss_reason ?? row.customerResponseDismissReason ?? '') || undefined,
     sourceInquiry: String(row.source_inquiry ?? row.sourceInquiry ?? ''),
   };
 }
@@ -2021,9 +2358,12 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
       twoFactorLastUsedStep: Number(user.twoFactorLastUsedStep ?? -1),
       sessionEpoch: normalizeAdminSessionEpoch(user.sessionEpoch),
     })),
+    adminAutopilotRuns: (data.adminAutopilotRuns ?? []).map((item) => toAdminAutopilotRun(item as unknown as Record<string, unknown>)),
+    adminAutopilotRunItems: (data.adminAutopilotRunItems ?? []).map((item) => toAdminAutopilotRunItem(item as unknown as Record<string, unknown>)),
     adminWorkItems: (data.adminWorkItems ?? []).map((item) => toAdminWorkItem(item as unknown as Record<string, unknown>)),
     plannerActions: data.plannerActions ?? [],
     businessJobs: data.businessJobs ?? [],
+    businessJobCompletions: (data.businessJobCompletions ?? []).map((item) => toBusinessJobCompletion(item as unknown as Record<string, unknown>)),
     businessJobInvoices: data.businessJobInvoices ?? [],
     businessJobPaymentEvents: data.businessJobPaymentEvents ?? [],
     priceOffers: (data.priceOffers ?? []).map((offer) => ({
@@ -2039,6 +2379,19 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
       outcomeReason: String(offer.outcomeReason ?? ''),
       nextFollowUpAt: offer.nextFollowUpAt || undefined,
       outcomeUpdatedAt: offer.outcomeUpdatedAt || undefined,
+      responseTokenHash: offer.responseTokenHash || undefined,
+      responseTokenExpiresAt: offer.responseTokenExpiresAt || undefined,
+      customerResponse: offer.customerResponse || undefined,
+      customerResponseReasonCode: offer.customerResponseReasonCode || undefined,
+      customerRequestedFollowUpAt: offer.customerRequestedFollowUpAt || undefined,
+      customerRespondedAt: offer.customerRespondedAt || undefined,
+      customerResponsePayloadHash: offer.customerResponsePayloadHash || undefined,
+      customerResponseRevision: Math.max(0, Number(offer.customerResponseRevision ?? 0) || 0),
+      customerResponseAppliedAt: offer.customerResponseAppliedAt || undefined,
+      customerResponseAppliedBy: offer.customerResponseAppliedBy || undefined,
+      customerResponseDismissedAt: offer.customerResponseDismissedAt || undefined,
+      customerResponseDismissedBy: offer.customerResponseDismissedBy || undefined,
+      customerResponseDismissReason: offer.customerResponseDismissReason || undefined,
       vatRate: resolvePriceOfferVatRate(offer, 23),
       sourceJobIds: [...new Set([...(offer.sourceJobIds ?? []), ...(offer.jobId ? [offer.jobId] : []), ...(auditedJobsByOfferNumber.get(offer.number) ?? [])])],
     })),
@@ -2343,6 +2696,52 @@ function toPlannerAction(row: Record<string, unknown>): PlannerAction {
   };
 }
 
+const emptyAdminAutopilotCounts = (): AdminAutopilotRunCounts => ({
+  priceOffersCreated: 0,
+  reviewRequestsPrepared: 0,
+  realizationDraftsCreated: 0,
+  photosAttached: 0,
+  blockedOffers: 0,
+});
+
+function toAdminAutopilotRun(row: Record<string, unknown>): AdminAutopilotRun {
+  const rawCounts = row.counts && typeof row.counts === 'object'
+    ? row.counts as Record<string, unknown>
+    : {};
+  const rawModules = row.unavailable_modules ?? row.unavailableModules ?? [];
+  const allowedModules = new Set<AdminAutopilotModule>(['offers', 'review_requests', 'photo_intake']);
+  const unavailableModules = parseStringArray(rawModules)
+    .filter((module): module is AdminAutopilotModule => allowedModules.has(module as AdminAutopilotModule));
+  const counts = emptyAdminAutopilotCounts();
+  for (const key of Object.keys(counts) as Array<keyof AdminAutopilotRunCounts>) {
+    counts[key] = Math.max(0, Math.trunc(Number(rawCounts[key] ?? 0) || 0));
+  }
+  const finishedValue = row.finished_at ?? row.finishedAt;
+  return {
+    id: String(row.id),
+    trigger: String(row.trigger ?? 'manual') as AdminAutopilotTrigger,
+    actorKind: String(row.actor_kind ?? row.actorKind ?? 'system') as AdminAutopilotRun['actorKind'],
+    status: String(row.status ?? 'failed') as AdminAutopilotRunStatus,
+    counts,
+    unavailableModules,
+    errorCode: String(row.error_code ?? row.errorCode ?? '').slice(0, 80),
+    startedAt: new Date(String(row.started_at ?? row.startedAt ?? now())).toISOString(),
+    finishedAt: finishedValue ? new Date(String(finishedValue)).toISOString() : undefined,
+  };
+}
+
+function toAdminAutopilotRunItem(row: Record<string, unknown>): AdminAutopilotRunItem {
+  return {
+    id: String(row.id),
+    runId: String(row.run_id ?? row.runId),
+    module: String(row.module) as AdminAutopilotModule,
+    entityId: String(row.entity_id ?? row.entityId),
+    outcome: String(row.outcome) as AdminAutopilotRunItemOutcome,
+    reasonCode: String(row.reason_code ?? row.reasonCode ?? '').slice(0, 80),
+    createdAt: new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString(),
+  };
+}
+
 function toAdminWorkItem(row: Record<string, unknown>): AdminWorkItem {
   const createdAt = new Date(String(row.created_at ?? row.createdAt ?? now())).toISOString();
   const updatedAt = new Date(String(row.updated_at ?? row.updatedAt ?? createdAt)).toISOString();
@@ -2391,6 +2790,29 @@ function toBusinessJobCosts(row: Record<string, unknown>): BusinessJobCosts {
     otherName: String(row.other_name ?? row.otherName ?? ''),
     otherAmount: Number(row.other_amount ?? row.otherAmount ?? 0),
     total: Number(row.total ?? 0),
+  };
+}
+
+function toBusinessJobCompletion(row: Record<string, unknown>): BusinessJobCompletion {
+  const createdAt = row.created_at ?? row.createdAt ?? now();
+  const updatedAt = row.updated_at ?? row.updatedAt ?? createdAt;
+  return {
+    jobId: String(row.job_id ?? row.jobId ?? ''),
+    revision: Math.max(1, Number(row.revision ?? 1) || 1),
+    documentsDecision: String(row.documents_decision ?? row.documentsDecision ?? 'pending') as BusinessJobCompletionDocumentsDecision,
+    documentsReason: String(row.documents_reason ?? row.documentsReason ?? ''),
+    costsDecision: String(row.costs_decision ?? row.costsDecision ?? 'pending') as BusinessJobCompletionCostsDecision,
+    costsReason: String(row.costs_reason ?? row.costsReason ?? ''),
+    photosDecision: String(row.photos_decision ?? row.photosDecision ?? 'pending') as BusinessJobCompletionPhotosDecision,
+    photosReason: String(row.photos_reason ?? row.photosReason ?? ''),
+    reviewDecision: String(row.review_decision ?? row.reviewDecision ?? 'pending') as BusinessJobCompletionReviewDecision,
+    reviewBlockReason: String(row.review_block_reason ?? row.reviewBlockReason ?? ''),
+    createdAt: new Date(String(createdAt)).toISOString(),
+    createdBy: String(row.created_by ?? row.createdBy ?? ''),
+    updatedAt: new Date(String(updatedAt)).toISOString(),
+    updatedBy: String(row.updated_by ?? row.updatedBy ?? ''),
+    finalizedAt: row.finalized_at || row.finalizedAt ? new Date(String(row.finalized_at ?? row.finalizedAt)).toISOString() : undefined,
+    finalizedBy: String(row.finalized_by ?? row.finalizedBy ?? '') || undefined,
   };
 }
 
@@ -2540,9 +2962,12 @@ async function readLocalDb(): Promise<LocalDb> {
       reviewRequests: [],
       workers: [],
       adminUsers: [],
+      adminAutopilotRuns: [],
+      adminAutopilotRunItems: [],
       adminWorkItems: [],
       plannerActions: [],
       businessJobs: [],
+      businessJobCompletions: [],
       businessJobInvoices: [],
       businessJobPaymentEvents: [],
       priceOffers: [],
@@ -2630,6 +3055,19 @@ async function writeLocalDb(data: LocalDb, options: {
           durableAdminWorkItems.set(item.id, item);
         }
       }
+      const durableBusinessJobCompletions = new Map(existingDb.businessJobCompletions.map((item) => [item.jobId, item]));
+      for (const item of data.businessJobCompletions) {
+        const persisted = durableBusinessJobCompletions.get(item.jobId);
+        if (!persisted || item.revision > persisted.revision
+          || (item.revision === persisted.revision && item.updatedAt >= persisted.updatedAt)) {
+          durableBusinessJobCompletions.set(item.jobId, item);
+        }
+      }
+      const durableAdminAutopilotRuns = new Map(existingDb.adminAutopilotRuns.map((item) => [item.id, item]));
+      for (const item of data.adminAutopilotRuns) {
+        const persisted = durableAdminAutopilotRuns.get(item.id);
+        if (!persisted || item.status !== 'running' || persisted.status === 'running') durableAdminAutopilotRuns.set(item.id, item);
+      }
       const durableReviewRequests = new Map(existingDb.reviewRequests.map((item) => [item.id, item]));
       for (const item of data.reviewRequests) {
         const persisted = durableReviewRequests.get(item.id);
@@ -2654,11 +3092,14 @@ async function writeLocalDb(data: LocalDb, options: {
         },
         leads: durableLeads,
         businessJobs: durableBusinessJobs,
+        businessJobCompletions: [...durableBusinessJobCompletions.values()],
         businessJobInvoices: [...durableInvoices.values()],
         businessJobPaymentEvents: uniqueById(existingDb.businessJobPaymentEvents, data.businessJobPaymentEvents),
         testimonials: [...latestTestimonials.values()],
         reviewRequests: [...durableReviewRequests.values()],
         priceOfferFollowUps: [...durablePriceOfferFollowUps.values()],
+        adminAutopilotRuns: [...durableAdminAutopilotRuns.values()],
+        adminAutopilotRunItems: uniqueById(existingDb.adminAutopilotRunItems, data.adminAutopilotRunItems),
         adminWorkItems: [...durableAdminWorkItems.values()],
         auditLogs: durableAuditLogs,
         testimonialConsentHistory: uniqueById(existingDb.testimonialConsentHistory, data.testimonialConsentHistory)
@@ -7338,6 +7779,132 @@ export async function cancelReviewRequest(id: string, actorEmail: string) {
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
+export async function reopenCancelledReviewRequest(input: {
+  id: string;
+  expectedRevision: number;
+  subject: string;
+  message: string;
+  googleReviewLink?: string;
+  reminderAllowed: boolean;
+  actorEmail: string;
+}) {
+  await ensureSchema();
+  const timestamp = now();
+  const subject = cleanSlovakText(input.subject).trim().slice(0, 180);
+  const message = cleanSlovakText(input.message).trim().slice(0, 4_000);
+  const googleReviewLink = String(input.googleReviewLink ?? '').trim().slice(0, 500);
+  if (!Number.isInteger(input.expectedRevision) || input.expectedRevision < 1 || subject.length < 3 || message.length < 10) {
+    throw new Error('REVIEW_REQUEST_REOPEN_INVALID');
+  }
+  const resetRequest = (request: ReviewRequest, job: BusinessJob) => {
+    const emailChanged = request.customerEmail.trim().toLowerCase() !== job.customerEmail.trim().toLowerCase();
+    request.status = 'pending_approval';
+    request.customerName = job.customerName;
+    request.customerEmail = job.customerEmail.trim().toLowerCase();
+    request.phone = job.customerPhone;
+    request.location = job.location;
+    request.objectType = job.objectType;
+    request.realizationDate = job.demolitionDate;
+    request.leadId = job.leadId;
+    request.subject = subject;
+    request.message = message;
+    request.googleReviewLink = googleReviewLink;
+    request.reminderAllowed = input.reminderAllowed;
+    request.tokenHash = undefined;
+    request.tokenExpiresAt = undefined;
+    request.sentAt = undefined;
+    request.openedAt = undefined;
+    request.submittedAt = undefined;
+    request.approvedAt = undefined;
+    request.publishedAt = undefined;
+    request.reminderDueAt = undefined;
+    request.reminderAttemptedAt = undefined;
+    request.reminderSentAt = undefined;
+    request.reminderStatus = undefined;
+    request.reminderTokenHash = undefined;
+    request.reminderTokenExpiresAt = undefined;
+    request.reminderDeliveryReasonCode = undefined;
+    request.reminderMessageIdHash = undefined;
+    request.deliveryReasonCode = undefined;
+    request.deliveryMessageIdHash = undefined;
+    request.testimonialId = undefined;
+    request.revision += 1;
+    request.updatedAt = timestamp;
+    return emailChanged;
+  };
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const request = local.reviewRequests.find((item) => item.id === input.id);
+      const job = request?.jobId ? local.businessJobs.find((item) => item.id === request.jobId && !item.deletedAt) : undefined;
+      const linkedLeadIsTest = job?.leadId ? local.leads.some((lead) => lead.id === job.leadId && lead.isTestData) : false;
+      if (!request || request.status !== 'cancelled' || request.revision !== input.expectedRevision
+        || !job || job.status !== 'DOKONCENA' || job.isTestData || linkedLeadIsTest || job.reviewRequestBlockedAt
+        || !job.customerEmail.trim()) return null;
+      const emailChanged = resetRequest(request, job);
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'review_request', entityId: request.id,
+        action: 'review_request_reopened', actorEmail: input.actorEmail,
+        changes: { previous: 'cancelled', next: 'pending_approval', revision: request.revision,
+          recipientChanged: emailChanged, templateRefreshed: true, reminderAllowed: request.reminderAllowed },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return { ...request };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const requestResult = await client.query('SELECT * FROM review_requests WHERE id=$1 FOR UPDATE', [input.id]);
+    const request = requestResult.rows[0] ? toReviewRequest(requestResult.rows[0]) : null;
+    if (!request || request.status !== 'cancelled' || request.revision !== input.expectedRevision || !request.jobId) {
+      await client.query('ROLLBACK'); return null;
+    }
+    const jobResult = await client.query(
+      `SELECT j.* FROM business_jobs j
+       WHERE j.id=$1 AND j.deleted_at IS NULL AND j.status='DOKONCENA' AND COALESCE(j.is_test_data,false)=false
+         AND j.review_request_blocked_at IS NULL AND BTRIM(j.customer_email) <> ''
+         AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       FOR UPDATE`,
+      [request.jobId],
+    );
+    if (!jobResult.rows[0]) { await client.query('ROLLBACK'); return null; }
+    const job = enrichBusinessJob(jobResult.rows[0]);
+    const emailChanged = request.customerEmail.trim().toLowerCase() !== job.customerEmail.trim().toLowerCase();
+    const { rows } = await client.query(
+      `UPDATE review_requests SET status='pending_approval', customer_name=$2, customer_email=$3, phone=$4,
+         location=$5, object_type=$6, realization_date=$7::date, lead_id=$8, google_review_link=$9,
+         subject=$10, message=$11, reminder_allowed=$12,
+         token_hash=NULL, token_expires_at=NULL, sent_at=NULL, opened_at=NULL, submitted_at=NULL,
+         approved_at=NULL, published_at=NULL, reminder_due_at=NULL, reminder_attempted_at=NULL,
+         reminder_sent_at=NULL, reminder_status=NULL, reminder_token_hash=NULL, reminder_token_expires_at=NULL,
+         reminder_delivery_reason_code='', reminder_message_id_hash=NULL, delivery_reason_code='',
+         delivery_message_id_hash=NULL, testimonial_id=NULL, revision=revision+1, updated_at=$13
+       WHERE id=$1 AND status='cancelled' AND revision=$14 RETURNING *`,
+      [request.id, job.customerName, job.customerEmail.trim().toLowerCase(), job.customerPhone, job.location,
+        job.objectType, job.demolitionDate || null, job.leadId || null, googleReviewLink, subject, message,
+        input.reminderAllowed, timestamp, input.expectedRevision],
+    );
+    if (!rows[0]) { await client.query('ROLLBACK'); return null; }
+    const saved = toReviewRequest(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'review_request',$2,'review_request_reopened',$3,$4::jsonb,$5)`,
+      [randomUUID(), saved.id, input.actorEmail, JSON.stringify({ previous: 'cancelled', next: 'pending_approval',
+        revision: saved.revision, recipientChanged: emailChanged, templateRefreshed: true, reminderAllowed: saved.reminderAllowed }), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function claimReviewReminder(id: string, expectedRevision: number, actorEmail: string) {
   await ensureSchema();
   const timestamp = now();
@@ -9155,6 +9722,12 @@ export async function updateBusinessJobOperational(
       const current = local.businessJobs.find((job) => job.id === id);
       if (!current) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
       if (current.deletedAt) throw new Error('Archivovanú zákazku nemožno upravovať.');
+      if (current.status !== 'DOKONCENA' && normalized.status === 'DOKONCENA') {
+        throw new Error('Zákazku dokončite cez kontrolný sprievodca, aby sa nestratili povinné kroky.');
+      }
+      if (current.status === 'DOKONCENA' && normalized.status !== 'DOKONCENA') {
+        throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
+      }
       const previousStatus = current.status;
       Object.assign(current, normalized, { updatedAt: timestamp });
       local.auditLogs.unshift({
@@ -9177,6 +9750,12 @@ export async function updateBusinessJobOperational(
     const current = await client.query('SELECT status, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [id]);
     if (!current.rowCount) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
     if (current.rows[0].deleted_at) throw new Error('Archivovanú zákazku nemožno upravovať.');
+    if (String(current.rows[0].status) !== 'DOKONCENA' && normalized.status === 'DOKONCENA') {
+      throw new Error('Zákazku dokončite cez kontrolný sprievodca, aby sa nestratili povinné kroky.');
+    }
+    if (String(current.rows[0].status) === 'DOKONCENA' && normalized.status !== 'DOKONCENA') {
+      throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
+    }
     await client.query(
       `UPDATE business_jobs SET
         updated_at=$2, demolition_date=$3, customer_name=$4, customer_phone=$5, customer_email=$6,
@@ -9213,8 +9792,16 @@ export async function updateBusinessJobOperational(
   return job;
 }
 
-export async function saveBusinessJob(input: BusinessJobInput, actorEmail: string, id?: string): Promise<BusinessJob> {
+export async function saveBusinessJob(
+  input: BusinessJobInput,
+  actorEmail: string,
+  id?: string,
+  options: { legacyCompletedImportReason?: 'CSV_HISTORICAL_IMPORT' | 'TEST_FIXTURE' } = {},
+): Promise<BusinessJob> {
   await ensureSchema();
+  if (!id && input.status === 'DOKONCENA' && !options.legacyCompletedImportReason) {
+    throw new Error('Novú zákazku nemožno vytvoriť priamo ako dokončenú bez výslovného režimu historického importu.');
+  }
   if (id && (await getBusinessJob(id, true))?.deletedAt) throw new Error('Archivovanú zákazku nemožno upravovať.');
   const timestamp = now();
   const jobId = id || randomUUID();
@@ -9276,12 +9863,19 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
       const previous = local.businessJobs.find((job) => job.id === jobId);
       if (id && !previous) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
       if (previous?.deletedAt) throw new Error('Archivovanú zákazku nemožno upravovať.');
+      if (previous && previous.status !== 'DOKONCENA' && input.status === 'DOKONCENA') {
+        throw new Error('Zákazku dokončite cez kontrolný sprievodca, aby sa nestratili povinné kroky.');
+      }
+      if (previous?.status === 'DOKONCENA' && input.status !== 'DOKONCENA') {
+        throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
+      }
       const job = enrichBusinessJob(baseRow, jobWorkers, { ...costs, jobId });
       job.createdAt = previous?.createdAt ?? timestamp;
       job.leadId = previous?.leadId ?? previousJob?.leadId;
       job.isTestData = Boolean(previous?.isTestData ?? previousJob?.isTestData);
       local.businessJobs = [job, ...local.businessJobs.filter((item) => item.id !== jobId)];
-      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: jobId, action: id ? 'business_job_updated' : 'business_job_created', actorEmail, changes: { status: job.status }, createdAt: timestamp });
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: jobId, action: id ? 'business_job_updated' : 'business_job_created', actorEmail,
+        changes: { status: job.status, ...(options.legacyCompletedImportReason ? { legacyCompletedImportReason: options.legacyCompletedImportReason } : {}) }, createdAt: timestamp });
       if (previous?.status && previous.status !== job.status) {
         local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: jobId, action: 'business_job_status_changed', actorEmail, changes: { previous: previous.status, next: job.status }, createdAt: timestamp });
       }
@@ -9296,6 +9890,12 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     const current = id ? await client.query('SELECT status, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [jobId]) : null;
     if (id && !current?.rowCount) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
     if (current?.rows[0]?.deleted_at) throw new Error('Archivovanú zákazku nemožno upravovať.');
+    if (id && String(current?.rows[0]?.status) !== 'DOKONCENA' && input.status === 'DOKONCENA') {
+      throw new Error('Zákazku dokončite cez kontrolný sprievodca, aby sa nestratili povinné kroky.');
+    }
+    if (id && String(current?.rows[0]?.status) === 'DOKONCENA' && input.status !== 'DOKONCENA') {
+      throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
+    }
     const upsert = await client.query(
       `INSERT INTO business_jobs (
         id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
@@ -9351,7 +9951,8 @@ export async function saveBusinessJob(input: BusinessJobInput, actorEmail: strin
     );
     await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
-      [randomUUID(), 'business_job', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail, { status: input.status }, timestamp],
+      [randomUUID(), 'business_job', jobId, id ? 'business_job_updated' : 'business_job_created', actorEmail,
+        { status: input.status, ...(options.legacyCompletedImportReason ? { legacyCompletedImportReason: options.legacyCompletedImportReason } : {}) }, timestamp],
     );
     const previousStatus = current?.rows[0]?.status as BusinessJobStatus | undefined;
     if (previousStatus && previousStatus !== input.status) {
@@ -9402,6 +10003,435 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
   );
   await addAuditLog('business_job', job.id, 'business_job_lead_received', 'system', { leadId: lead.id });
   return job;
+}
+
+export type BusinessJobCompletionInput = Pick<BusinessJobCompletion,
+  'documentsDecision' | 'documentsReason' | 'costsDecision' | 'costsReason' | 'photosDecision' | 'photosReason' | 'reviewDecision' | 'reviewBlockReason'
+>;
+
+const completionDocumentsDecisions = new Set<BusinessJobCompletionDocumentsDecision>(['pending', 'confirmed', 'not_applicable']);
+const completionCostsDecisions = new Set<BusinessJobCompletionCostsDecision>(['pending', 'confirmed_recorded', 'confirmed_zero']);
+const completionPhotosDecisions = new Set<BusinessJobCompletionPhotosDecision>(['pending', 'waiting', 'not_available', 'ready_private']);
+const completionReviewDecisions = new Set<BusinessJobCompletionReviewDecision>(['pending', 'prepare', 'blocked']);
+const completionJobStatuses = new Set<BusinessJobStatus>(['DEMONT_DOKONCENA', 'VYUCTOVANIE']);
+
+function emptyBusinessJobCompletion(jobId: string): BusinessJobCompletion {
+  return {
+    jobId, revision: 0, documentsDecision: 'pending', documentsReason: '', costsDecision: 'pending', costsReason: '',
+    photosDecision: 'pending', photosReason: '', reviewDecision: 'pending', reviewBlockReason: '', createdAt: '', createdBy: '',
+    updatedAt: '', updatedBy: '',
+  };
+}
+
+function normalizeBusinessJobCompletionInput(input: BusinessJobCompletionInput): BusinessJobCompletionInput {
+  const documentsReason = cleanSlovakText(input.documentsReason ?? '').trim().slice(0, 500);
+  const costsReason = cleanSlovakText(input.costsReason ?? '').trim().slice(0, 500);
+  const photosReason = cleanSlovakText(input.photosReason ?? '').trim().slice(0, 500);
+  const reviewBlockReason = cleanSlovakText(input.reviewBlockReason ?? '').trim().slice(0, 500);
+  if (!completionDocumentsDecisions.has(input.documentsDecision) || !completionCostsDecisions.has(input.costsDecision)
+    || !completionPhotosDecisions.has(input.photosDecision) || !completionReviewDecisions.has(input.reviewDecision)) {
+    throw new Error('Sprievodca dokončením obsahuje neplatnú voľbu.');
+  }
+  if (input.documentsDecision === 'not_applicable' && documentsReason.length < 3) {
+    throw new Error('Pri voľbe „doklady sa neuplatňujú“ uveďte stručný dôvod.');
+  }
+  if (input.costsDecision === 'confirmed_zero' && costsReason.length < 3) {
+    throw new Error('Pri nulových nákladoch uveďte stručný dôvod.');
+  }
+  if (input.photosDecision === 'not_available' && photosReason.length < 3) {
+    throw new Error('Ak fotografie nebudú k dispozícii, uveďte stručný dôvod.');
+  }
+  if (input.reviewDecision === 'blocked' && reviewBlockReason.length < 3) {
+    throw new Error('Pri neoslovovaní zákazníka uveďte stručný dôvod.');
+  }
+  return { ...input, documentsReason, costsReason, photosReason, reviewBlockReason };
+}
+
+export async function getBusinessJobCompletion(jobId: string): Promise<BusinessJobCompletion> {
+  await ensureSchema();
+  if (!uuidPattern.test(jobId)) throw new Error('Zákazka nemá platný identifikátor.');
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return local.businessJobCompletions.find((item) => item.jobId === jobId) ?? emptyBusinessJobCompletion(jobId);
+  }
+  const { rows } = await db.query('SELECT * FROM business_job_completion WHERE job_id=$1 LIMIT 1', [jobId]);
+  return rows[0] ? toBusinessJobCompletion(rows[0]) : emptyBusinessJobCompletion(jobId);
+}
+
+export async function getOperationalBusinessJobCompletion(jobId: string): Promise<OperationalBusinessJobCompletion> {
+  await ensureSchema();
+  if (!uuidPattern.test(jobId)) throw new Error('Zákazka nemá platný identifikátor.');
+  const project = (completion: BusinessJobCompletion): OperationalBusinessJobCompletion => ({
+    jobId: completion.jobId,
+    revision: completion.revision,
+    documentsDecision: completion.documentsDecision,
+    documentsReason: completion.documentsReason,
+    photosDecision: completion.photosDecision,
+    photosReason: completion.photosReason,
+    reviewDecision: completion.reviewDecision,
+    reviewBlockReason: completion.reviewBlockReason,
+    createdAt: completion.createdAt,
+    createdBy: completion.createdBy,
+    updatedAt: completion.updatedAt,
+    updatedBy: completion.updatedBy,
+    finalizedAt: completion.finalizedAt,
+    finalizedBy: completion.finalizedBy,
+  });
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return project(local.businessJobCompletions.find((item) => item.jobId === jobId) ?? emptyBusinessJobCompletion(jobId));
+  }
+  const { rows } = await db.query(
+    `SELECT job_id,revision,documents_decision,documents_reason,photos_decision,photos_reason,
+            review_decision,review_block_reason,created_at,created_by,updated_at,updated_by,finalized_at,finalized_by
+       FROM business_job_completion WHERE job_id=$1 LIMIT 1`,
+    [jobId],
+  );
+  if (!rows[0]) return project(emptyBusinessJobCompletion(jobId));
+  return {
+    jobId: String(rows[0].job_id),
+    revision: Number(rows[0].revision || 0),
+    documentsDecision: String(rows[0].documents_decision || 'pending') as BusinessJobCompletionDocumentsDecision,
+    documentsReason: String(rows[0].documents_reason || ''),
+    photosDecision: String(rows[0].photos_decision || 'pending') as BusinessJobCompletionPhotosDecision,
+    photosReason: String(rows[0].photos_reason || ''),
+    reviewDecision: String(rows[0].review_decision || 'pending') as BusinessJobCompletionReviewDecision,
+    reviewBlockReason: String(rows[0].review_block_reason || ''),
+    createdAt: new Date(String(rows[0].created_at)).toISOString(),
+    createdBy: String(rows[0].created_by || ''),
+    updatedAt: new Date(String(rows[0].updated_at)).toISOString(),
+    updatedBy: String(rows[0].updated_by || ''),
+    finalizedAt: rows[0].finalized_at ? new Date(String(rows[0].finalized_at)).toISOString() : undefined,
+    finalizedBy: rows[0].finalized_by ? String(rows[0].finalized_by) : undefined,
+  };
+}
+
+export async function saveBusinessJobCompletion(input: {
+  jobId: string;
+  expectedRevision: number;
+  values: BusinessJobCompletionInput;
+  actorEmail: string;
+  actorRole: AdminRole;
+}) {
+  await ensureSchema();
+  if (!uuidPattern.test(input.jobId) || !Number.isInteger(input.expectedRevision) || input.expectedRevision < 0) {
+    throw new Error('Sprievodca dokončením má neplatnú verziu.');
+  }
+  const actor = input.actorEmail.trim().toLowerCase();
+  const normalized = normalizeBusinessJobCompletionInput(input.values);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const job = local.businessJobs.find((item) => item.id === input.jobId && !item.deletedAt && !item.isTestData);
+      const linkedLeadIsTest = job?.leadId ? local.leads.some((lead) => lead.id === job.leadId && lead.isTestData) : false;
+      if (!job || linkedLeadIsTest || !completionJobStatuses.has(job.status)) throw new Error('Sprievodca je dostupný iba pre dokončovanú reálnu zákazku.');
+      const index = local.businessJobCompletions.findIndex((item) => item.jobId === input.jobId);
+      const current = index >= 0 ? local.businessJobCompletions[index] : emptyBusinessJobCompletion(input.jobId);
+      if (current.revision !== input.expectedRevision) throw new Error('Sprievodcu medzičasom upravil niekto iný. Obnovte stránku.');
+      if (current.finalizedAt) throw new Error('Dokončenie už bolo uzavreté.');
+      const values = input.actorRole === 'SUPER_ADMIN' ? normalized : {
+        ...normalized, costsDecision: current.costsDecision, costsReason: current.costsReason,
+      };
+      if (values.photosDecision === 'ready_private') throw new Error('Stav súkromných fotografií sa bez databázového modulu nedá overiť.');
+      const saved: BusinessJobCompletion = {
+        ...current, ...values, jobId: input.jobId, revision: current.revision + 1,
+        createdAt: current.createdAt || timestamp, createdBy: current.createdBy || actor,
+        updatedAt: timestamp, updatedBy: actor,
+      };
+      if (index >= 0) local.businessJobCompletions[index] = saved;
+      else local.businessJobCompletions.unshift(saved);
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: input.jobId,
+        action: 'business_job_completion_updated', actorEmail: actor,
+        changes: { revision: saved.revision, documentsDecision: saved.documentsDecision, costsDecision: saved.costsDecision,
+          photosDecision: saved.photosDecision, reviewDecision: saved.reviewDecision }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return saved;
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const jobResult = await client.query(
+      `SELECT j.id,j.status FROM business_jobs j
+       WHERE j.id=$1 AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false
+         AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       FOR UPDATE`,
+      [input.jobId],
+    );
+    if (!jobResult.rows[0] || !completionJobStatuses.has(String(jobResult.rows[0].status) as BusinessJobStatus)) {
+      throw new Error('Sprievodca je dostupný iba pre dokončovanú reálnu zákazku.');
+    }
+    const currentResult = await client.query('SELECT * FROM business_job_completion WHERE job_id=$1 FOR UPDATE', [input.jobId]);
+    const current = currentResult.rows[0] ? toBusinessJobCompletion(currentResult.rows[0]) : emptyBusinessJobCompletion(input.jobId);
+    if (current.revision !== input.expectedRevision) throw new Error('Sprievodcu medzičasom upravil niekto iný. Obnovte stránku.');
+    if (current.finalizedAt) throw new Error('Dokončenie už bolo uzavreté.');
+    const values = input.actorRole === 'SUPER_ADMIN' ? normalized : {
+      ...normalized, costsDecision: current.costsDecision, costsReason: current.costsReason,
+    };
+    if (values.photosDecision === 'ready_private') {
+      const photoResult = await client.query(
+        `SELECT 1 FROM realization_media_intake media
+         JOIN photo_upload_invites invite ON invite.id=media.invite_id
+         WHERE invite.business_job_id=$1 AND media.status='approved_private' AND media.sanitized_at IS NOT NULL
+         LIMIT 1 FOR UPDATE OF media`,
+        [input.jobId],
+      );
+      if (!photoResult.rowCount) throw new Error('K zákazke nie je schválená súkromná fotografia.');
+    }
+    const { rows } = current.revision === 0
+      ? await client.query(
+        `INSERT INTO business_job_completion (job_id,revision,documents_decision,documents_reason,costs_decision,costs_reason,
+           photos_decision,photos_reason,review_decision,review_block_reason,created_at,created_by,updated_at,updated_by)
+         VALUES ($1,1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$10,$11) ON CONFLICT (job_id) DO NOTHING RETURNING *`,
+        [input.jobId, values.documentsDecision, values.documentsReason, values.costsDecision, values.costsReason,
+          values.photosDecision, values.photosReason, values.reviewDecision, values.reviewBlockReason, timestamp, actor],
+      )
+      : await client.query(
+        `UPDATE business_job_completion SET revision=revision+1,documents_decision=$2,documents_reason=$3,
+           costs_decision=$4,costs_reason=$5,photos_decision=$6,photos_reason=$7,review_decision=$8,review_block_reason=$9,updated_at=$10,updated_by=$11
+         WHERE job_id=$1 AND revision=$12 AND finalized_at IS NULL RETURNING *`,
+        [input.jobId, values.documentsDecision, values.documentsReason, values.costsDecision, values.costsReason,
+          values.photosDecision, values.photosReason, values.reviewDecision, values.reviewBlockReason, timestamp, actor, input.expectedRevision],
+      );
+    if (!rows[0]) throw new Error('Sprievodcu medzičasom upravil niekto iný. Obnovte stránku.');
+    const saved = toBusinessJobCompletion(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'business_job',$2,'business_job_completion_updated',$3,$4::jsonb,$5)`,
+      [randomUUID(), input.jobId, actor, JSON.stringify({ revision: saved.revision, documentsDecision: saved.documentsDecision,
+        costsDecision: saved.costsDecision, photosDecision: saved.photosDecision, reviewDecision: saved.reviewDecision }), timestamp],
+    );
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+function validateBusinessJobCompletionReady(completion: BusinessJobCompletion) {
+  if (completion.documentsDecision === 'pending') throw new Error('Najprv potvrďte doklady a administratívu.');
+  if (completion.documentsDecision === 'not_applicable' && completion.documentsReason.trim().length < 3) {
+    throw new Error('Pri výnimke z dokladov chýba dôvod.');
+  }
+  if (completion.costsDecision === 'pending') throw new Error('Superadmin musí potvrdiť náklady alebo ich oprávnenú nulovú hodnotu.');
+  if (completion.costsDecision === 'confirmed_zero' && completion.costsReason.trim().length < 3) {
+    throw new Error('Pri nulových nákladoch chýba dôvod.');
+  }
+  if (completion.photosDecision === 'pending' || completion.photosDecision === 'waiting') throw new Error('Najprv uzavrite stav súkromnej fotodokumentácie.');
+  if (completion.photosDecision === 'not_available' && completion.photosReason.trim().length < 3) {
+    throw new Error('Pri chýbajúcej fotodokumentácii chýba dôvod.');
+  }
+  if (completion.reviewDecision === 'pending') throw new Error('Najprv rozhodnite o žiadosti o referenciu.');
+  if (completion.reviewDecision === 'blocked' && completion.reviewBlockReason.length < 3) throw new Error('Pri neoslovovaní zákazníka chýba dôvod.');
+}
+
+export async function finalizeBusinessJobCompletion(input: {
+  jobId: string;
+  expectedRevision: number;
+  actorEmail: string;
+  actorRole: AdminRole;
+  reviewRequestTemplate?: {
+    subject: string;
+    message: string;
+    googleReviewLink?: string;
+    reminderAllowed: boolean;
+  };
+}) {
+  await ensureSchema();
+  if (input.actorRole !== 'SUPER_ADMIN') throw new Error('Dokončenie zákazky môže potvrdiť iba superadmin.');
+  const actor = input.actorEmail.trim().toLowerCase();
+  const timestamp = now();
+  const reviewTemplate = input.reviewRequestTemplate ? {
+    subject: cleanSlovakText(input.reviewRequestTemplate.subject).trim().slice(0, 180),
+    message: cleanSlovakText(input.reviewRequestTemplate.message).trim().slice(0, 4_000),
+    googleReviewLink: String(input.reviewRequestTemplate.googleReviewLink ?? '').trim().slice(0, 500),
+    reminderAllowed: Boolean(input.reviewRequestTemplate.reminderAllowed),
+  } : null;
+  const requireReviewTemplate = () => {
+    if (!reviewTemplate || reviewTemplate.subject.length < 3 || reviewTemplate.message.length < 10) {
+      throw new Error('Pre žiadosť o referenciu chýba platná šablóna. Zákazka zostala neuzavretá.');
+    }
+    return reviewTemplate;
+  };
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const job = local.businessJobs.find((item) => item.id === input.jobId && !item.deletedAt && !item.isTestData);
+      const completion = local.businessJobCompletions.find((item) => item.jobId === input.jobId);
+      const linkedLeadIsTest = job?.leadId ? local.leads.some((lead) => lead.id === job.leadId && lead.isTestData) : false;
+      if (!job || linkedLeadIsTest || !completion) return null;
+      if (completion.finalizedAt && job.status === 'DOKONCENA') return { job, completion };
+      if (completion.revision !== input.expectedRevision) return null;
+      if (!['DEMONT_DOKONCENA', 'VYUCTOVANIE'].includes(job.status)) return null;
+      validateBusinessJobCompletionReady(completion);
+      if (completion.photosDecision === 'ready_private') throw new Error('Súkromnú fotografiu sa bez databázového modulu nedá overiť.');
+      if (completion.reviewDecision === 'prepare') {
+        if (!job.customerEmail.trim()) throw new Error('Pre koncept žiadosti o referenciu chýba email zákazníka.');
+        const template = requireReviewTemplate();
+        const existingRequest = local.reviewRequests.find((request) => request.jobId === job.id);
+        if (!existingRequest) {
+          const preparedRequest: ReviewRequest = {
+            id: randomUUID(), jobId: job.id, customerName: job.customerName,
+            customerEmail: job.customerEmail.trim().toLowerCase(), phone: job.customerPhone,
+            location: job.location, objectType: job.objectType, realizationDate: job.demolitionDate,
+            googleReviewLink: template.googleReviewLink, subject: template.subject, message: template.message,
+            status: 'pending_approval', createdBy: actor, leadId: job.leadId,
+            reminderAllowed: template.reminderAllowed, revision: 1, createdAt: timestamp, updatedAt: timestamp,
+          };
+          local.reviewRequests.unshift(preparedRequest);
+          local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: preparedRequest.id,
+            action: 'review_request_prepared', actorEmail: actor,
+            changes: { status: 'pending_approval', jobId: job.id, source: 'completion_wizard' }, createdAt: timestamp });
+        } else if (existingRequest.status === 'cancelled') {
+          Object.assign(existingRequest, {
+            status: 'pending_approval', customerName: job.customerName,
+            customerEmail: job.customerEmail.trim().toLowerCase(), phone: job.customerPhone,
+            location: job.location, objectType: job.objectType, realizationDate: job.demolitionDate,
+            googleReviewLink: template.googleReviewLink, subject: template.subject, message: template.message,
+            leadId: job.leadId, reminderAllowed: template.reminderAllowed, revision: existingRequest.revision + 1,
+            updatedAt: timestamp, tokenHash: undefined, tokenExpiresAt: undefined, sentAt: undefined,
+            openedAt: undefined, submittedAt: undefined, approvedAt: undefined, publishedAt: undefined,
+            reminderDueAt: undefined, reminderAttemptedAt: undefined, reminderSentAt: undefined,
+            reminderStatus: undefined, reminderTokenHash: undefined, reminderTokenExpiresAt: undefined,
+            reminderDeliveryReasonCode: undefined, reminderMessageIdHash: undefined,
+            deliveryReasonCode: undefined, deliveryMessageIdHash: undefined, testimonialId: undefined,
+          });
+          local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: existingRequest.id,
+            action: 'review_request_reopened', actorEmail: actor,
+            changes: { previous: 'cancelled', next: 'pending_approval', source: 'completion_wizard' }, createdAt: timestamp });
+        }
+        job.reviewRequestBlockedAt = undefined;
+        job.reviewRequestBlockedBy = undefined;
+        job.reviewRequestBlockedReason = undefined;
+      }
+      if (completion.reviewDecision === 'blocked') {
+        job.reviewRequestBlockedAt = timestamp;
+        job.reviewRequestBlockedBy = actor;
+        job.reviewRequestBlockedReason = completion.reviewBlockReason;
+      }
+      const previous = job.status;
+      job.status = 'DOKONCENA';
+      job.updatedAt = timestamp;
+      completion.finalizedAt = timestamp;
+      completion.finalizedBy = actor;
+      completion.updatedAt = timestamp;
+      completion.updatedBy = actor;
+      completion.revision += 1;
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: job.id,
+        action: 'business_job_completion_finalized', actorEmail: actor,
+        changes: { previous, next: 'DOKONCENA', completionRevision: completion.revision }, createdAt: timestamp });
+      await writeLocalDb(local);
+      return { job, completion };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const jobResult = await client.query(
+      `SELECT j.* FROM business_jobs j
+       WHERE j.id=$1 AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false
+         AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       FOR UPDATE`,
+      [input.jobId],
+    );
+    const completionResult = await client.query('SELECT * FROM business_job_completion WHERE job_id=$1 FOR UPDATE', [input.jobId]);
+    if (!jobResult.rows[0] || !completionResult.rows[0]) { await client.query('ROLLBACK'); return null; }
+    const job = enrichBusinessJob(jobResult.rows[0]);
+    const completion = toBusinessJobCompletion(completionResult.rows[0]);
+    if (completion.finalizedAt && job.status === 'DOKONCENA') { await client.query('COMMIT'); return { job, completion }; }
+    if (completion.revision !== input.expectedRevision) { await client.query('ROLLBACK'); return null; }
+    if (!['DEMONT_DOKONCENA', 'VYUCTOVANIE'].includes(job.status)) { await client.query('ROLLBACK'); return null; }
+    validateBusinessJobCompletionReady(completion);
+    if (completion.photosDecision === 'ready_private') {
+      const photoResult = await client.query(
+        `SELECT 1 FROM realization_media_intake media JOIN photo_upload_invites invite ON invite.id=media.invite_id
+         WHERE invite.business_job_id=$1 AND media.status='approved_private' AND media.sanitized_at IS NOT NULL
+         LIMIT 1 FOR UPDATE OF media`, [job.id],
+      );
+      if (!photoResult.rowCount) throw new Error('K zákazke nie je schválená súkromná fotografia.');
+    }
+    if (completion.reviewDecision === 'prepare') {
+      if (!job.customerEmail.trim()) throw new Error('Pre koncept žiadosti o referenciu chýba email zákazníka.');
+      const template = requireReviewTemplate();
+      const reviewResult = await client.query('SELECT * FROM review_requests WHERE job_id=$1 LIMIT 1 FOR UPDATE', [job.id]);
+      if (!reviewResult.rows[0]) {
+        const reviewRequestId = randomUUID();
+        await client.query(
+          `INSERT INTO review_requests (
+             id,created_at,updated_at,status,job_id,customer_name,customer_email,phone,location,object_type,
+             realization_date,google_review_link,subject,message,created_by,lead_id,reminder_allowed,revision
+           ) VALUES ($1,$2,$2,'pending_approval',$3,$4,$5,$6,$7,$8,$9::date,$10,$11,$12,$13,$14,$15,1)`,
+          [reviewRequestId, timestamp, job.id, job.customerName, job.customerEmail.trim().toLowerCase(), job.customerPhone,
+            job.location, job.objectType, job.demolitionDate || null, template.googleReviewLink, template.subject,
+            template.message, actor, job.leadId || null, template.reminderAllowed],
+        );
+        await client.query(
+          `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+           VALUES ($1,'review_request',$2,'review_request_prepared',$3,$4::jsonb,$5)`,
+          [randomUUID(), reviewRequestId, actor, JSON.stringify({ status: 'pending_approval', jobId: job.id, source: 'completion_wizard' }), timestamp],
+        );
+      } else if (String(reviewResult.rows[0].status) === 'cancelled') {
+        await client.query(
+          `UPDATE review_requests SET status='pending_approval',customer_name=$2,customer_email=$3,phone=$4,
+             location=$5,object_type=$6,realization_date=$7::date,lead_id=$8,google_review_link=$9,subject=$10,
+             message=$11,reminder_allowed=$12,token_hash=NULL,token_expires_at=NULL,sent_at=NULL,opened_at=NULL,
+             submitted_at=NULL,approved_at=NULL,published_at=NULL,reminder_due_at=NULL,reminder_attempted_at=NULL,
+             reminder_sent_at=NULL,reminder_status=NULL,reminder_token_hash=NULL,reminder_token_expires_at=NULL,
+             reminder_delivery_reason_code='',reminder_message_id_hash=NULL,delivery_reason_code='',
+             delivery_message_id_hash=NULL,testimonial_id=NULL,revision=revision+1,updated_at=$13 WHERE id=$1`,
+          [reviewResult.rows[0].id, job.customerName, job.customerEmail.trim().toLowerCase(), job.customerPhone,
+            job.location, job.objectType, job.demolitionDate || null, job.leadId || null, template.googleReviewLink,
+            template.subject, template.message, template.reminderAllowed, timestamp],
+        );
+        await client.query(
+          `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+           VALUES ($1,'review_request',$2,'review_request_reopened',$3,$4::jsonb,$5)`,
+          [randomUUID(), reviewResult.rows[0].id, actor,
+            JSON.stringify({ previous: 'cancelled', next: 'pending_approval', source: 'completion_wizard' }), timestamp],
+        );
+      }
+      await client.query(
+        `UPDATE business_jobs SET review_request_blocked_at=NULL,review_request_blocked_by='',review_request_blocked_reason='' WHERE id=$1`,
+        [job.id],
+      );
+    } else {
+      await client.query(
+        `UPDATE business_jobs SET review_request_blocked_at=$2,review_request_blocked_by=$3,
+           review_request_blocked_reason=$4 WHERE id=$1`,
+        [job.id, timestamp, actor, completion.reviewBlockReason],
+      );
+    }
+    await client.query(`UPDATE business_jobs SET status='DOKONCENA',updated_at=$2 WHERE id=$1`, [job.id, timestamp]);
+    const completionUpdate = await client.query(
+      `UPDATE business_job_completion SET finalized_at=$2,finalized_by=$3,updated_at=$2,updated_by=$3,revision=revision+1
+       WHERE job_id=$1 AND revision=$4 AND finalized_at IS NULL RETURNING *`,
+      [job.id, timestamp, actor, input.expectedRevision],
+    );
+    if (!completionUpdate.rows[0]) { await client.query('ROLLBACK'); return null; }
+    const savedCompletion = toBusinessJobCompletion(completionUpdate.rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'business_job',$2,'business_job_completion_finalized',$3,$4::jsonb,$5)`,
+      [randomUUID(), job.id, actor, JSON.stringify({ previous: job.status, next: 'DOKONCENA', completionRevision: savedCompletion.revision }), timestamp],
+    );
+    await client.query('COMMIT');
+    const savedJob = await getBusinessJob(job.id, true);
+    if (!savedJob) throw new Error('Dokončenú zákazku sa nepodarilo načítať.');
+    return { job: savedJob, completion: savedCompletion };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 function defaultValidUntil(days = 60) {
@@ -9698,6 +10728,19 @@ export async function savePriceOffer(
     outcomeReason: existing?.outcomeReason ?? '',
     nextFollowUpAt: existing?.nextFollowUpAt,
     outcomeUpdatedAt: existing?.outcomeUpdatedAt,
+    responseTokenHash: existing?.responseTokenHash,
+    responseTokenExpiresAt: existing?.responseTokenExpiresAt,
+    customerResponse: existing?.customerResponse,
+    customerResponseReasonCode: existing?.customerResponseReasonCode,
+    customerRequestedFollowUpAt: existing?.customerRequestedFollowUpAt,
+    customerRespondedAt: existing?.customerRespondedAt,
+    customerResponsePayloadHash: existing?.customerResponsePayloadHash,
+    customerResponseRevision: existing?.customerResponseRevision ?? 0,
+    customerResponseAppliedAt: existing?.customerResponseAppliedAt,
+    customerResponseAppliedBy: existing?.customerResponseAppliedBy,
+    customerResponseDismissedAt: existing?.customerResponseDismissedAt,
+    customerResponseDismissedBy: existing?.customerResponseDismissedBy,
+    customerResponseDismissReason: existing?.customerResponseDismissReason,
   };
   const db = getPool();
   if (!db) {
@@ -10301,7 +11344,8 @@ export async function claimPriceOfferFollowUp(input: PriceOfferFollowUpInput): P
       if (local.priceOfferFollowUps.some((item) => item.operationId === normalized.operationId)) return null;
       const offer = local.priceOffers.find((item) => item.id === normalized.offerId && !item.deletedAt);
       if (!offer || offer.status !== 'ODOSLANA' || !isSinglePriceOfferEmail(offer.email)) return null;
-      if (local.priceOfferFollowUps.some((item) => item.offerId === offer.id && (item.status === 'sending' || item.status === 'unknown'))) return null;
+      if (local.priceOfferFollowUps.some((item) => item.offerId === offer.id
+        && (item.status === 'sending' || item.status === 'unknown' || item.status === 'sent'))) return null;
       const followUp: PriceOfferFollowUpRecord = {
         id: randomUUID(),
         offerId: offer.id,
@@ -10346,7 +11390,7 @@ export async function claimPriceOfferFollowUp(input: PriceOfferFollowUpInput): P
       return null;
     }
     const alreadyUsed = await client.query(
-      "SELECT 1 FROM price_offer_follow_ups WHERE operation_id = $1 OR (offer_id = $2 AND status IN ('sending', 'unknown')) LIMIT 1",
+      "SELECT 1 FROM price_offer_follow_ups WHERE operation_id = $1 OR (offer_id = $2 AND status IN ('sending', 'unknown', 'sent')) LIMIT 1",
       [normalized.operationId, offer.id],
     );
     if (alreadyUsed.rowCount) {
@@ -10679,6 +11723,7 @@ export async function listPriceOfferFollowUps(offerId: string): Promise<PriceOff
 export type PriceOfferOutcomeInput = {
   reason?: string;
   nextFollowUpAt?: string;
+  evidenceCode?: string;
 };
 
 export async function updatePriceOfferStatus(
@@ -10693,6 +11738,7 @@ export async function updatePriceOfferStatus(
   }
   const reason = cleanSlovakText(outcome.reason ?? '').trim().slice(0, 500);
   const nextFollowUpAt = String(outcome.nextFollowUpAt ?? '').trim();
+  const evidenceCode = String(outcome.evidenceCode ?? '').trim().slice(0, 80);
   if ((status === 'ODLOZENA' || status === 'NEUSPESNA') && reason.length < 3) {
     throw new Error('Pri odložení alebo neúspešnej ponuke uveďte stručný dôvod.');
   }
@@ -10722,6 +11768,7 @@ export async function updatePriceOfferStatus(
     ...priceOfferParentAuditChanges(offer, previous, status, auditReason),
     outcomeReasonProvided: status === 'ODLOZENA' || status === 'NEUSPESNA' ? reason.length >= 3 : undefined,
     nextFollowUpAt: status === 'ODLOZENA' ? nextFollowUpAt : undefined,
+    evidenceCode: evidenceCode || 'internal_status_update',
   });
   const db = getPool();
   if (!db) {
@@ -10830,32 +11877,67 @@ function toPublishedRealization(realization: Realization): PublishedRealization 
   };
 }
 
+const priceOfferResponseTokenTtlMs = 30 * 24 * 60 * 60 * 1000;
+
+function priceOfferResponseTokenHash(token: string) {
+  return createHash('sha256').update(token, 'utf8').digest('hex');
+}
+
 export async function claimPriceOfferForSending(id: string, actorEmail: string): Promise<PriceOffer | null> {
   await ensureSchema();
   const timestamp = now();
   const attemptId = randomUUID();
+  const responseToken = randomBytes(32).toString('base64url');
+  const responseTokenHash = priceOfferResponseTokenHash(responseToken);
+  const responseTokenExpiresAt = new Date(Date.now() + priceOfferResponseTokenTtlMs).toISOString();
   const db = getPool();
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
       const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt);
-      if (!offer || offer.status !== 'PRIPRAVENA') return null;
+      const linkedJob = offer?.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+      if (!offer || offer.status !== 'PRIPRAVENA' || offer.isTestData
+        || (offer.jobId && (!linkedJob || linkedJob.isTestData))) return null;
       offer.status = 'ODOSIELA';
       offer.sendStartedAt = timestamp;
       offer.sendAttemptId = attemptId;
+      offer.responseTokenHash = responseTokenHash;
+      offer.responseTokenExpiresAt = responseTokenExpiresAt;
+      offer.customerResponse = undefined;
+      offer.customerResponseReasonCode = undefined;
+      offer.customerRequestedFollowUpAt = undefined;
+      offer.customerRespondedAt = undefined;
+      offer.customerResponsePayloadHash = undefined;
+      offer.customerResponseRevision = 0;
+      offer.customerResponseAppliedAt = undefined;
+      offer.customerResponseAppliedBy = undefined;
+      offer.customerResponseDismissedAt = undefined;
+      offer.customerResponseDismissedBy = undefined;
+      offer.customerResponseDismissReason = undefined;
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
         action: 'price_offer_send_claimed', actorEmail, changes: { number: offer.number }, createdAt: timestamp });
       await writeLocalDb(local);
-      return offer;
+      return { ...offer, customerResponseToken: responseToken };
     });
   }
   const client = await db.connect();
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `UPDATE price_offers SET status = 'ODOSIELA', send_started_at = $2, send_attempt_id = $3
-       WHERE id = $1 AND deleted_at IS NULL AND status = 'PRIPRAVENA' RETURNING *`,
-      [id, timestamp, attemptId],
+      `UPDATE price_offers SET status = 'ODOSIELA', send_started_at = $2, send_attempt_id = $3,
+         response_token_hash=$4, response_token_expires_at=$5,
+         customer_response=NULL, customer_response_reason_code='', customer_requested_follow_up_at=NULL,
+         customer_responded_at=NULL, customer_response_payload_hash=NULL, customer_response_revision=0,
+         customer_response_applied_at=NULL, customer_response_applied_by='',
+         customer_response_dismissed_at=NULL, customer_response_dismissed_by='', customer_response_dismiss_reason=''
+       WHERE id = $1 AND deleted_at IS NULL AND status = 'PRIPRAVENA'
+         AND COALESCE(is_test_data,false)=false
+         AND (job_id IS NULL OR EXISTS (
+           SELECT 1 FROM business_jobs j
+           WHERE j.id=price_offers.job_id AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false
+         ))
+       RETURNING *`,
+      [id, timestamp, attemptId, responseTokenHash, responseTokenExpiresAt],
     );
     if (!rows[0]) {
       await client.query('ROLLBACK');
@@ -10867,7 +11949,7 @@ export async function claimPriceOfferForSending(id: string, actorEmail: string):
       [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_send_claimed', actorEmail, { number: offer.number }, timestamp],
     );
     await client.query('COMMIT');
-    return offer;
+    return { ...offer, customerResponseToken: responseToken };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
@@ -10890,6 +11972,10 @@ export async function finishPriceOfferSending(id: string, attemptId: string, res
       if (result === 'sent') offer.sentAt = timestamp;
       offer.sendStartedAt = result === 'unknown' ? (offer.sendStartedAt || timestamp) : undefined;
       offer.sendAttemptId = result === 'unknown' ? attemptId : undefined;
+      if (result === 'not_sent') {
+        offer.responseTokenHash = undefined;
+        offer.responseTokenExpiresAt = undefined;
+      }
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
         action: `price_offer_send_${result}`, actorEmail,
         changes: priceOfferParentAuditChanges(offer, 'ODOSIELA', nextStatus, `price_offer_send_${result}`), createdAt: timestamp });
@@ -10905,7 +11991,9 @@ export async function finishPriceOfferSending(id: string, attemptId: string, res
       `UPDATE price_offers SET status = $2,
          sent_at = CASE WHEN $3 = 'sent' THEN $4 ELSE sent_at END,
          send_started_at = CASE WHEN $3 = 'unknown' THEN COALESCE(send_started_at, $4) ELSE NULL END,
-         send_attempt_id = CASE WHEN $3 = 'unknown' THEN send_attempt_id ELSE NULL END
+         send_attempt_id = CASE WHEN $3 = 'unknown' THEN send_attempt_id ELSE NULL END,
+         response_token_hash = CASE WHEN $3 = 'not_sent' THEN NULL ELSE response_token_hash END,
+         response_token_expires_at = CASE WHEN $3 = 'not_sent' THEN NULL ELSE response_token_expires_at END
        WHERE id = $1 AND deleted_at IS NULL AND status = 'ODOSIELA' AND send_attempt_id = $5 RETURNING *`,
       [id, nextStatus, result, timestamp, attemptId],
     );
@@ -11015,6 +12103,8 @@ export async function resetUncertainPriceOfferSend(id: string, actorEmail: strin
       offer.status = 'PRIPRAVENA';
       offer.sendStartedAt = undefined;
       offer.sendAttemptId = undefined;
+      offer.responseTokenHash = undefined;
+      offer.responseTokenExpiresAt = undefined;
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
         action: 'price_offer_uncertain_send_reset', actorEmail, changes: { number: offer.number }, createdAt: timestamp });
       await writeLocalDb(local);
@@ -11025,7 +12115,8 @@ export async function resetUncertainPriceOfferSend(id: string, actorEmail: strin
   try {
     await client.query('BEGIN');
     const { rows } = await client.query(
-      `UPDATE price_offers SET status = 'PRIPRAVENA', send_started_at = NULL, send_attempt_id = NULL
+      `UPDATE price_offers SET status = 'PRIPRAVENA', send_started_at = NULL, send_attempt_id = NULL,
+         response_token_hash = NULL, response_token_expires_at = NULL
        WHERE id = $1 AND deleted_at IS NULL AND status IN ('NEISTY_STAV', 'ODOSIELA')
          AND send_started_at <= $2::timestamptz - interval '15 minutes'
        RETURNING *`,
@@ -11044,6 +12135,324 @@ export async function resetUncertainPriceOfferSend(id: string, actorEmail: strin
     return offer;
   } catch (error) {
     await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+const publicPriceOfferResponseStatuses: PriceOfferStatus[] = ['NEISTY_STAV', 'ODOSLANA', 'ODLOZENA'];
+const publicPriceOfferDeclineReasons = new Set(['price', 'timing', 'selected_other', 'no_longer_needed', 'other']);
+const publicPriceOfferResponseConsentVersion = 'price-offer-response-v1';
+
+function publicPriceOfferResponsePayloadHash(input: {
+  response: PriceOfferCustomerResponse;
+  reasonCode?: string;
+  requestedFollowUpAt?: string;
+}) {
+  return createHash('sha256').update(JSON.stringify({
+    response: input.response,
+    reasonCode: input.reasonCode || '',
+    requestedFollowUpAt: input.requestedFollowUpAt || '',
+    consentVersion: publicPriceOfferResponseConsentVersion,
+  }), 'utf8').digest('hex');
+}
+
+function isPublicPriceOfferResponseEligible(offer: PriceOffer, timestamp: string, today: string) {
+  return !offer.deletedAt && !offer.isTestData && publicPriceOfferResponseStatuses.includes(offer.status)
+    && Boolean(offer.responseTokenExpiresAt && offer.responseTokenExpiresAt > timestamp)
+    && isValidIsoCalendarDate(offer.validUntil) && offer.validUntil >= today;
+}
+
+export async function openPublicPriceOfferResponse(token: string): Promise<PublicPriceOfferResponse | null> {
+  await ensureSchema();
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return null;
+  const tokenHash = priceOfferResponseTokenHash(token);
+  const timestamp = now();
+  const today = slovakCalendarDateAfterDays(0);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const offer = local.priceOffers.find((item) => item.responseTokenHash === tokenHash);
+    const linkedJob = offer?.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+    const linkedLeadIsTest = linkedJob?.leadId ? local.leads.some((lead) => lead.id === linkedJob.leadId && lead.isTestData) : false;
+    if (!offer || !isPublicPriceOfferResponseEligible(offer, timestamp, today)
+      || (offer.jobId && (!linkedJob || linkedJob.isTestData || linkedLeadIsTest))) return null;
+    return {
+      offerNumber: offer.number,
+      objectType: offer.objectType,
+      municipality: offer.municipality,
+      totalWithVat: offer.totalWithVat,
+      validUntil: offer.validUntil,
+      expiresAt: offer.responseTokenExpiresAt!,
+      alreadyResponded: Boolean(offer.customerResponse),
+    };
+  }
+  const { rows } = await db.query(
+    `SELECT * FROM price_offers
+     WHERE response_token_hash=$1 AND response_token_expires_at > $2
+       AND deleted_at IS NULL AND COALESCE(is_test_data,false)=false
+       AND status = ANY($3::text[]) AND valid_until >= $4::date
+       AND (job_id IS NULL OR EXISTS (
+         SELECT 1 FROM business_jobs j WHERE j.id=price_offers.job_id AND j.deleted_at IS NULL
+           AND COALESCE(j.is_test_data,false)=false
+           AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+       )) LIMIT 1`,
+    [tokenHash, timestamp, publicPriceOfferResponseStatuses, today],
+  );
+  if (!rows[0]) return null;
+  const offer = toPriceOffer(rows[0]);
+  return {
+    offerNumber: offer.number,
+    objectType: offer.objectType,
+    municipality: offer.municipality,
+    totalWithVat: offer.totalWithVat,
+    validUntil: offer.validUntil,
+    expiresAt: offer.responseTokenExpiresAt!,
+    alreadyResponded: Boolean(offer.customerResponse),
+  };
+}
+
+export type PublicPriceOfferResponseInput = {
+  token: string;
+  response: PriceOfferCustomerResponse;
+  reasonCode?: string;
+  requestedFollowUpAt?: string;
+  confirmedReview: boolean;
+};
+
+export async function submitPublicPriceOfferResponse(input: PublicPriceOfferResponseInput) {
+  await ensureSchema();
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(input.token) || !input.confirmedReview
+    || !(['ACCEPTED', 'DEFERRED', 'DECLINED'] as PriceOfferCustomerResponse[]).includes(input.response)) {
+    return { status: 'invalid' as const };
+  }
+  const today = slovakCalendarDateAfterDays(0);
+  const maxFollowUpDate = slovakCalendarDateAfterDays(365);
+  const requestedFollowUpAt = String(input.requestedFollowUpAt ?? '').trim();
+  const reasonCode = String(input.reasonCode ?? '').trim();
+  if (input.response === 'DEFERRED'
+    && (!isValidIsoCalendarDate(requestedFollowUpAt) || requestedFollowUpAt < today || requestedFollowUpAt > maxFollowUpDate)) {
+    return { status: 'invalid' as const };
+  }
+  if (input.response === 'DECLINED' && !publicPriceOfferDeclineReasons.has(reasonCode)) {
+    return { status: 'invalid' as const };
+  }
+  const normalized = {
+    response: input.response,
+    reasonCode: input.response === 'DECLINED' ? reasonCode : '',
+    requestedFollowUpAt: input.response === 'DEFERRED' ? requestedFollowUpAt : '',
+  };
+  const payloadHash = publicPriceOfferResponsePayloadHash(normalized);
+  const tokenHash = priceOfferResponseTokenHash(input.token);
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const offer = local.priceOffers.find((item) => item.responseTokenHash === tokenHash);
+      const linkedJob = offer?.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+      const linkedLeadIsTest = linkedJob?.leadId ? local.leads.some((lead) => lead.id === linkedJob.leadId && lead.isTestData) : false;
+      if (!offer || !isPublicPriceOfferResponseEligible(offer, timestamp, today)
+        || (offer.jobId && (!linkedJob || linkedJob.isTestData || linkedLeadIsTest))) return { status: 'not_found' as const };
+      if (offer.customerResponse) {
+        return { status: offer.customerResponsePayloadHash === payloadHash ? 'idempotent' as const : 'conflict' as const };
+      }
+      offer.customerResponse = normalized.response;
+      offer.customerResponseReasonCode = normalized.reasonCode || undefined;
+      offer.customerRequestedFollowUpAt = normalized.requestedFollowUpAt || undefined;
+      offer.customerRespondedAt = timestamp;
+      offer.customerResponsePayloadHash = payloadHash;
+      offer.customerResponseRevision = (offer.customerResponseRevision || 0) + 1;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+        action: 'price_offer_customer_response_received', actorEmail: 'public-price-offer-response',
+        changes: { response: normalized.response, reasonCode: normalized.reasonCode || undefined,
+          requestedFollowUpAt: normalized.requestedFollowUpAt || undefined, revision: offer.customerResponseRevision },
+        createdAt: timestamp,
+      });
+      await writeLocalDb(local);
+      return { status: 'created' as const };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query(
+      `SELECT * FROM price_offers
+       WHERE response_token_hash=$1 AND response_token_expires_at > $2
+         AND deleted_at IS NULL AND COALESCE(is_test_data,false)=false
+         AND status = ANY($3::text[]) AND valid_until >= $4::date
+         AND (job_id IS NULL OR EXISTS (
+           SELECT 1 FROM business_jobs j WHERE j.id=price_offers.job_id AND j.deleted_at IS NULL
+             AND COALESCE(j.is_test_data,false)=false
+             AND NOT EXISTS (SELECT 1 FROM leads l WHERE l.id=j.lead_id AND l.is_test_data=true)
+         )) FOR UPDATE`,
+      [tokenHash, timestamp, publicPriceOfferResponseStatuses, today],
+    );
+    if (!currentResult.rows[0]) { await client.query('ROLLBACK'); return { status: 'not_found' as const }; }
+    const current = toPriceOffer(currentResult.rows[0]);
+    if (current.customerResponse) {
+      await client.query('COMMIT');
+      return { status: current.customerResponsePayloadHash === payloadHash ? 'idempotent' as const : 'conflict' as const };
+    }
+    const { rows } = await client.query(
+      `UPDATE price_offers SET customer_response=$2, customer_response_reason_code=$3,
+         customer_requested_follow_up_at=NULLIF($4,'')::date, customer_responded_at=$5,
+         customer_response_payload_hash=$6, customer_response_revision=customer_response_revision+1
+       WHERE id=$1 AND customer_response IS NULL RETURNING *`,
+      [current.id, normalized.response, normalized.reasonCode, normalized.requestedFollowUpAt, timestamp, payloadHash],
+    );
+    if (!rows[0]) { await client.query('ROLLBACK'); return { status: 'conflict' as const }; }
+    const saved = toPriceOffer(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'business_job',$2,'price_offer_customer_response_received','public-price-offer-response',$3::jsonb,$4)`,
+      [randomUUID(), saved.jobId || saved.id, JSON.stringify({ response: normalized.response, reasonCode: normalized.reasonCode || undefined,
+        requestedFollowUpAt: normalized.requestedFollowUpAt || undefined, revision: saved.customerResponseRevision }), timestamp],
+    );
+    await client.query('COMMIT');
+    return { status: 'created' as const };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+const priceOfferCustomerDeclineLabels: Record<string, string> = {
+  price: 'Zákazník uviedol cenu.',
+  timing: 'Zákazníkovi nevyhovuje termín.',
+  selected_other: 'Zákazník si vybral inú ponuku.',
+  no_longer_needed: 'Zákazník službu už nepotrebuje.',
+  other: 'Zákazník uviedol iný dôvod.',
+};
+
+export async function resolvePriceOfferCustomerResponse(input: {
+  id: string;
+  expectedRevision: number;
+  resolution: 'apply' | 'dismiss';
+  actorEmail: string;
+  requestedFollowUpAt?: string;
+  dismissReason?: string;
+}) {
+  await ensureSchema();
+  const actorEmail = input.actorEmail.trim().toLowerCase();
+  const timestamp = now();
+  const requestedFollowUpAt = String(input.requestedFollowUpAt ?? '').trim();
+  const dismissReason = cleanSlovakText(input.dismissReason ?? '').trim().slice(0, 500);
+  if (!actorEmail || !Number.isInteger(input.expectedRevision) || input.expectedRevision < 1) throw new Error('Neplatná revízia odpovede zákazníka.');
+  if (input.resolution === 'dismiss' && dismissReason.length < 3) throw new Error('Pri zamietnutí odpovede uveďte interný dôvod.');
+  const applyResolution = (offer: PriceOffer) => {
+    if (!offer.customerResponse || offer.customerResponseAppliedAt || offer.customerResponseDismissedAt
+      || offer.customerResponseRevision !== input.expectedRevision) return null;
+    if (input.resolution === 'dismiss') {
+      offer.customerResponseDismissedAt = timestamp;
+      offer.customerResponseDismissedBy = actorEmail;
+      offer.customerResponseDismissReason = dismissReason;
+      return { nextStatus: offer.status, outcomeReason: '', nextFollowUpAt: '' };
+    }
+    if (!['ODOSLANA', 'ODLOZENA'].includes(offer.status)) return null;
+    const response = offer.customerResponse;
+    const nextStatus: PriceOfferStatus = response === 'ACCEPTED' ? 'PRIJATA' : response === 'DEFERRED' ? 'ODLOZENA' : 'NEUSPESNA';
+    const followUpAt = response === 'DEFERRED' ? (requestedFollowUpAt || offer.customerRequestedFollowUpAt || '') : '';
+    if (response === 'DEFERRED' && (!isValidIsoCalendarDate(followUpAt) || followUpAt < slovakCalendarDateAfterDays(0))) {
+      throw new Error('Pred potvrdením odloženia vyberte platný dnešný alebo budúci dátum ďalšieho kontaktu.');
+    }
+    const outcomeReason = response === 'DEFERRED'
+      ? 'Zákazník požiadal cez súkromný odkaz o neskorší kontakt.'
+      : response === 'DECLINED'
+        ? (priceOfferCustomerDeclineLabels[offer.customerResponseReasonCode || ''] || 'Zákazník ponuku cez súkromný odkaz odmietol.')
+        : '';
+    offer.status = nextStatus;
+    offer.acceptedAt = nextStatus === 'PRIJATA' ? timestamp : offer.acceptedAt;
+    offer.outcomeReason = outcomeReason;
+    offer.nextFollowUpAt = nextStatus === 'ODLOZENA' ? followUpAt : undefined;
+    offer.outcomeUpdatedAt = timestamp;
+    offer.customerResponseAppliedAt = timestamp;
+    offer.customerResponseAppliedBy = actorEmail;
+    return { nextStatus, outcomeReason, nextFollowUpAt: followUpAt };
+  };
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const offer = local.priceOffers.find((item) => item.id === input.id && !item.deletedAt && !item.isTestData);
+      if (!offer) return null;
+      const previous = offer.status;
+      const resolved = applyResolution(offer);
+      if (!resolved) return null;
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+        action: input.resolution === 'apply' ? 'price_offer_customer_response_applied' : 'price_offer_customer_response_dismissed',
+        actorEmail, changes: { response: offer.customerResponse, previous, next: offer.status,
+          responseRevision: offer.customerResponseRevision, reasonCode: input.resolution === 'dismiss' ? 'manually_dismissed' : 'customer_secure_link' },
+        createdAt: timestamp,
+      });
+      if (input.resolution === 'apply' && resolved.nextStatus === 'PRIJATA') syncPriceOfferParentsLocal(local, offer, 'accepted', actorEmail, timestamp, 'customer_secure_link');
+      if (input.resolution === 'apply' && resolved.nextStatus === 'NEUSPESNA') {
+        const job = offer.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+        const lead = offer.leadId ? local.leads.find((item) => item.id === offer.leadId && !item.deletedAt) : undefined;
+        if (job && ['DOPYT', 'DOPYT_PRIJATY', 'PONUKA_ODOSLANA'].includes(job.status)) job.status = 'ZRUSENA';
+        if (lead && ['novy', 'kontaktovany', 'caka_na_doplnenie', 'naceneny', 'cenova_ponuka_odoslana'].includes(lead.status)) lead.status = 'nevyslo';
+      }
+      await writeLocalDb(local);
+      return { ...offer };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query(
+      `SELECT * FROM price_offers WHERE id=$1 AND deleted_at IS NULL AND COALESCE(is_test_data,false)=false FOR UPDATE`,
+      [input.id],
+    );
+    if (!currentResult.rows[0]) { await client.query('ROLLBACK'); return null; }
+    const current = toPriceOffer(currentResult.rows[0]);
+    const previous = current.status;
+    const resolved = applyResolution(current);
+    if (!resolved) { await client.query('ROLLBACK'); return null; }
+    const { rows } = input.resolution === 'dismiss'
+      ? await client.query(
+        `UPDATE price_offers SET customer_response_dismissed_at=$2, customer_response_dismissed_by=$3,
+           customer_response_dismiss_reason=$4
+         WHERE id=$1 AND customer_response_revision=$5 AND customer_response_applied_at IS NULL
+           AND customer_response_dismissed_at IS NULL RETURNING *`,
+        [input.id, timestamp, actorEmail, dismissReason, input.expectedRevision],
+      )
+      : await client.query(
+        `UPDATE price_offers SET status=$2, accepted_at=CASE WHEN $2='PRIJATA' THEN $3 ELSE accepted_at END,
+           outcome_reason=$4, next_follow_up_at=NULLIF($5,'')::date, outcome_updated_at=$3,
+           customer_response_applied_at=$3, customer_response_applied_by=$6
+         WHERE id=$1 AND customer_response_revision=$7 AND customer_response_applied_at IS NULL
+           AND customer_response_dismissed_at IS NULL AND status IN ('ODOSLANA','ODLOZENA') RETURNING *`,
+        [input.id, resolved.nextStatus, timestamp, resolved.outcomeReason, resolved.nextFollowUpAt, actorEmail, input.expectedRevision],
+      );
+    if (!rows[0]) { await client.query('ROLLBACK'); return null; }
+    const saved = toPriceOffer(rows[0]);
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'business_job',$2,$3,$4,$5::jsonb,$6)`,
+      [randomUUID(), saved.jobId || saved.id, input.resolution === 'apply' ? 'price_offer_customer_response_applied' : 'price_offer_customer_response_dismissed',
+        actorEmail, JSON.stringify({ response: saved.customerResponse, previous, next: saved.status,
+          responseRevision: saved.customerResponseRevision, reasonCode: input.resolution === 'dismiss' ? 'manually_dismissed' : 'customer_secure_link' }), timestamp],
+    );
+    if (input.resolution === 'apply' && saved.status === 'PRIJATA') await syncPriceOfferParentsPostgres(client, saved, 'accepted', actorEmail, timestamp, 'customer_secure_link');
+    if (input.resolution === 'apply' && saved.status === 'NEUSPESNA') {
+      if (saved.jobId) await client.query(
+        `UPDATE business_jobs SET status='ZRUSENA', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('DOPYT','DOPYT_PRIJATY','PONUKA_ODOSLANA')`,
+        [saved.jobId, timestamp],
+      );
+      if (saved.leadId) await client.query(
+        `UPDATE leads SET status='nevyslo', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('novy','kontaktovany','caka_na_doplnenie','naceneny','cenova_ponuka_odoslana')`,
+        [saved.leadId, timestamp],
+      );
+    }
+    await client.query('COMMIT');
+    return saved;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
     throw error;
   } finally {
     client.release();
@@ -12794,6 +14203,48 @@ export async function listPhotoIntakeRecords(options: { inviteId?: string; busin
   return { records: rows.map(toRealizationMediaIntake), total, page, pageSize, totalPages };
 }
 
+export async function getBusinessJobPhotoEvidence(jobId: string): Promise<{ approvedCount: number; pendingCount: number } | null> {
+  await ensureSchema();
+  if (!uuidPattern.test(jobId)) throw new Error('Zákazka nemá platný identifikátor.');
+  const db = getPool();
+  if (!db) return null;
+  const { rows } = await db.query(
+    `SELECT
+       COUNT(*) FILTER (WHERE media.status='approved_private' AND media.sanitized_at IS NOT NULL)::int AS approved_count,
+       COUNT(*) FILTER (WHERE media.status='pending_review')::int AS pending_count
+     FROM realization_media_intake media
+     JOIN photo_upload_invites invite ON invite.id=media.invite_id
+     WHERE invite.business_job_id=$1`,
+    [jobId],
+  );
+  return {
+    approvedCount: Number(rows[0]?.approved_count ?? 0),
+    pendingCount: Number(rows[0]?.pending_count ?? 0),
+  };
+}
+
+export async function listApprovedPhotosWithoutCaseDraft(limit = 50) {
+  await ensureSchema();
+  const db = requirePhotoIntakeDatabase();
+  const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit) || 50));
+  const { rows } = await db.query(
+    `SELECT m.*, i.business_job_id AS invite_business_job_id
+     FROM realization_media_intake m
+     JOIN photo_upload_invites i ON i.id=m.invite_id AND i.business_job_id IS NOT NULL
+     JOIN business_jobs j ON j.id=i.business_job_id AND j.deleted_at IS NULL
+       AND j.status IN ('DEMONT_DOKONCENA', 'DOKONCENA', 'VYUCTOVANIE')
+     WHERE m.status='approved_private' AND m.sanitized_at IS NOT NULL
+       AND m.mime_type='image/jpeg'
+       AND NOT EXISTS (
+         SELECT 1 FROM realization_case_draft_media link WHERE link.media_id=m.id
+       )
+     ORDER BY m.created_at, m.id
+     LIMIT $1`,
+    [boundedLimit],
+  );
+  return rows.map(toRealizationMediaIntake);
+}
+
 export async function reviewPhotoIntakeRecord(input: { id: string; approve: boolean; reviewedBy: string; expectedMetadataVersion: number }) {
   await ensureSchema();
   const db = requirePhotoIntakeDatabase();
@@ -12887,6 +14338,24 @@ export async function withdrawApprovedPhotoIntakeRecord(input: { id: string; wit
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const evidence = await client.query(
+      `SELECT invite.business_job_id
+       FROM realization_media_intake media
+       JOIN photo_upload_invites invite ON invite.id=media.invite_id
+       WHERE media.id=$1`,
+      [input.id],
+    );
+    const businessJobId = evidence.rows[0]?.business_job_id ? String(evidence.rows[0].business_job_id) : '';
+    if (businessJobId) {
+      await client.query('SELECT id FROM business_jobs WHERE id=$1 FOR UPDATE', [businessJobId]);
+      const completion = await client.query(
+        `SELECT photos_decision,finalized_at FROM business_job_completion WHERE job_id=$1 FOR UPDATE`,
+        [businessJobId],
+      );
+      if (completion.rows[0]?.finalized_at && String(completion.rows[0].photos_decision) === 'ready_private') {
+        throw new Error('Fotografia je dôkazom uzavretej zákazky. Najprv použite samostatný kontrolovaný postup opravy zákazky.');
+      }
+    }
     const { rows } = await client.query(
       `UPDATE realization_media_intake
        SET status = 'deletion_pending', deletion_reason = 'admin_withdrawal', deletion_attempted_at = NULL, deletion_error = ''
@@ -15561,11 +17030,62 @@ export async function listAdminTaskAssignees(): Promise<AdminTaskAssignee[]> {
   const db = getPool();
   if (!db) {
     const local = await ensureLocalBusinessDefaults();
-    return local.adminUsers.filter((user) => user.active).map((user) => ({ email: user.email, name: user.name || user.email }))
+    return local.adminUsers.filter((user) => user.active).map((user) => ({ id: user.id, email: user.email, name: user.name || user.email, role: user.role }))
       .sort((left, right) => left.name.localeCompare(right.name, 'sk'));
   }
-  const { rows } = await db.query('SELECT email, name FROM admin_users WHERE active = true ORDER BY lower(COALESCE(NULLIF(name,\'\'), email)) ASC');
-  return rows.map((row) => ({ email: String(row.email).trim().toLowerCase(), name: String(row.name || row.email) }));
+  const { rows } = await db.query('SELECT id, email, name, role FROM admin_users WHERE active = true ORDER BY lower(COALESCE(NULLIF(name,\'\'), email)) ASC');
+  return rows.map((row) => ({ id: String(row.id), email: String(row.email).trim().toLowerCase(), name: String(row.name || row.email), role: String(row.role) as AdminRole }));
+}
+
+export async function getAdminWorkItemSuggestion(input: {
+  actorRole: AdminRole;
+  priority: AdminWorkItemPriority;
+  visibility: AdminWorkItemVisibility;
+  at?: Date;
+}): Promise<AdminTaskSuggestion> {
+  await ensureSchema();
+  if (input.visibility === 'SUPER_ADMIN' && input.actorRole !== 'SUPER_ADMIN') {
+    throw new Error('Túto viditeľnosť môže nastaviť iba superadmin.');
+  }
+  const generatedAt = (input.at ?? new Date()).toISOString();
+  const today = dateInBratislava(generatedAt);
+  const db = getPool();
+  if (!db) {
+    const local = await ensureLocalBusinessDefaults();
+    const candidates = local.adminUsers.filter((user) => user.active).map((user) => ({
+      id: user.id, email: user.email, name: user.name || user.email, role: user.role,
+    }));
+    const workItems: AdminSuggestionWorkItem[] = local.adminWorkItems.filter((item) => item.status === 'OPEN' && item.ownerEmail).map((item) => ({
+      id: item.id, revision: item.revision, ownerEmail: item.ownerEmail, priority: item.priority, dueDate: item.dueDate,
+    }));
+    const leads: AdminSuggestionLead[] = local.leads.filter((lead) => !lead.deletedAt && !lead.isTestData && lead.ownerEmail
+      && !['dokoncena', 'zrusena', 'nevyslo', 'archivovane'].includes(lead.status)).map((lead) => ({
+      id: lead.id, ownerEmail: lead.ownerEmail || '', followupDate: lead.followupDate || '', updatedAt: lead.updatedAt,
+    }));
+    return buildAdminTaskSuggestion({ candidates, workItems, leads, priority: input.priority,
+      visibility: input.visibility, today, generatedAt });
+  }
+  const [candidateResult, taskResult, leadResult] = await Promise.all([
+    db.query('SELECT id,email,name,role FROM admin_users WHERE active=true ORDER BY id'),
+    db.query(`SELECT id,revision,owner_email,priority,due_date FROM admin_work_items
+      WHERE status='OPEN' AND owner_email<>'' ORDER BY id`),
+    db.query(`SELECT id,owner_email,followup_date,updated_at FROM leads
+      WHERE deleted_at IS NULL AND COALESCE(is_test_data,false)=false AND owner_email<>''
+        AND status NOT IN ('dokoncena','zrusena','nevyslo','archivovane') ORDER BY id`),
+  ]);
+  return buildAdminTaskSuggestion({
+    candidates: candidateResult.rows.map((row) => ({ id: String(row.id), email: String(row.email),
+      name: String(row.name || row.email), role: String(row.role) as AdminRole })),
+    workItems: taskResult.rows.map((row) => ({ id: String(row.id), revision: Number(row.revision),
+      ownerEmail: String(row.owner_email), priority: String(row.priority) as AdminWorkItemPriority,
+      dueDate: row.due_date ? dateOnly(row.due_date) : '' })),
+    leads: leadResult.rows.map((row) => ({ id: String(row.id), ownerEmail: String(row.owner_email),
+      followupDate: row.followup_date ? dateOnly(row.followup_date) : '', updatedAt: new Date(String(row.updated_at)).toISOString() })),
+    priority: input.priority,
+    visibility: input.visibility,
+    today,
+    generatedAt,
+  });
 }
 
 export type AdminWorkItemListOptions = {
@@ -15583,6 +17103,16 @@ export type AdminWorkItemCounts = {
   unassigned: number;
   doneToday: number;
   cancelled: number;
+};
+
+export type AdminAssistantSuggestionDecision = {
+  outcome: 'accepted' | 'modified';
+  ownerChanged: boolean;
+  dueChanged: boolean;
+  reasonCode: 'lowest_open_workload';
+  suggestionVersion: 1;
+  sourceRevision: string;
+  actorKind: 'operator' | 'super_admin';
 };
 
 function adminWorkItemMatchesOptions(item: AdminWorkItem, options: AdminWorkItemListOptions) {
@@ -15682,6 +17212,7 @@ export async function countAdminWorkItems(role: AdminRole, currentEmail: string,
 
 export async function createAdminWorkItem(
   input: AdminWorkItemInput, actorEmail: string, actorRole: AdminRole, idempotencyKey?: string,
+  assistantDecision?: AdminAssistantSuggestionDecision,
 ): Promise<AdminWorkItem> {
   await ensureSchema();
   const normalized = normalizeAdminWorkItemInput(input, actorRole);
@@ -15703,13 +17234,18 @@ export async function createAdminWorkItem(
         if (existing.createdBy !== item.createdBy || !canAccessAdminWorkItem(existing, actorRole)) throw new Error('Identifikátor úlohy už existuje.');
         return existing;
       }
-      if (item.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.toLowerCase() === item.ownerEmail)) {
+      if (item.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.toLowerCase() === item.ownerEmail
+        && (item.visibility !== 'SUPER_ADMIN' || user.role === 'SUPER_ADMIN'))) {
         throw new Error('Vybraný vlastník nie je aktívny používateľ.');
       }
       local.adminWorkItems.unshift(item);
       local.auditLogs.unshift({
         id: randomUUID(), entityType: 'admin_work_item', entityId: item.id, action: 'admin_work_item_created',
         actorEmail: item.createdBy, changes: workItemAuditChanges(item), createdAt: timestamp,
+      });
+      if (assistantDecision) local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'admin_work_item', entityId: item.id, action: 'admin_assistant_suggestion_decision',
+        actorEmail: item.createdBy, changes: assistantDecision, createdAt: timestamp,
       });
       await writeLocalDb(local);
       return item;
@@ -15726,7 +17262,11 @@ export async function createAdminWorkItem(
       return existingItem;
     }
     if (item.ownerEmail) {
-      const owner = await client.query('SELECT 1 FROM admin_users WHERE active = true AND lower(email) = lower($1) LIMIT 1', [item.ownerEmail]);
+      const owner = await client.query(
+        `SELECT 1 FROM admin_users WHERE active=true AND lower(email)=lower($1)
+          AND ($2::text <> 'SUPER_ADMIN' OR role='SUPER_ADMIN') LIMIT 1`,
+        [item.ownerEmail, item.visibility],
+      );
       if (!owner.rowCount) throw new Error('Vybraný vlastník nie je aktívny používateľ.');
     }
     const { rows } = await client.query(
@@ -15751,6 +17291,10 @@ export async function createAdminWorkItem(
       'INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [randomUUID(), 'admin_work_item', saved.id, 'admin_work_item_created', item.createdBy, workItemAuditChanges(saved), timestamp],
     );
+    if (assistantDecision) await client.query(
+      'INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [randomUUID(), 'admin_work_item', saved.id, 'admin_assistant_suggestion_decision', item.createdBy, assistantDecision, timestamp],
+    );
     await client.query('COMMIT');
     return saved;
   } catch (error) {
@@ -15759,6 +17303,52 @@ export async function createAdminWorkItem(
   } finally {
     client.release();
   }
+}
+
+/**
+ * The decision payload is customer-PII-free. The authenticated staff email is
+ * deliberately retained in the standard actor field as the accountability
+ * trail for an internal decision; it is never exposed in aggregate metrics.
+ */
+export async function recordAdminAssistantSuggestionOutcome(input: {
+  decisionId: string;
+  actorEmail: string;
+  actorRole: AdminRole;
+  sourceRevision: string;
+  suggestionVersion: 1;
+  outcome?: 'dismissed' | 'stale';
+}) {
+  await ensureSchema();
+  if (!uuidPattern.test(input.decisionId) || !/^[a-f0-9]{64}$/.test(input.sourceRevision)) {
+    throw new Error('Návrh asistenta nemá platnú verziu.');
+  }
+  const createdAt = now();
+  const log: AuditLog = {
+    id: input.decisionId,
+    entityType: 'admin_work_item',
+    entityId: input.decisionId,
+    action: 'admin_assistant_suggestion_decision',
+    actorEmail: input.actorEmail.trim().toLowerCase(),
+    changes: { outcome: input.outcome ?? 'dismissed', ownerChanged: false, dueChanged: false, reasonCode: 'lowest_open_workload',
+      suggestionVersion: input.suggestionVersion, sourceRevision: input.sourceRevision, actorKind: input.actorRole.toLowerCase() },
+    createdAt,
+  };
+  const db = getPool();
+  if (!db) {
+    await withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      if (!local.auditLogs.some((item) => item.id === log.id)) {
+        local.auditLogs.unshift(log);
+        await writeLocalDb(local);
+      }
+    });
+    return;
+  }
+  await db.query(
+    `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (id) DO NOTHING`,
+    [log.id, log.entityType, log.entityId, log.action, log.actorEmail, log.changes, log.createdAt],
+  );
 }
 
 export async function updateAdminWorkItem(
@@ -15777,7 +17367,8 @@ export async function updateAdminWorkItem(
       const current = local.adminWorkItems[index];
       if (current.revision !== expectedRevision) throw new Error('Úlohu medzičasom upravil niekto iný. Obnovte stránku.');
       if (current.status !== 'OPEN') throw new Error('Dokončenú alebo zrušenú úlohu treba najprv znovu otvoriť.');
-      if (normalized.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.toLowerCase() === normalized.ownerEmail)) {
+      if (normalized.ownerEmail && !local.adminUsers.some((user) => user.active && user.email.toLowerCase() === normalized.ownerEmail
+        && (normalized.visibility !== 'SUPER_ADMIN' || user.role === 'SUPER_ADMIN'))) {
         throw new Error('Vybraný vlastník nie je aktívny používateľ.');
       }
       const changedFields = (Object.keys(normalized) as Array<keyof AdminWorkItemInput>)
@@ -15803,7 +17394,11 @@ export async function updateAdminWorkItem(
     if (current.revision !== expectedRevision) throw new Error('Úlohu medzičasom upravil niekto iný. Obnovte stránku.');
     if (current.status !== 'OPEN') throw new Error('Dokončenú alebo zrušenú úlohu treba najprv znovu otvoriť.');
     if (normalized.ownerEmail) {
-      const owner = await client.query('SELECT 1 FROM admin_users WHERE active = true AND lower(email) = lower($1) LIMIT 1', [normalized.ownerEmail]);
+      const owner = await client.query(
+        `SELECT 1 FROM admin_users WHERE active=true AND lower(email)=lower($1)
+          AND ($2::text <> 'SUPER_ADMIN' OR role='SUPER_ADMIN') LIMIT 1`,
+        [normalized.ownerEmail, normalized.visibility],
+      );
       if (!owner.rowCount) throw new Error('Vybraný vlastník nie je aktívny používateľ.');
     }
     const changedFields = (Object.keys(normalized) as Array<keyof AdminWorkItemInput>)

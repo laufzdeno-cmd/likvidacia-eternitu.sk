@@ -31,12 +31,13 @@ test('local review workflow is linked, idempotent, token-hashed and separately a
       location:'Poprad', district:'Poprad', materialType:'Vlnitý eternit', objectType:'Rodinný dom', term:'', leadSource:'test-harness',
       preferredContact:'email', m2:100, pricePerM2:10, paymentType:'FAKTURA', workType:'DEMONTAZ_A_ODVOZ', wasteKg:1000,
       landfill:'INA', status:'DOKONCENA', note:'', workers:[], costs:{ fuel:0,suits:0,gloves:0,penetrant:0,landfillCost:0,otherName:'',otherAmount:0 } });
-    const job = await db.saveBusinessJob(jobInput('Anna Testovacia','anna@example.invalid'),'admin@example.invalid');
-    const reminderJob = await db.saveBusinessJob(jobInput('Ján Testovací','jan@example.invalid'),'admin@example.invalid');
-    const recoveryJob = await db.saveBusinessJob(jobInput('Mária Testovacia','maria@example.invalid'),'admin@example.invalid');
-    const acceptedReminderJob = await db.saveBusinessJob(jobInput('Peter Testovací','peter@example.invalid'),'admin@example.invalid');
-    const staleReminderJob = await db.saveBusinessJob(jobInput('Eva Testovacia','eva@example.invalid'),'admin@example.invalid');
-    const recipientChangedJob = await db.saveBusinessJob(jobInput('Igor Testovací','igor@example.invalid'),'admin@example.invalid');
+    const legacy = { legacyCompletedImportReason:'TEST_FIXTURE' };
+    const job = await db.saveBusinessJob(jobInput('Anna Testovacia','anna@example.invalid'),'admin@example.invalid',undefined,legacy);
+    const reminderJob = await db.saveBusinessJob(jobInput('Ján Testovací','jan@example.invalid'),'admin@example.invalid',undefined,legacy);
+    const recoveryJob = await db.saveBusinessJob(jobInput('Mária Testovacia','maria@example.invalid'),'admin@example.invalid',undefined,legacy);
+    const acceptedReminderJob = await db.saveBusinessJob(jobInput('Peter Testovací','peter@example.invalid'),'admin@example.invalid',undefined,legacy);
+    const staleReminderJob = await db.saveBusinessJob(jobInput('Eva Testovacia','eva@example.invalid'),'admin@example.invalid',undefined,legacy);
+    const recipientChangedJob = await db.saveBusinessJob(jobInput('Igor Testovací','igor@example.invalid'),'admin@example.invalid',undefined,legacy);
     const eligibleBefore = await db.listEligibleReviewJobs();
     const request = await db.createReviewRequest({ jobId:job.id, customerName:job.customerName, customerEmail:job.customerEmail,
       phone:job.customerPhone, location:job.location, objectType:job.objectType, realizationDate:job.demolitionDate,

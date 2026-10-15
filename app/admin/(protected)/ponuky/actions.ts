@@ -8,10 +8,12 @@ import {
   confirmUncertainPriceOfferSent,
   deletePriceOffer,
   finishPriceOfferSending,
+  getBusinessJob,
   getPriceOffer,
   getPriceOfferSettings,
   savePriceOffer,
   resetUncertainPriceOfferSend,
+  resolvePriceOfferCustomerResponse,
   updatePriceOfferStatus,
 } from '@/src/server/db';
 import { sendPlannerNotificationEmail, sendPriceOfferDocumentEmail } from '@/src/server/mail';
@@ -20,6 +22,7 @@ import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
 import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import type { PriceOfferInput, PriceOfferMaterialType, PriceOfferStatus } from '@/src/server/types';
+import { evaluatePriceOfferPreflight, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
 
 const allowedMaterialTypes = new Set<PriceOfferMaterialType>([
   'VLNITY_ETERNIT',
@@ -153,23 +156,60 @@ export async function sendPriceOfferAction(formData: FormData) {
   if (current.status !== 'PRIPRAVENA') {
     redirect(`/admin/ponuky/${id}?sendError=${encodeURIComponent('Ponuka nie je pripravená na odoslanie. Skontrolujte jej aktuálny stav.')}`);
   }
+  const [preflightSettings, linkedJob] = await Promise.all([
+    getPriceOfferSettings(),
+    current.jobId ? getBusinessJob(current.jobId) : Promise.resolve(null),
+  ]);
+  const preflightContext = {
+    linkedJobAvailable: !current.jobId || Boolean(linkedJob),
+    linkedJobIsTestData: Boolean(linkedJob?.isTestData),
+  };
+  const preflight = evaluatePriceOfferPreflight(current, preflightContext);
+  const approvalFingerprint = String(formData.get('approvalFingerprint') || '');
+  const currentFingerprint = priceOfferApprovalFingerprint(current, preflightSettings, preflightContext);
+  if (preflight.blockers.length) {
+    redirect(`/admin/ponuky/${id}?send=1&sendError=${encodeURIComponent(preflight.blockers[0].message)}`);
+  }
+  if (formData.get('confirmedPreflight') !== 'yes' || approvalFingerprint !== currentFingerprint) {
+    redirect(`/admin/ponuky/${id}?send=1&sendError=${encodeURIComponent('Ponuka sa od poslednej kontroly zmenila alebo nebola výslovne schválená. Skontrolujte ju znova.')}`);
+  }
 
   const offer = await claimPriceOfferForSending(id, actor);
   if (!offer) {
     redirect(`/admin/ponuky/${id}?sendError=${encodeURIComponent('Ponuku už spracúva iná požiadavka alebo sa jej stav zmenil. Obnovte stránku a skontrolujte stav.')}`);
   }
   const sendAttemptId = offer.sendAttemptId;
+  const customerResponseToken = offer.customerResponseToken;
   if (!sendAttemptId) throw new Error('Pokus o odoslanie nemá bezpečný identifikátor. Ponuku neposielajte opakovane a skontrolujte jej stav.');
+  if (!customerResponseToken) {
+    await finishPriceOfferSending(id, sendAttemptId, 'not_sent', actor);
+    throw new Error('Ponuka nemá bezpečný jednorazový odkaz. Nič sa neodoslalo.');
+  }
+  const linkedJobAfterClaim = offer.jobId ? await getBusinessJob(offer.jobId) : null;
+  const claimedPreflightContext = {
+    linkedJobAvailable: !offer.jobId || Boolean(linkedJobAfterClaim),
+    linkedJobIsTestData: Boolean(linkedJobAfterClaim?.isTestData),
+  };
+  const claimedPreflight = evaluatePriceOfferPreflight(offer, {
+    ...claimedPreflightContext,
+    expectedStatus: 'ODOSIELA',
+  });
+  if (claimedPreflight.blockers.length
+    || priceOfferApprovalFingerprint(offer, preflightSettings, claimedPreflightContext) !== approvalFingerprint) {
+    await finishPriceOfferSending(id, sendAttemptId, 'not_sent', actor);
+    const reason = claimedPreflight.blockers[0]?.message
+      || 'Ponuka sa tesne pred odoslaním zmenila. Nič nebolo odoslané; skontrolujte aktuálnu verziu znova.';
+    redirect(`/admin/ponuky/${id}?send=1&sendError=${encodeURIComponent(reason)}`);
+  }
 
   let outcome: 'sent' | 'not_sent' | 'unknown' = 'not_sent';
   let deliveryReason = '';
   let sent = false;
   let sendError = '';
   try {
-    const settings = await getPriceOfferSettings();
-    const pdf = await renderPriceOfferPdf(offer, settings);
+    const pdf = await renderPriceOfferPdf(offer, preflightSettings);
     outcome = 'unknown';
-    const result = await sendPriceOfferDocumentEmail(offer, settings, pdf);
+    const result = await sendPriceOfferDocumentEmail(offer, preflightSettings, pdf, customerResponseToken);
     outcome = result.status;
     deliveryReason = result.reason || '';
     const finalized = await finishPriceOfferSending(id, sendAttemptId, result.status, actor);
@@ -269,12 +309,15 @@ export async function updatePriceOfferStatusAction(formData: FormData) {
   const id = String(formData.get('id') || '');
   const statusValue = String(formData.get('status') || '') as PriceOfferStatus;
   if (id && ['PRIJATA', 'ODLOZENA', 'NEUSPESNA', 'ODOSLANA'].includes(statusValue)) {
-    if (statusValue === 'NEUSPESNA' && formData.get('confirmOutcome') !== 'yes') {
-      throw new Error('Pred uzavretím neúspešnej ponuky potvrďte, že výsledok je overený.');
+    const evidenceCode = String(formData.get('evidenceCode') || '');
+    const allowedOutcomeEvidence = new Set(['customer_email', 'customer_phone', 'signed_order', 'in_person', 'other_verified']);
+    if (statusValue !== 'ODOSLANA' && (formData.get('confirmOutcome') !== 'yes' || !allowedOutcomeEvidence.has(evidenceCode))) {
+      throw new Error('Pred uložením výsledku potvrďte overenie a vyberte zdroj dôkazu.');
     }
     const updated = await updatePriceOfferStatus(id, statusValue, actor, {
       reason: String(formData.get('reason') || ''),
       nextFollowUpAt: String(formData.get('nextFollowUpAt') || ''),
+      evidenceCode,
     });
     if (!updated && statusValue === 'PRIJATA') throw new Error('Ako prijatú možno označiť iba odoslanú alebo odloženú cenovú ponuku.');
     if (!updated) throw new Error('Stav ponuky sa medzitým zmenil. Obnovte stránku a skontrolujte aktuálny stav.');
@@ -287,6 +330,37 @@ export async function updatePriceOfferStatusAction(formData: FormData) {
     revalidatePath(`/admin/ponuky/${id}`);
   }
   revalidatePath('/admin/ponuky');
+}
+
+export async function resolvePriceOfferCustomerResponseAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = await requireAdmin();
+  const id = String(formData.get('id') || '');
+  const expectedRevision = Number(formData.get('responseRevision') || 0);
+  const resolution = String(formData.get('resolution') || '');
+  if (!id || !Number.isInteger(expectedRevision) || expectedRevision < 1 || !['apply', 'dismiss'].includes(resolution)) {
+    throw new Error('Odpoveď zákazníka sa nepodarilo bezpečne overiť. Obnovte stránku.');
+  }
+  if (formData.get('confirmedCustomerResponse') !== 'yes') {
+    throw new Error('Pred spracovaním potvrďte, že ste odpoveď zákazníka skontrolovali.');
+  }
+  const updated = await resolvePriceOfferCustomerResponse({
+    id,
+    expectedRevision,
+    resolution: resolution as 'apply' | 'dismiss',
+    actorEmail: actor,
+    requestedFollowUpAt: String(formData.get('requestedFollowUpAt') || ''),
+    dismissReason: String(formData.get('dismissReason') || ''),
+  });
+  if (!updated) throw new Error('Odpoveď už spracoval niekto iný alebo sa stav ponuky zmenil. Obnovte stránku.');
+  revalidatePath('/admin/ponuky');
+  revalidatePath(`/admin/ponuky/${id}`);
+  revalidatePath('/admin/asistent');
+  revalidatePath('/admin/dopyty');
+  revalidatePath('/admin/zakazky');
+  if (updated.leadId) revalidatePath(`/admin/dopyty/${updated.leadId}`);
+  if (updated.jobId) revalidatePath(`/admin/zakazky/${updated.jobId}`);
+  redirect(`/admin/ponuky/${id}?customerResponse=${resolution === 'apply' ? 'applied' : 'dismissed'}`);
 }
 
 export async function deletePriceOfferAction(formData: FormData) {

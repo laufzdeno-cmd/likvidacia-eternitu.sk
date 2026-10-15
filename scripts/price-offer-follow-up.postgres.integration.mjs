@@ -86,6 +86,8 @@ try {
     expectedRevision: retryUnknown.revision, resolution: 'sent', evidenceCode: 'sent_folder_verified',
     operationId: randomUUID(), actorEmail: actor });
   assert.equal(resolvedSent?.status, 'sent');
+  assert.equal(await claimPriceOfferFollowUp({ ...followUpInput, operationId: randomUUID() }), null,
+    'PostgreSQL po prvom úspešne odoslanom follow-upe nesmie povoliť ďalší');
   assert.deepEqual((await listPriceOfferFollowUps(offer.id)).map((item) => item.status).sort(), ['failed', 'failed', 'sent']);
 
   const plannerInput = {

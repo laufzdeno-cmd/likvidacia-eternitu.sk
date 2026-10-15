@@ -1,5 +1,7 @@
 import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { getAdminApprovalQueue, getAdminOperationsOverview, type AdminApprovalQueueItem } from '@/src/server/admin-intelligence';
+import { getAdminAssistantMetrics } from '@/src/server/admin-assistant-metrics';
+import { listAdminAutopilotRunItems, listAdminAutopilotRuns } from '@/src/server/db';
 import { runAdminAutopilotAction } from './actions';
 
 const approvalCategoryLabels: Record<AdminApprovalQueueItem['category'], string> = {
@@ -29,11 +31,56 @@ function eventTime(at: string) {
   }).format(new Date(at));
 }
 
+function durationLabel(minutes: number | null) {
+  if (minutes === null) return 'bez vzorky';
+  if (minutes >= 1_440) return `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 1 }).format(minutes / 1_440)} dňa`;
+  if (minutes >= 60) return `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 1 }).format(minutes / 60)} h`;
+  return `${new Intl.NumberFormat('sk-SK', { maximumFractionDigits: 0 }).format(minutes)} min`;
+}
+
+function metricPeriodLabel(from: string, to: string) {
+  const format = new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'short', timeZone: 'Europe/Bratislava' });
+  return `${format.format(new Date(from))} – ${format.format(new Date(Date.parse(to) - 1))}`;
+}
+
+const runStatusLabels = {
+  running: 'Práve prebieha',
+  succeeded: 'Úspešný',
+  degraded: 'Vyžaduje kontrolu',
+  failed: 'Zlyhal',
+} as const;
+
+const moduleLabels = {
+  offers: 'cenové ponuky',
+  review_requests: 'žiadosti o referenciu',
+  photo_intake: 'fotografie a koncepty realizácií',
+} as const;
+
+const blockerLabels: Record<string, string> = {
+  missing_customer_name: 'chýba meno zákazníka',
+  missing_customer_email: 'chýba použiteľný email',
+  missing_customer_phone: 'chýba použiteľný telefón',
+  missing_location: 'chýba lokalita',
+  missing_object_type: 'chýba typ objektu',
+  missing_material_type: 'chýba typ materiálu',
+  missing_area: 'chýba výmera',
+  missing_price_rule: 'chýba cenové pravidlo',
+  offer_prepare_failed: 'koncept CP sa nepodarilo pripraviť',
+  review_prepare_failed: 'žiadosť o referenciu sa nepodarilo pripraviť',
+  photo_attach_failed: 'fotografiu sa nepodarilo pripojiť ku konceptu',
+};
+
 export default async function AutomationsPage({ searchParams }: { searchParams?: Promise<Record<string, string | undefined>> }) {
   const query = searchParams ? await searchParams : {};
   const user = await requireSuperAdmin();
   const csrfToken = csrfTokenForEmail(user.email);
-  const [data, approvals] = await Promise.all([getAdminOperationsOverview(user.role), getAdminApprovalQueue(user.role)]);
+  const [data, approvals, autopilotRuns, assistantMetrics] = await Promise.all([
+    getAdminOperationsOverview(user.role),
+    getAdminApprovalQueue(user.role),
+    listAdminAutopilotRuns(12),
+    getAdminAssistantMetrics(user.role),
+  ]);
+  const latestRunItems = autopilotRuns[0] ? await listAdminAutopilotRunItems(autopilotRuns[0].id) : [];
   const latestCollisionAt = data.capacity.collisions
     .flatMap((collision) => [collision.first.createdAt, collision.second.createdAt])
     .sort((a, b) => b.localeCompare(a))[0];
@@ -65,7 +112,28 @@ export default async function AutomationsPage({ searchParams }: { searchParams?:
 
   return <main className="admin-page intelligence-page">
     <header className="intelligence-hero"><div><p>Firemný autopilot</p><h1>Centrum asistenta</h1><span>Asistent pripravuje cenové ponuky, ďalšie kroky, koncepty realizácií a žiadosti o referenciu. Človek kontroluje a schvaľuje všetko, čo odchádza zákazníkovi alebo na verejný web.</span></div><form action={runAdminAutopilotAction}><input type="hidden" name="_csrf" value={csrfToken} /><button className="admin-primary-button" type="submit">Spustiť asistenta teraz</button></form></header>
-    {query.run && /^\d+-\d+-\d+-\d+-\d+-\d+$/.test(query.run) ? (() => { const [offers, reviews, cases, photos, blocked, unavailable] = query.run!.split('-').map(Number); return <p className="work-notice is-success" role="status">Asistent pripravil {offers} CP, {reviews} žiadostí o referenciu, {cases} konceptov realizácií a pripojil {photos} fotiek. Blokované podklady: {blocked}. Nedostupné moduly: {unavailable}.</p>; })() : null}
+    {query.run && /^\d+-\d+-\d+-\d+-\d+-\d+-(succeeded|degraded|failed)$/.test(query.run) ? (() => { const [offers, reviews, cases, photos, blocked, unavailable, status] = query.run!.split('-'); return <p className={`work-notice is-${status === 'succeeded' ? 'success' : status === 'failed' ? 'error' : 'warning'}`} role="status">Asistent pripravil {offers} CP, {reviews} žiadostí o referenciu, {cases} konceptov realizácií a pripojil {photos} fotiek. Blokované podklady: {blocked}. Nedostupné moduly: {unavailable}.{status === 'failed' ? ' Beh zlyhal; najprv skontrolujte zdravie a dôvod posledného behu nižšie.' : status === 'degraded' ? ' Skontrolujte zdravie posledného behu nižšie.' : ''}</p>; })() : null}
+    <section className="admin-card autopilot-health" aria-labelledby="autopilot-health-title">
+      <header><div><p>Skutočné behy automatizácie</p><h2 id="autopilot-health-title">Zdravie asistenta</h2><span>Každý ručný aj plánovaný beh má trvalý výsledok. História neukladá osobné údaje zákazníkov.</span></div><strong className={`is-${autopilotRuns[0]?.status || 'empty'}`}>{autopilotRuns[0] ? runStatusLabels[autopilotRuns[0].status] : 'Bez behov'}</strong></header>
+      {autopilotRuns[0]?.unavailableModules.length ? <p className="work-notice is-warning" role="status">Posledný beh nedokončil tieto moduly: {autopilotRuns[0].unavailableModules.map((module) => moduleLabels[module]).join(', ')}.</p> : null}
+      {autopilotRuns.length ? <div className="autopilot-run-list">{autopilotRuns.map((run) => <article className={`is-${run.status}`} key={run.id}>
+        <div><span>{run.trigger === 'cron' ? 'Plánovaný beh' : run.trigger === 'test' ? 'Testovací beh' : 'Ručný beh'}</span><strong>{runStatusLabels[run.status]}</strong><small>{eventTime(run.startedAt)}{run.finishedAt ? ` · ${Math.max(0, Math.round((Date.parse(run.finishedAt) - Date.parse(run.startedAt)) / 1000))} s` : ''}</small></div>
+        <dl><div><dt>CP</dt><dd>{run.counts.priceOffersCreated}</dd></div><div><dt>Referencie</dt><dd>{run.counts.reviewRequestsPrepared}</dd></div><div><dt>Koncepty</dt><dd>{run.counts.realizationDraftsCreated}</dd></div><div><dt>Fotky</dt><dd>{run.counts.photosAttached}</dd></div><div><dt>Blokované</dt><dd>{run.counts.blockedOffers}</dd></div></dl>
+      </article>)}</div> : <p className="intelligence-inline-empty">História sa začne zapisovať pri najbližšom ručnom alebo plánovanom behu asistenta.</p>}
+      {latestRunItems.some((item) => item.outcome !== 'created') ? <details className="autopilot-run-details"><summary>Prečo posledný beh niečo nepripravil</summary><ul>{latestRunItems.filter((item) => item.outcome !== 'created').map((item) => <li key={item.id}><span>{moduleLabels[item.module]}</span><strong>{blockerLabels[item.reasonCode] || item.reasonCode || 'neznámy dôvod'}</strong>{item.module === 'offers' ? <a href={`/admin/zakazky/${item.entityId}`}>Otvoriť zákazku</a> : null}</li>)}</ul></details> : null}
+    </section>
+    <section className="admin-card assistant-metrics" aria-labelledby="assistant-metrics-title">
+      <header><div><p>Posledných 30 dní oproti predchádzajúcim 30 dňom</p><h2 id="assistant-metrics-title">{assistantMetrics.title}</h2><span>{assistantMetrics.disclaimer}</span></div><strong>{metricPeriodLabel(assistantMetrics.current.period.fromInclusive, assistantMetrics.current.period.toExclusive)}</strong></header>
+      {!assistantMetrics.coverage.complete ? <p className="work-notice is-warning" role="status">Zdroj dosiahol bezpečný limit záznamov. Ukazovatele sú čiastočné a nemajú sa používať ako úplný firemný report.</p> : null}
+      <div className="assistant-metric-grid">
+        <article><span>Asistent pripravil</span><strong>{assistantMetrics.current.autopilot.prepared}</strong><small>Predtým {assistantMetrics.previous.autopilot.prepared} · blokované {assistantMetrics.current.autopilot.blocked} · zlyhané {assistantMetrics.current.autopilot.failed}</small></article>
+        <article><span>CP skontrolované a odoslané</span><strong>{assistantMetrics.current.autopilot.humanApprovedAndSentOffers}</strong><small>Po príprave asistenta · predtým {assistantMetrics.previous.autopilot.humanApprovedAndSentOffers}</small></article>
+        <article><span>Návrhy použité bez zmeny</span><strong>{assistantMetrics.current.suggestions.accepted}</strong><small>Upravené {assistantMetrics.current.suggestions.modified} · odmietnuté {assistantMetrics.current.suggestions.dismissed} · zastarané {assistantMetrics.current.suggestions.stale}</small></article>
+        <article><span>Dopyt → prvá CP</span><strong>{durationLabel(assistantMetrics.current.leadToFirstPriceOffer.medianMinutes)}</strong><small>p90 {durationLabel(assistantMetrics.current.leadToFirstPriceOffer.p90Minutes)} · vzorka {assistantMetrics.current.leadToFirstPriceOffer.sampleSize}/{assistantMetrics.current.leadToFirstPriceOffer.cohortSize}</small></article>
+        <article><span>Odoslaná CP → výsledok</span><strong>{durationLabel(assistantMetrics.current.sentPriceOfferToOutcome.medianMinutes)}</strong><small>p90 {durationLabel(assistantMetrics.current.sentPriceOfferToOutcome.p90Minutes)} · vzorka {assistantMetrics.current.sentPriceOfferToOutcome.sampleSize}/{assistantMetrics.current.sentPriceOfferToOutcome.cohortSize}</small></article>
+        <article><span>Predchádzajúce obdobie</span><strong>{metricPeriodLabel(assistantMetrics.previous.period.fromInclusive, assistantMetrics.previous.period.toExclusive)}</strong><small>Dopyt → CP {durationLabel(assistantMetrics.previous.leadToFirstPriceOffer.medianMinutes)} · CP → výsledok {durationLabel(assistantMetrics.previous.sentPriceOfferToOutcome.medianMinutes)}</small></article>
+      </div>
+    </section>
     <section className="admin-card approval-queue" aria-labelledby="approval-queue-title">
       <header><div><p>Iba superadmin</p><h2 id="approval-queue-title">Čaká na schválenie</h2><span>Autoritatívna fronta odoslaní, pripomienok, neznámych doručení, referencií, fotografií a publikovania.</span></div><strong>{approvals.items.length}</strong></header>
       {approvals.unavailableSources.length ? <p className="work-notice is-warning" role="status">Niektoré zdroje sa nepodarilo načítať: {approvals.unavailableSources.join(', ')}. Frontu nepovažujte za úplnú.</p> : null}

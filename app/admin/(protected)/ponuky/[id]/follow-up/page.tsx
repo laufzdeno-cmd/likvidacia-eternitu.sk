@@ -40,7 +40,8 @@ export default async function OfferFollowUpPage({ params, searchParams }: { para
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const draft = buildOfferFollowUpDraft(offer, today);
   const hasUnresolvedDelivery = history.some((item) => item.status === 'sending' || item.status === 'unknown');
-  const canSend = offer.status === 'ODOSLANA' && !hasUnresolvedDelivery;
+  const hasSentFollowUp = history.some((item) => item.status === 'sent');
+  const canSend = offer.status === 'ODOSLANA' && !hasUnresolvedDelivery && !hasSentFollowUp;
 
   return (
     <main className="admin-page ops-page">
@@ -63,7 +64,9 @@ export default async function OfferFollowUpPage({ params, searchParams }: { para
           <label className="admin-form-wide">Text emailu<textarea name="body" required minLength={20} maxLength={4000} rows={12} defaultValue={draft.body} /></label>
           <label className="admin-check-label admin-form-wide"><input type="checkbox" name="confirmed" value="yes" required /> Skontroloval/a som adresáta, predmet aj celý text a chcem tento email odoslať.</label>
           <div className="admin-form-wide admin-action-row"><button type="submit" className="admin-primary-button">Potvrdiť a odoslať follow-up</button><a className="admin-secondary-link" href={`/admin/ponuky/${offer.id}`}>Neodosielať</a></div>
-        </form> : <div className="ops-empty"><strong>Follow-up teraz nemožno odoslať.</strong><p>{hasUnresolvedDelivery
+        </form> : <div className="ops-empty"><strong>{hasSentFollowUp ? 'Jediný follow-up už bol odoslaný.' : 'Follow-up teraz nemožno odoslať.'}</strong><p>{hasSentFollowUp
+          ? 'Ďalší automatizovaný follow-up systém nepovolí. Zaevidujte odpoveď zákazníka alebo výsledok ponuky.'
+          : hasUnresolvedDelivery
           ? 'Pred ďalším pokusom treba uzavrieť neistý alebo stále spracovávaný výsledok v histórii nižšie.'
           : `Ponuka musí byť odoslaná a nesmie byť prijatá, zrušená ani archivovaná. Aktuálny stav: ${offer.status}.`}</p></div>}
       </section>

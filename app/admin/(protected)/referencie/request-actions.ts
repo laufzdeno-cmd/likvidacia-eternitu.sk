@@ -15,6 +15,7 @@ import {
   listReviewRequests,
   publishRequestedTestimonial,
   recordReviewReminderResult,
+  reopenCancelledReviewRequest,
   resolveUnknownReviewRequestDelivery,
   setReviewJobBlocked,
   upsertSiteContentValues,
@@ -153,6 +154,28 @@ export async function cancelReviewRequestAction(formData: FormData) {
   if (!id.success) finish('invalid_selection');
   const cancelled = await cancelReviewRequest(id.data, admin.email);
   finish(cancelled ? 'cancelled' : 'cancellation_stale');
+}
+
+export async function reopenCancelledReviewRequestAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireAdminUser();
+  const parsed = z.object({ id: uuid, revision, confirmed: z.literal('on') }).safeParse({
+    id: formData.get('id'),
+    revision: formData.get('revision'),
+    confirmed: formData.get('confirmed'),
+  });
+  if (!parsed.success) finish('reopen_confirmation_required');
+  const settings = await getReviewRequestSettings();
+  const reopened = await reopenCancelledReviewRequest({
+    id: parsed.data.id,
+    expectedRevision: parsed.data.revision,
+    subject: settings.subject,
+    message: settings.body,
+    googleReviewLink: settings.googleReviewLink,
+    reminderAllowed: settings.reminderEnabled && formData.get('reminderAllowed') === 'on',
+    actorEmail: admin.email,
+  });
+  finish(reopened ? 'reopened' : 'reopen_stale');
 }
 
 export async function setReviewJobBlockedAction(formData: FormData) {

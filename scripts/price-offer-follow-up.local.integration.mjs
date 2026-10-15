@@ -84,6 +84,8 @@ try {
     expectedRevision: retryUnknown.revision, resolution: 'sent', evidenceCode: 'sent_folder_verified',
     operationId: randomUUID(), actorEmail: actor });
   assert.equal(resolvedSent?.status, 'sent');
+  assert.equal(await claimPriceOfferFollowUp({ ...followUpInput, operationId: randomUUID() }), null,
+    'po prvom úspešne odoslanom follow-upe sa ďalší nesmie vytvoriť');
   const history = await listPriceOfferFollowUps(offer.id);
   assert.deepEqual(history.map((item) => item.status).sort(), ['failed', 'failed', 'sent']);
   assert.equal('recipient' in history[0], false, 'história nesmie vracať adresáta');

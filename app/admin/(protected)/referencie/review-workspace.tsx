@@ -7,6 +7,7 @@ import {
   cancelReviewRequestAction,
   prepareReviewRequestsAction,
   publishRequestedTestimonialAction,
+  reopenCancelledReviewRequestAction,
   resolveUnknownReviewRequestDeliveryAction,
   saveReviewRequestSettingsAction,
   sendApprovedReviewRequestsAction,
@@ -63,6 +64,9 @@ function noticeText(notice?: string) {
     invalid_block: 'Pri vylúčení uveďte stručný dôvod.', delivery_resolved: 'Neznámy výsledok bol ručne uzavretý podľa kontroly u poskytovateľa.',
     delivery_resolution_stale: 'Stav sa medzitým zmenil. Obnovte prehľad a skontrolujte ho znova.',
     resolution_confirmation_required: 'Ručné uzavretie vyžaduje výber výsledku aj potvrdenie kontroly u poskytovateľa.',
+    reopened: 'Zrušená žiadosť bola obnovená ako nový koncept. Pred odoslaním znovu skontrolujte adresáta aj presný text.',
+    reopen_stale: 'Žiadosť nemožno obnoviť. Zákazka alebo jej údaje sa zmenili; obnovte stránku a skontrolujte detail.',
+    reopen_confirmation_required: 'Obnovenie vyžaduje potvrdenie novej kontroly adresáta a textu.',
   };
   return labels[notice] || 'Požiadavka bola spracovaná.';
 }
@@ -88,6 +92,7 @@ export default function ReviewWorkspace({
 }) {
   const pending = requests.filter((item) => ['pending_approval', 'delivery_failed'].includes(item.status));
   const active = requests.filter((item) => !['pending_approval', 'delivery_failed', 'cancelled'].includes(item.status));
+  const cancelled = requests.filter((item) => item.status === 'cancelled');
   const testimonialById = new Map(testimonials.map((item) => [item.id, item]));
   const dueReminders = active.filter((item) => item.reminderAllowed && item.reminderDueAt && item.reminderDueAt <= new Date().toISOString()
     && !item.reminderAttemptedAt && !item.reminderStatus && ['smtp_accepted', 'opened'].includes(item.status));
@@ -196,6 +201,21 @@ export default function ReviewWorkspace({
         {!incoming.length ? <p className="review-empty">Zatiaľ neprišla referencia z osobného odkazu.</p> : null}
       </div>
     </section>
+
+    <details className="review-panel review-collapsible">
+      <summary>Zrušené žiadosti ({cancelled.length})</summary>
+      <p>Obnovenie vytvorí nový koncept z aktuálnych údajov zákazky. Nič sa neodošle, kým správu znovu neskontrolujete a výslovne neschválite.</p>
+      <div className="review-request-list">{cancelled.map((item) => <article className="review-request-row" key={item.id}>
+        <div><h3>{item.customerName}</h3><p>{item.location || 'bez lokality'} · zrušené {dateTime(item.updatedAt)}</p><small>Starý odkaz je zneplatnený. Verzia {item.revision}.</small></div>
+        <form action={reopenCancelledReviewRequestAction} className="review-reminder-form">
+          <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={item.id} /><input type="hidden" name="revision" value={item.revision} />
+          {settings.reminderEnabled ? <label><input type="checkbox" name="reminderAllowed" defaultChecked={Boolean(item.reminderAllowed)} /> Povoliť najviac jednu pripomienku</label> : null}
+          <label><input type="checkbox" name="confirmed" required /> Skontrolujem nový adresát a presný text pred prípadným odoslaním</label>
+          <button type="submit">Obnoviť ako koncept</button>
+        </form>
+      </article>)}</div>
+      {!cancelled.length ? <p className="review-empty">Nie sú tu žiadne zrušené žiadosti.</p> : null}
+    </details>
 
     <details className="review-panel review-collapsible">
       <summary>Vylúčené zákazky ({blocked.length})</summary>

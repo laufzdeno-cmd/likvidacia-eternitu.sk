@@ -56,6 +56,8 @@ export async function importBusinessJobsAction(formData: FormData) {
         costs: { fuel: num(nafta), suits: num(obleky), gloves: num(rukavice), penetrant: num(penetrak), landfillCost: 0, otherName: ineNaklady ? 'Iné náklady' : '', otherAmount: num(ineNaklady) },
       },
       actor,
+      undefined,
+      { legacyCompletedImportReason: 'CSV_HISTORICAL_IMPORT' },
     );
   }
   revalidatePath('/admin/import');

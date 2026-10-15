@@ -117,7 +117,7 @@ export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
     });
     if (offer.status === 'ODOSLANA' && effectiveOfferDate(offer) <= daysBefore(now, 5)) items.push({
       id: `offer-outcome-${offer.id}`, category: 'offer_outcome', title: `Zistiť výsledok CP ${shortNumber}`,
-      detail: 'Ponuka čaká najmenej päť dní. Odošlite pripravený follow-up alebo zaevidujte prijatie, odloženie či neúspech.',
+      detail: 'Ponuka čaká najmenej päť dní. Skontrolujte históriu komunikácie a zaevidujte prijatie, odloženie či neúspech. Systém dovolí najviac jeden úspešný follow-up.',
       createdAt: effectiveOfferDate(offer), href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
     });
     if (offer.status === 'ODLOZENA' && offer.nextFollowUpAt && offer.nextFollowUpAt <= businessTodayKey(now)) items.push({
@@ -163,6 +163,66 @@ export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
   if (realizationResult.status === 'rejected') unavailableSources.push('galéria realizácií');
   else for (const realization of realizationResult.value.filter((item) => item.status === 'draft')) items.push({ id: `realization-${realization.id}`, category: 'realization_publication', title: `Skontrolovať realizáciu #${realization.id.slice(0, 8)}`, detail: 'Rozpracovaná položka čaká na kontrolu fotografií, lokality a podkladu na zverejnenie.', createdAt: realization.updatedAt, href: '/admin/realizacie', urgency: 'normal' });
 
+  const urgencyRank = { critical: 0, attention: 1, normal: 2 } as const;
+  items.sort((left, right) => urgencyRank[left.urgency] - urgencyRank[right.urgency] || left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+  const counts = items.reduce<Record<AdminApprovalQueueItem['category'], number>>((totals, item) => {
+    totals[item.category] += 1;
+    return totals;
+  }, { offer_approval: 0, offer_outcome: 0, review_send: 0, review_reminder: 0, review_moderation: 0, delivery_resolution: 0, photo_review: 0, case_draft: 0, case_approval: 0, case_publication: 0, realization_publication: 0 });
+  return { generatedAt: nowIso, items, counts, unavailableSources };
+}
+
+export async function getAdminOperationalApprovalQueue(now = new Date()) {
+  const nowIso = now.toISOString();
+  const [offerResult, reviewResult] = await Promise.allSettled([listPriceOffers(), listReviewRequests()]);
+  const unavailableSources: string[] = [];
+  const items: AdminApprovalQueueItem[] = [];
+  if (offerResult.status === 'rejected') unavailableSources.push('cenové ponuky');
+  else for (const offer of offerResult.value.filter((item) => !item.deletedAt && !item.isTestData)) {
+    const shortNumber = offer.number || offer.id.slice(0, 8);
+    if (offer.status === 'PRIPRAVENA') items.push({
+      id: `offer-approve-${offer.id}`, category: 'offer_approval', title: `Skontrolovať a odoslať CP ${shortNumber}`,
+      detail: 'Skontrolujte cenu, rozsah, dopravu, termín, PDF aj sprievodný list.',
+      createdAt: offer.createdAt, href: `/admin/ponuky/${offer.id}?send=1`, urgency: 'attention',
+    });
+    if (offer.status === 'NEISTY_STAV' || (offer.status === 'ODOSIELA' && offer.sendStartedAt && offer.sendStartedAt <= daysBefore(now, 1))) items.push({
+      id: `offer-delivery-${offer.id}`, category: 'delivery_resolution', title: `Overiť odoslanie CP ${shortNumber}`,
+      detail: 'Najprv overte schránku. Bez dôkazu ponuku neposielajte znova.',
+      createdAt: offer.sendStartedAt || offer.createdAt, href: `/admin/ponuky/${offer.id}`, urgency: 'critical',
+    });
+    if (offer.status === 'ODOSLANA' && effectiveOfferDate(offer) <= daysBefore(now, 5)) items.push({
+      id: `offer-outcome-${offer.id}`, category: 'offer_outcome', title: `Zistiť výsledok CP ${shortNumber}`,
+      detail: 'Ponuka čaká najmenej päť dní. Skontrolujte históriu komunikácie a zaevidujte výsledok. Systém dovolí najviac jeden úspešný follow-up.',
+      createdAt: effectiveOfferDate(offer), href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
+    });
+    if (offer.status === 'ODLOZENA' && offer.nextFollowUpAt && offer.nextFollowUpAt <= businessTodayKey(now)) items.push({
+      id: `offer-deferred-${offer.id}`, category: 'offer_outcome', title: `Vrátiť sa k odloženej CP ${shortNumber}`,
+      detail: 'Nastal uložený dátum ďalšieho kontaktu.',
+      createdAt: offer.outcomeUpdatedAt || offer.createdAt, href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
+    });
+  }
+  if (reviewResult.status === 'rejected') unavailableSources.push('žiadosti o referencie');
+  else for (const request of reviewResult.value) {
+    const shortId = request.id.slice(0, 8);
+    const base = { createdAt: request.updatedAt, href: '/admin/referencie' };
+    if (request.status === 'pending_approval' || request.status === 'delivery_failed') items.push({
+      ...base, id: `review-send-${request.id}`, category: 'review_send', title: `Skontrolovať žiadosť #${shortId}`,
+      detail: request.status === 'delivery_failed' ? 'Preverte zlyhanie a až potom rozhodnite o opakovaní.' : 'Pred prvým odoslaním skontrolujte adresáta a text.',
+      urgency: request.status === 'delivery_failed' ? 'attention' : 'normal',
+    });
+    if (request.status === 'delivery_unknown' || request.reminderStatus === 'delivery_unknown') items.push({
+      ...base, id: `delivery-${request.id}`, category: 'delivery_resolution', title: `Vyriešiť neznámy výsledok #${shortId}`,
+      detail: 'Overte schránku a poskytovateľa. Bez dôkazu správu neposielajte znova.', urgency: 'critical',
+    });
+    if (request.reminderAllowed && request.reminderDueAt && request.reminderDueAt <= nowIso && !request.reminderAttemptedAt && !request.reminderStatus && ['smtp_accepted', 'opened'].includes(request.status)) items.push({
+      ...base, id: `reminder-${request.id}`, category: 'review_reminder', title: `Skontrolovať splatnú pripomienku #${shortId}`,
+      detail: 'Ide o jedinú pripomienku, ktorú človek povolil pri príprave žiadosti.', createdAt: request.reminderDueAt, urgency: 'attention',
+    });
+    if (request.status === 'submitted') items.push({
+      ...base, id: `moderate-${request.id}`, category: 'review_moderation', title: `Skontrolovať prijatú referenciu #${shortId}`,
+      detail: 'Overte obsah a súhlas. Verejné publikovanie zostáva iba superadminovi.', urgency: 'attention',
+    });
+  }
   const urgencyRank = { critical: 0, attention: 1, normal: 2 } as const;
   items.sort((left, right) => urgencyRank[left.urgency] - urgencyRank[right.urgency] || left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
   const counts = items.reduce<Record<AdminApprovalQueueItem['category'], number>>((totals, item) => {

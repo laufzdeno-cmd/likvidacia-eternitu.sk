@@ -103,6 +103,13 @@ async function testKnownNoSendAndSuccess() {
   assert.equal((await getPriceOffer(offer.id))?.status, 'PRIJATA');
 }
 
+async function testTestOfferCannotBeClaimed() {
+  const offer = await savePriceOffer(offerInput(), 'integration-test');
+  await pglite.query('UPDATE price_offers SET is_test_data = true WHERE id = $1', [offer.id]);
+  assert.equal(await claimPriceOfferForSending(offer.id, 'integration-test'), null,
+    'testovacia cenová ponuka sa nesmie atómovo prevziať na odoslanie');
+}
+
 let exitCode = 0;
 try {
   await startDatabase();
@@ -110,6 +117,7 @@ try {
   await testConcurrentOfferNumbers();
   await testConcurrentClaimAndUnknownDelivery();
   await testKnownNoSendAndSuccess();
+  await testTestOfferCannotBeClaimed();
   console.log('PASS: izolovaný PostgreSQL offer numbering, claim, unknown delivery, manuálna obnova a retry po potvrdenom no-send. Bez SMTP, Blobu, produkčnej DB alebo deployu.');
 } catch (error) {
   console.error(error);

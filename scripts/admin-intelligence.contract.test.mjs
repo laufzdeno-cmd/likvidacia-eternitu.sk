@@ -177,11 +177,31 @@ test('automation approvals are superadmin-only, authoritative and privacy-minima
   assert.doesNotMatch(source, /customerName|customerEmail|customerPhone|\.email\b|\.phone\b/);
 });
 
+test('Dnes includes a role-aware operational approval inbox without exposing publication controls to operators', async () => {
+  const [page, intelligence] = await Promise.all([
+    read('app/admin/(protected)/asistent/page.tsx'),
+    read('src/server/admin-intelligence.ts'),
+  ]);
+  assert.match(page, /getAdminOperationalApprovalQueue\(\)/);
+  assert.match(page, /adminUser\.role === 'SUPER_ADMIN' \? getAdminApprovalQueue/);
+  assert.match(page, /Čaká na kontrolu/);
+  assert.match(page, /Publikovanie a citlivé rozhodnutia ostávajú superadminovi/);
+  const start = intelligence.indexOf('export async function getAdminOperationalApprovalQueue');
+  const end = intelligence.indexOf('export type AdminSearchResult', start);
+  assert.ok(start >= 0 && end > start, 'operator approval queue must exist');
+  const source = intelligence.slice(start, end);
+  assert.match(source, /listPriceOffers\(\)/);
+  assert.match(source, /listReviewRequests\(\)/);
+  assert.doesNotMatch(source, /listPhotoIntakeRecords|listRealizationCaseDrafts|listRealizations/);
+  assert.doesNotMatch(source, /category: 'case_publication'/);
+});
+
 test('firemný autopilot je idempotentný, chránený a nikdy sám neposiela prvý obchodný email', async () => {
-  const [engine, action, route] = await Promise.all([
+  const [engine, action, route, page] = await Promise.all([
     read('src/server/admin-autopilot.ts'),
     read('app/admin/(protected)/automatizacie/actions.ts'),
     read('app/api/cron/admin-autopilot/route.ts'),
+    read('app/admin/(protected)/automatizacie/page.tsx'),
   ]);
   assert.match(engine, /getBusinessJobIdsWithPriceOffers/);
   assert.match(engine, /await ensureAdminAutopilotSchema\(\)/);
@@ -195,6 +215,8 @@ test('firemný autopilot je idempotentný, chránený a nikdy sám neposiela prv
   assert.match(route, /error: 'assistant_failed'/);
   assert.match(route, /const \{ blockedOfferJobIds, \.\.\.counts \} = result/);
   assert.doesNotMatch(route, /error\.message|NextResponse\.json\(\{ ok: true, \.\.\.result/);
+  assert.match(page, /succeeded\|degraded\|failed/);
+  assert.match(page, /status === 'failed' \? 'error'/);
 });
 
 test('final admin cascade reserves red for danger and uses blue or teal for ordinary interactions', async () => {

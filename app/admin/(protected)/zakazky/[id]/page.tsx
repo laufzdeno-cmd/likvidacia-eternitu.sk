@@ -3,14 +3,16 @@ import { randomUUID } from 'node:crypto';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import {
   getBusinessJobFinance,
+  getBusinessJobCompletion,
+  getBusinessJobPhotoEvidence,
   getBusinessJobWithActivity,
   getOperationalBusinessJobWithActivity,
+  getOperationalBusinessJobCompletion,
   getBusinessSettings,
   isLeadTestData,
   listLandfillPrices,
   listBusinessJobOfferEvidence,
   listLeadEmailOutbox,
-  listPhotoIntakeRecords,
   listPlannerActions,
   listPriceOffers,
   listPriceOfferFollowUps,
@@ -23,43 +25,49 @@ import { addBusinessJobNoteAction, saveBusinessJobAction, saveOperationalBusines
 import JobForm from '../job-form';
 import OperationalJobForm from '../operational-job-form';
 import BillingPanel from './billing-panel';
+import CompletionWizard from './completion-wizard';
 import { euro, jobStatusLabels, normalizeWorkflowStatus, numberSk, workflowStatuses } from '../constants';
 
 type AdminSessionUser = Pick<AdminUser, 'email' | 'role'>;
 
-export default async function BusinessJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function BusinessJobDetailPage({ params, searchParams }: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ completion?: string }>;
+}) {
+  const [{ id }, query] = await Promise.all([params, searchParams]);
   const adminUser = await requireAdminUser();
-  if (adminUser.role !== 'SUPER_ADMIN') return <OperationalBusinessJobDetailPage id={id} adminUser={adminUser} />;
-  return <SuperAdminBusinessJobDetailPage id={id} adminUser={adminUser} />;
+  const completionNotice = query.completion === 'saved' || query.completion === 'finalized' ? query.completion : undefined;
+  if (adminUser.role !== 'SUPER_ADMIN') return <OperationalBusinessJobDetailPage id={id} adminUser={adminUser} completionNotice={completionNotice} />;
+  return <SuperAdminBusinessJobDetailPage id={id} adminUser={adminUser} completionNotice={completionNotice} />;
 }
 
-async function OperationalBusinessJobDetailPage({ id, adminUser }: { id: string; adminUser: AdminSessionUser }) {
+async function OperationalBusinessJobDetailPage({ id, adminUser, completionNotice }: { id: string; adminUser: AdminSessionUser; completionNotice?: string }) {
   const job = await getOperationalBusinessJobWithActivity(id);
   if (!job) notFound();
   const timelineEnd = new Date(`${job.demolitionDate}T12:00:00Z`);
   timelineEnd.setUTCDate(timelineEnd.getUTCDate() + 365);
-  const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoRecords] = await Promise.all([
+  const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoEvidenceCounts, completion] = await Promise.all([
     job.leadId ? isLeadTestData(job.leadId) : false,
     listBusinessJobOfferEvidence(job.id),
     listPlannerActions({ from: job.createdAt.slice(0, 10), to: timelineEnd.toISOString().slice(0, 10) }),
     listReviewRequests(),
     job.leadId ? listLeadEmailOutbox(job.leadId) : [],
-    listPhotoIntakeRecords({ businessJobId: job.id, pageSize: 100 }).catch(() => null),
+    getBusinessJobPhotoEvidence(job.id).catch(() => null),
+    getOperationalBusinessJobCompletion(job.id),
   ]);
   const jobPlannerActions = plannerActions.filter((action) => action.jobId === job.id);
   const reviewRequest = reviewRequests.find((request) => request.jobId === job.id || Boolean(job.leadId && request.leadId === job.leadId));
-  const photoEvidence = photoRecords
+  const photoEvidence = photoEvidenceCounts
     ? {
         status: 'available' as const,
-        approvedCount: photoRecords.records.filter((record) => record.status === 'approved_private').length,
-        pendingCount: photoRecords.records.filter((record) => record.status === 'pending_review').length,
+        approvedCount: photoEvidenceCounts.approvedCount,
+        pendingCount: photoEvidenceCounts.pendingCount,
       }
     : { status: 'unknown' as const };
   const followUps = (await Promise.all(offers.map(async (offer) =>
     (await listPriceOfferFollowUps(offer.id)).map((followUp) => ({ ...followUp, offerNumber: offer.number })),
   ))).flat();
-  const checklist = buildOperationalJobChecklist({ job, offers, plannerActions: jobPlannerActions, photoEvidence, reviewRequest });
+  const checklist = buildOperationalJobChecklist({ job, offers, plannerActions: jobPlannerActions, photoEvidence, reviewRequest, completion });
   const timeline = buildOperationalTimeline({ auditLogs: job.activityLogs, offers, plannerActions: jobPlannerActions, followUps, emailDeliveries, reviewRequest });
   const attention = getJobAttention(job, undefined, {
     hasActivePlannerAction: jobPlannerActions.some((action) => !['ZRUSENA', 'PRESUNUTA'].includes(action.status)),
@@ -105,6 +113,9 @@ async function OperationalBusinessJobDetailPage({ id, adminUser }: { id: string;
         <div className="ops-checklist">{checklist.map((item) => <a key={item.id} className={`ops-check-item is-${item.state}`} href={item.href || '#'}><span aria-hidden="true">{item.state === 'done' ? '✓' : item.state === 'attention' ? '!' : item.state === 'unknown' ? '?' : '○'}</span><div><strong>{item.label}</strong><small>{item.detail}</small></div></a>)}</div>
       </section>
 
+      <CompletionWizard completion={completion} jobId={job.id} jobStatus={job.status} role="OPERATOR"
+        csrfToken={csrfToken} isArchived={Boolean(job.deletedAt)} isTestData={isEffectivelyTestData} notice={completionNotice} />
+
       <section className="admin-card no-print">
         <h2>Workflow zákazky</h2>
         <div className="admin-workflow-stepper">{workflowStatuses.map((status, index) => <div key={status} className={index <= activeIndex ? 'is-active' : ''}><span>{index + 1}</span><strong>{jobStatusLabels[status]}</strong></div>)}</div>
@@ -142,40 +153,41 @@ async function OperationalBusinessJobDetailPage({ id, adminUser }: { id: string;
   );
 }
 
-async function SuperAdminBusinessJobDetailPage({ id, adminUser }: { id: string; adminUser: AdminSessionUser }) {
-  const [job, workers, landfillPrices, settings, finance] = await Promise.all([
+async function SuperAdminBusinessJobDetailPage({ id, adminUser, completionNotice }: { id: string; adminUser: AdminSessionUser; completionNotice?: string }) {
+  const [job, workers, landfillPrices, settings, finance, completion] = await Promise.all([
     getBusinessJobWithActivity(id),
     listWorkers(true),
     listLandfillPrices(),
     getBusinessSettings(),
     getBusinessJobFinance(id),
+    getBusinessJobCompletion(id),
   ]);
   if (!job) notFound();
   if (job.deletedAt && adminUser.role !== 'SUPER_ADMIN') notFound();
   const timelineEnd = new Date(`${job.demolitionDate}T12:00:00Z`);
   timelineEnd.setUTCDate(timelineEnd.getUTCDate() + 365);
-  const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoRecords] = await Promise.all([
+  const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoEvidenceCounts] = await Promise.all([
     job.leadId ? isLeadTestData(job.leadId) : false,
     listPriceOffers({ jobId: job.id, includeArchived: adminUser.role === 'SUPER_ADMIN' }),
     listPlannerActions({ from: job.createdAt.slice(0, 10), to: timelineEnd.toISOString().slice(0, 10) }),
     listReviewRequests(),
     job.leadId ? listLeadEmailOutbox(job.leadId) : [],
-    listPhotoIntakeRecords({ businessJobId: job.id, pageSize: 100 }).catch(() => null),
+    getBusinessJobPhotoEvidence(job.id).catch(() => null),
   ]);
   const isEffectivelyTestData = Boolean(job.isTestData || linkedLeadIsTestData);
   const jobPlannerActions = plannerActions.filter((action) => action.jobId === job.id);
   const reviewRequest = reviewRequests.find((request) => request.jobId === job.id || Boolean(job.leadId && request.leadId === job.leadId));
-  const photoEvidence = photoRecords
+  const photoEvidence = photoEvidenceCounts
     ? {
         status: 'available' as const,
-        approvedCount: photoRecords.records.filter((record) => record.status === 'approved_private').length,
-        pendingCount: photoRecords.records.filter((record) => record.status === 'pending_review').length,
+        approvedCount: photoEvidenceCounts.approvedCount,
+        pendingCount: photoEvidenceCounts.pendingCount,
       }
     : { status: 'unknown' as const };
   const followUps = (await Promise.all(offers.map(async (offer) =>
     (await listPriceOfferFollowUps(offer.id)).map((followUp) => ({ ...followUp, offerNumber: offer.number })),
   ))).flat();
-  const checklist = buildJobClosureChecklist({ job, offers, finance, plannerActions: jobPlannerActions, photoEvidence, reviewRequest });
+  const checklist = buildJobClosureChecklist({ job, offers, finance, plannerActions: jobPlannerActions, photoEvidence, reviewRequest, completion });
   const timeline = buildOperationsTimeline({ auditLogs: job.activityLogs, offers, finance, plannerActions: jobPlannerActions, followUps, emailDeliveries, reviewRequest });
   const attention = getJobAttention(job, undefined, {
     hasActivePlannerAction: jobPlannerActions.some((action) => !['ZRUSENA', 'PRESUNUTA'].includes(action.status)),
@@ -185,8 +197,6 @@ async function SuperAdminBusinessJobDetailPage({ id, adminUser }: { id: string; 
 
   const activeStatus = normalizeWorkflowStatus(job.status);
   const activeIndex = workflowStatuses.indexOf(activeStatus);
-  const phoneForWhatsApp = job.customerPhone.replace(/\D/g, '').replace(/^0/, '421');
-  const reviewText = encodeURIComponent(`Dobrý deň ${job.customerName}, ďakujeme za dôveru pri likvidácii azbestu v ${job.location}. Ak ste boli spokojní, veľmi by nám pomohla krátka recenzia na Google — trvá 2 minúty: ${settings.googleReviewLink || '[DOPLNIŤ GOOGLE ODKAZ]'}. Ďakujeme, tím ASTANA`);
   const reviewRequestHref = '/admin/referencie';
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
@@ -243,6 +253,9 @@ async function SuperAdminBusinessJobDetailPage({ id, adminUser }: { id: string; 
         </div>
       </section>
 
+      <CompletionWizard completion={completion} jobId={job.id} jobStatus={job.status} role={adminUser.role}
+        csrfToken={csrfToken} isArchived={Boolean(job.deletedAt)} isTestData={isEffectivelyTestData} notice={completionNotice} />
+
       <div id="fakturacia">
         <BillingPanel
           jobId={job.id}
@@ -292,8 +305,8 @@ async function SuperAdminBusinessJobDetailPage({ id, adminUser }: { id: string; 
           {activeStatus === 'URADY_SCHVALENE' ? <p>Potrebný postup a prípadné rozhodnutia podľa konkrétnej zákazky sú vybavené. Ďalší krok je plánovanie demontáže v plánovači.</p> : null}
           {activeStatus === 'DEMONT_NAPLANOVANA' ? <p>Demontáž je naplánovaná. Skontrolujte tím, adresu a termín v plánovači.</p> : null}
           {activeStatus === 'DEMONT_DOKONCENA' ? <p>Demontáž je hotová. Prejdite na vyúčtovanie a doplňte presné m2, náklady a odmeny.</p> : null}
-          {activeStatus === 'VYUCTOVANIE' ? <p>Vyúčtovanie zákazky je v editovateľnom formulári nižšie. Po uložení nastavte stav Dokončená.</p> : null}
-          {activeStatus === 'DOKONCENA' ? <p>✅ Zákazka je dokončená. Požiadajte zákazníka o recenziu.</p> : null}
+          {activeStatus === 'VYUCTOVANIE' ? <p>Vyúčtovanie doplňte vo formulári nižšie a zákazku uzavrite cez riadený sprievodca vyššie.</p> : null}
+          {activeStatus === 'DOKONCENA' ? <p>✅ Zákazka je dokončená. Prípadnú žiadosť o referenciu skontrolujte a odošlite v samostatnom pracovisku.</p> : null}
         </div> : null}
       </section>
 
@@ -308,10 +321,9 @@ async function SuperAdminBusinessJobDetailPage({ id, adminUser }: { id: string; 
 
       {!job.deletedAt && activeStatus === 'DOKONCENA' ? (
         <section className="admin-card no-print">
-          <h2>Recenzia zákazníka</h2>
-          <p>Po dokončení pošlite zákazníkovi krátku žiadosť o Google recenziu.</p>
-          <a className="admin-primary-link" href={`https://wa.me/${phoneForWhatsApp}?text=${reviewText}`} target="_blank" rel="noopener">📱 Vygenerovať WhatsApp</a>
-          <p className="admin-muted-note">Odoslanie a prijatie recenzie evidujte v samostatnom pracovnom toku, aby sa stav po obnovení stránky nestratil.</p>
+          <h2>Referencia zákazníka</h2>
+          <p>Koncept, odoslanie, prijatie aj publikovanie sú evidované v jednom kontrolovanom pracovnom toku.</p>
+          <p className="admin-muted-note">Nič sa neodošle ani nezverejní bez samostatného ľudského schválenia.</p>
           <a className="admin-secondary-link" href={reviewRequestHref}>Otvoriť referencie a hodnotenia</a>
         </section>
       ) : null}

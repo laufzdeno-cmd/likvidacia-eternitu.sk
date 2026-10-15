@@ -15,9 +15,12 @@ function authorized(request: Request) {
 export async function GET(request: Request) {
   if (!authorized(request)) return NextResponse.json({ ok: false }, { status: 401 });
   try {
-    const result = await reconcileAdminAutopilot({ actorEmail: 'cron:admin-autopilot', limit: 50 });
+    const result = await reconcileAdminAutopilot({ actorEmail: 'cron:admin-autopilot', actorKind: 'system', trigger: 'cron', limit: 50 });
     const { blockedOfferJobIds, ...counts } = result;
-    return NextResponse.json({ ok: true, ...counts, blockedOffers: blockedOfferJobIds.length }, { headers: { 'Cache-Control': 'no-store' } });
+    return NextResponse.json({ ok: result.status === 'succeeded', ...counts, blockedOffers: blockedOfferJobIds.length }, {
+      status: result.status === 'succeeded' ? 200 : 503,
+      headers: { 'Cache-Control': 'no-store' },
+    });
   } catch {
     return NextResponse.json({ ok: false, error: 'assistant_failed' }, {
       status: 500,

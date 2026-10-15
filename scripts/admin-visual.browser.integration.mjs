@@ -80,6 +80,8 @@ const routes = process.argv.includes('--review-only')
     ? allRoutes.filter(([, slug]) => slug === 'users')
     : process.argv.includes('--dopyty-only')
       ? allRoutes.filter(([, slug]) => slug === 'dopyty')
+      : process.argv.includes('--completion-only')
+        ? allRoutes.filter(([, slug]) => slug === 'zakazka-detail')
       : process.argv.includes('--assistant-only')
         ? allRoutes.filter(([, slug]) => slug.startsWith('asistent'))
         : process.argv.includes('--documents-only')
@@ -133,7 +135,7 @@ async function seedSyntheticAdminData(database) {
        'Najdlhšia testovacia obec pod Vysokými Tatrami', 'Poprad',
        'Hospodárska budova s veľmi dlhým opisom', 'Vlnitý azbestocementový eternit',
        777.75, 'Napíšte mi email', 'Strechára už mám', 'Do troch mesiacov',
-       $4, $5, $6, DATE '2026-10-20', $7::jsonb, true
+       $4, $5, $6, DATE '2026-10-20', $7::jsonb, false
      )`,
     [
       syntheticIds.lead,
@@ -156,7 +158,7 @@ async function seedSyntheticAdminData(database) {
        'Syntetická ulica 1234/567, Najdlhšia testovacia obec pod Vysokými Tatrami',
        'Poprad', 'Vlnitý eternit (AZC)', 'Hospodárska budova', 'Do troch mesiacov',
        'Lokálny vizuálny audit', 'Emailom', 777.75, 10.50, 8166.38,
-       'DOPYT', $4, true
+       'VYUCTOVANIE', $4, false
      )`,
     [syntheticIds.job, syntheticIds.lead, longName, 'Syntetická zákazka určená iba na overenie rozloženia detailnej obrazovky.'],
   );

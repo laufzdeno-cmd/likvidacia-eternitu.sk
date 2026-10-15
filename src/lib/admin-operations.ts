@@ -2,12 +2,14 @@ import { projectBusinessJobFinance } from './business-billing';
 import type {
   AuditLog,
   BusinessJob,
+  BusinessJobCompletion,
   BusinessJobFinance,
   BusinessJobOfferEvidence,
   BusinessJobInvoice,
   BusinessJobPaymentEvent,
   PlannerAction,
   OperationalBusinessJob,
+  OperationalBusinessJobCompletion,
   PriceOffer,
   PriceOfferFollowUpHistoryItem,
   ReviewRequest,
@@ -90,8 +92,9 @@ export function buildJobClosureChecklist(input: {
     | { status: 'available'; approvedCount: number; pendingCount: number }
     | { status: 'unknown' };
   reviewRequest?: ReviewRequest;
+  completion?: BusinessJobCompletion;
 }): ClosureChecklistItem[] {
-  const { job, offers, finance, plannerActions, photoEvidence, reviewRequest } = input;
+  const { job, offers, finance, plannerActions, photoEvidence, reviewRequest, completion } = input;
   const acceptedOffer = offers.find((offer) => !offer.deletedAt && offer.status === 'PRIJATA');
   const sentOffer = offers.find((offer) => !offer.deletedAt && ['ODOSLANA', 'NEISTY_STAV'].includes(offer.status));
   const paperworkAction = plannerActions.some((action) => action.type === 'DOKUMENTACIA' && action.status === 'DOKONCENA');
@@ -100,7 +103,8 @@ export function buildJobClosureChecklist(input: {
   const invoiced = finance.activeInvoicedCents > 0 && activeInvoices.length > 0;
   const paid = invoiced && finance.outstandingCents === 0 && finance.allocatedReceivedCents > 0;
   const costsEntered = job.costs.total > 0 || job.rewardsTotal > 0;
-  const reviewReceived = Boolean(reviewRequest && ['submitted', 'approved', 'published'].includes(reviewRequest.status));
+  const reviewPublished = reviewRequest?.status === 'published';
+  const reviewNeedsEditorialStep = Boolean(reviewRequest && ['submitted', 'approved'].includes(reviewRequest.status));
   const reviewFailed = Boolean(reviewRequest && ['delivery_failed', 'cancelled'].includes(reviewRequest.status));
   const reviewUnknown = reviewRequest?.status === 'delivery_unknown';
   const photoState: ClosureChecklistItem['state'] = photoEvidence.status === 'unknown'
@@ -138,28 +142,30 @@ export function buildJobClosureChecklist(input: {
       href: '#fakturacia',
     },
     {
-      id: 'costs', label: 'Náklady a odmeny', state: state(costsEntered, !completionStatuses.has(job.status)),
-      detail: costsEntered ? 'Náklady alebo odmeny sú v zákazke zaevidované.' : completionStatuses.has(job.status) ? 'Pri dokončenej zákazke potvrďte reálne náklady a odmeny.' : 'Náklady doplňte po realizácii; zatiaľ nie sú potvrdené.',
+      id: 'costs', label: 'Náklady a odmeny', state: completion?.costsDecision === 'confirmed_recorded' || completion?.costsDecision === 'confirmed_zero' ? 'done' : costsEntered ? 'attention' : 'missing',
+      detail: completion?.costsDecision === 'confirmed_recorded' ? 'Superadmin potvrdil zaevidované náklady.' : completion?.costsDecision === 'confirmed_zero' ? 'Superadmin potvrdil oprávnené nulové náklady.' : costsEntered ? 'Hodnoty sú zadané, ale ešte nie sú finálne potvrdené.' : 'Náklady ešte nie sú potvrdené.',
       href: '#udaje-zakazky',
     },
     {
-      id: 'documents', label: 'Doklady a úrady', state: state(paperworkStatuses.has(job.status) || paperworkAction),
-      detail: paperworkStatuses.has(job.status) || paperworkAction ? 'Administratívny krok je evidovaný.' : 'Doplňte stav úradov alebo dokončenú dokumentačnú akciu.',
+      id: 'documents', label: 'Doklady a úrady', state: completion?.documentsDecision === 'confirmed' || completion?.documentsDecision === 'not_applicable' ? 'done' : paperworkStatuses.has(job.status) || paperworkAction ? 'attention' : 'missing',
+      detail: completion?.documentsDecision === 'confirmed' ? 'Doklady boli manuálne skontrolované.' : completion?.documentsDecision === 'not_applicable' ? 'Výnimka je manuálne odôvodnená.' : paperworkStatuses.has(job.status) || paperworkAction ? 'Operatívny krok je evidovaný; chýba finálne potvrdenie v sprievodcovi.' : 'Doplňte doklady a potvrďte ich v sprievodcovi.',
       href: `/admin/planovac?zakazka=${job.id}`,
     },
     {
-      id: 'photos', label: 'Fotodokumentácia', state: photoState,
+      id: 'photos', label: 'Súkromná fotodokumentácia', state: photoState,
       detail: photoDetail,
       href: '/admin/realizacie/fotky',
     },
     {
-      id: 'review', label: 'Referencia', state: reviewReceived ? 'done' : reviewFailed ? 'missing' : reviewRequest ? 'attention' : 'missing',
-      detail: reviewReceived
-        ? 'Referencia bola prijatá.'
+      id: 'review', label: 'Referencia', state: reviewPublished ? 'done' : reviewFailed ? 'missing' : reviewRequest ? 'attention' : 'missing',
+      detail: reviewPublished
+        ? 'Referencia bola po kontrole publikovaná.'
+        : reviewNeedsEditorialStep
+          ? reviewRequest?.status === 'submitted' ? 'Referencia bola prijatá a čaká na obsahovú kontrolu.' : 'Referencia je schválená a čaká na samostatné publikovanie.'
         : reviewRequest?.status === 'delivery_failed'
           ? 'Doručenie žiadosti zlyhalo. Skontrolujte adresu a postupujte manuálne.'
           : reviewRequest?.status === 'cancelled'
-            ? 'Žiadosť bola zrušená. Ak je vhodné pokračovať, pripravte novú.'
+            ? 'Žiadosť bola zrušená. Ďalšie oslovenie najprv manuálne preverte v pracovisku Referencie.'
             : reviewUnknown
               ? 'Výsledok doručenia nie je potvrdený. Pred opakovaním skontrolujte odoslanú poštu.'
               : reviewRequest
@@ -284,12 +290,14 @@ export function buildOperationalJobChecklist(input: {
     | { status: 'available'; approvedCount: number; pendingCount: number }
     | { status: 'unknown' };
   reviewRequest?: ReviewRequest;
+  completion?: OperationalBusinessJobCompletion;
 }): ClosureChecklistItem[] {
-  const { job, offers, plannerActions, photoEvidence, reviewRequest } = input;
+  const { job, offers, plannerActions, photoEvidence, reviewRequest, completion } = input;
   const acceptedOffer = offers.find((offer) => !offer.deletedAt && offer.status === 'PRIJATA');
   const sentOffer = offers.find((offer) => !offer.deletedAt && ['ODOSLANA', 'NEISTY_STAV'].includes(offer.status));
   const paperworkAction = plannerActions.some((action) => action.type === 'DOKUMENTACIA' && action.status === 'DOKONCENA');
-  const reviewReceived = Boolean(reviewRequest && ['submitted', 'approved', 'published'].includes(reviewRequest.status));
+  const reviewPublished = reviewRequest?.status === 'published';
+  const reviewNeedsEditorialStep = Boolean(reviewRequest && ['submitted', 'approved'].includes(reviewRequest.status));
   const reviewFailed = Boolean(reviewRequest && ['delivery_failed', 'cancelled'].includes(reviewRequest.status));
   const photoState: ClosureChecklistItem['state'] = photoEvidence.status === 'unknown'
     ? 'unknown'
@@ -308,12 +316,12 @@ export function buildOperationalJobChecklist(input: {
       href: `/admin/planovac?zakazka=${job.id}`,
     },
     {
-      id: 'documents', label: 'Doklady a úrady', state: state(paperworkStatuses.has(job.status) || paperworkAction),
-      detail: paperworkStatuses.has(job.status) || paperworkAction ? 'Administratívny krok je evidovaný.' : 'Doplňte stav úradov alebo dokončenú dokumentačnú akciu.',
+      id: 'documents', label: 'Doklady a úrady', state: completion?.documentsDecision === 'confirmed' || completion?.documentsDecision === 'not_applicable' ? 'done' : paperworkStatuses.has(job.status) || paperworkAction ? 'attention' : 'missing',
+      detail: completion?.documentsDecision === 'confirmed' ? 'Doklady boli manuálne skontrolované.' : completion?.documentsDecision === 'not_applicable' ? 'Výnimka je manuálne odôvodnená.' : paperworkStatuses.has(job.status) || paperworkAction ? 'Operatívny krok je evidovaný; chýba finálne potvrdenie v sprievodcovi.' : 'Doplňte doklady a potvrďte ich v sprievodcovi.',
       href: `/admin/planovac?zakazka=${job.id}`,
     },
     {
-      id: 'photos', label: 'Fotodokumentácia', state: photoState,
+      id: 'photos', label: 'Súkromná fotodokumentácia', state: photoState,
       detail: photoEvidence.status === 'unknown'
         ? 'Stav fotodokumentácie sa nepodarilo overiť.'
         : photoEvidence.approvedCount > 0
@@ -324,8 +332,8 @@ export function buildOperationalJobChecklist(input: {
       href: '/admin/realizacie/fotky',
     },
     {
-      id: 'review', label: 'Referencia', state: reviewReceived ? 'done' : reviewFailed ? 'missing' : reviewRequest ? 'attention' : 'missing',
-      detail: reviewReceived ? 'Referencia bola prijatá.' : reviewFailed ? 'Žiadosť o referenciu vyžaduje zásah.' : reviewRequest ? 'Žiadosť bola vytvorená, čakáme na reakciu.' : 'Žiadosť o referenciu ešte nebola vytvorená.',
+      id: 'review', label: 'Referencia', state: reviewPublished ? 'done' : reviewFailed ? 'missing' : reviewRequest ? 'attention' : 'missing',
+      detail: reviewPublished ? 'Referencia bola po kontrole publikovaná.' : reviewNeedsEditorialStep ? reviewRequest?.status === 'submitted' ? 'Referencia čaká na obsahovú kontrolu.' : 'Schválená referencia čaká na publikovanie.' : reviewFailed ? 'Žiadosť o referenciu vyžaduje zásah.' : reviewRequest ? 'Žiadosť je evidovaná, čakáme na reakciu.' : 'Žiadosť o referenciu ešte nebola vytvorená.',
       href: '/admin/referencie',
     },
   ];

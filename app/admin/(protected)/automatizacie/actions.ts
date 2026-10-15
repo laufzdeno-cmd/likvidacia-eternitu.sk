@@ -8,14 +8,14 @@ import { reconcileAdminAutopilot } from '@/src/server/admin-autopilot';
 export async function runAdminAutopilotAction(formData: FormData) {
   await verifyCsrf(formData);
   const admin = await requireSuperAdmin();
-  const result = await reconcileAdminAutopilot({ actorEmail: admin.email, limit: 100 });
+  const result = await reconcileAdminAutopilot({ actorEmail: admin.email, actorKind: 'superadmin', trigger: 'manual', limit: 100 });
   revalidatePath('/admin/automatizacie');
   revalidatePath('/admin/ponuky');
   revalidatePath('/admin/referencie');
   revalidatePath('/admin/realizacie/pripady');
   revalidatePath('/admin/dashboard');
   const summary = [result.priceOffersCreated, result.reviewRequestsPrepared, result.realizationDraftsCreated,
-    result.photosAttached, result.blockedOfferJobIds.length, result.unavailable.length].join('-');
+    result.photosAttached, result.blockedOfferJobIds.length, result.unavailable.length, result.status].join('-');
   redirect(`/admin/automatizacie?run=${summary}`);
 }
 

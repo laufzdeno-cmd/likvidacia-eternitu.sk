@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { randomUUID } from 'node:crypto';
-import { PublicPageShell } from '../../public-layout';
+import PrivateActionShell from '../../private-action-shell';
 import TestimonialForm from '../testimonial-form';
 import { openPublicReviewRequest } from '@/src/server/db';
 
@@ -19,19 +19,20 @@ export default async function RequestedReviewPage({ params }: { params: Promise<
   if (!request) notFound();
 
   return (
-    <PublicPageShell breadcrumb={{ name: 'Referencia', path: '/recenzie/' }}>
-      <main className="seo-page">
-        <section className="seo-hero">
+    <PrivateActionShell>
+      <main className="private-action-main">
+        <article className="private-action-card">
+          <header className="private-action-card-header">
           <p className="eyebrow">Vaša skúsenosť</p>
           <h1>Ďakujeme za dôveru</h1>
-          <p>Krátka spätná väzba nám pomôže zlepšovať služby. Na web ju zverejníme až po samostatnej kontrole.</p>
-        </section>
-        <section className="seo-section" aria-labelledby="requested-review-title">
+          </header>
+        <section className="private-action-card-body" aria-labelledby="requested-review-title">
           <h2 id="requested-review-title">Referencia k vašej realizácii</h2>
-          <p className="seo-lead">
+          <p className="private-action-note">
             {request.location ? `${request.location} · ` : ''}{request.objectType || 'Likvidácia azbestu'}
             {request.realizationDate ? ` · ${new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date(`${request.realizationDate}T12:00:00Z`))}` : ''}
           </p>
+          <p>Krátka spätná väzba nám pomôže zlepšovať služby. Na web ju zverejníme až po samostatnej kontrole.</p>
           {request.alreadySubmitted ? (
             <div role="status" className="testimonial-public-success">
               <h3>Referenciu sme už prijali</h3>
@@ -47,7 +48,8 @@ export default async function RequestedReviewPage({ params }: { params: Promise<
             />
           )}
         </section>
+        </article>
       </main>
-    </PublicPageShell>
+    </PrivateActionShell>
   );
 }

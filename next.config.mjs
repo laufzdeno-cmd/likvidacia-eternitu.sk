@@ -25,6 +25,11 @@ const securityHeaders = [
 ];
 
 const noIndexHeaders = [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }];
+const privateActionHeaders = [
+  ...noIndexHeaders,
+  { key: 'Cache-Control', value: 'private, no-store, max-age=0' },
+  { key: 'Referrer-Policy', value: 'no-referrer' },
+];
 
 const nextConfig = {
   compress: true,
@@ -60,6 +65,14 @@ const nextConfig = {
       {
         source: '/api/:path*',
         headers: noIndexHeaders,
+      },
+      {
+        source: '/ponuka/:token',
+        headers: privateActionHeaders,
+      },
+      {
+        source: '/recenzie/:token',
+        headers: privateActionHeaders,
       },
     ];
   },

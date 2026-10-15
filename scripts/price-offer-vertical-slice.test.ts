@@ -145,7 +145,7 @@ test('DB schema má aditívne defaulty pre historické ponuky a zamyká súbežn
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS documentation_promotion boolean NOT NULL DEFAULT false/);
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_started_at timestamptz/);
   assert.match(db, /WHERE price_offers\.status NOT IN \('PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA', 'ODOSIELA', 'NEISTY_STAV'\)\s+RETURNING id/);
-  assert.match(db, /status = 'ODOSIELA', send_started_at = \$2[\s\S]*?status = 'PRIPRAVENA' RETURNING \*/);
+  assert.match(db, /status = 'ODOSIELA', send_started_at = \$2[\s\S]*?status = 'PRIPRAVENA'[\s\S]*?COALESCE\(is_test_data,false\)=false[\s\S]*?RETURNING \*/);
   assert.match(db, /status IN \('NEISTY_STAV', 'ODOSIELA'\)[\s\S]*?interval '15 minutes'/);
   assert.match(db, /SELECT pg_advisory_xact_lock\(hashtext\(\$1\)\)[\s\S]*?price-offer-number:/);
   assert.match(db, /client\.query\('BEGIN'\)[\s\S]*?INSERT INTO price_offers[\s\S]*?INSERT INTO audit_logs[\s\S]*?client\.query\('COMMIT'\)/);
@@ -177,7 +177,9 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(mail, /const requiredRecipient = resolveOutboundEmailRecipient\(offer\.email\)/);
   assert.match(mail, /classifyRequiredSmtpRecipient\(info, requiredRecipient\)/);
   assert.match(mail, /Interná kópia nemení stav ponuky na odoslanú/);
-  assert.match(list, /offer\.status === 'ODOSLANA'.*updatePriceOfferStatusAction/);
+  assert.match(list, /offer\.status === 'ODOSLANA'.*#vysledok-ponuky.*Zaevidovať výsledok/);
+  assert.doesNotMatch(list, /updatePriceOfferStatusAction/);
+  assert.match(detail, /id="vysledok-ponuky"[\s\S]*?name="evidenceCode"[\s\S]*?name="confirmOutcome"/);
   assert.match(actions, /if \(!updated && statusValue === 'PRIJATA'\) throw new Error\('Ako prijatú možno označiť iba odoslanú/);
   const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
   assert.match(db, /PRIJATA: \['ODOSLANA', 'ODLOZENA'\]/);

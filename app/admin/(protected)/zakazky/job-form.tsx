@@ -31,6 +31,7 @@ function todayInBratislava() {
 }
 
 export default function JobForm({ workers, landfillPrices, defaultPricePerM2, job }: Props) {
+  const availableStatuses = job?.status === 'DOKONCENA' ? jobStatuses : jobStatuses.filter((status) => status !== 'DOKONCENA');
   const initialWorkerIds = job?.workers.map((worker) => worker.workerId) ?? [];
   const [m2, setM2] = useState(job?.m2 ?? 0);
   const [pricePerM2, setPricePerM2] = useState(job?.pricePerM2 ?? defaultPricePerM2);
@@ -88,7 +89,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
           <label>Typ objektu<input name="objectType" defaultValue={job?.objectType} /></label>
           <label>Termín<input name="term" defaultValue={job?.term} /></label>
           <label>Preferovaný kontakt<input name="preferredContact" defaultValue={job?.preferredContact} /></label>
-          <label>Stav<select name="status" defaultValue={job?.status ?? 'DOPYT'}>{jobStatuses.map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select></label>
+          <label>Stav<select name="status" defaultValue={job?.status ?? 'DOPYT'}>{availableStatuses.map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select><small>Stav „Dokončená“ nastavuje iba riadený sprievodca.</small></label>
         </div>
       </section>
 

@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { getBusinessAssistantBriefing } from '@/src/server/business-assistant';
-import { countAdminWorkItems, listAdminTaskAssignees, listAdminWorkItems } from '@/src/server/db';
+import { getAdminApprovalQueue, getAdminOperationalApprovalQueue, type AdminApprovalQueueItem } from '@/src/server/admin-intelligence';
+import { countAdminWorkItems, getAdminWorkItemSuggestion, listAdminTaskAssignees, listAdminWorkItems } from '@/src/server/db';
 import { buildAdminWorkQueue, normalizeAdminWorkQueueFilters, type AdminWorkQueueItem } from '@/src/lib/admin-work-queue';
 import { statusLabels } from '@/src/server/lead-insights';
 import type { AdminTaskAssignee, AdminWorkItem, LeadStatus, PlannerAction } from '@/src/server/types';
-import { createAdminWorkItemAction, transitionAdminWorkItemAction, updateAdminWorkItemAction } from './actions';
+import { createAdminWorkItemAction, dismissAdminWorkItemSuggestionAction, transitionAdminWorkItemAction, updateAdminWorkItemAction } from './actions';
 
 function euro(value: number) {
   return new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value);
@@ -29,6 +30,20 @@ const groupLabels = {
   CANCELLED: ['Zrušené', 'Zachovaná história bez trvalého mazania'],
 } as const;
 
+const approvalLabels: Record<AdminApprovalQueueItem['category'], string> = {
+  offer_approval: 'CP na kontrolu',
+  offer_outcome: 'Výsledok CP',
+  review_send: 'Žiadosť o referenciu',
+  review_reminder: 'Pripomienka',
+  review_moderation: 'Prijatá referencia',
+  delivery_resolution: 'Neznáme doručenie',
+  photo_review: 'Fotografia',
+  case_draft: 'Koncept realizácie',
+  case_approval: 'Schválenie prípadu',
+  case_publication: 'Publikovanie prípadu',
+  realization_publication: 'Publikovanie realizácie',
+};
+
 const noticeMessages: Record<string, [string, 'success' | 'warning' | 'error']> = {
   created: ['Úloha bola vytvorená.', 'success'], updated: ['Úloha bola uložená.', 'success'],
   completed: ['Úloha je dokončená.', 'success'], reopened: ['Úloha je znovu otvorená.', 'success'],
@@ -38,6 +53,7 @@ const noticeMessages: Record<string, [string, 'success' | 'warning' | 'error']> 
   missing: ['Úloha sa nenašla alebo k nej nemáte prístup.', 'error'],
   forbidden: ['Na túto zmenu nemáte oprávnenie.', 'error'],
   invalid: ['Údaje sa nepodarilo uložiť. Skontrolujte povinné polia.', 'error'],
+  'suggestion-dismissed': ['Návrh asistenta bol odmietnutý. Úloha zostáva nepriradená, kým ju ručne neuložíte.', 'warning'],
 };
 
 function LeadQueue({ title, note, leads, empty, href }: { title: string; note: string; leads: LeadPreview[]; empty: string; href: string }) {
@@ -66,12 +82,25 @@ function PlannerList({ title, date, actions }: { title: string; date: string; ac
   );
 }
 
-function TaskFields({ item, assignees, isSuperadmin }: { item?: AdminWorkItem; assignees: AdminTaskAssignee[]; isSuperadmin: boolean }) {
+function ApprovalInbox({ items, unavailableSources, isSuperadmin }: {
+  items: AdminApprovalQueueItem[]; unavailableSources: string[]; isSuperadmin: boolean;
+}) {
+  return <section className="work-approval-inbox" aria-labelledby="work-approval-title">
+    <header><div><p>Rozhodnutia, ktoré systém neurobí za vás</p><h2 id="work-approval-title">Čaká na kontrolu</h2><span>{isSuperadmin ? 'Operatívne aj citlivé majiteľské schválenia na jednom mieste.' : 'Iba kroky, ktoré môže bezpečne spracovať operátor. Publikovanie a citlivé rozhodnutia ostávajú superadminovi.'}</span></div><strong>{items.length}</strong></header>
+    {unavailableSources.length ? <p className="work-notice is-warning" role="status">Fronta nie je úplná. Nepodarilo sa načítať: {unavailableSources.join(', ')}.</p> : null}
+    {items.length ? <ol>{items.slice(0, 8).map((item) => <li className={`is-${item.urgency}`} key={item.id}><span>{approvalLabels[item.category]}</span><div><strong>{item.title}</strong><small>{item.detail}</small></div><a href={item.href}>Otvoriť</a></li>)}</ol> : unavailableSources.length ? null : <p className="work-approval-empty">✓ Momentálne nič nečaká na vaše rozhodnutie.</p>}
+    {isSuperadmin && items.length > 8 ? <a className="assistant-text-link" href="/admin/automatizacie">Zobraziť všetkých {items.length} schválení →</a> : null}
+  </section>;
+}
+
+function TaskFields({ item, assignees, isSuperadmin, suggestedOwnerEmail = '', suggestedDueDate = '' }: {
+  item?: AdminWorkItem; assignees: AdminTaskAssignee[]; isSuperadmin: boolean; suggestedOwnerEmail?: string; suggestedDueDate?: string;
+}) {
   return <div className="work-task-fields">
     <label className="work-field-wide">Názov úlohy<input name="title" required minLength={3} maxLength={120} defaultValue={item?.title} placeholder="Napr. zavolať zákazníkovi" /></label>
     <label>Priorita<select name="priority" defaultValue={item?.priority || 'NORMAL'}><option value="CRITICAL">Kritická</option><option value="HIGH">Vysoká</option><option value="NORMAL">Bežná</option><option value="LOW">Nízka</option></select></label>
-    <label>Termín<input name="dueDate" type="date" defaultValue={item?.dueDate} /></label>
-    <label>Vlastník<select name="ownerEmail" defaultValue={item?.ownerEmail || ''}><option value="">Zatiaľ nepriradená</option>{assignees.map((person) => <option value={person.email} key={person.email}>{person.name}</option>)}</select></label>
+    <label>Termín<input name="dueDate" type="date" defaultValue={item?.dueDate || suggestedDueDate} /></label>
+    <label>Vlastník<select name="ownerEmail" defaultValue={item?.ownerEmail || suggestedOwnerEmail}><option value="">Zatiaľ nepriradená</option>{assignees.map((person) => <option value={person.email} key={person.email}>{person.name}{person.role === 'SUPER_ADMIN' ? ' · superadmin' : ''}</option>)}</select></label>
     {isSuperadmin ? <label>Viditeľnosť<select name="visibility" defaultValue={item?.visibility || 'TEAM'}><option value="TEAM">Celý tím</option><option value="SUPER_ADMIN">Iba superadmin</option></select></label> : <input type="hidden" name="visibility" value="TEAM" />}
     <label className="work-field-wide">Poznámka<textarea name="note" rows={3} maxLength={1200} defaultValue={item?.note} placeholder="Čo presne treba urobiť a aký má byť výsledok?" /></label>
   </div>;
@@ -113,13 +142,15 @@ export default async function BusinessAssistantPage({ searchParams }: { searchPa
   const scalar = (key: string) => typeof rawParams?.[key] === 'string' ? rawParams[key] as string : '';
   const filters = normalizeAdminWorkQueueFilters({ view: scalar('view'), source: scalar('source'), q: scalar('q') });
   const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Bratislava' }).format(new Date());
-  const [briefing, workItems, assignees, manualCounts] = await Promise.all([
+  const [briefing, workItems, assignees, manualCounts, approvals, taskSuggestion] = await Promise.all([
     getBusinessAssistantBriefing(adminUser.role),
     listAdminWorkItems(adminUser.role, 250, {
       view: filters.view, source: filters.source, query: filters.query, currentEmail: adminUser.email, today,
     }),
     listAdminTaskAssignees(),
     countAdminWorkItems(adminUser.role, adminUser.email, today),
+    adminUser.role === 'SUPER_ADMIN' ? getAdminApprovalQueue(adminUser.role) : getAdminOperationalApprovalQueue(),
+    getAdminWorkItemSuggestion({ actorRole: adminUser.role, priority: 'NORMAL', visibility: 'TEAM' }).catch(() => null),
   ]);
   const queue = buildAdminWorkQueue({ priorities: briefing.priorities, workItems, manualCounts, today: briefing.today, currentEmail: adminUser.email, filters });
   const csrf = csrfTokenForEmail(adminUser.email);
@@ -133,11 +164,15 @@ export default async function BusinessAssistantPage({ searchParams }: { searchPa
   const isSuperadmin = adminUser.role === 'SUPER_ADMIN';
   const groups = (Object.keys(groupLabels) as Array<keyof typeof groupLabels>).map((key) => ({ key, items: queue.items.filter((item) => item.group === key) })).filter((group) => group.items.length);
   const sourceHref = (source: string) => `/admin/asistent?${new URLSearchParams({ ...(filters.view !== 'all' ? { view: filters.view } : {}), ...(source !== 'all' ? { source } : {}), ...(filters.query ? { q: filters.query } : {}) })}`;
+  const suggestionApplied = scalar('suggestion') === 'apply' && Boolean(taskSuggestion);
+  const suggestionParams = new URLSearchParams({ ...(filters.view !== 'all' ? { view: filters.view } : {}), ...(filters.source !== 'all' ? { source: filters.source } : {}), ...(filters.query ? { q: filters.query } : {}), suggestion: 'apply' });
+  const createRequestId = randomUUID();
+  const dismissDecisionId = randomUUID();
 
   return <main className="admin-page assistant-page work-page">
     <header className="work-hero">
       <div><p>Operatívne centrum · {isSuperadmin ? 'majiteľský pohľad' : 'tímový pohľad'}</p><h1>Čo treba vyriešiť dnes</h1><span>Aktualizované {generated}. Automatické odporúčania iba čítajú aktuálny stav; nič samy neposielajú ani nemenia.</span></div>
-      <a className="work-button is-primary" href="#nova-uloha">+ Pridať úlohu</a>
+      <div className="work-hero-actions"><a className="work-button is-primary" href="#schvalenia">Skontrolovať rozhodnutia</a><a className="work-button is-quiet" href="#nova-uloha">+ Pridať úlohu</a></div>
     </header>
 
     {notice ? <p className={`work-notice is-${notice[1]}`} role={notice[1] === 'error' ? 'alert' : 'status'} aria-live={notice[1] === 'error' ? 'assertive' : 'polite'} tabIndex={-1}>{notice[0]}</p> : null}
@@ -149,6 +184,8 @@ export default async function BusinessAssistantPage({ searchParams }: { searchPa
       <a className="is-unassigned" href="/admin/asistent?view=unassigned"><span>Bez vlastníka</span><strong>{queue.counts.unassigned}</strong></a>
       <a className="is-done" href="/admin/asistent?view=done_today"><span>Hotové dnes</span><strong>{queue.counts.doneToday}</strong></a>
     </nav>
+
+    <div id="schvalenia"><ApprovalInbox items={approvals.items} unavailableSources={approvals.unavailableSources} isSuperadmin={isSuperadmin} /></div>
 
     <section className="work-filter-panel" aria-label="Filtrovanie pracovnej fronty">
       <div className="work-view-tabs">
@@ -174,7 +211,23 @@ export default async function BusinessAssistantPage({ searchParams }: { searchPa
       </section>
 
       <aside className="work-side">
-        <section className="work-create-card" id="nova-uloha"><div><p>Ručný ďalší krok</p><h2>Nová úloha</h2><span>Úlohu môže tím kedykoľvek upraviť, dokončiť alebo zrušiť.</span></div><form action={createAdminWorkItemAction}><input type="hidden" name="_csrf" value={csrf} /><input type="hidden" name="returnTo" value={returnTo} /><input type="hidden" name="requestId" value={randomUUID()} /><TaskFields assignees={assignees} isSuperadmin={isSuperadmin} /><button className="work-button is-primary" type="submit">Uložiť úlohu</button></form></section>
+        <section className="work-create-card" id="nova-uloha">
+          <div><p>Ručný ďalší krok</p><h2>Nová úloha</h2><span>Úlohu môže tím kedykoľvek upraviť, dokončiť alebo zrušiť.</span></div>
+          {taskSuggestion ? <aside className="work-assignment-suggestion" aria-label="Návrh vlastníka a termínu">
+            <div><span>Návrh asistenta</span><strong>{taskSuggestion.suggestedOwnerName} · {shortDate(taskSuggestion.suggestedDueDate)}</strong><small>Vybraný je aktívny oprávnený účet s najnižšou otvorenou administratívnou záťažou. Ide len o návrh; pred uložením ho môžete zmeniť.</small>{isSuperadmin ? <small>Interné skóre záťaže: {taskSuggestion.loadScore}</small> : null}</div>
+            {suggestionApplied ? <form action={dismissAdminWorkItemSuggestionAction}>
+              <input type="hidden" name="_csrf" value={csrf} /><input type="hidden" name="decisionId" value={dismissDecisionId} />
+              <input type="hidden" name="sourceRevision" value={taskSuggestion.sourceRevision} /><input type="hidden" name="suggestionVersion" value={taskSuggestion.suggestionVersion} />
+              <button className="work-button is-quiet" type="submit">Ponechať nepriradené</button>
+            </form> : <a className="work-button is-secondary" href={`/admin/asistent?${suggestionParams}#nova-uloha`}>Použiť návrh</a>}
+          </aside> : <p className="work-notice is-warning">Návrh vlastníka nie je dostupný. Úlohu môžete stále priradiť ručne.</p>}
+          <form action={createAdminWorkItemAction}>
+            <input type="hidden" name="_csrf" value={csrf} /><input type="hidden" name="returnTo" value={returnTo} /><input type="hidden" name="requestId" value={createRequestId} />
+            {suggestionApplied && taskSuggestion ? <><input type="hidden" name="suggestionApplied" value="1" /><input type="hidden" name="sourceRevision" value={taskSuggestion.sourceRevision} /><input type="hidden" name="suggestionVersion" value={taskSuggestion.suggestionVersion} /><input type="hidden" name="suggestedOwnerEmail" value={taskSuggestion.suggestedOwnerEmail} /><input type="hidden" name="suggestedDueDate" value={taskSuggestion.suggestedDueDate} /><input type="hidden" name="suggestedPriority" value="NORMAL" /><input type="hidden" name="suggestedVisibility" value="TEAM" /></> : null}
+            <TaskFields assignees={assignees} isSuperadmin={isSuperadmin} suggestedOwnerEmail={suggestionApplied ? taskSuggestion?.suggestedOwnerEmail : ''} suggestedDueDate={suggestionApplied ? taskSuggestion?.suggestedDueDate : ''} />
+            <button className="work-button is-primary" type="submit">Uložiť úlohu</button>
+          </form>
+        </section>
         <section className="work-plan-card"><div className="work-section-heading"><div><p>Najbližšie akcie</p><h2>Plán práce</h2></div><a href="/admin/planovac">Plánovač</a></div><PlannerList title="Dnes" date={briefing.today} actions={briefing.planner.today} /><PlannerList title="Zajtra" date={briefing.tomorrow} actions={briefing.planner.tomorrow} /></section>
       </aside>
     </div>

@@ -39,7 +39,7 @@ try {
     term:'', leadSource:'postgres-harness', preferredContact:'email', m2:100, pricePerM2:10, paymentType:'FAKTURA',
     workType:'DEMONTAZ_A_ODVOZ', wasteKg:1000, landfill:'INA', status:'DOKONCENA', note:'', workers:[],
     costs:{ fuel:0,suits:0,gloves:0,penetrant:0,landfillCost:0,otherName:'',otherAmount:0 } });
-  const job = await db.saveBusinessJob(jobInput('Postgres zákazník','postgres-customer@example.invalid'), actor);
+  const job = await db.saveBusinessJob(jobInput('Postgres zákazník','postgres-customer@example.invalid'), actor, undefined, { legacyCompletedImportReason:'TEST_FIXTURE' });
   const input = { jobId:job.id, customerName:job.customerName, customerEmail:job.customerEmail, phone:job.customerPhone,
     location:job.location, objectType:job.objectType, realizationDate:job.demolitionDate, googleReviewLink:'https://example.com/google',
     subject:'Spätná väzba', message:'Dobrý deň {{meno}} {{odkaz}}', status:'pending_approval', reminderAllowed:true, createdBy:actor };
@@ -92,7 +92,7 @@ try {
   assert.equal((await db.publishRequestedTestimonial(testimonial.id, 'superadmin@example.invalid')).status, 'approved');
 
   const prepareDeliveredReminder = async (name, email) => {
-    const reminderJob = await db.saveBusinessJob(jobInput(name, email), actor);
+    const reminderJob = await db.saveBusinessJob(jobInput(name, email), actor, undefined, { legacyCompletedImportReason:'TEST_FIXTURE' });
     const reminderRequest = await db.createReviewRequest({ jobId:reminderJob.id, customerName:reminderJob.customerName,
       customerEmail:reminderJob.customerEmail, phone:reminderJob.customerPhone, location:reminderJob.location,
       objectType:reminderJob.objectType, realizationDate:reminderJob.demolitionDate, googleReviewLink:'',

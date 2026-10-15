@@ -2,20 +2,24 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
+import { z } from 'zod';
+import { requireAdmin, requireAdminUser, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import {
   addBusinessJobNote,
   cancelBusinessInvoice,
   deleteBusinessJob,
   destroyBusinessJob,
+  finalizeBusinessJobCompletion,
   recordBusinessInvoice,
   recordBusinessPayment,
   reverseBusinessPayment,
   saveBusinessJob,
+  saveBusinessJobCompletion,
   setBusinessJobTestData,
   updateBusinessJobOperational,
 } from '@/src/server/db';
 import type { BusinessJobInput, BusinessJobOperationalInput, BusinessJobStatus, BusinessLandfill, BusinessPaymentType, BusinessWorkType } from '@/src/server/types';
+import { getReviewRequestSettings } from '@/src/server/review-request-settings';
 
 function num(value: FormDataEntryValue | null) {
   return Number(String(value || '').replace(',', '.')) || 0;
@@ -65,7 +69,9 @@ export async function saveBusinessJobAction(formData: FormData) {
   const actor = (await requireSuperAdmin()).email;
   const id = String(formData.get('id') || '') || undefined;
   const next = String(formData.get('next') || '');
-  const job = await saveBusinessJob(parseJob(formData), actor, id);
+  const parsedJob = parseJob(formData);
+  if (!id && parsedJob.status === 'DOKONCENA') throw new Error('Novú zákazku nemožno vytvoriť priamo ako dokončenú.');
+  const job = await saveBusinessJob(parsedJob, actor, id);
   revalidatePath('/admin/zakazky');
   revalidatePath('/admin/dashboard');
   revalidatePath('/admin/rok');
@@ -311,4 +317,85 @@ export async function addBusinessJobNoteAction(formData: FormData) {
     await addBusinessJobNote(id, note, actor);
     revalidatePath(`/admin/zakazky/${id}`);
   }
+}
+
+const completionCommonSchema = z.object({
+  jobId: z.string().uuid(),
+  revision: z.coerce.number().int().min(0),
+  documentsDecision: z.enum(['pending', 'confirmed', 'not_applicable']),
+  documentsReason: z.string().trim().max(500),
+  photosDecision: z.enum(['pending', 'waiting', 'not_available', 'ready_private']),
+  photosReason: z.string().trim().max(500),
+  reviewDecision: z.enum(['pending', 'prepare', 'blocked']),
+  reviewBlockReason: z.string().trim().max(500),
+});
+
+const completionCostsSchema = z.object({
+  costsDecision: z.enum(['pending', 'confirmed_recorded', 'confirmed_zero']),
+  costsReason: z.string().trim().max(500),
+});
+
+function revalidateBusinessJobCompletion(jobId: string) {
+  revalidatePath(`/admin/zakazky/${jobId}`);
+  revalidatePath('/admin/zakazky');
+  revalidatePath('/admin/dashboard');
+  revalidatePath('/admin/referencie');
+}
+
+export async function saveBusinessJobCompletionAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireAdminUser();
+  const parsed = completionCommonSchema.parse({
+    jobId: formData.get('jobId'),
+    revision: formData.get('revision'),
+    documentsDecision: formData.get('documentsDecision'),
+    documentsReason: formData.get('documentsReason'),
+    photosDecision: formData.get('photosDecision'),
+    photosReason: formData.get('photosReason'),
+    reviewDecision: formData.get('reviewDecision'),
+    reviewBlockReason: formData.get('reviewBlockReason'),
+  });
+  const costs = admin.role === 'SUPER_ADMIN'
+    ? completionCostsSchema.parse({ costsDecision: formData.get('costsDecision'), costsReason: formData.get('costsReason') })
+    : { costsDecision: 'pending' as const, costsReason: '' };
+  await saveBusinessJobCompletion({
+    jobId: parsed.jobId,
+    expectedRevision: parsed.revision,
+    values: { ...parsed, ...costs },
+    actorEmail: admin.email,
+    actorRole: admin.role,
+  });
+  revalidateBusinessJobCompletion(parsed.jobId);
+  redirect(`/admin/zakazky/${parsed.jobId}?completion=saved#dokoncovanie`);
+}
+
+export async function finalizeBusinessJobCompletionAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireSuperAdmin();
+  const parsed = z.object({
+    jobId: z.string().uuid(),
+    revision: z.coerce.number().int().positive(),
+    confirmed: z.literal('on'),
+  }).parse({
+    jobId: formData.get('jobId'),
+    revision: formData.get('revision'),
+    confirmed: formData.get('confirmed'),
+  });
+  const settings = await getReviewRequestSettings();
+  const finalized = await finalizeBusinessJobCompletion({
+    jobId: parsed.jobId,
+    expectedRevision: parsed.revision,
+    actorEmail: admin.email,
+    actorRole: admin.role,
+    reviewRequestTemplate: {
+      subject: settings.subject,
+      message: settings.body,
+      googleReviewLink: settings.googleReviewLink,
+      reminderAllowed: false,
+    },
+  });
+  if (!finalized) throw new Error('Dokončenie sa medzičasom zmenilo. Obnovte stránku a skontrolujte ho znova.');
+  revalidateBusinessJobCompletion(parsed.jobId);
+  revalidatePath('/admin/rok');
+  redirect(`/admin/zakazky/${parsed.jobId}?completion=finalized#dokoncovanie`);
 }

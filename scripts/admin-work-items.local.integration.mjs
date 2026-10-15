@@ -18,10 +18,12 @@ process.env.ADMIN_EMAIL = 'admin@local.test';
 
 const {
   createAdminWorkItem,
+  getAdminWorkItemSuggestion,
   listAdminTaskAssignees,
   listAdminWorkItems,
   transitionAdminWorkItem,
   updateAdminWorkItem,
+  recordAdminAssistantSuggestionOutcome,
 } = await import(`../src/server/db.ts?admin-work-items-local=${randomUUID()}`);
 
 const actor = 'admin@local.test';
@@ -31,11 +33,23 @@ const input = {
 };
 
 try {
-  assert.deepEqual(await listAdminTaskAssignees(), [{ email: actor, name: 'ASTANA' }]);
+  const assignees = await listAdminTaskAssignees();
+  assert.equal(assignees.length, 1);
+  assert.deepEqual({ email: assignees[0].email, name: assignees[0].name, role: assignees[0].role }, { email: actor, name: 'ASTANA', role: 'SUPER_ADMIN' });
+  assert.match(assignees[0].id, /^[0-9a-f-]{36}$/);
+  const suggestion = await getAdminWorkItemSuggestion({ actorRole: 'SUPER_ADMIN', priority: 'NORMAL', visibility: 'TEAM', at: new Date('2026-10-16T08:00:00Z') });
+  assert.equal(suggestion.suggestedOwnerEmail, actor);
+  assert.equal(suggestion.suggestedDueDate, '2026-10-20');
   const requestId = randomUUID();
   const created = await createAdminWorkItem(input, actor, 'SUPER_ADMIN', requestId);
   const duplicate = await createAdminWorkItem(input, actor, 'SUPER_ADMIN', requestId);
   assert.equal(duplicate.id, created.id, 'opakovaný requestId musí byť idempotentný');
+  const suggestedItem = await createAdminWorkItem({ ...input, title: 'Prijatý návrh asistenta' }, actor, 'SUPER_ADMIN', randomUUID(), {
+    outcome: 'accepted', ownerChanged: false, dueChanged: false, reasonCode: suggestion.reasonCode,
+    suggestionVersion: suggestion.suggestionVersion, sourceRevision: suggestion.sourceRevision, actorKind: 'super_admin',
+  });
+  await recordAdminAssistantSuggestionOutcome({ decisionId: randomUUID(), actorEmail: actor, actorRole: 'SUPER_ADMIN',
+    sourceRevision: suggestion.sourceRevision, suggestionVersion: 1 });
 
   const updated = await updateAdminWorkItem(created.id, { ...input, priority: 'HIGH', note: 'Manuálne overiť termín.' }, 1, actor, 'SUPER_ADMIN');
   assert.equal(updated.revision, 2);
@@ -87,6 +101,10 @@ try {
   assert.equal(afterConcurrent.revision, 2);
 
   const local = JSON.parse(await readFile(databasePath, 'utf8'));
+  const decisions = local.auditLogs.filter((entry) => entry.action === 'admin_assistant_suggestion_decision');
+  assert.deepEqual(decisions.map((entry) => entry.changes.outcome).sort(), ['accepted', 'dismissed']);
+  assert.equal(decisions.some((entry) => entry.entityId === suggestedItem.id), true);
+  assert.doesNotMatch(JSON.stringify(decisions.map((entry) => entry.changes)), /admin@local\.test|Zavolať zákazníkovi/);
   const workAudit = local.auditLogs.filter((entry) => entry.entityType === 'admin_work_item' && entry.entityId === created.id);
   assert.deepEqual(workAudit.map((entry) => entry.action).sort(), [
     'admin_work_item_cancelled', 'admin_work_item_completed', 'admin_work_item_created', 'admin_work_item_reopened', 'admin_work_item_updated',

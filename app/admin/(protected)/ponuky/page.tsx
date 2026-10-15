@@ -2,7 +2,7 @@ import { getPriceOfferStatusSummary, listPriceOffers } from '@/src/server/db';
 import { dateInBratislava } from '@/src/server/analytics-metrics';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import type { PriceOfferStatus } from '@/src/server/types';
-import { deletePriceOfferAction, updatePriceOfferStatusAction } from './actions';
+import { deletePriceOfferAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
 
 export default async function PriceOffersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
@@ -61,7 +61,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
                     {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a className="admin-row-link" href={`/admin/ponuky/${offer.id}/follow-up`}>Follow-up</a> : null}
-                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <form action={updatePriceOfferStatusAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" /><button type="submit">Označiť ako prijatú</button></form> : null}
+                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a className="admin-row-link" href={`/admin/ponuky/${offer.id}#vysledok-ponuky`}>Zaevidovať výsledok</a> : null}
                     {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
                       <form action={deletePriceOfferAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
                     ) : null}

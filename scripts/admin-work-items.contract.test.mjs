@@ -30,12 +30,12 @@ test('every manual task action checks CSRF, session, strict input and refreshes 
     read('../app/admin/(protected)/asistent/actions.ts'),
     read('../app/admin/(protected)/asistent/page.tsx'),
   ]);
-  assert.equal((actions.match(/verifyCsrf\(formData\)/g) || []).length, 3);
-  assert.equal((actions.match(/requireAdminUser\(\)/g) || []).length, 3);
+  assert.equal((actions.match(/verifyCsrf\(formData\)/g) || []).length, 4);
+  assert.equal((actions.match(/requireAdminUser\(\)/g) || []).length, 4);
   assert.match(actions, /z\.enum\(\['CRITICAL', 'HIGH', 'NORMAL', 'LOW'\]\)/);
   assert.match(actions, /z\.enum\(\['TEAM', 'SUPER_ADMIN'\]\)/);
   assert.match(actions, /revision: z\.coerce\.number\(\)\.int\(\)\.positive\(\)/);
-  assert.equal((actions.match(/revalidatePath\('\/admin\/asistent'\)/g) || []).length, 3);
+  assert.equal((actions.match(/revalidatePath\('\/admin\/asistent'\)/g) || []).length, 4);
   assert.doesNotMatch(actions, /send[A-Z]|priceOffer|payment|publish|delete[A-Z]/i);
   assert.ok((page.match(/name="_csrf"/g) || []).length >= 1);
   assert.match(page, /name="revision"/);

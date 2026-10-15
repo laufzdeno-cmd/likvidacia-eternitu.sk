@@ -2,6 +2,7 @@ import type { OperationalBusinessJob } from '@/src/server/types';
 import { jobStatusLabels, jobStatuses } from './constants';
 
 export default function OperationalJobForm({ job }: { job: OperationalBusinessJob }) {
+  const availableStatuses = job.status === 'DOKONCENA' ? jobStatuses : jobStatuses.filter((status) => status !== 'DOKONCENA');
   return (
     <div className="business-form">
       <input type="hidden" name="id" value={job.id} />
@@ -16,7 +17,7 @@ export default function OperationalJobForm({ job }: { job: OperationalBusinessJo
         <label>Typ objektu<input name="objectType" defaultValue={job.objectType} maxLength={160} /></label>
         <label>Termín<input name="term" defaultValue={job.term} maxLength={160} /></label>
         <label>Preferovaný kontakt<input name="preferredContact" defaultValue={job.preferredContact} maxLength={160} /></label>
-        <label>Stav<select name="status" defaultValue={job.status}>{jobStatuses.map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select></label>
+        <label>Stav<select name="status" defaultValue={job.status}>{availableStatuses.map((status) => <option key={status} value={status}>{jobStatusLabels[status]}</option>)}</select><small>Stav „Dokončená“ nastavuje iba riadený sprievodca.</small></label>
         <label className="admin-form-wide">Interná poznámka<textarea name="note" rows={4} maxLength={4000} defaultValue={job.note} /></label>
       </div>
       <p className="admin-muted-note">Ceny, náklady, odmeny, fakturácia a finančné nastavenia môže meniť iba superadmin. Toto uloženie ich zachová bez zmeny.</p>

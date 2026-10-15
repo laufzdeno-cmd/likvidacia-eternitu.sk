@@ -717,7 +717,9 @@ function calcRow(label: string, value: string, bold = false) {
     </tr>`;
 }
 
-export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings) {
+export const priceOfferResponseLinkPlaceholder = '[SÚKROMNÝ JEDNORAZOVÝ ODKAZ SA DOPLNÍ PRI ODOSLANÍ]';
+
+export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSettings, responseUrl = priceOfferResponseLinkPlaceholder) {
   const material = priceOfferMaterialLabel(offer);
   const vatRate = resolvePriceOfferVatRate(offer, settings.vatRate);
   const pricing = calculatePriceOfferPricing(offer, vatRate);
@@ -835,6 +837,9 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
           </tr></table>
 
           <div style="margin:24px 0;text-align:center;">
+            <div style="margin:0 auto 14px;max-width:560px;color:#475569;font-size:13px;line-height:1.6;">Ponuku môžete bezpečne prijať, odložiť alebo odmietnuť cez súkromný jednorazový odkaz. Vaše vyjadrenie ešte skontroluje náš tím.</div>
+            <a href="${escapeHtml(responseUrl)}" style="display:inline-block;margin-bottom:10px;background:#DA251D;color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Vyjadriť sa k ponuke</a>
+            <div style="margin-bottom:16px;color:#687284;font-size:12px;overflow-wrap:anywhere;">${escapeHtml(responseUrl)}</div>
             <a href="mailto:astana@astana.sk?subject=${confirmSubject}&amp;body=${confirmBody}" style="display:inline-block;background:#A94722;background-image:linear-gradient(135deg,#C86432 0%,#A94722 100%);color:#ffffff;padding:16px 36px;border-radius:8px;font-size:16px;font-weight:700;text-decoration:none;">Mám záujem — potvrdzujem objednávku</a>
             <div style="margin-top:10px;color:#687284;font-size:13px;">alebo zavolajte: 0905 217 946</div>
           </div>
@@ -880,7 +885,7 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
   </table>`;
 }
 
-export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings) {
+export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSettings, responseUrl = priceOfferResponseLinkPlaceholder) {
   const material = priceOfferMaterialLabel(offer);
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   return [
@@ -895,6 +900,9 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
     '',
     ...(offer.includeTransport ? [`Doprava: ${offer.transportFrom} – ${offer.transportTo}; ${offer.transportRoundTripKm} km tam aj späť × ${euro(offer.transportPricePerKm)}/km.`] : []),
     ...(offer.includeDocumentation ? [offer.documentationPromotion ? 'Dokumentácia: akcia 0,00 €.' : `Dokumentácia a súvisiace podklady: ${euro(offer.documentationFeeWithoutVat)} bez DPH.`] : []),
+    '',
+    'Ponuku môžete bezpečne prijať, odložiť alebo odmietnuť cez tento súkromný jednorazový odkaz. Vaše vyjadrenie ešte skontroluje náš tím:',
+    responseUrl,
     '',
     'Ak vám ponuka vyhovuje, pošlite nám záväznú objednávku odpoveďou na tento email. V objednávke uveďte:',
     `1. číslo cenovej ponuky ${offer.number},`,
@@ -917,11 +925,13 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
   ].join('\n');
 }
 
-export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: PriceOfferSettings, pdf: Buffer) {
+export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: PriceOfferSettings, pdf: Buffer, responseToken: string) {
   const client = transporter();
   if (!client) return { status: 'not_sent' as const, reason: 'SMTP nie je nastavené.' };
   if (!offer.email) return { status: 'not_sent' as const, reason: 'Ponuka nemá email zákazníka.' };
   const c = settings.company;
+  if (!/^[A-Za-z0-9_-]{40,80}$/.test(responseToken)) return { status: 'not_sent' as const, reason: 'Chýba bezpečný odkaz na odpoveď zákazníka.' };
+  const responseUrl = `${siteUrl().replace(/\/$/, '')}/ponuka/${encodeURIComponent(responseToken)}/`;
 
   try {
     const requiredRecipient = resolveOutboundEmailRecipient(offer.email);
@@ -931,8 +941,8 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
       cc: resolveOutboundEmailCc(c.email),
       replyTo: c.email,
       subject: offer.emailSubject?.trim() || defaultPriceOfferEmailSubject(offer),
-      text: priceOfferEmailText(offer, settings),
-      html: priceOfferEmailHtml(offer, settings),
+      text: priceOfferEmailText(offer, settings, responseUrl),
+      html: priceOfferEmailHtml(offer, settings, responseUrl),
       attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],
     });
     const status = classifyRequiredSmtpRecipient(info, requiredRecipient);

@@ -27,9 +27,14 @@ try {
   const db = await import(`../src/server/db.ts?admin-work-items-pg=${randomUUID()}`);
   await db.listAdminWorkItems('SUPER_ADMIN');
   const actor = 'admin@example.invalid';
+  const operator = 'operator@example.invalid';
   await pglite.query(
     `INSERT INTO admin_users (id,email,name,role,active,password_hash) VALUES ($1,$2,'QA superadmin','SUPER_ADMIN',true,'')`,
     [randomUUID(), actor],
+  );
+  await pglite.query(
+    `INSERT INTO admin_users (id,email,name,role,active,password_hash) VALUES ($1,$2,'QA operator','OPERATOR',true,'')`,
+    [randomUUID(), operator],
   );
   const base = { title: 'PostgreSQL pracovná úloha', note: 'Bez externého zásahu.', priority: 'NORMAL', dueDate: '2026-10-14', ownerEmail: actor, visibility: 'TEAM' };
   const sharedRequestId = randomUUID();
@@ -40,6 +45,14 @@ try {
   assert.equal(duplicateCreates.filter((result) => result.status === 'fulfilled').length, 2);
   assert.equal(new Set(duplicateCreates.map((result) => result.status === 'fulfilled' ? result.value.id : '')).size, 1);
   const created = await db.createAdminWorkItem(base, actor, 'SUPER_ADMIN', randomUUID());
+  const teamSuggestion = await db.getAdminWorkItemSuggestion({ actorRole: 'SUPER_ADMIN', priority: 'NORMAL', visibility: 'TEAM', at: new Date('2026-10-16T08:00:00Z') });
+  assert.equal(teamSuggestion.suggestedOwnerEmail, operator);
+  const privateSuggestion = await db.getAdminWorkItemSuggestion({ actorRole: 'SUPER_ADMIN', priority: 'NORMAL', visibility: 'SUPER_ADMIN', at: new Date('2026-10-16T08:00:00Z') });
+  assert.equal(privateSuggestion.suggestedOwnerEmail, actor);
+  await assert.rejects(
+    db.createAdminWorkItem({ ...base, title: 'Neplatný vlastník súkromnej úlohy', ownerEmail: operator, visibility: 'SUPER_ADMIN' }, actor, 'SUPER_ADMIN', randomUUID()),
+    /vlastník nie je aktívny|oprávnený/i,
+  );
   const competing = await Promise.allSettled([
     db.updateAdminWorkItem(created.id, { ...base, priority: 'HIGH' }, 1, actor, 'SUPER_ADMIN'),
     db.updateAdminWorkItem(created.id, { ...base, priority: 'LOW' }, 1, actor, 'SUPER_ADMIN'),

@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { verifyCsrf, requireAdminUser } from '@/src/server/auth';
-import { createAdminWorkItem, transitionAdminWorkItem, updateAdminWorkItem } from '@/src/server/db';
+import { createAdminWorkItem, getAdminWorkItemSuggestion, recordAdminAssistantSuggestionOutcome, transitionAdminWorkItem, updateAdminWorkItem } from '@/src/server/db';
 import { isValidIsoCalendarDate } from '@/src/lib/date-only';
 
 const workItemSchema = z.object({
@@ -60,14 +60,88 @@ export async function createAdminWorkItemAction(formData: FormData) {
   if (!parsed.success || !requestId.success || (parsed.data.visibility === 'SUPER_ADMIN' && actor.role !== 'SUPER_ADMIN')) {
     notice = 'invalid';
   } else {
+    let submittedSuggestion: { sourceRevision: string; suggestionVersion: 1 } | undefined;
     try {
-      await createAdminWorkItem(parsed.data, actor.email, actor.role, requestId.data);
+      const suggestionApplied = String(formData.get('suggestionApplied') || '') === '1';
+      let assistantDecision;
+      if (suggestionApplied) {
+        const submitted = z.object({
+          sourceRevision: z.string().regex(/^[a-f0-9]{64}$/),
+          suggestionVersion: z.coerce.number().pipe(z.literal(1)),
+          suggestedOwnerEmail: z.string().email().transform((value) => value.trim().toLowerCase()),
+          suggestedDueDate: z.string().refine(isValidIsoCalendarDate),
+          suggestedPriority: z.enum(['CRITICAL', 'HIGH', 'NORMAL', 'LOW']),
+          suggestedVisibility: z.enum(['TEAM', 'SUPER_ADMIN']),
+        }).parse({
+          sourceRevision: formData.get('sourceRevision'),
+          suggestionVersion: formData.get('suggestionVersion'),
+          suggestedOwnerEmail: formData.get('suggestedOwnerEmail'),
+          suggestedDueDate: formData.get('suggestedDueDate'),
+          suggestedPriority: formData.get('suggestedPriority'),
+          suggestedVisibility: formData.get('suggestedVisibility'),
+        });
+        submittedSuggestion = { sourceRevision: submitted.sourceRevision, suggestionVersion: submitted.suggestionVersion };
+        const current = await getAdminWorkItemSuggestion({
+          actorRole: actor.role, priority: submitted.suggestedPriority, visibility: submitted.suggestedVisibility,
+        });
+        if (current.sourceRevision !== submitted.sourceRevision
+          || current.suggestionVersion !== submitted.suggestionVersion
+          || current.suggestedOwnerEmail !== submitted.suggestedOwnerEmail
+          || current.suggestedDueDate !== submitted.suggestedDueDate) {
+          throw new Error('Návrh sa medzičasom zmenil. Obnovte stránku.');
+        }
+        const ownerChanged = parsed.data.ownerEmail !== current.suggestedOwnerEmail;
+        const dueChanged = parsed.data.dueDate !== current.suggestedDueDate;
+        assistantDecision = {
+          outcome: ownerChanged || dueChanged ? 'modified' as const : 'accepted' as const,
+          ownerChanged,
+          dueChanged,
+          reasonCode: current.reasonCode,
+          suggestionVersion: current.suggestionVersion,
+          sourceRevision: current.sourceRevision,
+          actorKind: actor.role === 'SUPER_ADMIN' ? 'super_admin' as const : 'operator' as const,
+        };
+      }
+      await createAdminWorkItem(parsed.data, actor.email, actor.role, requestId.data, assistantDecision);
     } catch (error) {
       notice = noticeFor(error);
+      if (notice === 'stale' && submittedSuggestion) {
+        await recordAdminAssistantSuggestionOutcome({
+          decisionId: requestId.data,
+          actorEmail: actor.email,
+          actorRole: actor.role,
+          sourceRevision: submittedSuggestion.sourceRevision,
+          suggestionVersion: submittedSuggestion.suggestionVersion,
+          outcome: 'stale',
+        });
+      }
     }
   }
   revalidatePath('/admin/asistent');
   redirect(returnTarget(formData, notice));
+}
+
+export async function dismissAdminWorkItemSuggestionAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = await requireAdminUser();
+  const parsed = z.object({
+    decisionId: z.string().uuid(),
+    sourceRevision: z.string().regex(/^[a-f0-9]{64}$/),
+    suggestionVersion: z.coerce.number().pipe(z.literal(1)),
+  }).safeParse({
+    decisionId: formData.get('decisionId'),
+    sourceRevision: formData.get('sourceRevision'),
+    suggestionVersion: formData.get('suggestionVersion'),
+  });
+  let notice = 'suggestion-dismissed';
+  if (parsed.success) {
+    const current = await getAdminWorkItemSuggestion({ actorRole: actor.role, priority: 'NORMAL', visibility: 'TEAM' });
+    const outcome = current.sourceRevision === parsed.data.sourceRevision ? 'dismissed' as const : 'stale' as const;
+    await recordAdminAssistantSuggestionOutcome({ ...parsed.data, actorEmail: actor.email, actorRole: actor.role, outcome });
+    if (outcome === 'stale') notice = 'stale';
+  }
+  revalidatePath('/admin/asistent');
+  redirect(`/admin/asistent?notice=${notice}#nova-uloha`);
 }
 
 export async function updateAdminWorkItemAction(formData: FormData) {

@@ -69,10 +69,10 @@ test('admin financial evidence formats business units and local dates for people
   assert.doesNotMatch(audit, /Sadzba DPH v stotinách percenta/);
   assert.match(jobForm, /timeZone: 'Europe\/Bratislava'/);
   assert.doesNotMatch(jobForm, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
-  assert.match(detail, /settings, finance\] = await Promise\.all/);
+  assert.match(detail, /settings, finance, completion\] = await Promise\.all/);
   assert.doesNotMatch(detail, /const finance = await getBusinessJobFinance/);
   assert.doesNotMatch(detail, /Stav recenzie<select/);
   assert.match(detail, /Referencie a hodnotenia/);
   assert.match(detail, /const reviewRequestHref = '\/admin\/referencie'/);
-  assert.match(detail, /stav po obnovení stránky nestratil/);
+  assert.match(detail, /Nič sa neodošle ani nezverejní bez samostatného ľudského schválenia/);
 });
