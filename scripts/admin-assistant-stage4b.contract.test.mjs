@@ -39,3 +39,21 @@ test('assistant benefit metrics are aggregate, superadmin-only and non-causal', 
   assert.match(metrics, /suggestionDecisions/);
   assert.doesNotMatch(metrics, /customerName|customerEmail|phone/);
 });
+
+test('production runtime and release tooling apply the complete additive assistant schema', async () => {
+  const [db, migration] = await Promise.all([
+    read('src/server/db.ts'),
+    read('scripts/admin-assistant-production-schema.mjs'),
+  ]);
+  assert.match(db, /if \(!runtimeSchemaInitializationAllowed\(\)\) \{\s+await ensureAdminAutopilotSchema\(\)/);
+  assert.match(db, /CREATE TABLE IF NOT EXISTS business_job_completion/);
+  assert.match(db, /review_request_blocked_at/);
+  assert.match(db, /response_token_hash/);
+  assert.match(db, /astana_targeted_schema_revisions/);
+  assert.match(migration, /--apply/);
+  assert.match(migration, /--confirm-production/);
+  assert.match(migration, /DATABASE_URL_UNPOOLED \|\| process\.env\.POSTGRES_URL_NON_POOLING/);
+  assert.match(migration, /ASTANA_RELEASE_SITE_ORIGIN/);
+  assert.match(migration, /NEXT_PUBLIC_SITE_URL/);
+  assert.match(migration, /missingConstraints/);
+});

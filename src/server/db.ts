@@ -250,6 +250,8 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}
 let pool: Pool | undefined;
 let schemaReady = false;
 let schemaInitialization: Promise<void> | undefined;
+let adminAssistantSchemaReady = false;
+let adminAssistantSchemaInitialization: Promise<{ columnsAdded: number; tablesAdded: number }> | undefined;
 let localLeadSubmissionQueue: Promise<void> = Promise.resolve();
 let localDbWriteQueue: Promise<void> = Promise.resolve();
 
@@ -466,6 +468,7 @@ async function cleanupLegacyData(db: Pool | PoolClient) {
 async function ensureSchema() {
   if (schemaReady) return;
   if (!runtimeSchemaInitializationAllowed()) {
+    await ensureAdminAutopilotSchema();
     schemaReady = true;
     return;
   }
@@ -482,6 +485,25 @@ const adminAutopilotPriceOfferColumns = [
   'outcome_reason',
   'next_follow_up_at',
   'outcome_updated_at',
+  'response_token_hash',
+  'response_token_expires_at',
+  'customer_response',
+  'customer_response_reason_code',
+  'customer_requested_follow_up_at',
+  'customer_responded_at',
+  'customer_response_payload_hash',
+  'customer_response_revision',
+  'customer_response_applied_at',
+  'customer_response_applied_by',
+  'customer_response_dismissed_at',
+  'customer_response_dismissed_by',
+  'customer_response_dismiss_reason',
+] as const;
+
+const adminAssistantBusinessJobColumns = [
+  'review_request_blocked_at',
+  'review_request_blocked_by',
+  'review_request_blocked_reason',
 ] as const;
 
 const adminAutopilotPriceOfferColumnDefinitions: Record<
@@ -493,51 +515,140 @@ const adminAutopilotPriceOfferColumnDefinitions: Record<
   outcome_reason: "outcome_reason text NOT NULL DEFAULT ''",
   next_follow_up_at: 'next_follow_up_at date',
   outcome_updated_at: 'outcome_updated_at timestamptz',
+  response_token_hash: 'response_token_hash char(64)',
+  response_token_expires_at: 'response_token_expires_at timestamptz',
+  customer_response: 'customer_response text',
+  customer_response_reason_code: "customer_response_reason_code text NOT NULL DEFAULT ''",
+  customer_requested_follow_up_at: 'customer_requested_follow_up_at date',
+  customer_responded_at: 'customer_responded_at timestamptz',
+  customer_response_payload_hash: 'customer_response_payload_hash char(64)',
+  customer_response_revision: 'customer_response_revision integer NOT NULL DEFAULT 0',
+  customer_response_applied_at: 'customer_response_applied_at timestamptz',
+  customer_response_applied_by: "customer_response_applied_by text NOT NULL DEFAULT ''",
+  customer_response_dismissed_at: 'customer_response_dismissed_at timestamptz',
+  customer_response_dismissed_by: "customer_response_dismissed_by text NOT NULL DEFAULT ''",
+  customer_response_dismiss_reason: "customer_response_dismiss_reason text NOT NULL DEFAULT ''",
 };
+
+const adminAssistantBusinessJobColumnDefinitions: Record<
+  (typeof adminAssistantBusinessJobColumns)[number],
+  string
+> = {
+  review_request_blocked_at: 'review_request_blocked_at timestamptz',
+  review_request_blocked_by: "review_request_blocked_by text NOT NULL DEFAULT ''",
+  review_request_blocked_reason: "review_request_blocked_reason text NOT NULL DEFAULT ''",
+};
+
+export const adminAssistantSchemaRevision = 'admin-assistant-v2-2026-10-15';
 
 /**
  * Narrow, forward-compatible migration for the supervised assistant. Production
- * runtime never runs the full schema initializer; this helper only adds the
- * assistant's nullable/defaulted columns under a transaction advisory lock.
+ * runtime never runs the full schema initializer; this helper adds only the
+ * assistant's additive tables, columns, checks and indexes under an advisory lock.
  */
 export async function ensureAdminAutopilotSchema() {
+  if (adminAssistantSchemaReady) return { columnsAdded: 0, tablesAdded: 0 };
   const db = getPool();
-  if (!db) return { columnsAdded: 0, tablesAdded: 0 };
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('astana:admin-autopilot-schema:v1'))");
-    const result = await migrateAdminAutopilotSchema(client);
-    await client.query('COMMIT');
-    return result;
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
+  if (!db) {
+    adminAssistantSchemaReady = true;
+    return { columnsAdded: 0, tablesAdded: 0 };
   }
+  adminAssistantSchemaInitialization ??= (async () => {
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('astana:admin-assistant-schema:v2'))");
+      const result = await migrateAdminAssistantSchemaOnce(client);
+      await client.query('COMMIT');
+      adminAssistantSchemaReady = true;
+      return result;
+    } catch (error) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      adminAssistantSchemaInitialization = undefined;
+      throw error;
+    } finally {
+      client.release();
+    }
+  })();
+  return adminAssistantSchemaInitialization;
 }
 
 export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'query'>) {
-  const tableState = await client.query<{ runs_exists: boolean; items_exists: boolean }>(`
+  const tableState = await client.query<{
+    runs_exists: boolean;
+    items_exists: boolean;
+    completion_exists: boolean;
+  }>(`
     SELECT
       to_regclass('public.admin_autopilot_runs') IS NOT NULL AS runs_exists,
-      to_regclass('public.admin_autopilot_run_items') IS NOT NULL AS items_exists
+      to_regclass('public.admin_autopilot_run_items') IS NOT NULL AS items_exists,
+      to_regclass('public.business_job_completion') IS NOT NULL AS completion_exists
   `);
-  const tablesAdded = Number(!tableState.rows[0]?.runs_exists) + Number(!tableState.rows[0]?.items_exists);
-  const existing = await client.query<{ column_name: string }>(`
-    SELECT column_name
+  const tablesAdded = Number(!tableState.rows[0]?.runs_exists)
+    + Number(!tableState.rows[0]?.items_exists)
+    + Number(!tableState.rows[0]?.completion_exists);
+  const existing = await client.query<{ table_name: string; column_name: string }>(`
+    SELECT table_name, column_name
     FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'price_offers'
-      AND column_name = ANY($1::text[])
-  `, [adminAutopilotPriceOfferColumns]);
-  const existingColumns = new Set(existing.rows.map((row) => row.column_name));
-  const missingColumns = adminAutopilotPriceOfferColumns.filter((column) => !existingColumns.has(column));
-  for (const column of missingColumns) {
+    WHERE table_schema = 'public'
+      AND ((table_name = 'price_offers' AND column_name = ANY($1::text[]))
+        OR (table_name = 'business_jobs' AND column_name = ANY($2::text[])))
+  `, [adminAutopilotPriceOfferColumns, adminAssistantBusinessJobColumns]);
+  const existingColumns = new Set(existing.rows.map((row) => `${row.table_name}.${row.column_name}`));
+  const missingPriceOfferColumns = adminAutopilotPriceOfferColumns
+    .filter((column) => !existingColumns.has(`price_offers.${column}`));
+  const missingBusinessJobColumns = adminAssistantBusinessJobColumns
+    .filter((column) => !existingColumns.has(`business_jobs.${column}`));
+  for (const column of missingPriceOfferColumns) {
     await client.query(
       `ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS ${adminAutopilotPriceOfferColumnDefinitions[column]}`,
     );
   }
+  for (const column of missingBusinessJobColumns) {
+    await client.query(
+      `ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ${adminAssistantBusinessJobColumnDefinitions[column]}`,
+    );
+  }
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS business_job_completion (
+      job_id uuid PRIMARY KEY REFERENCES business_jobs(id) ON DELETE CASCADE,
+      revision integer NOT NULL DEFAULT 1,
+      documents_decision text NOT NULL DEFAULT 'pending',
+      documents_reason text NOT NULL DEFAULT '',
+      costs_decision text NOT NULL DEFAULT 'pending',
+      costs_reason text NOT NULL DEFAULT '',
+      photos_decision text NOT NULL DEFAULT 'pending',
+      photos_reason text NOT NULL DEFAULT '',
+      review_decision text NOT NULL DEFAULT 'pending',
+      review_block_reason text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      created_by text NOT NULL DEFAULT '',
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      updated_by text NOT NULL DEFAULT '',
+      finalized_at timestamptz,
+      finalized_by text NOT NULL DEFAULT '',
+      CONSTRAINT business_job_completion_documents_check CHECK (documents_decision IN ('pending','confirmed','not_applicable')),
+      CONSTRAINT business_job_completion_costs_check CHECK (costs_decision IN ('pending','confirmed_recorded','confirmed_zero')),
+      CONSTRAINT business_job_completion_photos_check CHECK (photos_decision IN ('pending','waiting','not_available','ready_private')),
+      CONSTRAINT business_job_completion_review_check CHECK (review_decision IN ('pending','prepare','blocked'))
+    )
+  `);
+  await client.query("ALTER TABLE business_job_completion ADD COLUMN IF NOT EXISTS costs_reason text NOT NULL DEFAULT ''");
+  await client.query("ALTER TABLE business_job_completion ADD COLUMN IF NOT EXISTS photos_reason text NOT NULL DEFAULT ''");
+  await client.query('ALTER TABLE business_job_completion DROP CONSTRAINT IF EXISTS business_job_completion_documents_reason_check');
+  await client.query(`ALTER TABLE business_job_completion ADD CONSTRAINT business_job_completion_documents_reason_check
+    CHECK (documents_decision <> 'not_applicable' OR length(btrim(documents_reason)) >= 3) NOT VALID`);
+  await client.query('ALTER TABLE business_job_completion DROP CONSTRAINT IF EXISTS business_job_completion_zero_costs_reason_check');
+  await client.query(`ALTER TABLE business_job_completion ADD CONSTRAINT business_job_completion_zero_costs_reason_check
+    CHECK (costs_decision <> 'confirmed_zero' OR length(btrim(costs_reason)) >= 3)`);
+  await client.query('ALTER TABLE business_job_completion DROP CONSTRAINT IF EXISTS business_job_completion_no_photos_reason_check');
+  await client.query(`ALTER TABLE business_job_completion ADD CONSTRAINT business_job_completion_no_photos_reason_check
+    CHECK (photos_decision <> 'not_available' OR length(btrim(photos_reason)) >= 3)`);
+  await client.query('ALTER TABLE price_offers DROP CONSTRAINT IF EXISTS price_offers_customer_response_check');
+  await client.query(`ALTER TABLE price_offers ADD CONSTRAINT price_offers_customer_response_check
+    CHECK (customer_response IS NULL OR customer_response IN ('ACCEPTED','DEFERRED','DECLINED'))`);
+  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS price_offers_response_token_hash_unique_idx
+    ON price_offers (response_token_hash) WHERE response_token_hash IS NOT NULL`);
   await client.query(`
     CREATE TABLE IF NOT EXISTS admin_autopilot_runs (
       id uuid PRIMARY KEY,
@@ -568,7 +679,30 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
     )
   `);
   await client.query('CREATE INDEX IF NOT EXISTS admin_autopilot_run_items_run_idx ON admin_autopilot_run_items (run_id, created_at, id)');
-  return { columnsAdded: missingColumns.length, tablesAdded };
+  return {
+    columnsAdded: missingPriceOfferColumns.length + missingBusinessJobColumns.length,
+    tablesAdded,
+  };
+}
+
+export async function migrateAdminAssistantSchemaOnce(client: Pick<PoolClient, 'query'>) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS astana_targeted_schema_revisions (
+      revision text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  const applied = await client.query(
+    'SELECT 1 FROM astana_targeted_schema_revisions WHERE revision=$1',
+    [adminAssistantSchemaRevision],
+  );
+  if (applied.rowCount) return { columnsAdded: 0, tablesAdded: 0 };
+  const result = await migrateAdminAutopilotSchema(client);
+  await client.query(
+    'INSERT INTO astana_targeted_schema_revisions (revision) VALUES ($1)',
+    [adminAssistantSchemaRevision],
+  );
+  return result;
 }
 
 export async function startAdminAutopilotRun(input: {
