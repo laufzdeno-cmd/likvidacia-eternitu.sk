@@ -594,7 +594,7 @@ const adminAssistantReviewRequestColumnDefinitions: Record<
   revision: 'revision integer NOT NULL DEFAULT 1',
 };
 
-export const adminAssistantSchemaRevision = 'admin-assistant-v2.1-2026-10-15';
+export const adminAssistantSchemaRevision = 'admin-assistant-v2.2-2026-10-15';
 
 /**
  * Narrow, forward-compatible migration for the supervised assistant. Production
@@ -633,15 +633,18 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
     runs_exists: boolean;
     items_exists: boolean;
     completion_exists: boolean;
+    work_items_exists: boolean;
   }>(`
     SELECT
       to_regclass('public.admin_autopilot_runs') IS NOT NULL AS runs_exists,
       to_regclass('public.admin_autopilot_run_items') IS NOT NULL AS items_exists,
-      to_regclass('public.business_job_completion') IS NOT NULL AS completion_exists
+      to_regclass('public.business_job_completion') IS NOT NULL AS completion_exists,
+      to_regclass('public.admin_work_items') IS NOT NULL AS work_items_exists
   `);
   const tablesAdded = Number(!tableState.rows[0]?.runs_exists)
     + Number(!tableState.rows[0]?.items_exists)
-    + Number(!tableState.rows[0]?.completion_exists);
+    + Number(!tableState.rows[0]?.completion_exists)
+    + Number(!tableState.rows[0]?.work_items_exists);
   const existing = await client.query<{ table_name: string; column_name: string }>(`
     SELECT table_name, column_name
     FROM information_schema.columns
@@ -714,6 +717,37 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
     ON price_offers (response_token_hash) WHERE response_token_hash IS NOT NULL`);
   await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS review_requests_job_unique_idx
     ON review_requests (job_id) WHERE job_id IS NOT NULL`);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS admin_work_items (
+      id uuid PRIMARY KEY,
+      title text NOT NULL,
+      note text NOT NULL DEFAULT '',
+      priority text NOT NULL DEFAULT 'NORMAL',
+      due_date date,
+      owner_email text NOT NULL DEFAULT '',
+      visibility text NOT NULL DEFAULT 'TEAM',
+      status text NOT NULL DEFAULT 'OPEN',
+      revision integer NOT NULL DEFAULT 1,
+      cancel_reason text NOT NULL DEFAULT '',
+      created_by text NOT NULL,
+      completed_by text NOT NULL DEFAULT '',
+      completed_at timestamptz,
+      cancelled_by text NOT NULL DEFAULT '',
+      cancelled_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CONSTRAINT admin_work_items_priority_check CHECK (priority IN ('CRITICAL','HIGH','NORMAL','LOW')),
+      CONSTRAINT admin_work_items_status_check CHECK (status IN ('OPEN','DONE','CANCELLED')),
+      CONSTRAINT admin_work_items_visibility_check CHECK (visibility IN ('TEAM','SUPER_ADMIN')),
+      CONSTRAINT admin_work_items_title_length_check CHECK (char_length(btrim(title)) BETWEEN 3 AND 120),
+      CONSTRAINT admin_work_items_note_length_check CHECK (char_length(note) <= 1200),
+      CONSTRAINT admin_work_items_cancel_reason_length_check CHECK (char_length(cancel_reason) <= 500)
+    )
+  `);
+  await client.query(`CREATE INDEX IF NOT EXISTS admin_work_items_status_due_idx
+    ON admin_work_items (status, due_date, priority, updated_at DESC)`);
+  await client.query(`CREATE INDEX IF NOT EXISTS admin_work_items_owner_status_idx
+    ON admin_work_items (lower(owner_email), status, due_date)`);
   await client.query(`
     CREATE TABLE IF NOT EXISTS admin_autopilot_runs (
       id uuid PRIMARY KEY,

@@ -9,6 +9,7 @@ import { databasePoolConfig, normalizeDatabaseUrl } from '../src/server/database
 const expectedProjectId = 'prj_33bexlmoSP20DpesVJ4gWVHmZtkH';
 const expectedSiteOrigin = 'https://likvidacia-eternitu.sk';
 const expectedTables = [
+  'admin_work_items',
   'admin_autopilot_run_items',
   'admin_autopilot_runs',
   'astana_targeted_schema_revisions',
@@ -67,6 +68,12 @@ const expectedColumns = {
   ],
 };
 const expectedConstraints = [
+  'admin_work_items_cancel_reason_length_check',
+  'admin_work_items_note_length_check',
+  'admin_work_items_priority_check',
+  'admin_work_items_status_check',
+  'admin_work_items_title_length_check',
+  'admin_work_items_visibility_check',
   'business_job_completion_costs_check',
   'business_job_completion_documents_check',
   'business_job_completion_documents_reason_check',
@@ -77,6 +84,8 @@ const expectedConstraints = [
   'price_offers_customer_response_check',
 ];
 const expectedIndexes = [
+  'admin_work_items_owner_status_idx',
+  'admin_work_items_status_due_idx',
   'admin_autopilot_run_items_run_idx',
   'admin_autopilot_runs_started_idx',
   'admin_autopilot_runs_status_idx',

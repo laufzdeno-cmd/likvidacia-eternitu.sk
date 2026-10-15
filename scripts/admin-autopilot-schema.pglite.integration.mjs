@@ -21,7 +21,7 @@ try {
 
   const first = await migrateAdminAssistantSchemaOnce(database);
   const second = await migrateAdminAssistantSchemaOnce(database);
-  assert.deepEqual(first, { columnsAdded: 44, tablesAdded: 3 });
+  assert.deepEqual(first, { columnsAdded: 44, tablesAdded: 4 });
   assert.deepEqual(second, { columnsAdded: 0, tablesAdded: 0 });
 
   const columns = await database.query(`
@@ -48,12 +48,12 @@ try {
   const tables = await database.query(`
     SELECT table_name FROM information_schema.tables
     WHERE table_schema='public' AND table_name IN (
-      'admin_autopilot_runs','admin_autopilot_run_items','business_job_completion','astana_targeted_schema_revisions'
+      'admin_autopilot_runs','admin_autopilot_run_items','admin_work_items','business_job_completion','astana_targeted_schema_revisions'
     )
     ORDER BY table_name
   `);
   assert.deepEqual(tables.rows.map((row) => row.table_name), [
-    'admin_autopilot_run_items', 'admin_autopilot_runs', 'astana_targeted_schema_revisions', 'business_job_completion',
+    'admin_autopilot_run_items', 'admin_autopilot_runs', 'admin_work_items', 'astana_targeted_schema_revisions', 'business_job_completion',
   ]);
   const jobColumns = await database.query(`
     SELECT column_name FROM information_schema.columns
@@ -79,7 +79,14 @@ try {
   `);
   assert.equal(reviewIndex.rows.length, 1);
   const revision = await database.query('SELECT revision FROM astana_targeted_schema_revisions');
-  assert.deepEqual(revision.rows.map((row) => row.revision), ['admin-assistant-v2.1-2026-10-15']);
+  assert.deepEqual(revision.rows.map((row) => row.revision), ['admin-assistant-v2.2-2026-10-15']);
+  const workItemContract = await database.query(`
+    SELECT conname FROM pg_constraint
+    WHERE conname IN ('admin_work_items_priority_check','admin_work_items_status_check',
+      'admin_work_items_visibility_check','admin_work_items_title_length_check',
+      'admin_work_items_note_length_check','admin_work_items_cancel_reason_length_check')
+  `);
+  assert.equal(workItemContract.rows.length, 6);
   await database.query(`
     INSERT INTO admin_autopilot_runs (id, trigger, actor_kind, status, counts)
     VALUES ('00000000-0000-4000-a000-000000000001','test','system','running','{}'::jsonb)
