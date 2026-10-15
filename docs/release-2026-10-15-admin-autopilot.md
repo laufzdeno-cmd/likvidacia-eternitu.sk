@@ -1,6 +1,6 @@
 # ASTANA firemný asistent — release 2026-10-15
 
-Tento dokument je release značka k funkčnému commitu `ba83706b4288d6350c864021e13fcb8ecca1884f`. Obsahuje pôvodný firemný asistent z commitu `adf2237cf14aafe301486e890c15fe9b422d5d18` aj produkčne zistenú opravu bezpečne autorizovaných Vercel Cron Jobs.
+Tento dokument je release značka k funkčnému commitu `c56826597833943b5a6ea60a1c71ca11d5b9fa53`. Obsahuje pôvodný firemný asistent z commitu `adf2237cf14aafe301486e890c15fe9b422d5d18` aj produkčne zistenú opravu bezpečne autorizovaných Vercel Cron Jobs.
 
 ## Rozsah
 
@@ -12,7 +12,7 @@ Tento dokument je release značka k funkčnému commitu `ba83706b4288d6350c86402
 - text, presnosť lokality, práva aj publikovanie realizácie alebo referencie potvrdzuje človek,
 - centrum asistenta a jeho ručné spustenie sú dostupné iba superadminovi,
 - chránená plánovaná úloha pripravuje návrhy každých desať minút, nič sama nepublikuje ani neposiela prvý obchodný email.
-- interná `vercel.app` adresa prijme iba produkčný GET cron s presným `vercel-cron/1.0` identifikátorom a platným `CRON_SECRET`; ostatné preview, staged, nepodpísané a prehliadačové volania zostávajú zablokované.
+- interná `vercel.app` adresa prijme iba produkčný GET cron s platným `CRON_SECRET`; rovnaký podpis znovu overí cieľová funkcia a ostatné preview, nepodpísané a prehliadačové volania zostávajú zablokované.
 
 ## Overenie
 
