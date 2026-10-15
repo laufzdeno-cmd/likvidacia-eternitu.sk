@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { listPhotoIntakeJobOptions, listPhotoIntakeRecords, listRealizationCaseDrafts } from '@/src/server/db';
-import { saveCaseDraftAction, setCaseDraftPhotoAction, transitionCaseDraftAction, updateCaseDraftPhotoMetadataAction } from './actions';
+import { approveAndPublishCaseDraftAction, saveCaseDraftAction, setCaseDraftPhotoAction, transitionCaseDraftAction, updateCaseDraftPhotoMetadataAction } from './actions';
 
 export default async function RealizationCaseDraftsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const admin = await requireSuperAdmin();
@@ -57,14 +57,25 @@ export default async function RealizationCaseDraftsPage({ searchParams }: { sear
       </form> : null}
       {selected.lifecycle === 'reviewed' ? <>
         <p>Skontrolujte, že text aj fotografie zodpovedajú tejto zákazke a neodhaľujú zákazníka, presnú adresu ani citlivé údaje.</p>
-        <form action={transitionCaseDraftAction} className="admin-case-draft-form">
-          <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="draftId" value={selected.id} /><input type="hidden" name="nextLifecycle" value="approved" />
+        <form action={approveAndPublishCaseDraftAction} className="admin-case-draft-form">
+          <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="draftId" value={selected.id} />
           <label className="admin-form-wide">Interný podklad a jeho overiteľný zdroj<input name="publicationEvidence" required minLength={4} maxLength={500} placeholder="Napr. súhlas zákazníka v CRM, dátum a odkaz na interný záznam" /></label>
           <label className="admin-form-checkbox"><input type="checkbox" name="rightsConfirmed" required /> <span>Práva na zverejnenie textu a fotografií sú doložené.</span></label>
           <label className="admin-form-checkbox"><input type="checkbox" name="locationConfirmed" required /> <span>Lokalita je bezpečne zovšeobecnená alebo ju z verejného prípadu úplne vynechávame.</span></label>
           <label className="admin-form-wide admin-form-checkbox"><input type="checkbox" name="contentConfirmed" required /> <span>Obsah je pravdivý, neobsahuje osobné údaje a fotografie patria k tejto dokončenej zákazke.</span></label>
-          <div className="admin-form-wide"><button type="submit">Schváliť na zverejnenie</button></div>
+          <div className="admin-form-wide"><button type="submit">Schváliť a zverejniť prípad</button></div>
         </form>
+        <details className="admin-form-wide">
+          <summary>Schváliť bez okamžitého zverejnenia</summary>
+          <form action={transitionCaseDraftAction} className="admin-case-draft-form">
+            <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="draftId" value={selected.id} /><input type="hidden" name="nextLifecycle" value="approved" />
+            <label className="admin-form-wide">Interný podklad a jeho overiteľný zdroj<input name="publicationEvidence" required minLength={4} maxLength={500} placeholder="Napr. súhlas zákazníka v CRM, dátum a odkaz na interný záznam" /></label>
+            <label className="admin-form-checkbox"><input type="checkbox" name="rightsConfirmed" required /> <span>Práva na zverejnenie textu a fotografií sú doložené.</span></label>
+            <label className="admin-form-checkbox"><input type="checkbox" name="locationConfirmed" required /> <span>Lokalita je bezpečne zovšeobecnená.</span></label>
+            <label className="admin-form-wide admin-form-checkbox"><input type="checkbox" name="contentConfirmed" required /> <span>Obsah je pravdivý a bez osobných údajov.</span></label>
+            <div className="admin-form-wide"><button type="submit">Schváliť na zverejnenie</button></div>
+          </form>
+        </details>
         <form action={transitionCaseDraftAction}>
           <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="draftId" value={selected.id} /><input type="hidden" name="nextLifecycle" value="draft" />
           <button type="submit">Vrátiť do konceptu na úpravu</button>

@@ -168,13 +168,32 @@ test('automation approvals are superadmin-only, authoritative and privacy-minima
   const end = intelligence.indexOf('export type AdminSearchResult', start);
   assert.ok(start >= 0 && end > start, 'superadmin approval queue export must exist');
   const source = intelligence.slice(start, end);
-  for (const authoritativeSource of ['listReviewRequests()', 'listRealizationCaseDrafts()', 'listPhotoIntakeRecords(', 'listRealizations()']) {
+  for (const authoritativeSource of ['listPriceOffers()', 'listReviewRequests()', 'listRealizationCaseDrafts()', 'listPhotoIntakeRecords(', 'listRealizations()']) {
     assert.match(source, new RegExp(authoritativeSource.replace(/[()]/g, '\\$&')));
   }
   assert.match(source, /role !== 'SUPER_ADMIN'/);
   assert.match(source, /Promise\.allSettled/);
   assert.match(source, /unavailableSources/);
   assert.doesNotMatch(source, /customerName|customerEmail|customerPhone|\.email\b|\.phone\b/);
+});
+
+test('firemný autopilot je idempotentný, chránený a nikdy sám neposiela prvý obchodný email', async () => {
+  const [engine, action, route] = await Promise.all([
+    read('src/server/admin-autopilot.ts'),
+    read('app/admin/(protected)/automatizacie/actions.ts'),
+    read('app/api/cron/admin-autopilot/route.ts'),
+  ]);
+  assert.match(engine, /getBusinessJobIdsWithPriceOffers/);
+  assert.match(engine, /deterministicUuid\('assistant-offer'/);
+  assert.match(engine, /status: 'pending_approval'/);
+  assert.doesNotMatch(engine, /sendPriceOffer|sendReviewRequest|sendEmail|sendMail|publishRequested|nextLifecycle:\s*'published'/);
+  assert.match(action, /verifyCsrf\(formData\)/);
+  assert.match(action, /requireSuperAdmin\(\)/);
+  assert.match(route, /process\.env\.CRON_SECRET/);
+  assert.match(route, /timingSafeEqual/);
+  assert.match(route, /error: 'assistant_failed'/);
+  assert.match(route, /const \{ blockedOfferJobIds, \.\.\.counts \} = result/);
+  assert.doesNotMatch(route, /error\.message|NextResponse\.json\(\{ ok: true, \.\.\.result/);
 });
 
 test('final admin cascade reserves red for danger and uses blue or teal for ordinary interactions', async () => {

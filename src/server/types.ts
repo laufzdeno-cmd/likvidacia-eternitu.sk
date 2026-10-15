@@ -335,7 +335,7 @@ export type BusinessJobStatus =
   | 'DOKONCENA'
   | 'ZRUSENA';
 export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
-export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSIELA' | 'NEISTY_STAV' | 'ODOSLANA' | 'PRIJATA' | 'ZRUSENA';
+export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSIELA' | 'NEISTY_STAV' | 'ODOSLANA' | 'ODLOZENA' | 'PRIJATA' | 'NEUSPESNA' | 'ZRUSENA';
 export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR';
 
 export type AdminUser = {
@@ -746,6 +746,8 @@ export type PriceOfferInput = {
   validUntil: string;
   offerNote?: string;
   internalNote?: string;
+  emailSubject?: string;
+  emailBody?: string;
   sourceInquiry?: string;
 };
 
@@ -762,6 +764,9 @@ export type PriceOffer = PriceOfferInput & {
   sendStartedAt?: string;
   sendAttemptId?: string;
   acceptedAt?: string;
+  outcomeReason?: string;
+  nextFollowUpAt?: string;
+  outcomeUpdatedAt?: string;
   materialPriceWithoutVat: number;
   totalWithoutVat: number;
   totalWithVat: number;

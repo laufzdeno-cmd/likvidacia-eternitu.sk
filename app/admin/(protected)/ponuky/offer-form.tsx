@@ -6,6 +6,8 @@ import type { BusinessJob, PriceOffer, PriceOfferMaterialType, PriceOfferSetting
 import { calculatePriceOfferPricing } from '@/src/lib/price-offer-pricing';
 import { MAX_PRICE_OFFER_NOTE_LENGTH } from '@/src/lib/price-offer-note';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
+import { defaultPriceOfferEmailBody, defaultPriceOfferEmailSubject } from '@/src/lib/price-offer-email-copy';
+import { priceOfferMaterialFromText } from '@/src/lib/price-offer-material';
 import { calculateTransportDistanceAction } from './actions';
 import { euro, priceOfferMaterialLabels } from './constants';
 
@@ -32,7 +34,7 @@ function displayDate(value: string) {
 export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }: Props) {
   const { pending } = useFormStatus();
   const selectedJob = jobs.find((job) => job.id === (offer?.jobId || selectedJobId));
-  const initialMaterial = offer?.materialType || 'VLNITY_ETERNIT';
+  const initialMaterial = offer?.materialType || priceOfferMaterialFromText(selectedJob?.materialType || '');
   const initialValidUntil = offer?.validUntil || defaultValidUntil();
   const [materialType, setMaterialType] = useState<PriceOfferMaterialType>(initialMaterial);
   const [area, setArea] = useState(offer?.areaM2 ?? selectedJob?.m2 ?? 0);
@@ -52,6 +54,12 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
   const vatRate = offer?.vatRate ?? settings.vatRate;
   const areaIsUnknown = area <= 0;
   const formattedValidUntil = displayDate(validUntil);
+  const emailCopySource = offer || {
+    municipality: selectedJob?.location || '', objectAddress: selectedJob?.location || '',
+    objectType: selectedJob?.objectType || 'Rodinný dom', realizationTerm: selectedJob?.term || '', materialType: initialMaterial,
+  };
+  const initialEmailSubject = offer?.emailSubject || defaultPriceOfferEmailSubject(emailCopySource);
+  const initialEmailBody = offer?.emailBody || defaultPriceOfferEmailBody(emailCopySource);
 
   const totals = useMemo(() => {
     const pricing = calculatePriceOfferPricing({ areaM2: area, pricePerM2WithoutVat: price,
@@ -152,6 +160,15 @@ export default function PriceOfferForm({ jobs, settings, offer, selectedJobId }:
               <input type="hidden" name="transportFrom" value={transportFrom} /><input type="hidden" name="transportTo" value={transportTo} />
               <input type="hidden" name="transportRoundTripKm" value={transportRoundTripKm} /><input type="hidden" name="transportPricePerKm" value={transportPricePerKm} />
             </>}
+          </div>
+        </section>
+
+        <section className="admin-card">
+          <h2>Sprievodný e-mail</h2>
+          <p className="admin-muted-note">Asistent pripravil profesionálny text. Pred odoslaním ho môžete jemne upraviť; PDF a obchodné údaje zostanú zhodné s ponukou.</p>
+          <div className="admin-quote-form">
+            <label className="admin-form-wide">Predmet e-mailu<input name="emailSubject" minLength={5} maxLength={180} defaultValue={initialEmailSubject} required /></label>
+            <label className="admin-form-wide">Sprievodný list<textarea name="emailBody" minLength={20} maxLength={4000} rows={9} defaultValue={initialEmailBody} required /><small>Zákazník dostane tento text v profesionálnej e-mailovej šablóne spolu s PDF cenovou ponukou.</small></label>
           </div>
         </section>
 

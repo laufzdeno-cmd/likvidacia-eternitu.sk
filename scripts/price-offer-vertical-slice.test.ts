@@ -118,7 +118,7 @@ test('zákaznícky email používa dynamický opis a nezahŕňa nekúpenú dokum
   assert.match(html, /astana-logo-dark\.png/);
   assert.match(html, /ASTANA, s\.r\.o\./);
   assert.match(html, /na objekte typu Hospodárska budova/);
-  assert.match(text, /materiál Azbestové rúry na objekte typu Hospodárska budova/);
+  assert.match(text, /materiálu? Azbestové rúry na objekte typu Hospodárska budova/);
   assert.match(html, /Dobrý deň,<\/p>/);
   assert.match(html, /bgcolor="#A94722"/);
   assert.match(html, /background:#A94722;background-image:linear-gradient/);
@@ -144,7 +144,7 @@ test('DB schema má aditívne defaulty pre historické ponuky a zamyká súbežn
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_price_per_km numeric\(12,2\) NOT NULL DEFAULT 0\.70/);
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS documentation_promotion boolean NOT NULL DEFAULT false/);
   assert.match(db, /ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS send_started_at timestamptz/);
-  assert.match(db, /WHERE price_offers\.status NOT IN \('PRIJATA', 'ODOSLANA', 'ODOSIELA', 'NEISTY_STAV'\)\s+RETURNING id/);
+  assert.match(db, /WHERE price_offers\.status NOT IN \('PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA', 'ODOSIELA', 'NEISTY_STAV'\)\s+RETURNING id/);
   assert.match(db, /status = 'ODOSIELA', send_started_at = \$2[\s\S]*?status = 'PRIPRAVENA' RETURNING \*/);
   assert.match(db, /status IN \('NEISTY_STAV', 'ODOSIELA'\)[\s\S]*?interval '15 minutes'/);
   assert.match(db, /SELECT pg_advisory_xact_lock\(hashtext\(\$1\)\)[\s\S]*?price-offer-number:/);
@@ -178,10 +178,10 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(mail, /classifyRequiredSmtpRecipient\(info, requiredRecipient\)/);
   assert.match(mail, /Interná kópia nemení stav ponuky na odoslanú/);
   assert.match(list, /offer\.status === 'ODOSLANA'.*updatePriceOfferStatusAction/);
-  assert.match(actions, /if \(!updated\) throw new Error\('Ako prijatú možno označiť iba odoslanú/);
+  assert.match(actions, /if \(!updated && statusValue === 'PRIJATA'\) throw new Error\('Ako prijatú možno označiť iba odoslanú/);
   const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
-  assert.match(db, /item\.status === 'ODOSLANA'/);
-  assert.match(db, /deleted_at IS NULL AND status = 'ODOSLANA' RETURNING \*/);
+  assert.match(db, /PRIJATA: \['ODOSLANA', 'ODLOZENA'\]/);
+  assert.match(db, /SELECT \* FROM price_offers WHERE id=\$1 AND deleted_at IS NULL FOR UPDATE/);
   assert.match(db, /send_attempt_id = \$5/);
   assert.match(db, /offer\.sendAttemptId !== attemptId/);
   assert.match(db, /withLocalLeadSubmissionLock[\s\S]*?price_offer_status_changed[\s\S]*?writeLocalDb\(local\)/);

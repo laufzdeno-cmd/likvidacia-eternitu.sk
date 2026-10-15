@@ -68,7 +68,8 @@ test('case drafts require audited super-admin review before any public access', 
   assert.match(page, /Doplnili sa chýbajúce údaje z fotografie\. Fotografia už bola pripojená/);
   assert.match(db, /už má rozpracovaný alebo zverejnený prípad/);
   assert.match(photoPage, /Pripraviť alebo otvoriť koncept realizácie/);
-  assert.match(photoPage, /Text sa dopĺňa ručne; zverejnenie vyžaduje samostatné schválenie/);
+  assert.match(photoPage, /predvyplní iba lokalitu a typ objektu/);
+  assert.match(photoPage, /Text, presnosť lokality aj publikovanie musí potvrdiť človek/);
   assert.match(visualStyles, /\.photo-admin-grid article \.photo-case-draft-action \{ display: grid; gap: 6px; width: 100%/);
   assert.match(visualStyles, /\.photo-case-draft-action button:focus-visible \{ outline: 3px solid/);
   assert.match(page, /requireSuperAdmin\(\)/);

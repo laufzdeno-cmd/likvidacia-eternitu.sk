@@ -98,6 +98,7 @@ let listPublishedRealizations;
 let listRealizationCaseDrafts;
 let saveRealizationCaseDraft;
 let createCaseDraftFromApprovedPhoto;
+let getBusinessJobIdsWithPriceOffers;
 let setRealizationCaseDraftMedia;
 let updateRealizationCaseDraftMediaMetadata;
 let transitionRealizationCaseDraft;
@@ -195,6 +196,7 @@ async function startIsolatedDatabase() {
 
   ({ createLeadSubmission, recordAcceptedLeadAnalytics, recoverAcceptedLeadAnalytics, getLeadAttributionReport, getLeadEmailOutboxAttention, reserveLeadUploadDraft, markLeadUploadDraftUploaded, claimExpiredLeadUploadDrafts, completeLeadUploadDraftDeletion, trackUnreservedLegacyLeadPhoto, consumeApiRateLimit, purgeExpiredApiRateLimitBuckets, claimDuePhotoIntakeDeletions, listRevokedPendingPhotoRecords, listPhotoIntakeRecords, markPhotoIntakeUploadTokenIssued, reservePhotoIntakeSanitizationAttempt, abandonPhotoIntakeSanitizationAttempt, claimPhotoIntakeSanitizationCleanups, completePhotoIntakeSanitizationCleanup, failPhotoIntakeSanitizationCleanup, markPhotoIntakeDeletionFailed, completePhotoIntakeDeletion, updatePhotoIntakeMetadata, withdrawApprovedPhotoIntakeRecord, completePhotoIntakeRecord, reviewPhotoIntakeRecord, createTestimonial, updateTestimonial, updateTestimonialStatus, listApprovedTestimonials, createCareerApplication, createRooferRegistration, getRooferRegistrationBySubmissionId, attachCareerApplicationCv, listApplicationNotificationStatuses, listDueApplicationNotifications, getApplicationNotificationHealth, claimApplicationNotification, claimCareerNotificationBatch, recordApplicationNotificationResult, recordCareerNotificationBatchResult, markStaleApplicationNotificationClaimsUnknown, resolveUnknownApplicationNotification, prepareConfirmedApplicationNotificationRetry, LeadSubmissionConflictError, createRealization, updateRealizationStatus, listPublishedRealizations, listRealizationCaseDrafts, saveRealizationCaseDraft, setRealizationCaseDraftMedia, updateRealizationCaseDraftMediaMetadata, transitionRealizationCaseDraft, listPublishedRealizationCases, countPublishedRealizationCases, getPublishedRealizationCasePhoto, listPhotoIntakeJobOptions, createPhotoUploadInvite, consumePhotoUploadInviteByHash, getActivePhotoUploadInvite } = await import('../src/server/db.ts'));
   ({ createCaseDraftFromApprovedPhoto } = await import('../src/server/db.ts'));
+  ({ getBusinessJobIdsWithPriceOffers } = await import('../src/server/db.ts'));
   ({ getTestimonial, listTestimonialsPage, listTestimonialAdminHistory } = await import('../src/server/db.ts'));
   ({ persistAcceptedLeadAnalyticsBatch } = await import('../src/server/analytics-recovery.ts'));
   ({ markStaleLeadEmailClaimsUnknown } = await import('../src/server/db.ts'));
@@ -380,6 +382,8 @@ async function runDashboardMetricsRegression() {
     validUntil: '2026-12-31', sourceInquiry: 'test',
   };
   const savedTestOffer = await savePriceOffer(savedOfferInput, 'superadmin@example.invalid');
+  assert.equal((await getBusinessJobIdsWithPriceOffers([standaloneTestJobId, randomUUID()])).has(standaloneTestJobId), true,
+    'hromadná kontrola musí nájsť existujúcu CP bez ohľadu na limit zoznamu');
   await savePriceOffer({ ...savedOfferInput, jobId: '' }, 'superadmin@example.invalid', savedTestOffer.id);
   const detachedSavedOffer = await inspectPool.query('SELECT job_id, source_job_ids, is_test_data FROM price_offers WHERE id = $1', [savedTestOffer.id]);
   assert.equal(detachedSavedOffer.rows[0].job_id, null);

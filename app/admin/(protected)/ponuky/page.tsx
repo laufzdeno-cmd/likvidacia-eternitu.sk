@@ -56,7 +56,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   <td>{offer.areaM2}</td>
                   <td>{euro(offer.totalWithVat)}</td>
                   <td>{offer.validUntil}</td>
-                  <td><span className={`status-pill status-${offer.status.toLowerCase()}`}>{priceOfferStatusLabels[offer.status]}</span></td>
+                  <td><span className={`status-pill status-${offer.status.toLowerCase()}`}>{priceOfferStatusLabels[offer.status]}</span>{offer.outcomeReason ? <small>{offer.outcomeReason}</small> : null}{offer.nextFollowUpAt ? <small>Ozvať sa {offer.nextFollowUpAt}</small> : null}</td>
                   <td className="admin-action-row">
                     <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
                     <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>

@@ -19,7 +19,7 @@ import { renderPriceOfferPdf } from '@/src/server/price-offer-pdf';
 import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
 import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
-import type { PriceOfferInput, PriceOfferMaterialType } from '@/src/server/types';
+import type { PriceOfferInput, PriceOfferMaterialType, PriceOfferStatus } from '@/src/server/types';
 
 const allowedMaterialTypes = new Set<PriceOfferMaterialType>([
   'VLNITY_ETERNIT',
@@ -76,6 +76,8 @@ function parseOffer(formData: FormData): PriceOfferInput {
     validUntil: String(formData.get('validUntil') || ''),
     offerNote: validatePriceOfferNote(formData.get('offerNote')),
     internalNote: String(formData.get('internalNote') || '').trim(),
+    emailSubject: String(formData.get('emailSubject') || '').trim(),
+    emailBody: String(formData.get('emailBody') || '').trim(),
     sourceInquiry: String(formData.get('sourceInquiry') || '').trim(),
   };
 }
@@ -126,6 +128,8 @@ export async function savePriceOfferAction(formData: FormData) {
     || input.transportRoundTripKm < 0 || input.transportRoundTripKm > 4_000
     || input.transportPricePerKm < 0 || input.transportPricePerKm > 100
     || input.transportFrom.length > 250 || input.transportTo.length > 250
+    || String(input.emailSubject || '').length < 5 || String(input.emailSubject || '').length > 180
+    || String(input.emailBody || '').length < 20 || String(input.emailBody || '').length > 4_000
     || (input.includeTransport && (!input.transportFrom || !input.transportTo || input.transportRoundTripKm <= 0))) {
     throw new Error('Skontrolujte povinné údaje, telefón, email, platnosť a hodnoty cenovej ponuky. Pri účtovanej doprave zadajte trasu, kilometre aj sadzbu.');
   }
@@ -263,15 +267,24 @@ export async function updatePriceOfferStatusAction(formData: FormData) {
   await verifyCsrf(formData);
   const actor = await requireAdmin();
   const id = String(formData.get('id') || '');
-  const statusValue = String(formData.get('status') || '');
-  if (id && statusValue === 'PRIJATA') {
-    const updated = await updatePriceOfferStatus(id, 'PRIJATA', actor);
-    if (!updated) throw new Error('Ako prijatú možno označiť iba odoslanú a nearchivovanú cenovú ponuku. Obnovte stránku a skontrolujte jej stav.');
+  const statusValue = String(formData.get('status') || '') as PriceOfferStatus;
+  if (id && ['PRIJATA', 'ODLOZENA', 'NEUSPESNA', 'ODOSLANA'].includes(statusValue)) {
+    if (statusValue === 'NEUSPESNA' && formData.get('confirmOutcome') !== 'yes') {
+      throw new Error('Pred uzavretím neúspešnej ponuky potvrďte, že výsledok je overený.');
+    }
+    const updated = await updatePriceOfferStatus(id, statusValue, actor, {
+      reason: String(formData.get('reason') || ''),
+      nextFollowUpAt: String(formData.get('nextFollowUpAt') || ''),
+    });
+    if (!updated && statusValue === 'PRIJATA') throw new Error('Ako prijatú možno označiť iba odoslanú alebo odloženú cenovú ponuku.');
+    if (!updated) throw new Error('Stav ponuky sa medzitým zmenil. Obnovte stránku a skontrolujte aktuálny stav.');
     revalidatePath('/admin/dopyty');
     revalidatePath('/admin/zakazky');
     if (updated.leadId) revalidatePath(`/admin/dopyty/${updated.leadId}`);
     if (updated.jobId) revalidatePath(`/admin/zakazky/${updated.jobId}`);
     revalidatePath('/admin/dashboard');
+    revalidatePath('/admin/automatizacie');
+    revalidatePath(`/admin/ponuky/${id}`);
   }
   revalidatePath('/admin/ponuky');
 }

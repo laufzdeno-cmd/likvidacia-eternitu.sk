@@ -82,7 +82,7 @@ export type AdminOperationsOverview = Awaited<ReturnType<typeof getAdminOperatio
 
 export type AdminApprovalQueueItem = {
   id: string;
-  category: 'review_send' | 'review_reminder' | 'review_moderation' | 'delivery_resolution' | 'photo_review' | 'case_approval' | 'case_publication' | 'realization_publication';
+  category: 'offer_approval' | 'offer_outcome' | 'review_send' | 'review_reminder' | 'review_moderation' | 'delivery_resolution' | 'photo_review' | 'case_draft' | 'case_approval' | 'case_publication' | 'realization_publication';
   title: string;
   detail: string;
   createdAt: string;
@@ -93,7 +93,8 @@ export type AdminApprovalQueueItem = {
 export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
   if (role !== 'SUPER_ADMIN') throw new Error('Schvaľovacia fronta je dostupná iba superadminovi.');
   const nowIso = now.toISOString();
-  const [reviewResult, caseResult, photoResult, realizationResult] = await Promise.allSettled([
+  const [offerResult, reviewResult, caseResult, photoResult, realizationResult] = await Promise.allSettled([
+    listPriceOffers(),
     listReviewRequests(),
     listRealizationCaseDrafts(),
     listPhotoIntakeRecords({ pendingOnly: true, page: 1, pageSize: 100 }),
@@ -101,6 +102,30 @@ export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
   ]);
   const unavailableSources: string[] = [];
   const items: AdminApprovalQueueItem[] = [];
+  if (offerResult.status === 'rejected') unavailableSources.push('cenové ponuky');
+  else for (const offer of offerResult.value.filter((item) => !item.deletedAt && !item.isTestData)) {
+    const shortNumber = offer.number || offer.id.slice(0, 8);
+    if (offer.status === 'PRIPRAVENA') items.push({
+      id: `offer-approve-${offer.id}`, category: 'offer_approval', title: `Skontrolovať a odoslať CP ${shortNumber}`,
+      detail: 'Asistent pripravil cenu, PDF aj sprievodný list. Pred odoslaním skontrolujte všetky obchodné údaje.',
+      createdAt: offer.createdAt, href: `/admin/ponuky/${offer.id}?send=1`, urgency: 'attention',
+    });
+    if (offer.status === 'NEISTY_STAV' || (offer.status === 'ODOSIELA' && offer.sendStartedAt && offer.sendStartedAt <= daysBefore(now, 1))) items.push({
+      id: `offer-delivery-${offer.id}`, category: 'delivery_resolution', title: `Overiť odoslanie CP ${shortNumber}`,
+      detail: 'Výsledok odoslania nie je spoľahlivo potvrdený. Bez kontroly schránky ponuku neposielajte znova.',
+      createdAt: offer.sendStartedAt || offer.createdAt, href: `/admin/ponuky/${offer.id}`, urgency: 'critical',
+    });
+    if (offer.status === 'ODOSLANA' && effectiveOfferDate(offer) <= daysBefore(now, 5)) items.push({
+      id: `offer-outcome-${offer.id}`, category: 'offer_outcome', title: `Zistiť výsledok CP ${shortNumber}`,
+      detail: 'Ponuka čaká najmenej päť dní. Odošlite pripravený follow-up alebo zaevidujte prijatie, odloženie či neúspech.',
+      createdAt: effectiveOfferDate(offer), href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
+    });
+    if (offer.status === 'ODLOZENA' && offer.nextFollowUpAt && offer.nextFollowUpAt <= businessTodayKey(now)) items.push({
+      id: `offer-deferred-${offer.id}`, category: 'offer_outcome', title: `Vrátiť sa k odloženej CP ${shortNumber}`,
+      detail: offer.outcomeReason || 'Nastal uložený dátum ďalšieho kontaktu.',
+      createdAt: offer.outcomeUpdatedAt || offer.createdAt, href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
+    });
+  }
   if (reviewResult.status === 'rejected') unavailableSources.push('žiadosti o referencie');
   else for (const request of reviewResult.value) {
     const shortId = request.id.slice(0, 8);
@@ -129,6 +154,7 @@ export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
   }
   if (caseResult.status === 'rejected') unavailableSources.push('koncepty realizácií');
   else for (const draft of caseResult.value) {
+    if (draft.lifecycle === 'draft') items.push({ id: `case-draft-${draft.id}`, category: 'case_draft', title: `Dokončiť koncept realizácie #${draft.id.slice(0, 8)}`, detail: 'Asistent pripojil schválené fotky a bezpečné základné údaje. Doplňte text a potvrďte presnosť lokality.', createdAt: draft.updatedAt, href: `/admin/realizacie/pripady?id=${draft.id}`, urgency: 'normal' });
     if (draft.lifecycle === 'reviewed') items.push({ id: `case-approve-${draft.id}`, category: 'case_approval', title: `Schváliť prípad #${draft.id.slice(0, 8)}`, detail: 'Koncept prešiel redakčnou kontrolou a čaká na potvrdenie práv, lokality a obsahu.', createdAt: draft.updatedAt, href: `/admin/realizacie/pripady?id=${draft.id}`, urgency: 'attention' });
     if (draft.lifecycle === 'approved') items.push({ id: `case-publish-${draft.id}`, category: 'case_publication', title: `Rozhodnúť o publikovaní prípadu #${draft.id.slice(0, 8)}`, detail: 'Prípad je schválený, ale zatiaľ nie je verejný.', createdAt: draft.updatedAt, href: `/admin/realizacie/pripady?id=${draft.id}`, urgency: 'normal' });
   }
@@ -142,7 +168,7 @@ export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
   const counts = items.reduce<Record<AdminApprovalQueueItem['category'], number>>((totals, item) => {
     totals[item.category] += 1;
     return totals;
-  }, { review_send: 0, review_reminder: 0, review_moderation: 0, delivery_resolution: 0, photo_review: 0, case_approval: 0, case_publication: 0, realization_publication: 0 });
+  }, { offer_approval: 0, offer_outcome: 0, review_send: 0, review_reminder: 0, review_moderation: 0, delivery_resolution: 0, photo_review: 0, case_draft: 0, case_approval: 0, case_publication: 0, realization_publication: 0 });
   return { generatedAt: nowIso, items, counts, unavailableSources };
 }
 

@@ -2,6 +2,7 @@ import type { AdminRole, ReviewEligibleJob, ReviewRequest, Testimonial } from '@
 import type { ReviewRequestSettings } from '@/src/server/review-request-settings';
 import { reviewRequestPreview } from '@/src/server/review-request-policy';
 import {
+  approveAndPublishRequestedTestimonialAction,
   approveRequestedTestimonialAction,
   cancelReviewRequestAction,
   prepareReviewRequestsAction,
@@ -176,7 +177,7 @@ export default function ReviewWorkspace({
 
     <section className="review-panel" aria-labelledby="incoming-title">
       <div className="review-section-heading"><div><p>Krok 3</p><h2 id="incoming-title">Kontrola a publikovanie</h2></div><span>{incoming.length} prijatých</span></div>
-      <p>Prijatie formulára vytvorí iba koncept. Schválenie obsahu a zverejnenie sú dve samostatné akcie.</p>
+      <p>Prijatie formulára vytvorí iba koncept. Superadmin ho môže po kontrole schváliť a zverejniť jedným krokom; samostatné manuálne schválenie zostáva dostupné.</p>
       <div className="review-card-grid">
         {incoming.map((request) => {
           const testimonial = request.testimonialId ? testimonialById.get(request.testimonialId) : undefined;
@@ -185,7 +186,8 @@ export default function ReviewWorkspace({
             <h3>{testimonial?.customerName || request.customerName}</h3>
             {testimonial ? <><p aria-label={`Hodnotenie ${testimonial.rating} z 5`}>{testimonial.rating} / 5</p><blockquote>{testimonial.text}</blockquote></> : <p>Koncept referencie sa nepodarilo načítať.</p>}
             <div className="admin-action-row">
-              {testimonial && request.status === 'submitted' ? <form action={approveRequestedTestimonialAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="testimonialId" value={testimonial.id} /><button type="submit">Schváliť obsah</button></form> : null}
+              {testimonial && request.status === 'submitted' && role === 'SUPER_ADMIN' ? <form action={approveAndPublishRequestedTestimonialAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="testimonialId" value={testimonial.id} /><button className="admin-primary-button" type="submit">Schváliť a zverejniť</button></form> : null}
+              {testimonial && request.status === 'submitted' ? <form action={approveRequestedTestimonialAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="testimonialId" value={testimonial.id} /><button type="submit">Schváliť obsah bez publikovania</button></form> : null}
               {testimonial && request.status === 'approved' && role === 'SUPER_ADMIN' ? <form action={publishRequestedTestimonialAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="testimonialId" value={testimonial.id} /><button className="admin-primary-button" type="submit">Zverejniť na webe</button></form> : null}
               {testimonial ? <a className="admin-secondary-link" href={`/admin/referencie?edit=${testimonial.id}`}>Otvoriť detail</a> : null}
             </div>

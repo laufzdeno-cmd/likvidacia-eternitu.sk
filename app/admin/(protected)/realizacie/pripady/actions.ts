@@ -101,3 +101,21 @@ export async function transitionCaseDraftAction(formData: FormData) {
   revalidatePath('/admin/realizacie/pripady');
   revalidatePath('/realizacie');
 }
+
+export async function approveAndPublishCaseDraftAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireSuperAdmin();
+  const draftId = text(formData, 'draftId', 36);
+  if (!/^[0-9a-f-]{36}$/i.test(draftId)) throw new Error('Neplatný identifikátor prípadu.');
+  const publicationEvidence = text(formData, 'publicationEvidence', 500);
+  const rightsConfirmed = formData.get('rightsConfirmed') === 'on';
+  const locationConfirmed = formData.get('locationConfirmed') === 'on';
+  const contentConfirmed = formData.get('contentConfirmed') === 'on';
+  await transitionRealizationCaseDraft({
+    draftId, nextLifecycle: 'approved', updatedBy: admin.email, publicationEvidence,
+    rightsConfirmed, locationConfirmed, contentConfirmed,
+  });
+  await transitionRealizationCaseDraft({ draftId, nextLifecycle: 'published', updatedBy: admin.email });
+  revalidatePath('/admin/realizacie/pripady');
+  revalidatePath('/realizacie');
+}

@@ -387,7 +387,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               ))}
               {latestPriceOffer ? <a key={latestPriceOffer.id} href={`/admin/ponuky/${latestPriceOffer.id}`}>
                 <span>{`CP ${latestPriceOffer.number} · ${latestPriceOffer.totalWithVat.toLocaleString('sk-SK')} € s DPH`}</span>
-                <small>{latestPriceOffer.status === 'PRIPRAVENA' ? 'Pripravená · neodoslaná' : latestPriceOffer.status === 'ODOSIELA' ? 'Odosielanie' : latestPriceOffer.status === 'NEISTY_STAV' ? 'Overiť odoslanie' : latestPriceOffer.status === 'ODOSLANA' ? 'Odoslaná' : latestPriceOffer.status === 'PRIJATA' ? 'Prijatá' : latestPriceOffer.status === 'ZRUSENA' ? 'Zrušená' : latestPriceOffer.status}</small>
+                <small>{latestPriceOffer.status === 'PRIPRAVENA' ? 'Pripravená · neodoslaná' : latestPriceOffer.status === 'ODOSIELA' ? 'Odosielanie' : latestPriceOffer.status === 'NEISTY_STAV' ? 'Overiť odoslanie' : latestPriceOffer.status === 'ODOSLANA' ? 'Odoslaná' : latestPriceOffer.status === 'ODLOZENA' ? 'Odložená' : latestPriceOffer.status === 'PRIJATA' ? 'Prijatá' : latestPriceOffer.status === 'NEUSPESNA' ? 'Neúspešná' : latestPriceOffer.status === 'ZRUSENA' ? 'Zrušená' : latestPriceOffer.status}</small>
               </a> : null}
               {!lead.quotes.length && !latestPriceOffer ? <p>Zatiaľ nebola vytvorená cenová ponuka.</p> : null}
             </div>

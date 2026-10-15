@@ -130,7 +130,7 @@ export default async function PhotoIntakeAdminPage({ searchParams }: { searchPar
           <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="id" value={photo.id} />
           <button type="submit">Pripraviť alebo otvoriť koncept realizácie</button>
-          <small>Predvyplní iba lokalitu a typ objektu. Text sa dopĺňa ručne; zverejnenie vyžaduje samostatné schválenie.</small>
+          <small>Asistent pripojí fotografiu k súkromnému konceptu a predvyplní iba lokalitu a typ objektu z overených údajov fotografie. Text, presnosť lokality aj publikovanie musí potvrdiť človek.</small>
         </form> : null}
       </article>)}
       {!photos.length && !photosResult.error ? <p>Zatiaľ neboli odovzdané žiadne fotografie.</p> : null}</div>

@@ -5375,6 +5375,162 @@ body .admin-main .admin-page .admin-card,
   }
 }
 
+/* Autonomous assistant: offer approval, outcome and professional email UI. */
+.admin-page .status-pill.status-odlozena {
+  border-color: #e9bd62 !important;
+  background: #fff4d6 !important;
+  color: #694300 !important;
+}
+
+.admin-page .status-pill.status-neuspesna {
+  border-color: #efa59f !important;
+  background: #ffe9e7 !important;
+  color: #841f18 !important;
+}
+
+.price-offer-email-preview {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 14px 0 18px;
+  padding: 16px;
+  border: 1px solid #cfe3f2;
+  border-left: 4px solid var(--ops-blue);
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f7fcff 0%, #edf7fd 100%);
+}
+
+.price-offer-email-preview > span {
+  color: var(--ops-muted);
+  font-size: .72rem;
+  font-weight: 850;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.price-offer-email-preview > strong,
+.price-offer-email-preview > p {
+  margin: 0;
+  color: var(--ops-text);
+  white-space: pre-line;
+}
+
+.price-offer-email-preview > p {
+  line-height: 1.65;
+}
+
+.offer-outcome-card {
+  border-color: #cfe3f2 !important;
+  background:
+    radial-gradient(circle at 95% 8%, rgba(22, 118, 210, .12), transparent 32%),
+    #fff !important;
+}
+
+.offer-outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.offer-outcome-option {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #d7e5ef;
+  border-top: 4px solid var(--ops-blue);
+  border-radius: 14px;
+  background: #f8fbfd;
+}
+
+.offer-outcome-option.is-success {
+  border-top-color: var(--ops-green);
+  background: #f2fbf6;
+}
+
+.offer-outcome-option.is-warning {
+  border-top-color: #d58518;
+  background: #fff9ee;
+}
+
+.offer-outcome-option.is-danger {
+  border-top-color: var(--ops-red);
+  background: #fff7f6;
+}
+
+.offer-outcome-option > strong {
+  color: var(--ops-navy);
+  font-size: 1rem;
+}
+
+.offer-outcome-option > span,
+.offer-outcome-option label {
+  color: var(--ops-muted);
+  font-size: .82rem;
+  line-height: 1.45;
+}
+
+.offer-outcome-option label:not(.admin-check-label) {
+  display: grid;
+  gap: 5px;
+}
+
+.offer-outcome-option textarea,
+.offer-outcome-option input[type="date"] {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid #c4d6e4;
+  border-radius: 9px;
+  padding: 9px 10px;
+  background: #fff;
+  color: var(--ops-text);
+  font: inherit;
+}
+
+.offer-outcome-option textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.offer-outcome-option button {
+  min-height: 40px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 9px;
+  padding: 9px 12px;
+  background: var(--ops-blue);
+  color: #fff;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.offer-outcome-option.is-success button { background: var(--ops-green); }
+.offer-outcome-option.is-warning button { background: #a96009; }
+.offer-outcome-option.is-danger button { background: var(--ops-red); }
+
+.offer-outcome-option :is(textarea, input, button):focus-visible {
+  outline: 3px solid var(--admin-action-ring);
+  outline-offset: 2px;
+}
+
+.approval-summary {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+@media (max-width: 900px) {
+  .offer-outcome-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .price-offer-email-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media print {
   .admin-sidebar::after,
   .admin-heading::after {

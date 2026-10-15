@@ -183,6 +183,17 @@ export async function publishRequestedTestimonialAction(formData: FormData) {
   finish(published ? 'published' : 'publication_stale');
 }
 
+export async function approveAndPublishRequestedTestimonialAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireSuperAdmin();
+  const id = uuid.safeParse(formData.get('testimonialId'));
+  if (!id.success) finish('invalid_selection');
+  const approved = await approveRequestedTestimonial(id.data, admin.email);
+  if (!approved) finish('approval_stale');
+  const published = await publishRequestedTestimonial(id.data, admin.email);
+  finish(published ? 'published' : 'publication_stale');
+}
+
 export async function saveReviewRequestSettingsAction(formData: FormData) {
   await verifyCsrf(formData);
   const admin = await requireSuperAdmin();

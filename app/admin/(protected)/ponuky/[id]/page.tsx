@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getPriceOffer, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
-import { confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, savePriceOfferAction, sendPriceOfferAction } from '../actions';
+import { confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, savePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 import PendingOfferButton from '../pending-offer-button';
 import { euro, priceOfferStatusLabels } from '../constants';
@@ -98,6 +98,10 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         <section className="admin-card">
           <h2>Odoslanie zákazníkovi</h2>
           <p>Skontrolujte údaje a odošlite zákazníkovi PDF prílohu emailom.</p>
+          <div className="price-offer-email-preview">
+            <span>Predmet</span><strong>{offer.emailSubject}</strong>
+            <span>Sprievodný list</span><p>{offer.emailBody}</p>
+          </div>
           <form
             action={sendPriceOfferAction}
             className="admin-pending-form admin-send-offer-form"
@@ -111,6 +115,28 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           </form>
         </section>
       ) : null}
+
+      {offer.status === 'ODOSLANA' || offer.status === 'ODLOZENA' ? <section className="admin-card offer-outcome-card">
+        <div className="admin-heading"><div><p>Obchodný výsledok</p><h2>Čo sa stalo s ponukou?</h2></div></div>
+        {offer.status === 'ODLOZENA' ? <div className="admin-alert"><strong>Odložená do {offer.nextFollowUpAt || 'neurčeného dátumu'}</strong><p>{offer.outcomeReason}</p></div> : <p>Výsledok zaevidujte jedným rozhodnutím. Pri odložení asistent ponuku vráti do fronty v určený deň.</p>}
+        <div className="offer-outcome-grid">
+          <form action={updatePriceOfferStatusAction} className="offer-outcome-option is-success">
+            <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="PRIJATA" />
+            <strong>Ponuka prešla</strong><span>Zákazník ju prijal a zákazka pokračuje.</span><button type="submit">Označiť ako prijatú</button>
+          </form>
+          {offer.status === 'ODOSLANA' ? <form action={updatePriceOfferStatusAction} className="offer-outcome-option is-warning">
+            <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="ODLOZENA" />
+            <strong>Odložiť na neskôr</strong><label>Dôvod<textarea name="reason" minLength={3} maxLength={500} required /></label><label>Ozvať sa znovu<input name="nextFollowUpAt" type="date" required /></label><button type="submit">Uložiť odloženie</button>
+          </form> : <form action={updatePriceOfferStatusAction} className="offer-outcome-option">
+            <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="ODOSLANA" />
+            <strong>Vrátiť medzi aktívne</strong><span>Zákazník je opäť pripravený rozhodovať.</span><button type="submit">Aktivovať ponuku</button>
+          </form>}
+          <form action={updatePriceOfferStatusAction} className="offer-outcome-option is-danger">
+            <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><input type="hidden" name="status" value="NEUSPESNA" />
+            <strong>Ponuka neprešla</strong><label>Dôvod<textarea name="reason" minLength={3} maxLength={500} required /></label><label className="admin-check-label"><input type="checkbox" name="confirmOutcome" value="yes" required /> Výsledok som overil(a).</label><button type="submit">Uzavrieť ako neúspešnú</button>
+          </form>
+        </div>
+      </section> : null}
 
       <section className="admin-stat-grid">
         <article><span>m2</span><strong>{offer.areaM2}</strong></article>

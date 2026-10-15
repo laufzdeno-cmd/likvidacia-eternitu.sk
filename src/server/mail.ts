@@ -9,6 +9,7 @@ import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { isCustomStagingTarget, stagingMailOverride } from './preview-safety';
 import { formatLeadAreaCompact } from './lead-area';
 import { readStoredLeadFile } from './storage';
+import { defaultPriceOfferEmailBody, defaultPriceOfferEmailSubject } from '../lib/price-offer-email-copy';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
@@ -722,6 +723,10 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
   const pricing = calculatePriceOfferPricing(offer, vatRate);
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   const validUntil = dateSk(offer.validUntil);
+  const coverBody = (offer.emailBody?.trim() || defaultPriceOfferEmailBody(offer))
+    .split(/(?:\r?\n){2,}/)
+    .map((paragraph) => `<p style="margin:0 0 14px;">${paragraph.split(/\r?\n/).map((line) => escapeHtml(line)).join('<br />')}</p>`)
+    .join('');
   const confirmSubject = encodeURIComponent(`Potvrdenie objednávky č. ${offer.number}`);
   const confirmBody = encodeURIComponent([
     `Dobrý deň, záväzne objednávam práce podľa cenovej ponuky č. ${offer.number}.`,
@@ -779,8 +784,7 @@ export function priceOfferEmailHtml(offer: PriceOffer, settings: PriceOfferSetti
           </div>
         </td></tr>
         <tr><td style="background:#ffffff;padding:24px 32px;">
-          <p style="margin:0 0 12px;font-size:16px;font-weight:600;color:#1E293B;">Dobrý deň,</p>
-          <p style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.7;">Na základe Vašej požiadavky Vám posielame cenovú ponuku na materiál ${escapeHtml(material)} na objekte typu ${escapeHtml(offer.objectType)}.</p>
+          <div style="margin:0 0 20px;font-size:14px;color:#475569;line-height:1.7;">${coverBody}</div>
 
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;background:#FAFAFA;border:1px solid #D7DDEA;border-left:3px solid #263451;border-radius:6px;">
             <tr><td style="padding:16px 20px;">
@@ -880,9 +884,7 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
   const material = priceOfferMaterialLabel(offer);
   const location = [offer.municipality || offer.objectAddress, offer.district].filter(Boolean).join(', ');
   return [
-    'Dobrý deň,',
-    '',
-    `v prílohe posielame cenovú ponuku č. ${offer.number} na materiál ${material} na objekte typu ${offer.objectType}.`,
+    offer.emailBody?.trim() || defaultPriceOfferEmailBody(offer),
     '',
     `Lokalita: ${location}`,
     `Typ objektu: ${offer.objectType}`,
@@ -920,7 +922,6 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
   if (!client) return { status: 'not_sent' as const, reason: 'SMTP nie je nastavené.' };
   if (!offer.email) return { status: 'not_sent' as const, reason: 'Ponuka nemá email zákazníka.' };
   const c = settings.company;
-  const location = offer.municipality || offer.objectAddress || offer.district;
 
   try {
     const requiredRecipient = resolveOutboundEmailRecipient(offer.email);
@@ -929,7 +930,7 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
       to: requiredRecipient,
       cc: resolveOutboundEmailCc(c.email),
       replyTo: c.email,
-      subject: `Cenová ponuka č. ${offer.number} — ASTANA likvidácia azbestu | ${location}`,
+      subject: offer.emailSubject?.trim() || defaultPriceOfferEmailSubject(offer),
       text: priceOfferEmailText(offer, settings),
       html: priceOfferEmailHtml(offer, settings),
       attachments: [{ filename: `ASTANA-CP-${offer.number}.pdf`, content: pdf, contentType: 'application/pdf' }],

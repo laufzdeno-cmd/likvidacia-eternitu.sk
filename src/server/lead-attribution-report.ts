@@ -37,7 +37,7 @@ export function getLeadOfferStages(
       || (offer.jobId ? undefined : historicalLeadId);
     const stage = stages.get(ownerId || '');
     if (!stage) continue;
-    if (offer.status === 'ODOSLANA' || offer.status === 'PRIJATA') stage.issued = true;
+    if (['ODOSLANA', 'ODLOZENA', 'PRIJATA', 'NEUSPESNA'].includes(offer.status)) stage.issued = true;
     if (offer.status === 'PRIJATA') stage.accepted = true;
   }
   return stages;

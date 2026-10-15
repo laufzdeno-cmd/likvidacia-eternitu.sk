@@ -151,6 +151,7 @@ import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
 import { resolvePriceOfferVatRate } from '../lib/price-offer-vat';
 import { validatePriceOfferNote } from '../lib/price-offer-note';
 import { priceOfferUpdateLifecycle } from '../lib/price-offer-state';
+import { defaultPriceOfferEmailBody, defaultPriceOfferEmailSubject } from '../lib/price-offer-email-copy';
 import { MAX_BUSINESS_FINANCE_CENTS, projectBusinessJobFinance } from '../lib/business-billing';
 
 type OpsAlertStateRecord = {
@@ -1528,11 +1529,16 @@ async function initializeSchema() {
       total_with_vat numeric(12,2) NOT NULL DEFAULT 0,
       offer_note text NOT NULL DEFAULT '',
       internal_note text NOT NULL DEFAULT '',
+       email_subject text NOT NULL DEFAULT '',
+       email_body text NOT NULL DEFAULT '',
       status text NOT NULL DEFAULT 'PRIPRAVENA',
       send_started_at timestamptz,
       send_attempt_id text,
       sent_at timestamptz,
       accepted_at timestamptz,
+       outcome_reason text NOT NULL DEFAULT '',
+       next_follow_up_at date,
+       outcome_updated_at timestamptz,
       source_inquiry text NOT NULL DEFAULT '',
       source_job_ids uuid[] NOT NULL DEFAULT '{}',
       is_test_data boolean NOT NULL DEFAULT false,
@@ -1550,6 +1556,11 @@ async function initializeSchema() {
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_to text NOT NULL DEFAULT '';
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_round_trip_km numeric(12,2) NOT NULL DEFAULT 0;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS transport_price_per_km numeric(12,2) NOT NULL DEFAULT 0.70;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS email_subject text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS email_body text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS outcome_reason text NOT NULL DEFAULT '';
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS next_follow_up_at date;
+    ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS outcome_updated_at timestamptz;
     ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS vat_rate numeric(5,2);
     UPDATE price_offers SET vat_rate = CASE
       WHEN total_without_vat > 0 AND total_with_vat >= total_without_vat
@@ -1828,11 +1839,16 @@ function toPriceOffer(row: Record<string, unknown>): PriceOffer {
     totalWithVat: Number(row.total_with_vat ?? row.totalWithVat ?? 0),
     offerNote: String(row.offer_note ?? row.offerNote ?? ''),
     internalNote: String(row.internal_note ?? row.internalNote ?? ''),
+    emailSubject: String(row.email_subject ?? row.emailSubject ?? ''),
+    emailBody: String(row.email_body ?? row.emailBody ?? ''),
     status: String(row.status ?? 'PRIPRAVENA') as PriceOfferStatus,
     sendStartedAt: row.send_started_at || row.sendStartedAt ? new Date(String(row.send_started_at ?? row.sendStartedAt)).toISOString() : undefined,
     sendAttemptId: String(row.send_attempt_id ?? row.sendAttemptId ?? '') || undefined,
     sentAt: row.sent_at || row.sentAt ? new Date(String(row.sent_at ?? row.sentAt)).toISOString() : undefined,
     acceptedAt: row.accepted_at || row.acceptedAt ? new Date(String(row.accepted_at ?? row.acceptedAt)).toISOString() : undefined,
+    outcomeReason: String(row.outcome_reason ?? row.outcomeReason ?? ''),
+    nextFollowUpAt: dateOnly(row.next_follow_up_at ?? row.nextFollowUpAt),
+    outcomeUpdatedAt: row.outcome_updated_at || row.outcomeUpdatedAt ? new Date(String(row.outcome_updated_at ?? row.outcomeUpdatedAt)).toISOString() : undefined,
     sourceInquiry: String(row.source_inquiry ?? row.sourceInquiry ?? ''),
   };
 }
@@ -1959,6 +1975,11 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
       transportTo: offer.transportTo ?? '',
       transportRoundTripKm: Number(offer.transportRoundTripKm ?? 0),
       transportPricePerKm: Number(offer.transportPricePerKm ?? 0.7),
+      emailSubject: String(offer.emailSubject ?? ''),
+      emailBody: String(offer.emailBody ?? ''),
+      outcomeReason: String(offer.outcomeReason ?? ''),
+      nextFollowUpAt: offer.nextFollowUpAt || undefined,
+      outcomeUpdatedAt: offer.outcomeUpdatedAt || undefined,
       vatRate: resolvePriceOfferVatRate(offer, 23),
       sourceJobIds: [...new Set([...(offer.sourceJobIds ?? []), ...(offer.jobId ? [offer.jobId] : []), ...(auditedJobsByOfferNumber.get(offer.number) ?? [])])],
     })),
@@ -4996,10 +5017,10 @@ function buildLeadSummaryPageWhere(filters: LeadSummaryPageFilters) {
 
   if (filters.offer === 'none') conditions.push('latest_offer.status IS NULL');
   if (filters.offer === 'prepared') conditions.push(`latest_offer.status = 'PRIPRAVENA'`);
-  if (filters.offer === 'waiting') conditions.push(`latest_offer.status = 'ODOSLANA'`);
+  if (filters.offer === 'waiting') conditions.push(`latest_offer.status = ANY(${addValue(['ODOSLANA', 'ODLOZENA'])}::text[])`);
   if (filters.offer === 'accepted') conditions.push(`latest_offer.status = 'PRIJATA'`);
   if (filters.offer === 'attention') conditions.push(`latest_offer.status = ANY(${addValue(['ODOSIELA', 'NEISTY_STAV'])}::text[])`);
-  if (filters.offer === 'cancelled') conditions.push(`latest_offer.status = 'ZRUSENA'`);
+  if (filters.offer === 'cancelled') conditions.push(`latest_offer.status = ANY(${addValue(['NEUSPESNA', 'ZRUSENA'])}::text[])`);
 
   if (filters.tag === 'chyba_fotka') conditions.push('COALESCE(f.file_count, 0) = 0');
   if (filters.tag === 'potrebuje_strechara') {
@@ -9351,6 +9372,13 @@ function calculatePriceOfferTotals(input: PriceOfferInput, vatRate: number) {
   };
 }
 
+function finalizePriceOfferEmailCopy(offer: PriceOffer, input: PriceOfferInput) {
+  const customSubject = String(input.emailSubject ?? '').trim();
+  const customBody = String(input.emailBody ?? '').trim();
+  offer.emailSubject = (customSubject || defaultPriceOfferEmailSubject(offer)).slice(0, 180);
+  offer.emailBody = (customBody || defaultPriceOfferEmailBody(offer)).slice(0, 4_000);
+}
+
 type PriceOfferParentTransition = 'prepared' | 'sent' | 'accepted';
 
 const leadStatusOrder: Partial<Record<LeadStatus, number>> = {
@@ -9545,7 +9573,12 @@ async function syncPriceOfferParentsPostgres(
   }
 }
 
-export async function savePriceOffer(input: PriceOfferInput, actorEmail: string, id?: string): Promise<PriceOffer> {
+export async function savePriceOffer(
+  input: PriceOfferInput,
+  actorEmail: string,
+  id?: string,
+  options: { allowCreateWithId?: boolean } = {},
+): Promise<PriceOffer> {
   if (input.validUntil && !isValidIsoCalendarDate(input.validUntil)) {
     throw new Error('Platnosť cenovej ponuky musí byť skutočný kalendárny dátum.');
   }
@@ -9556,7 +9589,7 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
   const existing = id ? await getPriceOffer(id) : null;
   const lifecycle = priceOfferUpdateLifecycle(existing || undefined);
   if (!lifecycle.allowed) {
-    if (lifecycle.status === 'PRIJATA' || lifecycle.status === 'ODOSLANA') throw new Error('Odoslanú alebo prijatú cenovú ponuku nie je možné upraviť. Vytvorte novú ponuku, aby zostala obchodná história zachovaná.');
+    if (['PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA'].includes(lifecycle.status)) throw new Error('Odoslanú alebo prijatú cenovú ponuku nie je možné upraviť. Rovnako nemožno upraviť odloženú ani neúspešnú ponuku. Vytvorte novú ponuku, aby zostala obchodná história zachovaná.');
     throw new Error('Ponuka sa práve odosiela alebo má neoverený stav doručenia. Najprv overte e-mail; ponuku zatiaľ neupravujte.');
   }
   const normalizedInput: PriceOfferInput = {
@@ -9564,6 +9597,8 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
     documentationPromotion: input.includeDocumentation && input.documentationPromotion,
     transportFrom: input.transportFrom.trim(),
     transportTo: input.transportTo.trim(),
+    emailSubject: String(input.emailSubject ?? '').trim(),
+    emailBody: String(input.emailBody ?? '').trim(),
   };
   const linkedJob = input.jobId ? await getBusinessJob(input.jobId) : null;
   if (input.jobId && !linkedJob) throw new Error('Vybraná zákazka neexistuje alebo je archivovaná. Obnovte formulár.');
@@ -9595,17 +9630,22 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
     totalWithVat: totals.totalWithVat,
     offerNote: validatePriceOfferNote(input.offerNote),
     internalNote: normalizedInput.internalNote?.trim() ?? '',
+    emailSubject: normalizedInput.emailSubject ?? '',
+    emailBody: normalizedInput.emailBody ?? '',
     sourceInquiry: input.sourceInquiry?.trim() || process.env.LEAD_SOURCE || 'likvidacia-eternitu.sk',
     status: lifecycle.status,
     sentAt: lifecycle.sentAt,
     acceptedAt: existing?.acceptedAt,
+    outcomeReason: existing?.outcomeReason ?? '',
+    nextFollowUpAt: existing?.nextFollowUpAt,
+    outcomeUpdatedAt: existing?.outcomeUpdatedAt,
   };
   const db = getPool();
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
       const currentExisting = id ? local.priceOffers.find((item) => item.id === id && !item.deletedAt) : undefined;
-      if (id && !currentExisting) throw new Error('Cenová ponuka už neexistuje. Obnovte stránku.');
+      if (id && !currentExisting && !options.allowCreateWithId) throw new Error('Cenová ponuka už neexistuje. Obnovte stránku.');
       const currentJob = input.jobId ? local.businessJobs.find((item) => item.id === input.jobId && !item.deletedAt) : undefined;
       if (input.jobId && !currentJob) throw new Error('Vybraná zákazka neexistuje alebo je archivovaná. Obnovte formulár.');
       const currentDirectLead = !input.jobId && directLeadId ? local.leads.find((item) => item.id === directLeadId) : undefined;
@@ -9624,11 +9664,12 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
           .reduce((max, number) => Math.max(max, Number(number.slice(4)) || 0), 0);
         offer.number = `${year}${String(highest + 1).padStart(4, '0')}`;
       }
+      finalizePriceOfferEmailCopy(offer, normalizedInput);
       const current = local.priceOffers.find((item) => item.id === offerId && !item.deletedAt);
-      if (current?.status === 'PRIJATA' || current?.status === 'ODOSLANA') throw new Error('Cenová ponuka už bola odoslaná alebo prijatá. Vytvorte novú ponuku, ak potrebujete zmenu.');
+      if (current && ['PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA'].includes(current.status)) throw new Error('Cenová ponuka už bola obchodne uzavretá alebo odoslaná. Vytvorte novú ponuku, ak potrebujete zmenu.');
       if (current?.status === 'ODOSIELA' || current?.status === 'NEISTY_STAV') throw new Error('Odoslanie ponuky prebieha alebo sa musí overiť. Zatiaľ ju neupravujte ani neodosielajte znova.');
       local.priceOffers = [offer, ...local.priceOffers.filter((item) => item.id !== offerId)];
-      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id, action: id ? 'price_offer_updated' : 'price_offer_created', actorEmail, changes: { number: offer.number, requiresResend: lifecycle.requiresResend }, createdAt: timestamp });
+      local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id, action: currentExisting ? 'price_offer_updated' : 'price_offer_created', actorEmail, changes: { number: offer.number, requiresResend: lifecycle.requiresResend }, createdAt: timestamp });
       syncPriceOfferParentsLocal(local, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
       await writeLocalDb(local);
       return offer;
@@ -9647,14 +9688,16 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       const last = numberResult.rows[0]?.number ? Number(String(numberResult.rows[0].number).slice(4)) : 0;
       offer.number = `${year}${String(last + 1).padStart(4, '0')}`;
     }
+    finalizePriceOfferEmailCopy(offer, normalizedInput);
     const result = await client.query(
     `INSERT INTO price_offers (
       id, number, job_id, created_at, valid_until, object_type, object_address, municipality, district,
       contact_person, phone, email, realization_term, material_type, area_m2, price_per_m2_without_vat,
       documentation_fee_without_vat, include_documentation, material_price_without_vat, total_without_vat,
       total_with_vat, offer_note, internal_note, status, sent_at, accepted_at, source_inquiry, lead_id, is_test_data, source_job_ids,
-      documentation_promotion, include_transport, transport_from, transport_to, transport_round_trip_km, transport_price_per_km, vat_rate
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
+      documentation_promotion, include_transport, transport_from, transport_to, transport_round_trip_km, transport_price_per_km, vat_rate,
+      email_subject, email_body
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
     ON CONFLICT (id) DO UPDATE SET
       job_id = $3, valid_until = $5, object_type = $6, object_address = $7, municipality = $8, district = $9,
       contact_person = $10, phone = $11, email = $12, realization_term = $13, material_type = $14, lead_id = $28,
@@ -9665,8 +9708,9 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       total_with_vat = $21, offer_note = $22, internal_note = $23, source_inquiry = $27,
       documentation_promotion = $31, include_transport = $32, transport_from = $33, transport_to = $34,
       transport_round_trip_km = $35, transport_price_per_km = $36, vat_rate = $37,
+      email_subject = $38, email_body = $39,
       status = $24, sent_at = $25
-     WHERE price_offers.status NOT IN ('PRIJATA', 'ODOSLANA', 'ODOSIELA', 'NEISTY_STAV')
+     WHERE price_offers.status NOT IN ('PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA', 'ODOSIELA', 'NEISTY_STAV')
     RETURNING id`,
     [
       offer.id,
@@ -9706,13 +9750,15 @@ export async function savePriceOffer(input: PriceOfferInput, actorEmail: string,
       offer.transportRoundTripKm,
       offer.transportPricePerKm,
       offer.vatRate,
+      offer.emailSubject,
+      offer.emailBody,
     ],
     );
     if (!result.rows.length) throw new Error('Cenová ponuka bola počas úpravy odoslaná, prijatá alebo uzamknutá a nebola zmenená. Vytvorte novú ponuku.');
     await client.query(
       `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
        VALUES ($1,'business_job',$2,$3,$4,$5,$6)`,
-      [randomUUID(), offer.jobId || offer.id, id ? 'price_offer_updated' : 'price_offer_created', actorEmail,
+      [randomUUID(), offer.jobId || offer.id, existing ? 'price_offer_updated' : 'price_offer_created', actorEmail,
         { number: offer.number, requiresResend: lifecycle.requiresResend }, timestamp],
     );
     await syncPriceOfferParentsPostgres(client, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
@@ -9790,6 +9836,37 @@ export async function listBusinessJobOfferEvidence(
     acceptedAt: row.accepted_at ? new Date(String(row.accepted_at)).toISOString() : undefined,
     deletedAt: row.deleted_at ? new Date(String(row.deleted_at)).toISOString() : undefined,
   }));
+}
+
+export async function getBusinessJobIdsWithPriceOffers(jobIds: string[]): Promise<Set<string>> {
+  await ensureSchema();
+  const ids = [...new Set(jobIds.filter((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)))];
+  if (!ids.length) return new Set();
+  const wanted = new Set(ids);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const found = new Set<string>();
+    for (const offer of local.priceOffers) {
+      if (offer.deletedAt) continue;
+      for (const id of [offer.jobId, ...(offer.sourceJobIds ?? [])]) {
+        if (id && wanted.has(id)) found.add(id);
+      }
+    }
+    return found;
+  }
+  const { rows } = await db.query(
+    `SELECT job_id, source_job_ids FROM price_offers
+     WHERE deleted_at IS NULL
+       AND (job_id = ANY($1::uuid[]) OR source_job_ids && $1::uuid[])`,
+    [ids],
+  );
+  const found = new Set<string>();
+  for (const row of rows) {
+    const linkedIds = [row.job_id ? String(row.job_id) : '', ...parseStringArray(row.source_job_ids)];
+    for (const id of linkedIds) if (wanted.has(id)) found.add(id);
+  }
+  return found;
 }
 
 export async function getLatestPriceOffersByInquiryIds(inquiryIds: string[]): Promise<Map<string, PriceOffer>> {
@@ -10068,14 +10145,14 @@ export async function getPriceOfferStatusSummary(month: string): Promise<PriceOf
   if (!db) {
     const local = await readLocalDb();
     const offers = localBusinessPriceOffers(local).filter((offer) => offer.createdAt >= from && offer.createdAt < toExclusive);
-    const sent = offers.filter((offer) => offer.status === 'ODOSLANA' || offer.status === 'PRIJATA');
+    const sent = offers.filter((offer) => ['ODOSLANA', 'ODLOZENA', 'PRIJATA', 'NEUSPESNA'].includes(offer.status));
     const accepted = offers.filter((offer) => offer.status === 'PRIJATA');
     return { created: offers.length, sent: sent.length, accepted: accepted.length,
       acceptedValue: accepted.reduce((sum, offer) => sum + offer.totalWithVat, 0) };
   }
   const { rows } = await db.query(`SELECT
       count(*)::int AS created,
-      count(*) FILTER (WHERE o.status IN ('ODOSLANA', 'PRIJATA'))::int AS sent,
+      count(*) FILTER (WHERE o.status IN ('ODOSLANA', 'ODLOZENA', 'PRIJATA', 'NEUSPESNA'))::int AS sent,
       count(*) FILTER (WHERE o.status = 'PRIJATA')::int AS accepted,
       COALESCE(sum(o.total_with_vat) FILTER (WHERE o.status = 'PRIJATA'), 0)::numeric AS accepted_value
     FROM price_offers o
@@ -10540,23 +10617,69 @@ export async function listPriceOfferFollowUps(offerId: string): Promise<PriceOff
   }));
 }
 
-export async function updatePriceOfferStatus(id: string, status: PriceOfferStatus, actorEmail: string) {
+export type PriceOfferOutcomeInput = {
+  reason?: string;
+  nextFollowUpAt?: string;
+};
+
+export async function updatePriceOfferStatus(
+  id: string,
+  status: PriceOfferStatus,
+  actorEmail: string,
+  outcome: PriceOfferOutcomeInput = {},
+) {
   await ensureSchema();
-  if (status !== 'PRIJATA') throw new Error('Nepodporovaná zmena stavu cenovej ponuky.');
+  if (status !== 'PRIJATA' && status !== 'ODLOZENA' && status !== 'NEUSPESNA' && status !== 'ODOSLANA') {
+    throw new Error('Nepodporovaná zmena stavu cenovej ponuky.');
+  }
+  const reason = cleanSlovakText(outcome.reason ?? '').trim().slice(0, 500);
+  const nextFollowUpAt = String(outcome.nextFollowUpAt ?? '').trim();
+  if ((status === 'ODLOZENA' || status === 'NEUSPESNA') && reason.length < 3) {
+    throw new Error('Pri odložení alebo neúspešnej ponuke uveďte stručný dôvod.');
+  }
+  if (status === 'ODLOZENA' && (!isValidIsoCalendarDate(nextFollowUpAt) || nextFollowUpAt < slovakCalendarDateAfterDays(0))) {
+    throw new Error('Pri odloženej ponuke vyberte platný dnešný alebo budúci dátum ďalšieho kontaktu.');
+  }
+  const allowedPrevious: Record<'PRIJATA' | 'ODLOZENA' | 'NEUSPESNA' | 'ODOSLANA', PriceOfferStatus[]> = {
+    PRIJATA: ['ODOSLANA', 'ODLOZENA'],
+    ODLOZENA: ['ODOSLANA'],
+    NEUSPESNA: ['ODOSLANA', 'ODLOZENA'],
+    ODOSLANA: ['ODLOZENA'],
+  };
   const timestamp = now();
+  const apply = (offer: PriceOffer) => {
+    const previous = offer.status;
+    offer.status = status;
+    offer.acceptedAt = status === 'PRIJATA' ? timestamp : offer.acceptedAt;
+    offer.outcomeReason = status === 'ODOSLANA' || status === 'PRIJATA' ? '' : reason;
+    offer.nextFollowUpAt = status === 'ODLOZENA' ? nextFollowUpAt : undefined;
+    offer.outcomeUpdatedAt = timestamp;
+    return previous;
+  };
+  const auditReason = status === 'PRIJATA' ? 'price_offer_accepted'
+    : status === 'ODLOZENA' ? 'price_offer_deferred'
+      : status === 'NEUSPESNA' ? 'price_offer_lost' : 'price_offer_reactivated';
+  const auditChanges = (offer: PriceOffer, previous: PriceOfferStatus) => ({
+    ...priceOfferParentAuditChanges(offer, previous, status, auditReason),
+    outcomeReasonProvided: status === 'ODLOZENA' || status === 'NEUSPESNA' ? reason.length >= 3 : undefined,
+    nextFollowUpAt: status === 'ODLOZENA' ? nextFollowUpAt : undefined,
+  });
   const db = getPool();
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
-      const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt && item.status === 'ODOSLANA');
+      const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt && allowedPrevious[status].includes(item.status));
       if (!offer) return null;
-      const previous = offer.status;
-      offer.status = status;
-      offer.acceptedAt = timestamp;
+      const previous = apply(offer);
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
-        action: 'price_offer_status_changed', actorEmail,
-        changes: priceOfferParentAuditChanges(offer, previous, status, 'price_offer_accepted'), createdAt: timestamp });
-      syncPriceOfferParentsLocal(local, offer, 'accepted', actorEmail, timestamp, 'price_offer_accepted');
+        action: 'price_offer_status_changed', actorEmail, changes: auditChanges(offer, previous), createdAt: timestamp });
+      if (status === 'PRIJATA') syncPriceOfferParentsLocal(local, offer, 'accepted', actorEmail, timestamp, auditReason);
+      if (status === 'NEUSPESNA') {
+        const job = offer.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+        const lead = offer.leadId ? local.leads.find((item) => item.id === offer.leadId && !item.deletedAt) : undefined;
+        if (job && ['DOPYT', 'DOPYT_PRIJATY', 'PONUKA_ODOSLANA'].includes(job.status)) job.status = 'ZRUSENA';
+        if (lead && ['novy', 'kontaktovany', 'caka_na_doplnenie', 'naceneny', 'cenova_ponuka_odoslana'].includes(lead.status)) lead.status = 'nevyslo';
+      }
       await writeLocalDb(local);
       return offer;
     });
@@ -10564,22 +10687,39 @@ export async function updatePriceOfferStatus(id: string, status: PriceOfferStatu
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const { rows } = await client.query(
-      `UPDATE price_offers SET status = $1, accepted_at = $2
-       WHERE id = $3 AND deleted_at IS NULL AND status = 'ODOSLANA' RETURNING *`,
-      [status, timestamp, id],
-    );
-    if (!rows[0]) {
+    const currentResult = await client.query('SELECT * FROM price_offers WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [id]);
+    const current = currentResult.rows[0] ? toPriceOffer(currentResult.rows[0]) : null;
+    if (!current || !allowedPrevious[status].includes(current.status)) {
       await client.query('ROLLBACK');
       return null;
     }
+    const previous = current.status;
+    const { rows } = await client.query(
+      `UPDATE price_offers SET status=$1,
+         accepted_at=CASE WHEN $1='PRIJATA' THEN $2 ELSE accepted_at END,
+         outcome_reason=CASE WHEN $1 IN ('ODLOZENA','NEUSPESNA') THEN $3 ELSE '' END,
+         next_follow_up_at=CASE WHEN $1='ODLOZENA' THEN $4::date ELSE NULL END,
+         outcome_updated_at=$2
+       WHERE id=$5 RETURNING *`,
+      [status, timestamp, reason, status === 'ODLOZENA' ? nextFollowUpAt : null, id],
+    );
     const offer = toPriceOffer(rows[0]);
     await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [randomUUID(), 'business_job', offer.jobId || offer.id, 'price_offer_status_changed', actorEmail,
-        priceOfferParentAuditChanges(offer, 'ODOSLANA', status, 'price_offer_accepted'), timestamp],
+        auditChanges(offer, previous), timestamp],
     );
-    await syncPriceOfferParentsPostgres(client, offer, 'accepted', actorEmail, timestamp, 'price_offer_accepted');
+    if (status === 'PRIJATA') await syncPriceOfferParentsPostgres(client, offer, 'accepted', actorEmail, timestamp, auditReason);
+    if (status === 'NEUSPESNA') {
+      if (offer.jobId) await client.query(
+        `UPDATE business_jobs SET status='ZRUSENA', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('DOPYT','DOPYT_PRIJATY','PONUKA_ODOSLANA')`,
+        [offer.jobId, timestamp],
+      );
+      if (offer.leadId) await client.query(
+        `UPDATE leads SET status='nevyslo', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('novy','kontaktovany','caka_na_doplnenie','naceneny','cenova_ponuka_odoslana')`,
+        [offer.leadId, timestamp],
+      );
+    }
     await client.query('COMMIT');
     return offer;
   } catch (error) {
@@ -11401,9 +11541,15 @@ export async function createCaseDraftFromApprovedPhoto(input: { mediaId: string;
       [jobId],
     );
     if (!jobResult.rows[0]) throw new Error('Koncept možno vytvoriť iba z fotografie dokončenej CRM zákazky.');
+    const objectTypes: Record<string, string> = {
+      family_house: 'Rodinný dom', outbuilding: 'Hospodárska budova', garage: 'Garáž',
+      illegal_dump: 'Nelegálna skládka', interior: 'Interiér',
+    };
+    const inferredObjectType = [...new Set(categories.map((category) => objectTypes[category]).filter(Boolean))].join(', ');
 
     const existingResult = await client.query(
-      `SELECT id, lifecycle, locality, object_type FROM realization_case_drafts
+      `SELECT id, lifecycle, locality, object_type
+       FROM realization_case_drafts
        WHERE business_job_id=$1
        ORDER BY (lifecycle='draft') DESC, updated_at DESC, id
        LIMIT 1 FOR UPDATE`,
@@ -11427,11 +11573,6 @@ export async function createCaseDraftFromApprovedPhoto(input: { mediaId: string;
       if (existingLocality && existingLocality.toLocaleLowerCase('sk') !== locality.toLocaleLowerCase('sk')) {
         throw new Error('Lokalita fotografie sa líši od existujúceho konceptu tejto zákazky. Skontrolujte ju ručne.');
       }
-      const objectTypes: Record<string, string> = {
-        family_house: 'Rodinný dom', outbuilding: 'Hospodárska budova', garage: 'Garáž',
-        illegal_dump: 'Nelegálna skládka', interior: 'Interiér',
-      };
-      const inferredObjectType = [...new Set(categories.map((category) => objectTypes[category]))].join(', ');
       localityPrefilled = !existingLocality;
       objectTypePrefilled = !existingObjectType;
       if (localityPrefilled || objectTypePrefilled) {
@@ -11450,15 +11591,10 @@ export async function createCaseDraftFromApprovedPhoto(input: { mediaId: string;
       created = true;
       localityPrefilled = true;
       objectTypePrefilled = true;
-      const objectTypes: Record<string, string> = {
-        family_house: 'Rodinný dom', outbuilding: 'Hospodárska budova', garage: 'Garáž',
-        illegal_dump: 'Nelegálna skládka', interior: 'Interiér',
-      };
-      const objectType = [...new Set(categories.map((category) => objectTypes[category]))].join(', ');
       await client.query(
         `INSERT INTO realization_case_drafts (id, title, locality, locality_precision, object_type, business_job_id, updated_by)
          VALUES ($1,$2,$3,'none',$4,$5,$6)`,
-        [draftId, `Realizácia – ${locality}`, locality, objectType, jobId, actor],
+        [draftId, `Realizácia – ${locality}`, locality, inferredObjectType, jobId, actor],
       );
     }
     const linked = await client.query(
@@ -16190,7 +16326,7 @@ export async function getLeadAttributionReport(days = 30, sinceOverride?: string
           EXISTS (SELECT 1 FROM quotes q WHERE q.lead_id = lead_base.id AND q.status IN ('sent', 'accepted', 'rejected', 'expired'))
           OR EXISTS (
             SELECT 1 FROM price_offers o
-            WHERE ${priceOfferAttributionOwnerCondition} AND o.status IN ('ODOSLANA', 'PRIJATA')
+            WHERE ${priceOfferAttributionOwnerCondition} AND o.status IN ('ODOSLANA', 'ODLOZENA', 'PRIJATA', 'NEUSPESNA')
               AND ${businessPriceOfferCondition}
           )
         ) AS has_issued_offer,
