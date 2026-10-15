@@ -155,7 +155,7 @@ test('database and runtime schema access follow the isolated environment state m
   assert.equal(runtimeSchemaInitializationAllowed(localBuildHarness), true);
   assert.equal(runtimeSchemaInitializationAllowed({ NODE_ENV: 'development' }), true);
   assert.match(dbSource, /if \(deploymentDatabaseAccessBlocked\(\)\)/);
-  assert.match(dbSource, /if \(!runtimeSchemaInitializationAllowed\(\)\) \{\s*schemaReady = true;\s*return;/);
+  assert.match(dbSource, /if \(!runtimeSchemaInitializationAllowed\(\)\) \{\s*await ensureAdminAutopilotSchema\(\);\s*schemaReady = true;\s*return;/);
   assert.match(dbSource, /SELECT marker FROM astana_environment_guard WHERE environment = 'staging' LIMIT 1/);
   assert.match(dbSource, /stagingDatabaseMarkerMatches\(marker\.rows\[0\]\?\.marker\)/);
 });
