@@ -1,6 +1,6 @@
 # ASTANA firemný asistent — release 2026-10-15
 
-Tento dokument je release značka k funkčnému commitu `adf2237cf14aafe301486e890c15fe9b422d5d18`.
+Tento dokument je release značka k funkčnému commitu `ba83706b4288d6350c864021e13fcb8ecca1884f`. Obsahuje pôvodný firemný asistent z commitu `adf2237cf14aafe301486e890c15fe9b422d5d18` aj produkčne zistenú opravu bezpečne autorizovaných Vercel Cron Jobs.
 
 ## Rozsah
 
@@ -12,17 +12,19 @@ Tento dokument je release značka k funkčnému commitu `adf2237cf14aafe301486e8
 - text, presnosť lokality, práva aj publikovanie realizácie alebo referencie potvrdzuje človek,
 - centrum asistenta a jeho ručné spustenie sú dostupné iba superadminovi,
 - chránená plánovaná úloha pripravuje návrhy každých desať minút, nič sama nepublikuje ani neposiela prvý obchodný email.
+- interná `vercel.app` adresa prijme iba produkčný GET cron s presným `vercel-cron/1.0` identifikátorom a platným `CRON_SECRET`; ostatné preview, staged, nepodpísané a prehliadačové volania zostávajú zablokované.
 
 ## Overenie
 
 - TypeScript: PASS,
-- jednotkové a kontraktové testy: `548/548 + 38/38` PASS,
+- jednotkové a kontraktové testy: `548/548 + 39/39` PASS,
 - databázové integračné toky: `21/21` PASS vrátane lokálneho a PostgreSQL správania, súbehu a ochrany osobných údajov,
 - produkčný build: PASS, `109/109` strán,
 - centrum asistenta: `4 trasy × 13 šírok = 52 stavov` PASS,
 - pracovná plocha referencií: `4 trasy × 13 šírok = 52 stavov` PASS,
 - cenové ponuky v reálnom prehliadači: `12/12` kontrol PASS,
 - počas vizuálnych kontrol sa neodoslal formulár ani email a nevzniklo externé sieťové volanie.
+- po prvom nasadení produkčné logy odhalili starší konflikt medzi preview poistkou a interným Vercel cron hostom; oprava má samostatný pozitívny aj negatívny bezpečnostný kontrakt a po nej znovu prešli celý unit balík, TypeScript a produkčný build.
 
 ## Bezpečnostná hranica
 
