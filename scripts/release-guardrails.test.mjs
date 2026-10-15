@@ -249,7 +249,7 @@ test('rejects changed or missing protected runtime files', () => {
     write(fixture.repo, 'runtime/protected.ts', 'export const protectedValue = false;\n');
     const changedHead = commitAll(fixture.repo, 'change protected runtime');
     const args = [...approvedArguments(fixture, { expectedHead: changedHead }), '--allow', 'runtime/protected.ts'];
-    assertFails(runGuard(fixture.repo, args), /Chránené runtime súbory sa zmenili alebo chýbajú/);
+    assertFails(runGuard(fixture.repo, args), /Chránené runtime súbory sa zmenili bez osobitného schválenia alebo chýbajú/);
     const manifest = readManifest(fixture.repo);
     assert.equal(manifest.result, 'FAIL');
     assert.equal(manifest.checks.protectedRuntime.passed, false);
@@ -257,7 +257,7 @@ test('rejects changed or missing protected runtime files', () => {
   withRepository((fixture) => {
     assertFails(
       runGuard(fixture.repo, approvedArguments(fixture, { protected: 'runtime/missing.ts' })),
-      /Chránené runtime súbory sa zmenili alebo chýbajú/,
+      /Chránené runtime súbory sa zmenili bez osobitného schválenia alebo chýbajú/,
     );
   });
   withRepository((fixture) => {
@@ -268,8 +268,58 @@ test('rejects changed or missing protected runtime files', () => {
         ...approvedArguments(fixture, { expectedHead: changedHead }),
         '--allow', 'scripts/published-realization-locality-points.behavior.mjs',
       ]),
-      /Chránené runtime súbory sa zmenili alebo chýbajú/,
+      /Chránené runtime súbory sa zmenili bez osobitného schválenia alebo chýbajú/,
     );
+  });
+});
+
+test('allows only exact separately approved protected changes', () => {
+  withRepository((fixture) => {
+    write(fixture.repo, 'runtime/protected.ts', 'export const protectedValue = false;\n');
+    const changedHead = commitAll(fixture.repo, 'review protected runtime change');
+    const args = [
+      ...approvedArguments(fixture, { expectedHead: changedHead }),
+      '--allow', 'runtime/protected.ts',
+      '--allow-protected-change', 'runtime/protected.ts',
+    ];
+    const result = runGuard(fixture.repo, args);
+    assert.equal(result.status, 0, result.stderr);
+    const manifest = readManifest(fixture.repo);
+    assert.deepEqual(manifest.checks.protectedRuntime.explicitlyApprovedChanges, ['runtime/protected.ts']);
+    assert.equal(manifest.checks.protectedRuntime.passed, true);
+  });
+  withRepository((fixture) => {
+    assertFails(
+      runGuard(fixture.repo, [
+        ...approvedArguments(fixture),
+        '--allow-protected-change', 'runtime/protected.ts',
+      ]),
+      /nezmenené súbory|hlavnom allowliste/,
+    );
+  });
+  withRepository((fixture) => {
+    assertFails(
+      runGuard(fixture.repo, [
+        ...approvedArguments(fixture),
+        '--allow-protected-change', 'docs/release-note.md',
+      ]),
+      /nechránené súbory/,
+    );
+  });
+});
+
+test('requires an extra acknowledgement when the release guard itself changes', () => {
+  withRepository((fixture) => {
+    write(fixture.repo, 'scripts/check-release-guardrails.mjs', 'reviewed release guard revision\n');
+    const changedHead = commitAll(fixture.repo, 'review release guard change');
+    const args = [
+      ...approvedArguments(fixture, { expectedHead: changedHead }),
+      '--allow', 'scripts/check-release-guardrails.mjs',
+      '--allow-protected-change', 'scripts/check-release-guardrails.mjs',
+    ];
+    assertFails(runGuard(fixture.repo, args), /--acknowledge-release-guard-change/);
+    const result = runGuard(fixture.repo, [...args, '--acknowledge-release-guard-change']);
+    assert.equal(result.status, 0, result.stderr);
   });
 });
 

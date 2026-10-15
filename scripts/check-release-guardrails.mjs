@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const RELEASE_GUARD_COMMAND = 'node scripts/check-release-guardrails.mjs';
 const REVIEWED_DEPLOY_COMMAND = 'node scripts/deploy-reviewed-release.mjs';
 const VERCEL_IAM_ACKNOWLEDGEMENT = '--acknowledge-vercel-iam-boundary';
+const RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT = '--acknowledge-release-guard-change';
 const APPROVED_RELEASE_SCRIPT_NAMES = new Set(['deploy', 'release:guard', 'test:release-guard', 'test:release-deploy']);
 const APPROVED_NON_DEPLOYMENT_COMMANDS = new Set([
   'node --import tsx --test scripts/published-realization-locality-points.behavior.mjs',
@@ -29,8 +30,8 @@ const SINGLE_VALUE_ARGUMENTS = new Set([
   '--rollback-deployment',
   '--previous-production-deployment',
 ]);
-const REPEATABLE_ARGUMENTS = new Set(['--allow', '--protected']);
-const BOOLEAN_ARGUMENTS = new Set([VERCEL_IAM_ACKNOWLEDGEMENT]);
+const REPEATABLE_ARGUMENTS = new Set(['--allow', '--protected', '--allow-protected-change']);
+const BOOLEAN_ARGUMENTS = new Set([VERCEL_IAM_ACKNOWLEDGEMENT, RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT]);
 const DEFAULT_PROTECTED_FILES = [
   'app/api/dopyt/route.ts',
   'app/api/lead/route.ts',
@@ -143,7 +144,9 @@ function parseArguments(argv) {
     previousProductionDeployment: single.get('--previous-production-deployment'),
     allowedFiles: repeated.get('--allow'),
     protectedFiles: repeated.get('--protected'),
+    allowedProtectedChanges: repeated.get('--allow-protected-change'),
     vercelIamBoundaryAcknowledged: true,
+    releaseGuardChangeAcknowledged: booleans.has(RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT),
   };
 }
 
@@ -292,6 +295,8 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
   const allowedFiles = parsed.allowedFiles.map((file) => validateRepositoryPath(file, '--allow'));
   const protectedFiles = [...new Set([...DEFAULT_PROTECTED_FILES, ...parsed.protectedFiles])]
     .map((file) => validateRepositoryPath(file, '--protected'));
+  const allowedProtectedChanges = parsed.allowedProtectedChanges
+    .map((file) => validateRepositoryPath(file, '--allow-protected-change'));
 
   try {
     requireAncestor(repo, protectedBaseline, expectedHead, '--protected-baseline');
@@ -352,19 +357,67 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
   checks.noTrackedTestResults = { files: trackedTestResults, passed: trackedTestResults.length === 0 };
   if (trackedTestResults.length > 0) failures.push('test-results nesmie obsahovať žiadne trackované súbory.');
 
+  const allowedProtectedChangeSet = new Set(allowedProtectedChanges);
+  const protectedFileSet = new Set(protectedFiles);
+  const invalidProtectedChangeApprovals = allowedProtectedChanges.filter((file) => !protectedFileSet.has(file));
+  const protectedChangeApprovalsOutsideScope = allowedProtectedChanges.filter((file) => !allowedSet.has(file));
   const protectedFileHashes = protectedFiles.map((file) => {
     try {
       const baselineHash = hash(fileAt(repo, protectedBaseline, file));
       const currentHash = hash(fileAt(repo, actualHead, file));
-      return { file, baselineHash, currentHash, passed: baselineHash === currentHash };
+      const changed = baselineHash !== currentHash;
+      const approvalRequested = allowedProtectedChangeSet.has(file);
+      return {
+        file, baselineHash, currentHash, changed, approvalRequested,
+        passed: !changed || approvalRequested,
+      };
     } catch (error) {
       return { file, passed: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
-  const changedProtectedFiles = protectedFileHashes.filter((entry) => !entry.passed);
-  checks.protectedRuntime = { baseline: protectedBaseline, files: protectedFileHashes, passed: changedProtectedFiles.length === 0 };
-  if (changedProtectedFiles.length > 0) {
-    failures.push(`Chránené runtime súbory sa zmenili alebo chýbajú: ${changedProtectedFiles.map((entry) => entry.file).join(', ')}.`);
+  const unapprovedProtectedChanges = protectedFileHashes.filter((entry) => entry.changed && !entry.approvalRequested);
+  const invalidProtectedFiles = protectedFileHashes.filter((entry) => entry.error);
+  const unusedProtectedChangeApprovals = allowedProtectedChanges.filter(
+    (file) => !protectedFileHashes.some((entry) => entry.file === file && entry.changed),
+  );
+  const selfProtectedChanges = allowedProtectedChanges.filter(
+    (file) => file === 'scripts/check-release-guardrails.mjs' || file === 'scripts/deploy-reviewed-release.mjs',
+  );
+  const releaseGuardSelfChangePassed = selfProtectedChanges.length === 0 || parsed.releaseGuardChangeAcknowledged;
+  const protectedRuntimePassed = unapprovedProtectedChanges.length === 0
+    && invalidProtectedFiles.length === 0
+    && invalidProtectedChangeApprovals.length === 0
+    && protectedChangeApprovalsOutsideScope.length === 0
+    && unusedProtectedChangeApprovals.length === 0
+    && releaseGuardSelfChangePassed;
+  checks.protectedRuntime = {
+    baseline: protectedBaseline,
+    explicitlyApprovedChanges: allowedProtectedChanges,
+    invalidApprovals: invalidProtectedChangeApprovals,
+    approvalsOutsideReleaseScope: protectedChangeApprovalsOutsideScope,
+    unusedApprovals: unusedProtectedChangeApprovals,
+    selfProtectedChanges,
+    releaseGuardChangeAcknowledged: parsed.releaseGuardChangeAcknowledged,
+    files: protectedFileHashes,
+    passed: protectedRuntimePassed,
+  };
+  if (unapprovedProtectedChanges.length > 0 || invalidProtectedFiles.length > 0) {
+    failures.push(`Chránené runtime súbory sa zmenili bez osobitného schválenia alebo chýbajú: ${[
+      ...unapprovedProtectedChanges,
+      ...invalidProtectedFiles,
+    ].map((entry) => entry.file).join(', ')}.`);
+  }
+  if (invalidProtectedChangeApprovals.length > 0) {
+    failures.push(`Schválenie citlivej zmeny odkazuje na nechránené súbory: ${invalidProtectedChangeApprovals.join(', ')}.`);
+  }
+  if (protectedChangeApprovalsOutsideScope.length > 0) {
+    failures.push(`Schválené citlivé zmeny chýbajú v hlavnom allowliste: ${protectedChangeApprovalsOutsideScope.join(', ')}.`);
+  }
+  if (unusedProtectedChangeApprovals.length > 0) {
+    failures.push(`Schválenie citlivej zmeny obsahuje nezmenené súbory: ${unusedProtectedChangeApprovals.join(', ')}.`);
+  }
+  if (!releaseGuardSelfChangePassed) {
+    failures.push(`Zmena release ochrany vyžaduje ${RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT}.`);
   }
 
   try {
