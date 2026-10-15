@@ -13,6 +13,7 @@ export type DeploymentSafetyEnvironment = Partial<Pick<NodeJS.ProcessEnv,
   | 'BLOB_RESOURCE_ID'
   | 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN'
   | 'PHOTO_INTAKE_BLOB_RESOURCE_ID'
+  | 'CRON_SECRET'
   | 'STAGING_WRITE_ENABLED'
   | 'STAGING_MAIL_OVERRIDE_TO'
   | 'STAGING_DATABASE_MARKER'
@@ -176,10 +177,43 @@ export function deploymentDatabaseAccessBlocked(environment: DeploymentSafetyEnv
 
 const canonicalProductionHosts = new Set(['likvidacia-eternitu.sk', 'www.likvidacia-eternitu.sk']);
 const signedLeadBlobCallbackPath = '/api/lead-upload/';
+const vercelCronUserAgent = 'vercel-cron/1.0';
 
 function isCanonicalProductionHost(hostname: string) {
   const normalized = hostname.trim().toLowerCase();
   return canonicalProductionHosts.has(normalized);
+}
+
+/**
+ * Vercel invokes Cron Jobs on the immutable production deployment hostname,
+ * not on the custom domain. Permit only Vercel's documented cron request
+ * shape; the route handler still performs its own authorization check.
+ */
+export function vercelCronRequestAllowed(
+  environment: DeploymentSafetyEnvironment,
+  method: string,
+  pathname: string,
+  hostname: string,
+  authorization: string | null,
+  userAgent: string | null,
+) {
+  const secret = environment.CRON_SECRET?.trim() ?? '';
+  const expectedAuthorization = `Bearer ${secret}`;
+  const deploymentHostname = environment.VERCEL_URL?.trim().toLowerCase() ?? '';
+  if (
+    environment.NODE_ENV !== 'production'
+    || environment.VERCEL !== '1'
+    || environment.VERCEL_ENV !== 'production'
+    || environment.VERCEL_TARGET_ENV !== 'production'
+    || method.toUpperCase() !== 'GET'
+    || !/^\/api\/cron(?:\/|$)/i.test(pathname)
+    || !deploymentHostname
+    || hostname.trim().toLowerCase() !== deploymentHostname
+    || userAgent?.trim().toLowerCase() !== vercelCronUserAgent
+    || !secret
+    || authorization?.length !== expectedAuthorization.length
+  ) return false;
+  return timingSafeEqual(Buffer.from(authorization), Buffer.from(expectedAuthorization));
 }
 
 /**

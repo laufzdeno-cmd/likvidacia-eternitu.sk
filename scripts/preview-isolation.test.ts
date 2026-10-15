@@ -16,6 +16,7 @@ import {
   stagingDatabaseMarkerMatches,
   stagingResourceBinding,
   type DeploymentSafetyEnvironment,
+  vercelCronRequestAllowed,
   vercelBlobStoreId,
 } from '../src/server/preview-safety';
 import { resolveOutboundEmailRecipient } from '../src/server/mail';
@@ -67,6 +68,7 @@ const previewEnvironment: DeploymentSafetyEnvironment = {
 const liveProductionEnvironment: DeploymentSafetyEnvironment = {
   NODE_ENV: 'production', VERCEL: '1', VERCEL_ENV: 'production', VERCEL_TARGET_ENV: 'production',
   VERCEL_URL: 'release.vercel.app',
+  CRON_SECRET: 'cron-secret-at-least-16',
   NEXT_PUBLIC_SITE_URL: 'https://likvidacia-eternitu.sk',
 };
 
@@ -127,6 +129,17 @@ test('only signed Blob completion callbacks reach their exact immutable Producti
   assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/lead-upload/', 'release.vercel.app', 'forged'), false);
   assert.equal(signedBlobCompletionCallbackAllowed(liveProductionEnvironment, 'POST', '/api/lead/', 'release.vercel.app', signature), false);
   assert.equal(signedBlobCompletionCallbackAllowed(previewEnvironment, 'POST', '/api/lead-upload/', 'preview.vercel.app', signature), false);
+});
+
+test('only authenticated Vercel Cron requests reach the immutable Production deployment', () => {
+  const authorization = `Bearer ${liveProductionEnvironment.CRON_SECRET}`;
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), true);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'POST', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/lead/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'other.vercel.app', authorization, 'vercel-cron/1.0'), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', 'Bearer wrong', 'vercel-cron/1.0'), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'browser'), false);
+  assert.equal(vercelCronRequestAllowed({ ...liveProductionEnvironment, VERCEL_ENV: 'preview' }, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), false);
 });
 
 test('database and runtime schema access follow the isolated environment state machine', () => {
@@ -288,7 +301,8 @@ test('Next proxy covers all API and admin endpoints without affecting public ass
   assert.match(proxySource, /matcher:\s*\['\/api\/:path\*', '\/admin\/:path\*', '\/spolupraca\/fotky\/:path\*', '\/dopyt-prijaty\/:path\*'\]/);
   assert.match(proxySource, /deploymentRequestBlocked\(process\.env, request\.method, request\.nextUrl\.pathname, request\.nextUrl\.hostname\)/);
   assert.match(proxySource, /signedBlobCompletionCallbackAllowed\(/);
-  assert.match(proxySource, /!signedBlobCallback && deploymentRequestBlocked\(/);
+  assert.match(proxySource, /vercelCronRequestAllowed\(/);
+  assert.match(proxySource, /!signedBlobCallback && !vercelCron && deploymentRequestBlocked\(/);
 });
 
 test('plaintext admin password is never accepted as a production credential', () => {

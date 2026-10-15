@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { deploymentRequestBlocked, signedBlobCompletionCallbackAllowed } from './src/server/preview-safety';
+import { deploymentRequestBlocked, signedBlobCompletionCallbackAllowed, vercelCronRequestAllowed } from './src/server/preview-safety';
 
 export function proxy(request: NextRequest) {
   const signedBlobCallback = signedBlobCompletionCallbackAllowed(
@@ -9,7 +9,15 @@ export function proxy(request: NextRequest) {
     request.nextUrl.hostname,
     request.headers.get('x-vercel-signature'),
   );
-  if (!signedBlobCallback && deploymentRequestBlocked(process.env, request.method, request.nextUrl.pathname, request.nextUrl.hostname)) {
+  const vercelCron = vercelCronRequestAllowed(
+    process.env,
+    request.method,
+    request.nextUrl.pathname,
+    request.nextUrl.hostname,
+    request.headers.get('authorization'),
+    request.headers.get('user-agent'),
+  );
+  if (!signedBlobCallback && !vercelCron && deploymentRequestBlocked(process.env, request.method, request.nextUrl.pathname, request.nextUrl.hostname)) {
     return NextResponse.json(
       { error: 'Testovacia verzia neprijíma odoslania, kým nemá oddelené úložisko.' },
       {
