@@ -506,6 +506,32 @@ const adminAssistantBusinessJobColumns = [
   'review_request_blocked_reason',
 ] as const;
 
+const adminAssistantReviewRequestColumns = [
+  'job_id',
+  'customer_email',
+  'subject',
+  'token_hash',
+  'token_expires_at',
+  'sent_at',
+  'opened_at',
+  'submitted_at',
+  'approved_at',
+  'published_at',
+  'reminder_allowed',
+  'reminder_due_at',
+  'reminder_attempted_at',
+  'reminder_sent_at',
+  'reminder_status',
+  'reminder_token_hash',
+  'reminder_token_expires_at',
+  'reminder_delivery_reason_code',
+  'reminder_message_id_hash',
+  'delivery_reason_code',
+  'delivery_message_id_hash',
+  'testimonial_id',
+  'revision',
+] as const;
+
 const adminAutopilotPriceOfferColumnDefinitions: Record<
   (typeof adminAutopilotPriceOfferColumns)[number],
   string
@@ -539,7 +565,36 @@ const adminAssistantBusinessJobColumnDefinitions: Record<
   review_request_blocked_reason: "review_request_blocked_reason text NOT NULL DEFAULT ''",
 };
 
-export const adminAssistantSchemaRevision = 'admin-assistant-v2-2026-10-15';
+const adminAssistantReviewRequestColumnDefinitions: Record<
+  (typeof adminAssistantReviewRequestColumns)[number],
+  string
+> = {
+  job_id: 'job_id uuid',
+  customer_email: "customer_email text NOT NULL DEFAULT ''",
+  subject: "subject text NOT NULL DEFAULT ''",
+  token_hash: 'token_hash char(64)',
+  token_expires_at: 'token_expires_at timestamptz',
+  sent_at: 'sent_at timestamptz',
+  opened_at: 'opened_at timestamptz',
+  submitted_at: 'submitted_at timestamptz',
+  approved_at: 'approved_at timestamptz',
+  published_at: 'published_at timestamptz',
+  reminder_allowed: 'reminder_allowed boolean NOT NULL DEFAULT false',
+  reminder_due_at: 'reminder_due_at timestamptz',
+  reminder_attempted_at: 'reminder_attempted_at timestamptz',
+  reminder_sent_at: 'reminder_sent_at timestamptz',
+  reminder_status: 'reminder_status text',
+  reminder_token_hash: 'reminder_token_hash char(64)',
+  reminder_token_expires_at: 'reminder_token_expires_at timestamptz',
+  reminder_delivery_reason_code: "reminder_delivery_reason_code text NOT NULL DEFAULT ''",
+  reminder_message_id_hash: 'reminder_message_id_hash char(64)',
+  delivery_reason_code: "delivery_reason_code text NOT NULL DEFAULT ''",
+  delivery_message_id_hash: 'delivery_message_id_hash char(64)',
+  testimonial_id: 'testimonial_id uuid',
+  revision: 'revision integer NOT NULL DEFAULT 1',
+};
+
+export const adminAssistantSchemaRevision = 'admin-assistant-v2.1-2026-10-15';
 
 /**
  * Narrow, forward-compatible migration for the supervised assistant. Production
@@ -592,13 +647,16 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
     FROM information_schema.columns
     WHERE table_schema = 'public'
       AND ((table_name = 'price_offers' AND column_name = ANY($1::text[]))
-        OR (table_name = 'business_jobs' AND column_name = ANY($2::text[])))
-  `, [adminAutopilotPriceOfferColumns, adminAssistantBusinessJobColumns]);
+        OR (table_name = 'business_jobs' AND column_name = ANY($2::text[]))
+        OR (table_name = 'review_requests' AND column_name = ANY($3::text[])))
+  `, [adminAutopilotPriceOfferColumns, adminAssistantBusinessJobColumns, adminAssistantReviewRequestColumns]);
   const existingColumns = new Set(existing.rows.map((row) => `${row.table_name}.${row.column_name}`));
   const missingPriceOfferColumns = adminAutopilotPriceOfferColumns
     .filter((column) => !existingColumns.has(`price_offers.${column}`));
   const missingBusinessJobColumns = adminAssistantBusinessJobColumns
     .filter((column) => !existingColumns.has(`business_jobs.${column}`));
+  const missingReviewRequestColumns = adminAssistantReviewRequestColumns
+    .filter((column) => !existingColumns.has(`review_requests.${column}`));
   for (const column of missingPriceOfferColumns) {
     await client.query(
       `ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS ${adminAutopilotPriceOfferColumnDefinitions[column]}`,
@@ -607,6 +665,11 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
   for (const column of missingBusinessJobColumns) {
     await client.query(
       `ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS ${adminAssistantBusinessJobColumnDefinitions[column]}`,
+    );
+  }
+  for (const column of missingReviewRequestColumns) {
+    await client.query(
+      `ALTER TABLE review_requests ADD COLUMN IF NOT EXISTS ${adminAssistantReviewRequestColumnDefinitions[column]}`,
     );
   }
   await client.query(`
@@ -649,6 +712,8 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
     CHECK (customer_response IS NULL OR customer_response IN ('ACCEPTED','DEFERRED','DECLINED'))`);
   await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS price_offers_response_token_hash_unique_idx
     ON price_offers (response_token_hash) WHERE response_token_hash IS NOT NULL`);
+  await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS review_requests_job_unique_idx
+    ON review_requests (job_id) WHERE job_id IS NOT NULL`);
   await client.query(`
     CREATE TABLE IF NOT EXISTS admin_autopilot_runs (
       id uuid PRIMARY KEY,
@@ -680,7 +745,7 @@ export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'quer
   `);
   await client.query('CREATE INDEX IF NOT EXISTS admin_autopilot_run_items_run_idx ON admin_autopilot_run_items (run_id, created_at, id)');
   return {
-    columnsAdded: missingPriceOfferColumns.length + missingBusinessJobColumns.length,
+    columnsAdded: missingPriceOfferColumns.length + missingBusinessJobColumns.length + missingReviewRequestColumns.length,
     tablesAdded,
   };
 }

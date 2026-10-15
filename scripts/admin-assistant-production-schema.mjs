@@ -40,6 +40,31 @@ const expectedColumns = {
     'response_token_expires_at',
     'response_token_hash',
   ],
+  review_requests: [
+    'approved_at',
+    'customer_email',
+    'delivery_message_id_hash',
+    'delivery_reason_code',
+    'job_id',
+    'opened_at',
+    'published_at',
+    'reminder_allowed',
+    'reminder_attempted_at',
+    'reminder_delivery_reason_code',
+    'reminder_due_at',
+    'reminder_message_id_hash',
+    'reminder_sent_at',
+    'reminder_status',
+    'reminder_token_expires_at',
+    'reminder_token_hash',
+    'revision',
+    'sent_at',
+    'subject',
+    'submitted_at',
+    'testimonial_id',
+    'token_expires_at',
+    'token_hash',
+  ],
 };
 const expectedConstraints = [
   'business_job_completion_costs_check',
@@ -56,6 +81,7 @@ const expectedIndexes = [
   'admin_autopilot_runs_started_idx',
   'admin_autopilot_runs_status_idx',
   'price_offers_response_token_hash_unique_idx',
+  'review_requests_job_unique_idx',
 ];
 
 function argumentsFrom(argv) {

@@ -49,6 +49,7 @@ test('production runtime and release tooling apply the complete additive assista
   assert.match(db, /CREATE TABLE IF NOT EXISTS business_job_completion/);
   assert.match(db, /review_request_blocked_at/);
   assert.match(db, /response_token_hash/);
+  assert.match(db, /review_requests_job_unique_idx/);
   assert.match(db, /astana_targeted_schema_revisions/);
   assert.match(migration, /--apply/);
   assert.match(migration, /--confirm-production/);
