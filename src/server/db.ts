@@ -456,6 +456,65 @@ async function ensureSchema() {
   await schemaInitialization;
 }
 
+const adminAutopilotPriceOfferColumns = [
+  'email_subject',
+  'email_body',
+  'outcome_reason',
+  'next_follow_up_at',
+  'outcome_updated_at',
+] as const;
+
+const adminAutopilotPriceOfferColumnDefinitions: Record<
+  (typeof adminAutopilotPriceOfferColumns)[number],
+  string
+> = {
+  email_subject: "email_subject text NOT NULL DEFAULT ''",
+  email_body: "email_body text NOT NULL DEFAULT ''",
+  outcome_reason: "outcome_reason text NOT NULL DEFAULT ''",
+  next_follow_up_at: 'next_follow_up_at date',
+  outcome_updated_at: 'outcome_updated_at timestamptz',
+};
+
+/**
+ * Narrow, forward-compatible migration for the supervised assistant. Production
+ * runtime never runs the full schema initializer; this helper only adds the
+ * assistant's nullable/defaulted columns under a transaction advisory lock.
+ */
+export async function ensureAdminAutopilotSchema() {
+  const db = getPool();
+  if (!db) return { columnsAdded: 0 };
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('astana:admin-autopilot-schema:v1'))");
+    const result = await migrateAdminAutopilotSchema(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function migrateAdminAutopilotSchema(client: Pick<PoolClient, 'query'>) {
+  const existing = await client.query<{ column_name: string }>(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'price_offers'
+      AND column_name = ANY($1::text[])
+  `, [adminAutopilotPriceOfferColumns]);
+  const existingColumns = new Set(existing.rows.map((row) => row.column_name));
+  const missingColumns = adminAutopilotPriceOfferColumns.filter((column) => !existingColumns.has(column));
+  for (const column of missingColumns) {
+    await client.query(
+      `ALTER TABLE price_offers ADD COLUMN IF NOT EXISTS ${adminAutopilotPriceOfferColumnDefinitions[column]}`,
+    );
+  }
+  return { columnsAdded: missingColumns.length };
+}
+
 export async function migrateLegacyMetaCapiOutbox(db: Pool | PoolClient) {
   const legacyExists = (await db.query("SELECT to_regclass('public.meta_capi_delivery_outbox') AS relation")).rows[0]?.relation;
   if (!legacyExists) return;

@@ -4,6 +4,7 @@ import { priceOfferMaterialFromText } from '@/src/lib/price-offer-material';
 import {
   createCaseDraftFromApprovedPhoto,
   createReviewRequest,
+  ensureAdminAutopilotSchema,
   getBusinessJobIdsWithPriceOffers,
   getPriceOfferSettings,
   listBusinessJobs,
@@ -88,6 +89,8 @@ export async function reconcileAdminAutopilot(options: { actorEmail?: string; li
     blockedOfferJobIds: [],
     unavailable: [],
   };
+
+  await ensureAdminAutopilotSchema();
 
   const [jobs, offerSettings] = await Promise.all([listBusinessJobs(), getPriceOfferSettings()]);
   const eligibleJobs = jobs.filter((job) => !job.deletedAt && !job.isTestData

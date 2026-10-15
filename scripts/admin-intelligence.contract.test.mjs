@@ -184,6 +184,7 @@ test('firemný autopilot je idempotentný, chránený a nikdy sám neposiela prv
     read('app/api/cron/admin-autopilot/route.ts'),
   ]);
   assert.match(engine, /getBusinessJobIdsWithPriceOffers/);
+  assert.match(engine, /await ensureAdminAutopilotSchema\(\)/);
   assert.match(engine, /deterministicUuid\('assistant-offer'/);
   assert.match(engine, /status: 'pending_approval'/);
   assert.doesNotMatch(engine, /sendPriceOffer|sendReviewRequest|sendEmail|sendMail|publishRequested|nextLifecycle:\s*'published'/);
