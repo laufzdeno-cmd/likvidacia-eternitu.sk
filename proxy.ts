@@ -13,9 +13,7 @@ export function proxy(request: NextRequest) {
     process.env,
     request.method,
     request.nextUrl.pathname,
-    request.nextUrl.hostname,
     request.headers.get('authorization'),
-    request.headers.get('user-agent'),
   );
   if (!signedBlobCallback && !vercelCron && deploymentRequestBlocked(process.env, request.method, request.nextUrl.pathname, request.nextUrl.hostname)) {
     return NextResponse.json(

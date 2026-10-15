@@ -133,13 +133,12 @@ test('only signed Blob completion callbacks reach their exact immutable Producti
 
 test('only authenticated Vercel Cron requests reach the immutable Production deployment', () => {
   const authorization = `Bearer ${liveProductionEnvironment.CRON_SECRET}`;
-  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), true);
-  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'POST', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), false);
-  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/lead/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), false);
-  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'other.vercel.app', authorization, 'vercel-cron/1.0'), false);
-  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', 'Bearer wrong', 'vercel-cron/1.0'), false);
-  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'browser'), false);
-  assert.equal(vercelCronRequestAllowed({ ...liveProductionEnvironment, VERCEL_ENV: 'preview' }, 'GET', '/api/cron/admin-autopilot/', 'release.vercel.app', authorization, 'vercel-cron/1.0'), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', authorization), true);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'POST', '/api/cron/admin-autopilot/', authorization), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/lead/', authorization), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', 'Bearer wrong'), false);
+  assert.equal(vercelCronRequestAllowed(liveProductionEnvironment, 'GET', '/api/cron/admin-autopilot/', null), false);
+  assert.equal(vercelCronRequestAllowed({ ...liveProductionEnvironment, VERCEL_ENV: 'preview' }, 'GET', '/api/cron/admin-autopilot/', authorization), false);
 });
 
 test('database and runtime schema access follow the isolated environment state machine', () => {

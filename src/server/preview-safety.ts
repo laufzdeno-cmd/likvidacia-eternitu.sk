@@ -177,7 +177,6 @@ export function deploymentDatabaseAccessBlocked(environment: DeploymentSafetyEnv
 
 const canonicalProductionHosts = new Set(['likvidacia-eternitu.sk', 'www.likvidacia-eternitu.sk']);
 const signedLeadBlobCallbackPath = '/api/lead-upload/';
-const vercelCronUserAgent = 'vercel-cron/1.0';
 
 function isCanonicalProductionHost(hostname: string) {
   const normalized = hostname.trim().toLowerCase();
@@ -185,21 +184,18 @@ function isCanonicalProductionHost(hostname: string) {
 }
 
 /**
- * Vercel invokes Cron Jobs on the immutable production deployment hostname,
- * not on the custom domain. Permit only Vercel's documented cron request
- * shape; the route handler still performs its own authorization check.
+ * Vercel invokes Cron Jobs on the production deployment URL and authenticates
+ * them with CRON_SECRET. The route handler performs the same authorization
+ * check again before any work starts.
  */
 export function vercelCronRequestAllowed(
   environment: DeploymentSafetyEnvironment,
   method: string,
   pathname: string,
-  hostname: string,
   authorization: string | null,
-  userAgent: string | null,
 ) {
   const secret = environment.CRON_SECRET?.trim() ?? '';
   const expectedAuthorization = `Bearer ${secret}`;
-  const deploymentHostname = environment.VERCEL_URL?.trim().toLowerCase() ?? '';
   if (
     environment.NODE_ENV !== 'production'
     || environment.VERCEL !== '1'
@@ -207,9 +203,6 @@ export function vercelCronRequestAllowed(
     || environment.VERCEL_TARGET_ENV !== 'production'
     || method.toUpperCase() !== 'GET'
     || !/^\/api\/cron(?:\/|$)/i.test(pathname)
-    || !deploymentHostname
-    || hostname.trim().toLowerCase() !== deploymentHostname
-    || userAgent?.trim().toLowerCase() !== vercelCronUserAgent
     || !secret
     || authorization?.length !== expectedAuthorization.length
   ) return false;
