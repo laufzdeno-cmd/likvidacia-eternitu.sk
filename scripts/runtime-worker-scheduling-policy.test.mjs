@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const repo = new URL('../', import.meta.url);
 
-test('optional production workers are not scheduled before their fail-closed configuration is complete', async () => {
+test('every worker surfaced by runtime feature health remains scheduled', async () => {
   const schedule = JSON.parse(await readFile(new URL('vercel.json', repo), 'utf8'));
   const paths = new Set(schedule.crons.map((item) => item.path));
 
@@ -13,7 +13,7 @@ test('optional production workers are not scheduled before their fail-closed con
     '/api/cron/photo-intake-retention/',
     '/api/cron/lead-upload-retention/',
     '/api/cron/career-cv-retention/',
-  ]) assert.equal(paths.has(path), false, `${path} must not run without its production-only secret and storage binding`);
+  ]) assert.equal(paths.has(path), true, `${path} must remain scheduled so a later valid binding cannot create a false healthy state`);
 
   for (const path of [
     '/api/cron/application-notifications/',
@@ -24,7 +24,7 @@ test('optional production workers are not scheduled before their fail-closed con
   ]) assert.equal(paths.has(path), true, `${path} must remain scheduled`);
 });
 
-test('unscheduled optional workers remain implemented and explicitly fail closed', async () => {
+test('configuration-dependent workers remain implemented and explicitly fail closed', async () => {
   const [meta, leadRetention, photoRetention, careerRetention] = await Promise.all([
     readFile(new URL('app/api/cron/meta-capi/route.ts', repo), 'utf8'),
     readFile(new URL('app/api/cron/lead-upload-retention/route.ts', repo), 'utf8'),

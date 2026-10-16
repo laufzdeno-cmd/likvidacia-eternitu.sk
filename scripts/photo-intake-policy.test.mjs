@@ -323,8 +323,7 @@ test('crew invite labels are required and stay inside private intake surfaces', 
   assert.match(schema, /ORDER BY m\.created_at DESC, m\.id DESC LIMIT \$\$\{values\.length \+ 1\} OFFSET \$\$\{values\.length \+ 2\}/);
   assert.match(admin, /Stránkovanie fotografií/);
   assert.match(admin, /Záznamy fotografií sa nepodarilo načítať/);
-  assert.doesNotMatch(vercelConfig, /\/api\/cron\/photo-intake-retention/,
-    'photo-intake retention must stay unscheduled until its dedicated private store is configured');
+  assert.match(vercelConfig, /\/api\/cron\/photo-intake-retention[\s\S]{0,100}20 4 \* \* \*/);
 });
 
 test('photo-intake invite attempts use the shared database limiter and a pseudonymous trusted-address key', async () => {

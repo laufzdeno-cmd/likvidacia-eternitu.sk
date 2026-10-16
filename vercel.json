@@ -27,8 +27,24 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/meta-capi/",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/photo-intake-retention/",
+      "schedule": "20 4 * * *"
+    },
+    {
+      "path": "/api/cron/lead-upload-retention/",
+      "schedule": "40 4 * * *"
+    },
+    {
       "path": "/api/cron/lead-file-deletions/",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/career-cv-retention/",
+      "schedule": "10 5 * * *"
     },
     {
       "path": "/api/cron/review-reminders/",
