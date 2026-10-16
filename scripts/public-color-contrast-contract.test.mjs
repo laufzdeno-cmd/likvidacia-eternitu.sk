@@ -6,6 +6,7 @@ const stabilityCss = readFileSync('src/public-header-stability.css', 'utf8');
 const homeCss = readFileSync('app/homepage-conversion-layout.module.css', 'utf8');
 const homeCriticalCss = readFileSync('app/home-critical.css', 'utf8');
 const careerCss = readFileSync('app/kariera/career.module.css', 'utf8');
+const postupCss = readFileSync('app/postup/postup-route.css', 'utf8');
 
 function relativeLuminance(hex) {
   const channels = hex.match(/[a-f\d]{2}/gi).map((value) => Number.parseInt(value, 16) / 255);
@@ -40,4 +41,7 @@ test('known public contrast regressions keep explicit WCAG-AA-safe foregrounds',
   assert.ok(contrastRatio('ffffff', '84200e') >= 4.5, 'hovered material must meet WCAG AA contrast');
   assert.ok(contrastRatio('52657b', 'ffffff') >= 4.5, 'muted supporting copy must meet WCAG AA contrast');
   assert.match(careerCss, /\.formHelp\s*\{[^}]*color:\s*#52657b;/);
+  assert.match(postupCss, /--postup-orange:\s*#b33118;/);
+  assert.ok(contrastRatio('b33118', 'ffffff') >= 4.5, 'process labels must meet WCAG AA on white cards');
+  assert.ok(contrastRatio('b33118', 'edf6fc') >= 4.5, 'process kickers must meet WCAG AA on the blue wash');
 });
