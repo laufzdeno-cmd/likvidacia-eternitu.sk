@@ -372,7 +372,8 @@ test('unattached lead-photo drafts have a protected daily retention worker', () 
   assert.match(worker, /const deletionEnabled = !process\.env\.BLOB_READ_WRITE_TOKEN \|\| process\.env\.LEAD_UPLOAD_RETENTION_DELETE_ENABLED === '1'/);
   assert.match(worker, /if \(deletionEnabled\) \{[\s\S]*?candidates = await claimExpiredLeadUploadDrafts\(50\)/);
   assert.match(worker, /claimExpiredLeadUploadDrafts\(50\)/);
-  assert.match(read('../vercel.json'), /\/api\/cron\/lead-upload-retention/);
+  assert.doesNotMatch(read('../vercel.json'), /\/api\/cron\/lead-upload-retention/,
+    'retention worker must stay unscheduled until the production store/database binding is configured');
   assert.match(database, /status = 'attached'/);
   assert.match(database, /'superseded', 'deleting', 'deleted'/);
 });
