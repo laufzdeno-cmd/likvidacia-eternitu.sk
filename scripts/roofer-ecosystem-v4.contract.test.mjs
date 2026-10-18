@@ -26,15 +26,16 @@ test('conditional roofer help reuses the already-supported roofer value without 
   assert.doesNotMatch(homepageClient, /fetch\('.*roofer/i);
 });
 
-test('partner page separates ASTANA from roofing work and gates partner materials behind verification', () => {
+test('partner page separates ASTANA from roofing work and includes the requested voluntary partner kit', () => {
   assert.match(roofersPage, /Vy robíte strechu\. My vyriešime azbest\./);
   assert.match(roofersPage, /Každý rieši svoju časť\. ASTANA azbest a doklady, strechár novú strechu\./);
   assert.doesNotMatch(roofersPage, /My sa nemusíme hrať na strechárov/);
-  assert.match(roofersPage, /Podklady pre schválených partnerov/);
-  assert.match(roofersPage, /Texty a grafické podklady poskytujeme individuálne až po overení spolupráce/);
-  assert.match(roofersPage, /Samotná registrácia[\s\S]*neoprávňuje firmu používať označenie partnera ani logo ASTANA/);
-  assert.doesNotMatch(roofersPage, /\/downloads\/strechari/);
-  assert.doesNotMatch(roofersPage, /Spolupracujeme s ASTANA/);
+  assert.match(roofersPage, /SPOLUPRACUJETE S ASTANA\? MÔŽETE TO UVIESŤ AJ NA SVOJOM WEBE\./);
+  assert.match(roofersPage, /Pri zákazkách so starým eternitom spolupracujeme so spoločnosťou ASTANA, s\.r\.o\./);
+  assert.match(roofersPage, /Likvidáciu eternitu pri našich zákazkách riešime v spolupráci s ASTANA, s\.r\.o\./);
+  assert.match(roofersPage, /\/downloads\/strechari\/astana-partner-badge\.svg/);
+  assert.match(roofersPage, /SPOLUPRACUJEME S ASTANA/);
+  assert.match(roofersPage, /Nejde o certifikát, členstvo ani podmienku spolupráce/);
   assert.doesNotMatch(roofersPage, /certifikovaný|certifikačný|oficiálny partner/i);
 });
 
