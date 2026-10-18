@@ -4,7 +4,8 @@ import { toPriceOfferJobOption } from '@/src/lib/price-offer-job-option';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { priceOfferEmailText } from '@/src/server/mail';
 import { evaluatePriceOfferPreflight, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
-import { confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, resolvePriceOfferCustomerResponseAction, savePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from '../actions';
+import { dateInBratislava } from '@/src/server/analytics-metrics';
+import { confirmPreparedPriceOfferSentExternallyAction, confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, resolvePriceOfferCustomerResponseAction, savePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 import PendingOfferButton from '../pending-offer-button';
 import { euro, priceOfferStatusLabels } from '../constants';
@@ -58,6 +59,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
   const approvalFingerprint = priceOfferApprovalFingerprint(offer, settings, preflightContext);
   const fullEmailText = priceOfferEmailText(offer, settings);
   const pendingCustomerResponse = Boolean(offer.customerResponse && !offer.customerResponseAppliedAt && !offer.customerResponseDismissedAt);
+  const today = dateInBratislava(new Date());
 
   return (
     <main className="admin-page">
@@ -86,6 +88,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
       ) : null}
       {query.sendReset ? <section className="admin-card"><div className="admin-alert is-success">Stav bol po potvrdenej kontrole vrátený na „Pripravená“. E-mail odošlite až po overení, že pôvodný pokus nebol doručený.</div></section> : null}
       {query.sendConfirmed ? <section className="admin-card"><div className="admin-alert is-success">Odoslanie bolo manuálne overené. Ponuka, dopyt aj zákazka majú zosúladený stav.</div></section> : null}
+      {query.externalSent ? <section className="admin-card"><div className="admin-alert is-success">Ručné odoslanie bolo zaevidované. Žiadny nový email sa neposlal a stav dopytu aj zákazky je zosúladený.</div></section> : null}
       {query.customerResponse === 'applied' ? <section className="admin-card"><div className="admin-alert is-success">Odpoveď zákazníka bola po kontrole zaevidovaná.</div></section> : null}
       {query.customerResponse === 'dismissed' ? <section className="admin-card"><div className="admin-alert">Odpoveď zákazníka bola označená ako nepoužiteľná. Stav ponuky sa nezmenil.</div></section> : null}
       {offer.status === 'ODOSIELA' ? <section className="admin-card"><div className="admin-alert">Odoslanie ponuky prebieha alebo sa jeho výsledok ešte spracúva. Zatiaľ ju neupravujte ani neodosielajte znova.</div></section> : null}
@@ -121,6 +124,29 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
             <button className="admin-secondary-button" type="submit">Obnoviť na pripravenú</button>
           </form>
         </section>
+      ) : null}
+      {offer.status === 'PRIPRAVENA' ? (
+        <details className="admin-card offer-external-sent-card">
+          <summary>Už bola táto ponuka odoslaná mimo adminu?</summary>
+          <div className="offer-external-sent-content">
+            <p>Použite iba po kontrole odoslanej pošty alebo po potvrdení zákazníka. Táto voľba nič neposiela; iba opraví evidenciu.</p>
+            <form action={confirmPreparedPriceOfferSentExternallyAction} className="admin-pending-form">
+              <input type="hidden" name="_csrf" value={csrfToken} />
+              <input type="hidden" name="id" value={offer.id} />
+              <label>Dátum odoslania<input name="sentOn" type="date" max={today} defaultValue={today} required /></label>
+              <label>Spôsob overenia
+                <select name="externalEvidence" required defaultValue="">
+                  <option value="" disabled>Vyberte dôkaz</option>
+                  <option value="sent_folder_verified">Nájdené v odoslanej pošte</option>
+                  <option value="recipient_confirmed">Zákazník potvrdil prijatie</option>
+                  <option value="provider_confirmed">Poskytovateľ pošty potvrdil odoslanie</option>
+                </select>
+              </label>
+              <label className="admin-check-label"><input type="checkbox" name="confirmedExternalSent" value="yes" required /> Skontroloval/a som správnu ponuku aj adresáta. Ponuka sa nemá posielať znova.</label>
+              <button className="admin-secondary-button" type="submit">Zaevidovať už odoslanú ponuku</button>
+            </form>
+          </div>
+        </details>
       ) : null}
       {query.send && offer.status === 'PRIPRAVENA' ? (
         <section className="admin-card">

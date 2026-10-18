@@ -12393,6 +12393,151 @@ export async function confirmUncertainPriceOfferSent(id: string, actorEmail: str
   }
 }
 
+export type ExternalPriceOfferSentConfirmation = {
+  id: string;
+  sentAt: string;
+  evidenceCode: 'gmail_readonly_match' | 'sent_folder_verified' | 'recipient_confirmed' | 'provider_confirmed';
+  externalMessageIdHash?: string;
+};
+
+function normalizeExternalPriceOfferSentConfirmations(inputs: ExternalPriceOfferSentConfirmation[]) {
+  if (!inputs.length || inputs.length > 200) throw new Error('Vyberte 1 až 200 ponúk na zosúladenie.');
+  const ids = new Set<string>();
+  const messageHashes = new Set<string>();
+  const allowedEvidence = new Set(['gmail_readonly_match', 'sent_folder_verified', 'recipient_confirmed', 'provider_confirmed']);
+  const oldestAllowed = Date.now() - 3 * 366 * 24 * 60 * 60_000;
+  return inputs.map((input) => {
+    const id = String(input.id || '').trim();
+    const evidenceCode = String(input.evidenceCode || '').trim() as ExternalPriceOfferSentConfirmation['evidenceCode'];
+    const externalMessageIdHash = String(input.externalMessageIdHash || '').trim().toLowerCase();
+    const sentAtMs = new Date(input.sentAt).getTime();
+    if (!uuidPattern.test(id) || ids.has(id)) throw new Error('Zosúladenie obsahuje neplatnú alebo duplicitnú ponuku.');
+    if (!allowedEvidence.has(evidenceCode)) throw new Error('Vyberte platný dôkaz o externom odoslaní.');
+    if (!Number.isFinite(sentAtMs) || sentAtMs < oldestAllowed || sentAtMs > Date.now() + 5 * 60_000) {
+      throw new Error('Čas externého odoslania nie je platný.');
+    }
+    if (externalMessageIdHash && (!/^[a-f0-9]{64}$/.test(externalMessageIdHash) || messageHashes.has(externalMessageIdHash))) {
+      throw new Error('Externý dôkaz nie je platný alebo bol v dávke použitý opakovane.');
+    }
+    ids.add(id);
+    if (externalMessageIdHash) messageHashes.add(externalMessageIdHash);
+    return { id, sentAt: new Date(sentAtMs).toISOString(), evidenceCode, externalMessageIdHash };
+  });
+}
+
+export async function confirmPreparedPriceOffersSentExternally(
+  inputs: ExternalPriceOfferSentConfirmation[],
+  actorEmail: string,
+): Promise<{ updated: PriceOffer[]; skipped: string[] }> {
+  const confirmations = normalizeExternalPriceOfferSentConfirmations(inputs);
+  const actor = actorEmail.trim().toLowerCase();
+  if (!actor) throw new Error('Chýba oprávnený používateľ zosúladenia.');
+  await ensureSchema();
+  const timestamp = now();
+  const auditChanges = (offer: PriceOffer, confirmation: ExternalPriceOfferSentConfirmation) => ({
+    ...priceOfferParentAuditChanges(offer, 'PRIPRAVENA', 'ODOSLANA', confirmation.evidenceCode),
+    sentAt: confirmation.sentAt,
+    externalMessageIdHash: confirmation.externalMessageIdHash || undefined,
+    matchVersion: confirmation.evidenceCode === 'gmail_readonly_match' ? 'gmail-readonly-v1' : 'manual-v1',
+  });
+  const db = getPool();
+  if (!db) {
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const usedHashes = new Set(local.auditLogs
+        .filter((log) => log.action === 'price_offer_external_send_confirmed')
+        .map((log) => String(log.changes?.externalMessageIdHash || ''))
+        .filter(Boolean));
+      const updated: PriceOffer[] = [];
+      const skipped: string[] = [];
+      for (const confirmation of confirmations) {
+        const offer = local.priceOffers.find((item) => item.id === confirmation.id && !item.deletedAt);
+        if (!offer || offer.status !== 'PRIPRAVENA'
+          || (confirmation.externalMessageIdHash && usedHashes.has(confirmation.externalMessageIdHash))) {
+          skipped.push(confirmation.id);
+          continue;
+        }
+        offer.status = 'ODOSLANA';
+        offer.sentAt = confirmation.sentAt;
+        offer.sendStartedAt = undefined;
+        offer.sendAttemptId = undefined;
+        local.auditLogs.unshift({
+          id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
+          action: 'price_offer_external_send_confirmed', actorEmail: actor,
+          changes: auditChanges(offer, confirmation), createdAt: timestamp,
+        });
+        if (confirmation.externalMessageIdHash) usedHashes.add(confirmation.externalMessageIdHash);
+        syncPriceOfferParentsLocal(local, offer, 'sent', actor, timestamp, confirmation.evidenceCode);
+        updated.push({ ...offer });
+      }
+      await writeLocalDb(local);
+      return { updated, skipped };
+    });
+  }
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('price_offer_external_send_confirmation'))");
+    const ids = confirmations.map((item) => item.id);
+    const hashes = confirmations.map((item) => item.externalMessageIdHash).filter(Boolean) as string[];
+    const offerRows = await client.query(
+      'SELECT * FROM price_offers WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL FOR UPDATE',
+      [ids],
+    );
+    const usedRows = hashes.length
+      ? await client.query(
+        `SELECT changes->>'externalMessageIdHash' AS hash
+         FROM audit_logs
+         WHERE action='price_offer_external_send_confirmed'
+           AND changes->>'externalMessageIdHash' = ANY($1::text[])`,
+        [hashes],
+      )
+      : { rows: [] };
+    const offersById = new Map(offerRows.rows.map((row) => {
+      const offer = toPriceOffer(row);
+      return [offer.id, offer] as const;
+    }));
+    const usedHashes = new Set(usedRows.rows.map((row) => String(row.hash || '')).filter(Boolean));
+    const updated: PriceOffer[] = [];
+    const skipped: string[] = [];
+    for (const confirmation of confirmations) {
+      const current = offersById.get(confirmation.id);
+      if (!current || current.status !== 'PRIPRAVENA'
+        || (confirmation.externalMessageIdHash && usedHashes.has(confirmation.externalMessageIdHash))) {
+        skipped.push(confirmation.id);
+        continue;
+      }
+      const result = await client.query(
+        `UPDATE price_offers
+         SET status='ODOSLANA', sent_at=$2::timestamptz, send_started_at=NULL, send_attempt_id=NULL
+         WHERE id=$1 AND deleted_at IS NULL AND status='PRIPRAVENA'
+         RETURNING *`,
+        [confirmation.id, confirmation.sentAt],
+      );
+      if (!result.rows[0]) {
+        skipped.push(confirmation.id);
+        continue;
+      }
+      const offer = toPriceOffer(result.rows[0]);
+      await client.query(
+        `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+         VALUES ($1,'business_job',$2,'price_offer_external_send_confirmed',$3,$4::jsonb,$5)`,
+        [randomUUID(), offer.jobId || offer.id, actor, JSON.stringify(auditChanges(offer, confirmation)), timestamp],
+      );
+      if (confirmation.externalMessageIdHash) usedHashes.add(confirmation.externalMessageIdHash);
+      await syncPriceOfferParentsPostgres(client, offer, 'sent', actor, timestamp, confirmation.evidenceCode);
+      updated.push(offer);
+    }
+    await client.query('COMMIT');
+    return { updated, skipped };
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function resetUncertainPriceOfferSend(id: string, actorEmail: string) {
   await ensureSchema();
   const timestamp = now();

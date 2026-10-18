@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import {
   claimPriceOfferForSending,
+  confirmPreparedPriceOffersSentExternally,
   confirmUncertainPriceOfferSent,
   deletePriceOffer,
   finishPriceOfferSending,
@@ -23,6 +24,7 @@ import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import type { PriceOfferInput, PriceOfferMaterialType, PriceOfferStatus } from '@/src/server/types';
 import { evaluatePriceOfferPreflight, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
+import { bratislavaMidnightUtc } from '@/src/server/analytics-metrics';
 
 const allowedMaterialTypes = new Set<PriceOfferMaterialType>([
   'VLNITY_ETERNIT',
@@ -283,6 +285,36 @@ export async function confirmUncertainPriceOfferSentAction(formData: FormData) {
   if (confirmed.jobId) revalidatePath(`/admin/zakazky/${confirmed.jobId}`);
   revalidatePath('/admin/dashboard');
   redirect(`/admin/ponuky/${id}?sendConfirmed=1`);
+}
+
+export async function confirmPreparedPriceOfferSentExternallyAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actor = await requireAdmin();
+  const id = String(formData.get('id') || '');
+  const sentOn = String(formData.get('sentOn') || '');
+  const evidenceCode = String(formData.get('externalEvidence') || '');
+  const allowedEvidence = new Set(['sent_folder_verified', 'recipient_confirmed', 'provider_confirmed']);
+  if (!id || !isValidIsoCalendarDate(sentOn) || sentOn > todayInSlovakia()
+    || !allowedEvidence.has(evidenceCode) || formData.get('confirmedExternalSent') !== 'yes') {
+    throw new Error('Skontrolujte dátum, dôkaz a potvrdenie externého odoslania.');
+  }
+  const [year, month, day] = sentOn.split('-').map(Number);
+  const sentAt = new Date(bratislavaMidnightUtc({ year, month, day }).getTime() + 12 * 60 * 60_000).toISOString();
+  const result = await confirmPreparedPriceOffersSentExternally([{
+    id,
+    sentAt,
+    evidenceCode: evidenceCode as 'sent_folder_verified' | 'recipient_confirmed' | 'provider_confirmed',
+  }], actor);
+  if (!result.updated.length) throw new Error('Ponuka už nie je pripravená alebo sa jej stav medzičasom zmenil.');
+  const updated = result.updated[0];
+  revalidatePath('/admin/ponuky');
+  revalidatePath(`/admin/ponuky/${id}`);
+  revalidatePath('/admin/dopyty');
+  revalidatePath('/admin/zakazky');
+  revalidatePath('/admin/dashboard');
+  if (updated.leadId) revalidatePath(`/admin/dopyty/${updated.leadId}`);
+  if (updated.jobId) revalidatePath(`/admin/zakazky/${updated.jobId}`);
+  redirect(`/admin/ponuky/${id}?externalSent=1`);
 }
 
 export async function resetUncertainPriceOfferSendAction(formData: FormData) {

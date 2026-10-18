@@ -13,6 +13,7 @@ process.env.ADMIN_EMAIL = '';
 
 const {
   claimPriceOfferForSending,
+  confirmPreparedPriceOffersSentExternally,
   confirmUncertainPriceOfferSent,
   createLeadSubmission,
   finishPriceOfferSending,
@@ -138,6 +139,39 @@ try {
   await finishPriceOfferSending(terminalOffer.id, terminalClaim.sendAttemptId, 'sent', 'qa-operator@example.invalid');
   assert.deepEqual(await statuses(terminal), { lead: 'zrusena', job: 'ZRUSENA' }, 'terminálne stavy sú chránené');
 
+  const external = await createParents('External');
+  const externalOffer = await savePriceOffer(offerInput(external), 'qa-operator@example.invalid');
+  const externalSentAt = '2026-10-01T10:00:00.000Z';
+  const externalHash = 'b'.repeat(64);
+  const reconciled = await confirmPreparedPriceOffersSentExternally([{
+    id: externalOffer.id,
+    sentAt: externalSentAt,
+    evidenceCode: 'gmail_readonly_match',
+    externalMessageIdHash: externalHash,
+  }], 'qa-superadmin@example.invalid');
+  assert.equal(reconciled.updated.length, 1);
+  assert.equal(reconciled.skipped.length, 0);
+  assert.equal((await getPriceOffer(externalOffer.id))?.sentAt, externalSentAt);
+  assert.deepEqual(await statuses(external), { lead: 'cenova_ponuka_odoslana', job: 'PONUKA_ODOSLANA' });
+  const repeated = await confirmPreparedPriceOffersSentExternally([{
+    id: externalOffer.id,
+    sentAt: externalSentAt,
+    evidenceCode: 'gmail_readonly_match',
+    externalMessageIdHash: externalHash,
+  }], 'qa-superadmin@example.invalid');
+  assert.deepEqual({ updated: repeated.updated.length, skipped: repeated.skipped.length }, { updated: 0, skipped: 1 });
+  const duplicateExternal = await createParents('ExternalDuplicate');
+  const duplicateExternalOffer = await savePriceOffer(offerInput(duplicateExternal), 'qa-operator@example.invalid');
+  const duplicateEvidence = await confirmPreparedPriceOffersSentExternally([{
+    id: duplicateExternalOffer.id,
+    sentAt: externalSentAt,
+    evidenceCode: 'gmail_readonly_match',
+    externalMessageIdHash: externalHash,
+  }], 'qa-superadmin@example.invalid');
+  assert.deepEqual({ updated: duplicateEvidence.updated.length, skipped: duplicateEvidence.skipped.length }, { updated: 0, skipped: 1 },
+    'jedna Gmail správa nesmie potvrdiť dve ponuky');
+  assert.equal((await getPriceOffer(duplicateExternalOffer.id))?.status, 'PRIPRAVENA');
+
   const stale = await createParents('Stale');
   const staleOffer = await savePriceOffer(offerInput(stale), 'qa-operator@example.invalid');
   await claimPriceOfferForSending(staleOffer.id, 'qa-operator@example.invalid');
@@ -158,6 +192,8 @@ try {
     assert.doesNotMatch(serializedAuditChanges, new RegExp(pii.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), `audit nesmie obsahovať PII: ${pii}`);
   }
   assert.ok(lifecycleAudits.some((entry) => entry.changes?.reasonCode === 'sent_folder_verified'));
+  assert.ok(lifecycleAudits.some((entry) => entry.action === 'price_offer_external_send_confirmed'
+    && entry.changes?.externalMessageIdHash === externalHash));
   console.log('PASS: lokálna price-offer synchronizácia rodičov je monotónna, atómová a bez PII v audite.');
 } finally {
   await rm(temporaryDirectory, { recursive: true, force: true });

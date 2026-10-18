@@ -5762,6 +5762,37 @@ body .admin-main .admin-page .admin-card,
   background: #fff7f6;
 }
 
+.offer-external-sent-card {
+  border-color: #c9dcef;
+  background: linear-gradient(135deg, #f8fbff 0%, #f4fbf8 100%);
+}
+
+.offer-external-sent-card > summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  color: var(--ops-navy);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.offer-external-sent-card > summary::marker {
+  color: var(--ops-blue);
+}
+
+.offer-external-sent-content {
+  display: grid;
+  gap: 14px;
+  padding-top: 8px;
+  border-top: 1px solid #d8e6f2;
+}
+
+.offer-external-sent-content > p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--ops-muted);
+}
+
 .offer-outcome-option > strong {
   color: var(--ops-navy);
   font-size: 1rem;

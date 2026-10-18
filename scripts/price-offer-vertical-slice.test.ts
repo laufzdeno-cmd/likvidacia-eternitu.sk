@@ -207,6 +207,23 @@ test('neisté odoslanie možno manuálne potvrdiť iba s dôkazom a bez nového 
   assert.doesNotMatch(detail, /confirmUncertainPriceOfferSentAction[\s\S]*?sendPriceOfferDocumentEmail/);
 });
 
+test('pripravenú ponuku možno bezpečne zaevidovať ako už odoslanú mimo adminu', async () => {
+  const detail = await readFile(new URL('../app/admin/(protected)/ponuky/[id]/page.tsx', import.meta.url), 'utf8');
+  const actions = await readFile(new URL('../app/admin/(protected)/ponuky/actions.ts', import.meta.url), 'utf8');
+  const db = await readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8');
+  assert.match(detail, /offer\.status === 'PRIPRAVENA'[\s\S]*?Už bola táto ponuka odoslaná mimo adminu\?/);
+  assert.match(detail, /confirmPreparedPriceOfferSentExternallyAction/);
+  assert.match(detail, /Táto voľba nič neposiela; iba opraví evidenciu/);
+  assert.match(detail, /confirmedExternalSent/);
+  assert.match(actions, /verifyCsrf\(formData\)[\s\S]*?requireAdmin\(\)[\s\S]*?confirmPreparedPriceOffersSentExternally/);
+  assert.match(actions, /sentOn > todayInSlovakia\(\)/);
+  assert.doesNotMatch(actions.slice(actions.indexOf('confirmPreparedPriceOfferSentExternallyAction'), actions.indexOf('resetUncertainPriceOfferSendAction')), /sendPriceOfferDocumentEmail/);
+  assert.match(db, /status='ODOSLANA', sent_at=\$2::timestamptz/);
+  assert.match(db, /price_offer_external_send_confirmed/);
+  assert.match(db, /externalMessageIdHash/);
+  assert.match(db, /status !== 'PRIPRAVENA'/);
+});
+
 test('detail zákazky vedie iba do schváleného PDF toku cenovej ponuky', async () => {
   const detail = await readFile(new URL('../app/admin/(protected)/zakazky/[id]/page.tsx', import.meta.url), 'utf8');
   const jobActions = await readFile(new URL('../app/admin/(protected)/zakazky/actions.ts', import.meta.url), 'utf8');
