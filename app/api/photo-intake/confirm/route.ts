@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { abandonPhotoIntakeSanitizationAttempt, completePhotoIntakeRecord, reservePhotoIntakeSanitizationAttempt } from '@/src/server/db';
 import { currentPhotoUploadInvite } from '@/src/server/photo-intake-auth';
 import { isApproximateLocality, isPhotoCategory, verifiedImageMime } from '@/src/server/photo-intake-policy';
-import { privatePhotoIntakeBlobToken, privatePhotoIntakeEnabled } from '@/src/server/photo-intake-config';
+import { privatePhotoIntakeBlobOptions, privatePhotoIntakeEnabled } from '@/src/server/photo-intake-config';
 import { PhotoIntakeSourceMissingError, readPrivateIntakePhoto } from '@/src/server/photo-intake-storage';
 import { prepareSanitizedPrivatePhoto } from '@/src/server/photo-intake-image';
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       // late request can never recreate the source key after retention removes it.
       await put(attempt.targetStorageKey, sanitized, {
         access: 'private',
-        token: privatePhotoIntakeBlobToken(),
+        ...privatePhotoIntakeBlobOptions(),
         contentType: 'image/jpeg',
         addRandomSuffix: false,
         allowOverwrite: false,

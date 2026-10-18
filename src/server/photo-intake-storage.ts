@@ -1,6 +1,6 @@
 import { get } from '@vercel/blob';
 import { maxIntakePhotoBytes } from './photo-intake-policy';
-import { privatePhotoIntakeBlobToken } from './photo-intake-config';
+import { privatePhotoIntakeBlobOptions } from './photo-intake-config';
 
 export class PhotoIntakeSourceMissingError extends Error {
   constructor() {
@@ -9,7 +9,11 @@ export class PhotoIntakeSourceMissingError extends Error {
 }
 
 export async function readPrivateIntakePhoto(storageKey: string) {
-  const result = await get(storageKey, { access: 'private', useCache: false, token: privatePhotoIntakeBlobToken() });
+  const result = await get(storageKey, {
+    access: 'private',
+    useCache: false,
+    ...privatePhotoIntakeBlobOptions(),
+  });
   if (!result) throw new PhotoIntakeSourceMissingError();
   if (result.statusCode !== 200 || !result.stream) throw new Error('Súkromnú fotografiu sa nepodarilo načítať.');
 

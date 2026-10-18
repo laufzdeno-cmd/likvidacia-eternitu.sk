@@ -7,6 +7,7 @@ export type DeploymentSafetyEnvironment = Partial<Pick<NodeJS.ProcessEnv,
   | 'VERCEL_TARGET_ENV'
   | 'VERCEL_URL'
   | 'VERCEL_PROJECT_ID'
+  | 'VERCEL_OIDC_TOKEN'
   | 'DATABASE_URL'
   | 'DATABASE_RESOURCE_ID'
   | 'BLOB_READ_WRITE_TOKEN'
@@ -79,7 +80,7 @@ export function vercelBlobStoreId(value: string | undefined) {
 export function stagingResourceBinding(environment: DeploymentSafetyEnvironment = process.env) {
   const databaseIdentity = deploymentDatabaseIdentity(environment.DATABASE_URL);
   const leadBlobStoreId = vercelBlobStoreId(environment.BLOB_READ_WRITE_TOKEN);
-  const photoBlobStoreId = vercelBlobStoreId(environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN);
+  const photoBlobStoreId = environment.PHOTO_INTAKE_BLOB_RESOURCE_ID?.trim().replace(/^store_/i, '').toLowerCase() ?? '';
   return sha256(JSON.stringify([
     environment.VERCEL_PROJECT_ID?.trim() ?? '',
     environment.VERCEL_TARGET_ENV?.trim() ?? '',
@@ -124,15 +125,20 @@ export function isVerifiedLocalBuildHarness(environment: DeploymentSafetyEnviron
 /** Staging writes are enabled only for an explicitly bound, non-production resource set. */
 export function isVerifiedIsolatedStaging(environment: DeploymentSafetyEnvironment = process.env) {
   if (!isCustomStagingTarget(environment) || environment.STAGING_WRITE_ENABLED !== 'true') return false;
-  if (!environment.VERCEL_PROJECT_ID?.trim() || !environment.DATABASE_URL?.trim() || !environment.DATABASE_RESOURCE_ID?.trim() || !environment.BLOB_READ_WRITE_TOKEN?.trim() || !environment.BLOB_RESOURCE_ID?.trim() || !environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN?.trim() || !environment.PHOTO_INTAKE_BLOB_RESOURCE_ID?.trim()) return false;
+  if (!environment.VERCEL_PROJECT_ID?.trim() || !environment.DATABASE_URL?.trim() || !environment.DATABASE_RESOURCE_ID?.trim()
+    || !environment.BLOB_READ_WRITE_TOKEN?.trim() || !environment.BLOB_RESOURCE_ID?.trim()
+    || !environment.PHOTO_INTAKE_BLOB_RESOURCE_ID?.trim()
+    || (!environment.VERCEL_OIDC_TOKEN?.trim() && !environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN?.trim())) return false;
   if (!/^[a-f0-9]{64}$/i.test(environment.STAGING_DATABASE_MARKER?.trim() ?? '')) return false;
   if (!singleEmail(environment.STAGING_MAIL_OVERRIDE_TO)) return false;
   const databaseIdentity = deploymentDatabaseIdentity(environment.DATABASE_URL);
   const leadBlobStoreId = vercelBlobStoreId(environment.BLOB_READ_WRITE_TOKEN);
-  const photoBlobStoreId = vercelBlobStoreId(environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN);
+  const photoResourceId = environment.PHOTO_INTAKE_BLOB_RESOURCE_ID.trim().replace(/^store_/i, '').toLowerCase();
+  const photoTokenStoreId = vercelBlobStoreId(environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN);
+  const photoBlobStoreId = photoTokenStoreId || photoResourceId;
   if (!databaseIdentity || !leadBlobStoreId || !photoBlobStoreId || leadBlobStoreId === photoBlobStoreId) return false;
   if (leadBlobStoreId !== environment.BLOB_RESOURCE_ID.trim().toLowerCase()) return false;
-  if (photoBlobStoreId !== environment.PHOTO_INTAKE_BLOB_RESOURCE_ID.trim().toLowerCase()) return false;
+  if (photoBlobStoreId !== photoResourceId || (environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN?.trim() && !photoTokenStoreId)) return false;
   if (!safeHexEqual(environment.STAGING_RESOURCE_BINDING_SHA256, stagingResourceBinding(environment))) return false;
 
   const databaseResourcePairs = [

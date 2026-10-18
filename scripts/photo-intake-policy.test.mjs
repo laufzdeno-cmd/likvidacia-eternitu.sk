@@ -5,7 +5,13 @@ import { createHash } from 'node:crypto';
 const configModule = await import('../src/server/photo-intake-config.ts');
 const policyModule = await import('../src/server/photo-intake-policy.ts');
 const mediaAccessModule = await import('../src/server/photo-intake-media-access.ts');
-const { photoIntakeRetentionRequested, privatePhotoIntakeEnabled, privatePhotoIntakeStorageReady } = configModule.default ?? configModule;
+const {
+  photoIntakeRetentionRequested,
+  privatePhotoIntakeBlobOptions,
+  privatePhotoIntakeEnabled,
+  privatePhotoIntakeStorageBinding,
+  privatePhotoIntakeStorageReady,
+} = configModule.default ?? configModule;
 const { loadAuthorizedPhotoMedia } = mediaAccessModule.default ?? mediaAccessModule;
 const {
   isPhotoCategory,
@@ -54,9 +60,10 @@ test('temporary intake has explicit, bounded status retention windows and daily 
   });
 });
 
-test('photo intake requires a dedicated store token and an exact project/database/store binding', () => {
+test('photo intake requires OIDC in production and an exact project/database/store binding', () => {
   const keys = ['BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_PRIVATE_STORE_VERIFIED',
-    'PHOTO_INTAKE_RETENTION_BINDING_SHA256', 'PHOTO_INTAKE_ENABLED', 'PHOTO_INTAKE_RETENTION_ENABLED', 'PHOTO_UPLOAD_SESSION_SECRET', 'VERCEL_PROJECT_ID', 'DATABASE_URL'];
+    'PHOTO_INTAKE_RETENTION_BINDING_SHA256', 'PHOTO_INTAKE_ENABLED', 'PHOTO_INTAKE_RETENTION_ENABLED', 'PHOTO_UPLOAD_SESSION_SECRET',
+    'VERCEL', 'VERCEL_ENV', 'VERCEL_TARGET_ENV', 'VERCEL_PROJECT_ID', 'VERCEL_OIDC_TOKEN', 'DATABASE_URL', 'DATABASE_RESOURCE_ID', 'PHOTO_INTAKE_BLOB_RESOURCE_ID'];
   const before = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   try {
     for (const key of keys) delete process.env[key];
@@ -70,18 +77,34 @@ test('photo intake requires a dedicated store token and an exact project/databas
 
     process.env.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN = 'dedicated-private-token';
     process.env.VERCEL_PROJECT_ID = 'prj_photo_intake_test';
-    process.env.DATABASE_URL = 'postgres://photo-intake-test';
-    const binding = createHash('sha256').update(JSON.stringify([
-      process.env.VERCEL_PROJECT_ID, process.env.DATABASE_URL, process.env.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN,
-    ])).digest('hex');
+    process.env.DATABASE_URL = 'postgresql://user:secret@photo-db.invalid/astana?sslmode=require';
+    process.env.DATABASE_RESOURCE_ID = 'store_databasetest';
+    process.env.PHOTO_INTAKE_BLOB_RESOURCE_ID = 'store_phototest';
+    const binding = privatePhotoIntakeStorageBinding();
+    assert.match(binding, /^[a-f0-9]{64}$/);
     process.env.PHOTO_INTAKE_RETENTION_BINDING_SHA256 = binding;
     assert.equal(privatePhotoIntakeStorageReady(), true);
     assert.equal(privatePhotoIntakeEnabled(), true);
+    assert.deepEqual(privatePhotoIntakeBlobOptions(), { token: 'dedicated-private-token' });
+    process.env.DATABASE_URL = 'postgresql://user:secret@different-db.invalid/astana?sslmode=require';
+    assert.equal(privatePhotoIntakeStorageReady(), false, 'switching the real database endpoint must invalidate the production binding');
+    process.env.DATABASE_URL = 'postgresql://user:rotated-secret@photo-db.invalid/astana?sslmode=require';
+    assert.equal(privatePhotoIntakeStorageReady(), true, 'credential rotation for the same database identity must preserve the binding');
     delete process.env.PHOTO_INTAKE_RETENTION_ENABLED;
     assert.equal(privatePhotoIntakeEnabled(), false, 'new intake must stay disabled unless cleanup is explicitly enabled too');
     process.env.PHOTO_INTAKE_RETENTION_ENABLED = 'true';
     process.env.VERCEL_PROJECT_ID = 'prj_different_project';
     assert.equal(privatePhotoIntakeStorageReady(), false, 'a different deployment binding must stop read/write/delete');
+    process.env.VERCEL_PROJECT_ID = 'prj_photo_intake_test';
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = 'production';
+    process.env.VERCEL_TARGET_ENV = 'production';
+    assert.equal(privatePhotoIntakeStorageReady(), false, 'a long-lived token must never authorize live Production');
+    assert.throws(() => privatePhotoIntakeBlobOptions(), /krátkodobé oprávnenie/);
+    process.env.VERCEL_OIDC_TOKEN = 'short-lived-oidc-token';
+    assert.equal(privatePhotoIntakeStorageReady(), true);
+    assert.equal(privatePhotoIntakeEnabled(), true);
+    assert.deepEqual(privatePhotoIntakeBlobOptions(), { storeId: 'phototest' });
   } finally {
     for (const [key, value] of Object.entries(before)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
@@ -92,6 +115,9 @@ test('photo intake requires a dedicated store token and an exact project/databas
 test('sample environment documents the complete fail-closed private photo intake contract', async () => {
   const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
   assert.match(envExample, /^PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN=$/m);
+  assert.match(envExample, /Produkcia používa krátkodobý VERCEL_OIDC_TOKEN/);
+  assert.match(envExample, /^DATABASE_RESOURCE_ID=$/m);
+  assert.match(envExample, /^PHOTO_INTAKE_BLOB_RESOURCE_ID=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_PRIVATE_STORE_VERIFIED=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_RETENTION_BINDING_SHA256=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_RETENTION_ENABLED=$/m);
@@ -262,7 +288,7 @@ test('crew invite labels are required and stay inside private intake surfaces', 
   assert.doesNotMatch(inviteCreateBody, /JSON\.stringify\(\{[^}]*workerLabel/);
   assert.match(actions, /workerLabel\.length < 2 \|\| workerLabel\.length > 100/);
   assert.match(actions, /if \(!privatePhotoIntakeStorageReady\(\)\) return/);
-  assert.match(actions, /del\(record\.storageKey, \{ token: privatePhotoIntakeBlobToken\(\) \}\)/);
+  assert.match(actions, /del\(record\.storageKey, privatePhotoIntakeBlobOptions\(\)\)/);
   assert.match(actions, /typeof workerLabelValue !== 'string'/);
   assert.match(actions, /createPhotoUploadInvite\(createHash[\s\S]{0,220}workerLabel, businessJobIdValue\)/);
   assert.match(admin, /invite\.workerLabel/);
@@ -290,11 +316,22 @@ test('crew invite labels are required and stay inside private intake surfaces', 
   assert.match(config, /PHOTO_INTAKE_PRIVATE_STORE_VERIFIED/);
   assert.match(config, /PHOTO_INTAKE_RETENTION_BINDING_SHA256/);
   assert.match(config, /PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN/);
-  assert.doesNotMatch(config.split('export function privatePhotoIntakeStorageReady')[1].split('export function privatePhotoIntakeEnabled')[0], /BLOB_READ_WRITE_TOKEN/);
+  assert.match(config, /VERCEL_OIDC_TOKEN/);
+  assert.match(config, /photo-intake-oidc-v2/);
+  assert.match(config, /deploymentDatabaseIdentity\(environment\.DATABASE_URL\)/);
+  assert.doesNotMatch(config.split('export function privatePhotoIntakeStorageReady')[1].split('export function privatePhotoIntakeEnabled')[0], /environment\.BLOB_READ_WRITE_TOKEN/);
+  assert.match(config, /!isProductionVercel\(environment\)[\s\S]{0,120}PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN/);
   assert.doesNotMatch(config.split('export function privatePhotoIntakeEnabled')[0], /PHOTO_INTAKE_ENABLED|PHOTO_UPLOAD_SESSION_SECRET/);
-  assert.match(client, /upload\(pathname, draft\.file, \{[\s\S]{0,100}access: 'private'/);
+  assert.doesNotMatch(client, /uploadPresigned|handleUploadPresigned/);
+  assert.match(client, /fetch\(signedResult\.presignedUrl, \{[\s\S]{0,100}method: 'PUT'/);
+  assert.match(client, /headers: \{ 'Content-Type': draft\.file\.type \}/);
+  assert.match(client, /missingPrivateSource[\s\S]{0,180}transferred = false/,
+    'a confirmed missing private source must return the client to the re-upload path');
   assert.match(uploadRoute, /currentPhotoUploadInvite\(\)/);
-  assert.match(uploadRoute, /handleUpload\(\{\s*token: privatePhotoIntakeBlobToken\(\)/);
+  assert.doesNotMatch(uploadRoute, /handleUploadPresigned/);
+  assert.match(uploadRoute, /issueSignedToken\(\{[\s\S]*privatePhotoIntakeBlobOptions\(\)[\s\S]*operations: \['put'\]/);
+  assert.match(uploadRoute, /presignUrl\(token, \{[\s\S]*operation: 'put'[\s\S]*access: 'private'/);
+  assert.doesNotMatch(uploadRoute, /onUploadCompleted:/, 'confirmation is explicit and presigned upload must not require a long-lived callback secret');
   assert.match(uploadRoute, /request\.headers\.get\('origin'\) !== request\.nextUrl\.origin/);
   assert.match(uploadRoute, /markPhotoIntakeUploadTokenIssued/);
   assert.doesNotMatch(uploadRoute, /await del\(blob\.pathname\)/, 'oneskorený upload callback nesmie mazať podľa zastaraného stavu');
@@ -309,15 +346,15 @@ test('crew invite labels are required and stay inside private intake surfaces', 
   assert.match(confirmationRoute, /maxDuration = 60/);
   assert.match(confirmationRoute, /prepareSanitizedPrivatePhoto\(bytes, Boolean\(attempt\.sanitizedAt && actualMime === 'image\/jpeg'\), async \(\) => undefined\)/);
   assert.match(confirmationRoute, /allowOverwrite: false/);
-  assert.match(confirmationRoute, /token: privatePhotoIntakeBlobToken\(\)/);
-  assert.match(cronRoute, /deletePrivateBlobOrConfirmAbsent\(cleanup\.storageKey, blobToken\)/);
+  assert.match(confirmationRoute, /\.\.\.privatePhotoIntakeBlobOptions\(\)/);
+  assert.match(cronRoute, /deletePrivateBlobOrConfirmAbsent\(cleanup\.storageKey, blobOptions\)/);
   assert.match(cronRoute, /BlobNotFoundError, del, head/);
   assert.match(confirmationRoute, /createHash\('sha256'\)\.update\(sanitized\)\.digest\('hex'\)/);
   assert.match(confirmationRoute, /contentHash:/);
   assert.match(confirmationRoute, /isApproximateLocality\(payload\.locality\)/);
   assert.match(schema, /jsonb_array_length\(categories\) > 0/);
   assert.doesNotMatch(publicGallery, /contentHash|content_hash/);
-  assert.match(uploadRoute, /stale DB snapshot; retention first claims the row atomically/);
+  assert.match(uploadRoute, /validUntil = Math\.min\(Date\.now\(\) \+ 10 \* 60_000/);
   assert.match(schema, /SET status = 'deletion_pending', deletion_reason = 'revoked_invite_cleanup'[\s\S]*upload_token_issued_at IS NULL OR media\.upload_token_issued_at <= now\(\) - interval '1 day'/);
   assert.match(actions, /completePhotoIntakeDeletion\(record\.id, actorEmail\)/);
   assert.match(schema, /ORDER BY m\.created_at DESC, m\.id DESC LIMIT \$\$\{values\.length \+ 1\} OFFSET \$\$\{values\.length \+ 2\}/);

@@ -5,8 +5,8 @@
  * ASTANA_HARNESS_BROWSER points to an installed Chromium/Edge executable.
  *
  * Covers invitation login, scoped history, private media reads, forged and
- * revoked sessions, cross-invite denial, and one actual browser multipart
- * upload through signed callback/confirm with SQL locality/category checks.
+ * revoked sessions, cross-invite denial, and one actual browser direct
+ * upload through a short-lived signed PUT plus explicit confirm with SQL locality/category checks.
  * Uses a project-owned temporary source-only Next project, in-memory PGlite or an explicitly
  * managed loopback PostgreSQL for full-build mode,
  * a loopback Blob emulator, fresh explicit child env, and network guards.
@@ -277,8 +277,10 @@ function decodeClientToken(token, readWriteToken) {
 function createBlobEmulator({ appOrigin, blobOrigin, readWriteToken, localFetch }) {
   const uploads = new Map();
   const blobs = new Map();
+  const signedDelegations = new Map();
   const privateGetByPath = new Map();
-  const counts = { token: 0, create: 0, part: 0, complete: 0, serverPut: 0, head: 0, privateGet: 0, callback: 0, denied: 0, redirectProbe: 0 };
+  let dropNextDirectPut = false;
+  const counts = { token: 0, signedToken: 0, create: 0, part: 0, complete: 0, serverPut: 0, head: 0, privateGet: 0, callback: 0, denied: 0, redirectProbe: 0 };
   const cors = {
     'access-control-allow-origin': appOrigin,
     'access-control-allow-methods': 'GET,POST,PUT,OPTIONS',
@@ -298,14 +300,50 @@ function createBlobEmulator({ appOrigin, blobOrigin, readWriteToken, localFetch 
       const auth = request.headers.authorization || '';
       const isReadWrite = auth === `Bearer ${readWriteToken}`;
       const isClient = auth.startsWith('Bearer vercel_blob_client_harness_');
-      if (!isReadWrite && !isClient) {
+      if (request.method === 'POST' && url.pathname === '/signed-token') {
+        assert.ok(isReadWrite, 'signed-token issuance requires the dedicated read-write token in the local harness');
+        assert.equal(request.headers['x-vercel-blob-store-id'], 'harness');
+        const scope = JSON.parse((await readBody(request, 100_000)).toString('utf8'));
+        assert.match(scope.pathname, /^crew-intake\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.png$/);
+        assert.deepEqual(scope.operations, ['put']);
+        assert.deepEqual(scope.allowedContentTypes, ['image/png']);
+        assert.ok(scope.maximumSizeInBytes <= 20 * 1024 * 1024);
+        assert.ok(scope.validUntil > Date.now() && scope.validUntil <= Date.now() + 10 * 60_000);
+        const payload = { ...scope, storeId: 'harness' };
+        const payloadSegment = Buffer.from(JSON.stringify(payload)).toString('base64url');
+        const delegationToken = `${payloadSegment}.harness-provider-signature`;
+        const clientSigningToken = randomBytes(32).toString('base64url');
+        signedDelegations.set(delegationToken, { payload, clientSigningToken });
+        counts.signedToken++;
+        json(response, 200, { delegationToken, clientSigningToken, validUntil: scope.validUntil }, cors);
+        return;
+      }
+      const delegationToken = url.searchParams.get('vercel-blob-delegation') || '';
+      const delegation = signedDelegations.get(delegationToken);
+      const isPresigned = Boolean(delegation);
+      if (!isReadWrite && !isClient && !isPresigned) {
         counts.denied++;
         json(response, 401, { error: { code: 'not_allowed' } }, cors); return;
       }
-      const tokenPayload = isClient ? decodeClientToken(auth.slice(7), readWriteToken) : null;
       const pathname = url.searchParams.get('pathname') || '';
+      if (isPresigned) {
+        assert.equal(delegation.payload.pathname, pathname);
+        assert.ok(delegation.payload.validUntil > Date.now(), 'presigned delegation expired');
+        const canonicalKeys = [
+          'vercel-blob-add-random-suffix', 'vercel-blob-allow-overwrite', 'vercel-blob-allowed-content-types',
+          'vercel-blob-cache-control-max-age', 'vercel-blob-callback-token-payload', 'vercel-blob-callback-url',
+          'vercel-blob-if-match', 'vercel-blob-maximum-size-in-bytes', 'vercel-blob-valid-until',
+        ];
+        const canonical = [`operation=put`, `pathname=${pathname}`,
+          ...canonicalKeys.filter((key) => url.searchParams.get(key)).map((key) => `${key}=${url.searchParams.get(key)}`)]
+          .join('\n');
+        const expected = createHmac('sha256', delegation.clientSigningToken).update(canonical).digest('base64url');
+        const supplied = url.searchParams.get('vercel-blob-signature') || '';
+        assert.ok(supplied.length === expected.length && timingSafeEqual(Buffer.from(supplied), Buffer.from(expected)), 'presigned URL signature invalid');
+      }
+      const tokenPayload = isClient ? decodeClientToken(auth.slice(7), readWriteToken) : isPresigned ? delegation.payload : null;
       if (request.method === 'POST' && url.pathname === '/mpu') {
-        assert.ok(isClient, 'multipart uploads require client token');
+        assert.ok(isPresigned, 'multipart uploads require a short-lived presigned URL');
         assert.equal(pathname, tokenPayload.pathname);
         assert.match(pathname, /^crew-intake\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.png$/);
         assert.equal(request.headers['x-vercel-blob-access'], 'private');
@@ -355,22 +393,34 @@ function createBlobEmulator({ appOrigin, blobOrigin, readWriteToken, localFetch 
           blobs.set(pathname, { blob, bytes });
           uploads.delete(uploadId);
           counts.complete++;
-          const callback = upload.tokenPayload.onUploadCompleted;
-          assert.ok(callback, 'signed callback missing');
-          assert.equal(new URL(callback.callbackUrl).origin, appOrigin);
-          assert.equal(new URL(callback.callbackUrl).pathname.replace(/\/$/, ''), '/api/photo-intake/upload');
-          const callbackBody = JSON.stringify({ type: 'blob.upload-completed', payload: { blob, tokenPayload: callback.tokenPayload } });
-          const signature = createHmac('sha256', readWriteToken).update(callbackBody).digest('hex');
-          const result = await localFetch(callback.callbackUrl, {
-            method: 'POST',
-            headers: { 'content-type': 'application/json', 'x-vercel-signature': signature },
-            body: callbackBody,
-          });
-          assert.equal(result.status, 200, `local upload callback failed: ${(await result.text()).slice(0, 300)}`);
-          counts.callback++;
+          assert.equal(url.searchParams.has('vercel-blob-callback-url'), false, 'confirmation is performed by the explicit authenticated route');
           json(response, 200, blob, cors); return;
         }
         throw new Error(`unsupported multipart action ${action}`);
+      }
+      if (request.method === 'PUT' && url.pathname === '/' && isPresigned) {
+        assert.equal(pathname, delegation.payload.pathname);
+        assert.match(pathname, /^crew-intake\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.png$/);
+        assert.equal(request.headers['content-type'], 'image/png');
+        assert.ok(delegation.payload.allowedContentTypes.includes(request.headers['content-type']));
+        const bytes = await readBody(request);
+        assert.ok(bytes.length > 6 * 1024 * 1024 && bytes.length <= delegation.payload.maximumSizeInBytes);
+        const blob = {
+          pathname,
+          url: `https://${privateBlobHost}/${pathname}`,
+          downloadUrl: `https://${privateBlobHost}/${pathname}?download=1`,
+          size: bytes.length,
+          contentType: request.headers['content-type'],
+          contentDisposition: 'inline',
+          cacheControl: 'private, no-store',
+          uploadedAt: new Date().toISOString(),
+          etag: createHash('sha256').update(bytes).digest('hex'),
+        };
+        if (dropNextDirectPut) dropNextDirectPut = false;
+        else blobs.set(pathname, { blob, bytes });
+        counts.complete++;
+        assert.equal(url.searchParams.has('vercel-blob-callback-url'), false, 'confirmation is performed by the explicit authenticated route');
+        json(response, 200, blob, cors); return;
       }
       if (request.method === 'PUT' && url.pathname === '/') {
         assert.ok(isReadWrite, 'sanitized server-side uploads require the dedicated read-write token');
@@ -422,7 +472,13 @@ function createBlobEmulator({ appOrigin, blobOrigin, readWriteToken, localFetch 
       json(response, 500, { error: { code: 'unknown_error', message: error.message } }, cors);
     }
   });
-  return { server, blobs, counts, privateGetByPath };
+  return {
+    server,
+    blobs,
+    counts,
+    privateGetByPath,
+    dropNextDirectPut: () => { dropNextDirectPut = true; },
+  };
 }
 
 async function createTempProject(tempRoot, headersOnly = false, includeSeoAudit = false) {
@@ -454,6 +510,13 @@ async function createTempProject(tempRoot, headersOnly = false, includeSeoAudit 
   await writeFile(mediaRoutePath, mediaRoute.replace(
     "} catch {\n    return new NextResponse('Súkromnú fotografiu sa nepodarilo načítať', { status: 503 });",
     "} catch (error) {\n    console.error('ISOLATED PHOTO MEDIA READ FAILED', JSON.stringify({ message: error instanceof Error ? error.message : String(error), cause: error instanceof Error && error.cause instanceof Error ? error.cause.message : undefined }));\n    return new NextResponse('Súkromnú fotografiu sa nepodarilo načítať', { status: 503 });",
+  ), 'utf8');
+  const uploadRoutePath = path.join(tempRoot, 'app', 'api', 'photo-intake', 'upload', 'route.ts');
+  const uploadRoute = (await readFile(uploadRoutePath, 'utf8')).replaceAll('\r\n', '\n');
+  assert.ok(uploadRoute.includes("console.error('Photo intake upload request rejected.', error instanceof Error ? error.name : 'unknown');"));
+  await writeFile(uploadRoutePath, uploadRoute.replace(
+    "console.error('Photo intake upload request rejected.', error instanceof Error ? error.name : 'unknown');",
+    "console.error('ISOLATED PHOTO UPLOAD FAILED', JSON.stringify({ name: error instanceof Error ? error.name : 'unknown', message: error instanceof Error ? error.message : String(error), cause: error instanceof Error && error.cause instanceof Error ? error.cause.message : undefined }));",
   ), 'utf8');
   // Next's client upload is intentionally pointed at a loopback HTTP emulator.
   // This temporary-only config adds a loopback CSP exception for the test
@@ -529,6 +592,18 @@ async function waitForApp(origin, child, localFetch, logs) {
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
   throw new Error(`Next did not start within 90s: ${logs().slice(-3500)}`);
+}
+
+async function gotoWithTransientAbortRetry(page, url, options) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await page.goto(url, options);
+    } catch (error) {
+      if (!(error instanceof Error) || !error.message.includes('net::ERR_ABORTED') || attempt === 2) throw error;
+      await page.waitForTimeout(100);
+    }
+  }
+  throw new Error('Navigation retry exhausted.');
 }
 
 async function stopChild(child) {
@@ -634,7 +709,13 @@ async function runHarness() {
     const token = 'vercel_blob_rw_harness_' + randomBytes(32).toString('hex');
     const secret = randomBytes(32).toString('hex');
     const projectId = 'prj_photo_intake_harness';
-    const photoIntakeBinding = createHash('sha256').update(JSON.stringify([projectId, databaseUrl, token])).digest('hex');
+    const databaseResourceId = 'harnessdatabase';
+    const photoBlobResourceId = 'harness';
+    const parsedDatabaseUrl = new URL(databaseUrl);
+    const databaseIdentity = `${parsedDatabaseUrl.hostname.toLowerCase().replace(/\.$/, '').replace(/-pooler(?=\.)/, '')}:${parsedDatabaseUrl.port || '5432'}/${decodeURIComponent(parsedDatabaseUrl.pathname).replace(/^\/+/, '')}`;
+    const photoIntakeBinding = createHash('sha256')
+      .update(JSON.stringify(['photo-intake-oidc-v2', projectId, databaseIdentity, databaseResourceId, photoBlobResourceId]))
+      .digest('hex');
     if (!managedTestDatabaseUrl) {
       pglite = await PGlite.create();
       socket = new PGLiteSocketServer({ db: pglite, port: dbPort, host: '127.0.0.1', maxConnections: 32 });
@@ -655,6 +736,7 @@ async function runHarness() {
       NODE_ENV: productionMode ? 'production' : 'development', NEXT_TELEMETRY_DISABLED: '1',
       DATABASE_URL: databaseUrl, BLOB_READ_WRITE_TOKEN: 'unrelated-harness-token',
       PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: token, VERCEL_PROJECT_ID: projectId,
+      DATABASE_RESOURCE_ID: databaseResourceId, PHOTO_INTAKE_BLOB_RESOURCE_ID: photoBlobResourceId,
       PHOTO_INTAKE_RETENTION_BINDING_SHA256: photoIntakeBinding,
       VERCEL_BLOB_API_URL: blobOrigin, NEXT_PUBLIC_VERCEL_BLOB_API_URL: blobOrigin,
       VERCEL_BLOB_CALLBACK_URL: appOrigin, VERCEL_BLOB_RETRIES: '0',
@@ -1178,7 +1260,7 @@ async function runHarness() {
         tokenPayload: JSON.stringify({ inviteId: invites[0].id, mediaId: invites[0].mediaId }),
       } }), signal: AbortSignal.timeout(60_000),
     });
-    assert.equal(unsigned.status, 400, 'unsigned callback rejected');
+    assert.equal(unsigned.status, 403, 'callback-style request without the same-site browser origin is rejected');
 
     const image = await pngFixture(sharp, 'isolated-crew-upload'), locality = 'Poprad – okolie (izolovaný test)';
     await firstPage.locator('.photo-intake-file-picker input[type="file"]').setInputFiles(image);
@@ -1246,7 +1328,7 @@ async function runHarness() {
     assert.deepEqual(withMetadata.rows[0], { locality, categories: ['family_house'], metadata_version: uploaded.metadata_version + 1 });
     uploaded.locality = locality; uploaded.categories = ['family_house']; uploaded.metadata_version += 1;
     assert.deepEqual({ create: fake.counts.create, part: fake.counts.part, complete: fake.counts.complete, callback: fake.counts.callback },
-      { create: 1, part: 1, complete: 1, callback: 1 });
+      { create: 0, part: 0, complete: 1, callback: 0 });
     await draft.getByLabel('Rodinný dom', { exact: true }).uncheck();
     await draft.getByLabel('Rodinný dom', { exact: true }).check();
     const reorderedNoOpRequests = [];
@@ -1277,7 +1359,7 @@ async function runHarness() {
       locality: draftLocality, categories: ['family_house'], metadata_version: uploaded.metadata_version + 1,
     }, 'uploader save must update the existing private row and its optimistic version');
     assert.deepEqual({ create: fake.counts.create, part: fake.counts.part, complete: fake.counts.complete, callback: fake.counts.callback },
-      { create: 1, part: 1, complete: 1, callback: 1 }, 'metadata save must not upload the photo again');
+      { create: 0, part: 0, complete: 1, callback: 0 }, 'metadata save must not upload the photo again');
     assert.equal(fake.counts.serverPut, 1, 'metadata save must not re-sanitize or re-confirm the private photo');
     const noOpRequests = [];
     const countNoOpMetadata = (request) => {
@@ -1348,6 +1430,38 @@ async function runHarness() {
     assert.equal(await refreshedCard.getByLabel('Garáž', { exact: true }).isChecked(), true);
     assert.equal((await mediaRead(firstPage, uploaded.id)).status, 200);
     assert.equal((await mediaRead(secondPage, uploaded.id)).status, 401);
+
+    // A provider can acknowledge a PUT while the source is not readable by the
+    // confirmation request. The UI must surface the 404, return to the upload
+    // state and create a fresh signed PUT on the next click.
+    const recoveryImage = await pngFixture(sharp, 'isolated-crew-reupload-after-missing-source');
+    fake.dropNextDirectPut();
+    await firstPage.locator('.photo-intake-file-picker input[type="file"]').setInputFiles(recoveryImage);
+    const recoveryDraft = firstPage.locator('.photo-intake-draft').filter({ hasText: recoveryImage.name });
+    await recoveryDraft.waitFor();
+    const missingSourceConfirm = firstPage.waitForResponse((response) => new URL(response.url()).pathname === '/api/photo-intake/confirm/'
+      && response.request().method() === 'POST' && response.status() === 404, { timeout: 90_000 });
+    await recoveryDraft.getByRole('button', { name: 'Nahrať fotografiu', exact: true }).click();
+    assert.equal((await missingSourceConfirm).status(), 404, 'the intentionally missing private source must be confirmed as absent');
+    await firstPage.waitForFunction((fileName) => {
+      const article = [...document.querySelectorAll('.photo-intake-draft')]
+        .find((candidate) => candidate.textContent?.includes(fileName));
+      const button = article?.querySelector('.photo-intake-actions button');
+      return button instanceof HTMLButtonElement && !button.disabled && button.textContent?.trim() === 'Nahrať fotografiu';
+    }, recoveryImage.name);
+    const beforeRecoveryRetry = { complete: fake.counts.complete, signedToken: fake.counts.signedToken };
+    const recoveredConfirm = firstPage.waitForResponse((response) => new URL(response.url()).pathname === '/api/photo-intake/confirm/'
+      && response.request().method() === 'POST' && response.status() === 200, { timeout: 90_000 });
+    await recoveryDraft.getByRole('button', { name: 'Nahrať fotografiu', exact: true }).click();
+    assert.equal((await recoveredConfirm).status(), 200, 'retry after a confirmed missing source must upload and confirm successfully');
+    await recoveryDraft.getByRole('status').filter({ hasText: 'Nahraté – čaká na kontrolu' }).waitFor();
+    assert.equal(fake.counts.complete, beforeRecoveryRetry.complete + 1, 'retry must perform a new direct PUT');
+    assert.equal(fake.counts.signedToken, beforeRecoveryRetry.signedToken + 1, 'retry must obtain a fresh short-lived signed URL');
+    const recoveredRows = await pglite.query(
+      'SELECT status FROM realization_media_intake WHERE invite_id = $1 AND original_name = $2',
+      [invites[0].id, recoveryImage.name],
+    );
+    assert.deepEqual(recoveredRows.rows, [{ status: 'pending_review' }]);
 
     // Exercise the real admin pages and Server Actions with a signed,
     // harness-only admin session. Every side effect remains in isolated PGlite.
@@ -1472,8 +1586,8 @@ async function runHarness() {
 
     // Verify that an admin reference remains a draft until edited with exact,
     // content-bound consent, and that hiding it removes it from public output.
-    await adminPage.goto(appOrigin + '/admin/referencie/', { waitUntil: 'domcontentloaded' });
-    await adminPage.getByRole('heading', { name: 'Referencie', exact: true }).waitFor();
+    await gotoWithTransientAbortRetry(adminPage, appOrigin + '/admin/referencie/', { waitUntil: 'domcontentloaded' });
+    await adminPage.getByRole('heading', { name: 'Referencie a hodnotenia', exact: true }).waitFor();
     const referenceName = 'QA syntetický zákazník – nikdy nepublikovať v produkcii';
     const referenceText = 'Syntetická skúška redakčného toku referencií; nejde o skutočnú zákaznícku skúsenosť.';
     const createReferenceForm = adminPage.locator('form.admin-quote-form').last();
@@ -1587,9 +1701,9 @@ async function runHarness() {
     }
     assert.equal((await pglite.query('SELECT COUNT(*)::int AS count FROM business_jobs')).rows[0].count, 1,
       'only the explicitly synthetic completed job fixture may exist');
-    assert.equal((await pglite.query('SELECT COUNT(*)::int AS count FROM realization_media_intake')).rows[0].count, 3);
+    assert.equal((await pglite.query('SELECT COUNT(*)::int AS count FROM realization_media_intake')).rows[0].count, 4);
     assert.equal(deniedOrigins.length, 0, 'unexpected external app browser traffic');
-    summary = { result: 'PASS', invitesSeeded: 2, photosSeeded: 2, actualBrowserUploads: 1,
+    summary = { result: 'PASS', invitesSeeded: 2, photosSeeded: 2, actualBrowserUploads: 2,
       mobileStates, mobilePreviewLoaded: mobileStates.every((state) => state.previewLoaded),
       mobileVisualEvidence: 'captured in owned temporary root; removed after test',
       adminPhotoModeration: 'actual UI and Server Actions', caseLifecycle: 'draft → reviewed → approved → published → withdrawn',
@@ -1598,7 +1712,8 @@ async function runHarness() {
       localityAndCategoriesPersisted: true, anonymousDenied: true, forgedSessionDenied: true,
       crossInviteDenied: true, revokedSessionDenied: true, consumedInviteReplayDenied: true,
       unsignedCallbackDenied: true, sanitizedPrivateCopy: fake.counts.serverPut === 1,
-      multipart: fake.counts, leads: 0, syntheticJobs: 1, emails: 0, productionAccess: false };
+      missingSourceReuploadRecovered: true,
+      privateDirectPut: fake.counts, leads: 0, syntheticJobs: 1, emails: 0, productionAccess: false };
   } catch (error) {
     console.error('Photo intake browser test failed:', error.message);
     console.error('Local Next diagnostics:', logs.join('').slice(-4500));

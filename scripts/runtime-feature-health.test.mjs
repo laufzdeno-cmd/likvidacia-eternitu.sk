@@ -21,7 +21,9 @@ function readyEnvironment() {
     VERCEL_ENV: 'production',
     VERCEL_TARGET_ENV: 'production',
     VERCEL_PROJECT_ID: 'project-id',
+    VERCEL_OIDC_TOKEN: 'short-lived-oidc-token',
     DATABASE_URL: 'postgresql://private.invalid/astana',
+    DATABASE_RESOURCE_ID: 'store_databaseproduction',
     BLOB_READ_WRITE_TOKEN: 'private-lead-token',
     LEAD_UPLOAD_RETENTION_DELETE_ENABLED: '1',
     CAREER_CV_RETENTION_DELETE_ENABLED: '1',
@@ -32,7 +34,7 @@ function readyEnvironment() {
     CONVERSION_EVENT_SECRET: 'conversion-secret',
     CRON_SECRET: 'cron-secret',
     GOOGLE_MAPS_API_KEY: 'maps-key',
-    PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN: 'private-photo-token',
+    PHOTO_INTAKE_BLOB_RESOURCE_ID: 'store_photoproduction',
     PHOTO_INTAKE_PRIVATE_STORE_VERIFIED: 'true',
     PHOTO_INTAKE_RETENTION_ENABLED: 'true',
     PHOTO_INTAKE_ENABLED: 'true',
@@ -49,9 +51,11 @@ function readyEnvironment() {
   ]);
   environment.CAREER_CV_RETENTION_BINDING_SHA256 = environment.LEAD_BLOB_RETENTION_BINDING_SHA256;
   environment.PHOTO_INTAKE_RETENTION_BINDING_SHA256 = binding([
+    'photo-intake-oidc-v2',
     environment.VERCEL_PROJECT_ID,
-    environment.DATABASE_URL,
-    environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN,
+    deploymentDatabaseIdentity(environment.DATABASE_URL),
+    'databaseproduction',
+    'photoproduction',
   ]);
   return environment;
 }
@@ -67,6 +71,7 @@ function verifiedStagingEnvironment() {
     ...readyEnvironment(),
     VERCEL_ENV: 'preview',
     VERCEL_TARGET_ENV: 'staging',
+    VERCEL_OIDC_TOKEN: '',
     DATABASE_URL: 'postgresql://staging.invalid/astana',
     DATABASE_RESOURCE_ID: 'neon-staging/branch-staging/astana',
     BLOB_READ_WRITE_TOKEN: 'vercel_blob_rw_staging_secret',
@@ -88,9 +93,11 @@ function verifiedStagingEnvironment() {
   ]);
   environment.CAREER_CV_RETENTION_BINDING_SHA256 = environment.LEAD_BLOB_RETENTION_BINDING_SHA256;
   environment.PHOTO_INTAKE_RETENTION_BINDING_SHA256 = binding([
+    'photo-intake-oidc-v2',
     environment.VERCEL_PROJECT_ID,
-    environment.DATABASE_URL,
-    environment.PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN,
+    deploymentDatabaseIdentity(environment.DATABASE_URL),
+    'neon-staging/branch-staging/astana',
+    environment.PHOTO_INTAKE_BLOB_RESOURCE_ID,
   ]);
   environment.STAGING_RESOURCE_BINDING_SHA256 = stagingResourceBinding(environment);
   return environment;

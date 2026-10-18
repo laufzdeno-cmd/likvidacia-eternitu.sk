@@ -8,14 +8,14 @@ import {
   failPhotoIntakeSanitizationCleanup,
   markPhotoIntakeDeletionFailed,
 } from '@/src/server/db';
-import { photoIntakeRetentionRequested, privatePhotoIntakeBlobToken, privatePhotoIntakeStorageReady } from '@/src/server/photo-intake-config';
+import { photoIntakeRetentionRequested, privatePhotoIntakeBlobOptions, privatePhotoIntakeStorageReady, type PrivatePhotoIntakeBlobOptions } from '@/src/server/photo-intake-config';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-async function deletePrivateBlobOrConfirmAbsent(storageKey: string, token: string) {
+async function deletePrivateBlobOrConfirmAbsent(storageKey: string, blobOptions: PrivatePhotoIntakeBlobOptions) {
   try {
-    await del(storageKey, { token });
+    await del(storageKey, blobOptions);
     return;
   } catch (deleteError) {
     if (deleteError instanceof BlobNotFoundError) return;
@@ -25,7 +25,7 @@ async function deletePrivateBlobOrConfirmAbsent(storageKey: string, token: strin
     // provider-confirmed absence is safe to treat as an already completed
     // object deletion; every other condition remains retryable.
     try {
-      await head(storageKey, { token });
+      await head(storageKey, blobOptions);
     } catch (headError) {
       if (headError instanceof BlobNotFoundError) return;
       throw headError;
@@ -51,14 +51,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'Retention queue unavailable.' }, { status: 503 });
   }
 
-  const blobToken = privatePhotoIntakeBlobToken();
+  const blobOptions = privatePhotoIntakeBlobOptions();
   let deleted = 0;
   let failed = 0;
   let temporaryDeleted = 0;
   for (const cleanup of sanitizationCleanups) {
     try {
       if (cleanup.storageDriver !== 'vercel_blob') throw new Error('Unsupported private storage driver.');
-      await deletePrivateBlobOrConfirmAbsent(cleanup.storageKey, blobToken);
+      await deletePrivateBlobOrConfirmAbsent(cleanup.storageKey, blobOptions);
       if (!await completePhotoIntakeSanitizationCleanup(cleanup.id)) {
         throw new Error('PHOTO_INTAKE_SANITIZATION_CLEANUP_COMPLETION_FAILED');
       }
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
   for (const candidate of candidates) {
     try {
       if (candidate.storageDriver !== 'vercel_blob') throw new Error('Unsupported private storage driver.');
-      await deletePrivateBlobOrConfirmAbsent(candidate.storageKey, blobToken);
+      await deletePrivateBlobOrConfirmAbsent(candidate.storageKey, blobOptions);
       if (!await completePhotoIntakeDeletion(candidate.id)) {
         throw new Error('PHOTO_INTAKE_RETENTION_COMPLETION_FAILED');
       }

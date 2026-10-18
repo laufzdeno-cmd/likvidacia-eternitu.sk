@@ -14,9 +14,9 @@ test('photo retention reconciles an already absent private Blob before completin
 
   assert.ok(helperStart >= 0 && routeStart > helperStart, 'the absence-reconciliation helper must exist before the route');
   assert.match(source, /import \{ BlobNotFoundError, del, head \} from '@vercel\/blob'/);
-  assert.match(helper, /await del\(storageKey, \{ token \}\)/);
+  assert.match(helper, /await del\(storageKey, blobOptions\)/);
   assert.match(helper, /deleteError instanceof BlobNotFoundError/);
-  assert.match(helper, /await head\(storageKey, \{ token \}\)/);
+  assert.match(helper, /await head\(storageKey, blobOptions\)/);
   assert.match(helper, /headError instanceof BlobNotFoundError/);
   assert.match(helper, /throw headError/);
   assert.match(helper, /throw deleteError/);
@@ -70,5 +70,9 @@ test('retention and private upload authorization remain fail-closed', async () =
     < confirm.indexOf('currentPhotoUploadInvite()'), 'confirmation must reject a foreign origin before resolving an invite');
   assert.match(confirm, /if \(!invite\) return NextResponse\.json\([^\n]*status: 401/);
   assert.match(upload, /if \(request\.headers\.get\('origin'\) !== request\.nextUrl\.origin\)/);
-  assert.match(upload, /onBeforeGenerateToken:[\s\S]*currentPhotoUploadInvite\(\)/);
+  assert.ok(upload.indexOf('currentPhotoUploadInvite()') > upload.indexOf("request.headers.get('origin') !== request.nextUrl.origin"),
+    'signed upload URL must resolve the scoped invite only after the same-origin guard');
+  assert.match(upload, /issueSignedToken\(\{[\s\S]*operations: \['put'\][\s\S]*allowedContentTypes: \[payload\.contentType\]/);
+  assert.match(upload, /presignUrl\(token, \{[\s\S]*operation: 'put'[\s\S]*access: 'private'[\s\S]*allowOverwrite: false/);
+  assert.doesNotMatch(upload, /handleUpload|onUploadCompleted/);
 });

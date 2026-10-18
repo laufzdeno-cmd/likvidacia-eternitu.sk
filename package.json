@@ -30,7 +30,7 @@
     "@aws-sdk/client-s3": "^3.1045.0",
     "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@sparticuz/chromium": "^148.0.0",
-    "@vercel/blob": "2.3.3",
+    "@vercel/blob": "2.8.2",
     "next": "^16.4.0",
     "nodemailer": "^10.0.15",
     "otplib": "^13.4.0",

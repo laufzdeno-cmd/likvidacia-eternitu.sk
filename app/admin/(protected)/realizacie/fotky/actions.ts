@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation';
 import { isPhotoCategory } from '@/src/server/photo-intake-policy';
 import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { completePhotoIntakeDeletion, createCaseDraftFromApprovedPhoto, createPhotoUploadInvite, getActivePhotoUploadInvite, listRevokedPendingPhotoRecords, markPhotoIntakeDeletionFailed, reviewPhotoIntakeRecord, revokePhotoUploadInvite, updatePhotoIntakeMetadata, withdrawApprovedPhotoIntakeRecord } from '@/src/server/db';
-import { privatePhotoIntakeBlobToken, privatePhotoIntakeEnabled, privatePhotoIntakeStorageReady } from '@/src/server/photo-intake-config';
+import { privatePhotoIntakeBlobOptions, privatePhotoIntakeEnabled, privatePhotoIntakeStorageReady } from '@/src/server/photo-intake-config';
 import { cleanSlovakText } from '@/src/server/slovak-text';
 
 export type PhotoInviteActionState = { code?: string; expiresAt?: string; error?: string };
@@ -60,7 +60,7 @@ async function cleanupRevokedPhotoUploads(inviteId: string, actorEmail: string) 
   for (const record of records) {
     try {
       if (record.storageDriver !== 'vercel_blob') throw new Error('Unsupported private storage driver.');
-      await del(record.storageKey, { token: privatePhotoIntakeBlobToken() });
+      await del(record.storageKey, privatePhotoIntakeBlobOptions());
       await completePhotoIntakeDeletion(record.id, actorEmail);
     } catch {
       try { await markPhotoIntakeDeletionFailed(record.id); } catch { /* Daily retention retries claimed items. */ }

@@ -1,6 +1,5 @@
 'use client';
 
-import { upload } from '@vercel/blob/client';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { isApproximateLocality, photoCategories, type PhotoCategory, maxIntakePhotoBytes, allowedIntakePhotoTypes } from '@/src/server/photo-intake-policy';
@@ -176,18 +175,32 @@ export function PhotoIntakeUploader({ inviteId }: { inviteId: string }) {
       if (!transferred) {
         const extension = draft.file.name.split('.').pop()?.toLowerCase() || '';
         const pathname = `crew-intake/${inviteId}/${mediaId}.${extension}`;
-        await upload(pathname, draft.file, {
-          access: 'private',
-          handleUploadUrl: '/api/photo-intake/upload',
-          contentType: draft.file.type,
-          clientPayload: JSON.stringify({ mediaId, originalName: draft.file.name, contentType: draft.file.type }),
-          multipart: true,
+        const signedResponse = await fetch('/api/photo-intake/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pathname, mediaId, originalName: draft.file.name, contentType: draft.file.type }),
         });
+        const signedResult = await signedResponse.json() as { presignedUrl?: string; error?: string };
+        if (!signedResponse.ok || !signedResult.presignedUrl) {
+          throw new Error(signedResult.error || 'Nahratie sa nepodarilo pripraviť.');
+        }
+        const uploadResponse = await fetch(signedResult.presignedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': draft.file.type },
+          body: draft.file,
+          credentials: 'omit',
+          referrerPolicy: 'no-referrer',
+          signal: AbortSignal.timeout(8 * 60_000),
+        });
+        if (!uploadResponse.ok) throw new Error('Fotografiu sa nepodarilo nahrať do súkromného úložiska.');
         transferred = true;
         updateDraft(draft.key, { mediaId, transferred, status: 'Overujem fotografiu…' });
       }
       await confirmUpload();
     } catch (error) {
+      const missingPrivateSource = !metadataVersion && error instanceof Error
+        && 'status' in error && error.status === 404;
+      if (missingPrivateSource) transferred = false;
       updateDraft(draft.key, {
         mediaId,
         transferred,
