@@ -37,7 +37,7 @@ test('process-page presentation is owned by the /postup route', () => {
   routeRoot.walkRules((rule) => {
     if (rule.selector !== ':root') routeRules += 1;
   });
-  assert.equal(routeRules, 120, `expected all 120 process-page rules, got ${routeRules}`);
+  assert.equal(routeRules, 122, `expected all 122 process-page rules, got ${routeRules}`);
 
   for (const file of globalCssFiles) {
     const root = postcss.parse(readFileSync(file, 'utf8'), { from: file });

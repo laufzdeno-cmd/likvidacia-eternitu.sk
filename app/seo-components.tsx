@@ -130,7 +130,7 @@ export function TrustComplianceSection() {
       <p>Bez potrebného úradného postupu sa do demontáže nepúšťame.</p>
       <p>
         <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">
-          Overiť zoznam oprávnených spoločností na ÚVZ SR
+          Otvoriť aktuálny register ÚVZ SR (IČO 46 157 701)
         </a>
       </p>
     </section>

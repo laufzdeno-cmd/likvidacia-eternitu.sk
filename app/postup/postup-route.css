@@ -331,8 +331,18 @@
 .postup-process-columns,
 .postup-process-duo {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+.postup-process-duo {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 821px) and (max-width: 1040px) {
+  .postup-process-columns {
+    grid-template-columns: 1fr;
+  }
 }
 
 .postup-process-columns article,

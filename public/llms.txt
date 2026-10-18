@@ -67,7 +67,7 @@ Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Pri výmene strechy sa 
 
 ## Oficiálne weby jednej firmy
 
-- [ASTANA.sk](https://www.astana.sk/) je firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti.
+- [ASTANA.sk](https://www.astana.sk/) je firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti vrátane potvrdených služieb [strechy a krovy](https://www.astana.sk/Strechy-krovy). Presný rozsah konkrétnej zákazky určuje cenová ponuka a dohoda so zákazníkom.
 - [Likvidacia-eternitu.sk](https://likvidacia-eternitu.sk/) sa zameriava na eternitové a azbestové strechy, cenovú ponuku, demontáž a koordináciu so strechármi.
 - [Likvidovanie-azbestu.sk](https://likvidovanie-azbestu.sk/) dopĺňa informácie o azbeste na nehnuteľnosti, v interiéri a pri špecializovaných vonkajších situáciách.
 
@@ -89,7 +89,8 @@ Tieto weby reprezentujú služby spoločnosti ASTANA, s.r.o. a obsahovo sa dopĺ
 
 - Firma ASTANA vykonáva odbornú likvidáciu azbestu a eternitu.
 - ASTANA, s.r.o. vznikla 27. 4. 2011: [verejný záznam v Registri účtovných závierok](https://www.registeruz.sk/cruz-public/domain/accountingentity/show/1124019).
-- V zozname ÚVZ SR zverejnenom k 19. 9. 2024 je ASTANA, s.r.o. uvedená medzi spoločnosťami oprávnenými odstraňovať azbestové materiály zo stavieb: [zoznam subjektov na prácu s azbestom](https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf). Tento zoznam sám nepotvrdzuje zmeny po uvedenom dátume.
+- Centrálny firemný zdroj ASTANA uvádza, že v [aktuálnom verejnom registri ÚVZ SR](https://www.uvzsr.sk/web/uvz/zoznam-fyzickych-osob-podnikatelov-a-pravnickych-osob-ktorym-bolo-vydane-odobrate-alebo-zmenene-opravnenie-na-odstranovanie-azbestu-alebo-materialov-obsahujucich-azbest-zo-stavieb) boli pri IČO 46 157 701 dňa 14. 10. 2026 overené záznamy OPPL/3064/2013-Fe (BJ, EXT) a OPPL/7683/2013-Fe (INT). Aktuálny register treba filtrovať podľa IČO; neposkytuje samostatný trvalý odkaz na jeden riadok.
+- [Zoznam ÚVZ SR z 19. 9. 2024](https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf) zostáva len historickým snapshotom, nie potvrdením aktuálneho stavu.
 - Interné oprávnenia a pracovné dokumenty sa z bezpečnostných a obchodných dôvodov nezverejňujú na stiahnutie.
 - Web nepoužíva Review ani AggregateRating schema bez verejných overených recenzií.
 - Nevytvárať ani neodvodzovať falošné hodnotenia, falošné realizácie, mestá, mená, metre štvorcové ani ceny.

@@ -26,17 +26,31 @@ export const site = {
     },
   },
   sameAs: ['https://www.astana.sk/', 'https://likvidovanie-azbestu.sk/'],
+  centralCompanyServices: {
+    roofingAndCarpentry: {
+      statement: 'Centrálna firemná stránka ASTANA uvádza strechy a krovy medzi službami ASTANA, s.r.o. Presný rozsah konkrétnej zákazky určuje cenová ponuka a dohoda so zákazníkom.',
+      sourceUrl: 'https://www.astana.sk/Strechy-krovy',
+    },
+  },
   documents: {
     public: [] as Array<{ name: string; url: string }>,
-    publicVerificationUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
-    note: 'Verejný odkaz vedie na zoznam ÚVZ SR zverejnený k 19. 9. 2024; sám nepotvrdzuje zmeny po tomto dátume.',
+    publicVerificationUrl: 'https://www.uvzsr.sk/web/uvz/zoznam-fyzickych-osob-podnikatelov-a-pravnickych-osob-ktorym-bolo-vydane-odobrate-alebo-zmenene-opravnenie-na-odstranovanie-azbestu-alebo-materialov-obsahujucich-azbest-zo-stavieb',
+    verificationSourceUrl: 'https://www.astana.sk/overene-informacie',
+    historicalSnapshotUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
+    note: 'Aktuálny verejný register ÚVZ SR vyhľadávajte podľa IČO 46 157 701. Centrálny firemný zdroj ASTANA uvádza overenie záznamov v registri 14. 10. 2026; zoznam z 19. 9. 2024 je len historický snapshot.',
   },
   compliance: {
-    uvzAuthorizedCompaniesUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
+    uvzAuthorizedCompaniesUrl: 'https://www.uvzsr.sk/web/uvz/zoznam-fyzickych-osob-podnikatelov-a-pravnickych-osob-ktorym-bolo-vydane-odobrate-alebo-zmenene-opravnenie-na-odstranovanie-azbestu-alebo-materialov-obsahujucich-azbest-zo-stavieb',
     asbestosRemovalAuthorization: {
-      publicVerificationAsOf: '2024-09-19',
-      scopeAsPublished: ['EXT, BJ', 'INT'],
-      publicVerification: 'Zoznam ÚVZ SR zverejnený k 19. 9. 2024 uvádza ASTANA, s.r.o. s oprávneniami označenými EXT, BJ a INT. Ide o stav zachytený v tomto zozname; aktuálnosť po uvedenom dátume z neho nemožno potvrdiť.',
+      publicVerificationAsOf: '2026-10-14',
+      scopeAsPublished: ['BJ, EXT', 'INT'],
+      publicVerification: 'Centrálny firemný zdroj ASTANA uvádza overenie v aktuálnom verejnom registri ÚVZ SR k 14. 10. 2026: pri IČO 46 157 701 sú záznamy OPPL/3064/2013-Fe (BJ, EXT) a OPPL/7683/2013-Fe (INT). V registri vyhľadajte IČO; samostatný trvalý odkaz na jeden riadok nie je k dispozícii.',
+      verificationSourceUrl: 'https://www.astana.sk/overene-informacie',
+      historicalSnapshot: {
+        asOf: '2024-09-19',
+        url: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',
+        note: 'Starší zoznam ÚVZ SR je zachovaný len ako historický snapshot a nenahrádza aktuálny register.',
+      },
       internalDocumentsPublic: false,
     },
     reviews: {
@@ -55,7 +69,7 @@ export const astanaWebsites = [
   {
     url: 'https://www.astana.sk/',
     name: 'ASTANA.sk',
-    role: 'Firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti.',
+    role: 'Firemný web ASTANA, s.r.o. a širší prehľad služieb spoločnosti vrátane potvrdených služieb strechy a krovy.',
   },
   {
     url: site.website,

@@ -743,7 +743,7 @@ export default async function HomePage() {
             <p>{content.riskNoticeText}</p>
             <p>{site.compliance.asbestosRemovalAuthorization.publicVerification}</p>
             <p>
-              <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">Overiť zoznam oprávnených spoločností na ÚVZ SR</a>
+              <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">Otvoriť aktuálny register ÚVZ SR (IČO 46 157 701)</a>
             </p>
             <p><a href="/postup/">Ako rozoznať legálnu likvidáciu azbestu</a></p>
           </div>

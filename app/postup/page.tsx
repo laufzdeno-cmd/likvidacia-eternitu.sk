@@ -138,7 +138,7 @@ export default function ProcessPage() {
             <p className="postup-process-micro">Stačí približná výmera <span aria-hidden="true">·</span> Fotky sú voliteľné</p>
             <div className="postup-process-trust-row" aria-label="Základné údaje o ASTANA">
               <span><strong>{site.areaServed}</strong><small>Pôsobnosť</small></span>
-              <span><strong>ÚVZ SR</strong><small>Zoznam k 19. 9. 2024</small></span>
+              <span><strong>ÚVZ SR</strong><small>Overenie 14. 10. 2026</small></span>
               <span><strong>{site.claimedStats.foundedOrActiveSince.value}</strong><small>Na trhu od</small></span>
             </div>
           </div>
@@ -196,7 +196,7 @@ export default function ProcessPage() {
         <section className="postup-process-section postup-process-responsibilities" aria-labelledby="postup-responsibilities-title">
           <div className="postup-process-section-heading">
             <p className="postup-process-kicker">Jasné rozdelenie</p>
-            <h2 id="postup-responsibilities-title">Čo zostáva na vás? Prekvapivo málo.</h2>
+            <h2 id="postup-responsibilities-title">Kto rieši ktorú časť?</h2>
           </div>
           <div className="postup-process-columns">
             <article>
@@ -209,12 +209,20 @@ export default function ProcessPage() {
               </ul>
             </article>
             <article>
+              <p className="postup-process-column-label">Strechár</p>
+              <ul>
+                <li>novú strechu, krytinu alebo krov v dohodnutom rozsahu,</li>
+                <li>nadväznosť svojej práce so zákazníkom a s termínom demontáže,</li>
+                <li>svoju cenovú ponuku, zmluvu a záruku priamo so zákazníkom.</li>
+              </ul>
+            </article>
+            <article>
               <p className="postup-process-column-label">ASTANA</p>
               <ul>
-                <li>konkrétna cenová ponuka a ďalší postup,</li>
+                <li>konkrétnu cenovú ponuku na likvidáciu a ďalší postup,</li>
                 <li>podklady podľa konkrétnej stavby,</li>
-                <li>stabilizácia a kontrolovaná demontáž,</li>
-                <li>balenie, odvoz a súvisiaca dokumentácia.</li>
+                <li>stabilizáciu a kontrolovanú demontáž,</li>
+                <li>balenie, odvoz a súvisiacu dokumentáciu.</li>
               </ul>
             </article>
           </div>
@@ -253,10 +261,14 @@ export default function ProcessPage() {
             <h2 id="postup-roofer-title">Meníte zároveň aj strechu?</h2>
             <p>
               Ak máte strechára, povedzte nám to už v dopyte. ASTANA vyrieši odbornú demontáž, balenie a odvoz materiálu
-              s možným obsahom azbestu, aby mohol strechár nadviazať svojou prácou.
+              s možným obsahom azbestu; strechár potom nadväzuje svojou prácou podľa samostatnej dohody s vami.
             </p>
             <p>Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Pri výmene strechy konkrétny čas nástupu dohodneme podľa lokality, počasia a nadväznosti so strechárom.</p>
-            <p>Ak strechára ešte nemáte, uveďte to vo formulári. ASTANA sa tým nestáva strechárskou firmou.</p>
+            <p>
+              Ak strechára ešte nemáte, uveďte to vo formulári. Podľa regiónu a kapacity preveríme možnosť odporučiť spolupracujúceho strechára;
+              rozhodnutie a dohoda o strechárskej práci sú vždy priamo medzi vami a strechárom. ASTANA ponúka aj strechy a krovy;
+              konkrétny rozsah a zodpovedného dodávateľa si potvrdíme v cenovej ponuke.
+            </p>
           </div>
           <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>
         </section>
@@ -279,7 +291,10 @@ export default function ProcessPage() {
             <p className="postup-process-note">
               Pri plánovaných prácach držiteľ oprávnenia oznamuje odstraňovanie RÚVZ najmenej 30 dní vopred spolu s požadovanými podkladmi. Konkrétny rozsah dokumentácie sa odvíja od stavby a prác.{' '}
               <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">
-                Overiť zoznam oprávnených spoločností na ÚVZ SR
+                Otvoriť aktuálny register ÚVZ SR (IČO 46 157 701)
+              </a>{' '}
+              <a href={site.compliance.asbestosRemovalAuthorization.verificationSourceUrl} target="_blank" rel="noopener noreferrer">
+                Pozrieť podklad k dátumu overenia ASTANA
               </a>
             </p>
           </div>

@@ -118,18 +118,22 @@ test('approved company opening hours stay aligned across public and email surfac
   }
 });
 
-test('machine-readable company facts carry the offer promise and date-bound authorization evidence', () => {
+test('machine-readable company facts carry the offer promise and distinguish current registry evidence from its historical snapshot', () => {
   const company = JSON.parse(publicCompany);
   const llms = read('../public/llms.txt');
   const firmPage = read('../app/o-firme/page.tsx');
   assert.equal(company.quote_response_time, 'Nezáväznú cenovú ponuku pošleme čo najskôr, najneskôr do 24 hodín.');
   assert.equal(company.website, company.domain);
   assert.ok(company.public_pages.includes(`${company.domain}/kde-posobime/`));
-  assert.equal(company.authorizations.public_verification_as_of, '2024-09-19');
-  assert.deepEqual(company.authorizations.asbestos_removal_scope_as_published, ['EXT, BJ', 'INT']);
-  assert.match(company.authorizations.public_verification, /19\. 9\. 2024/);
-  assert.match(company.authorizations.public_verification, /aktuálnosť po uvedenom dátume z neho nemožno potvrdiť/i);
-  assert.ok(company.trust_notes.some((note) => /rozsahy EXT, BJ a INT/.test(note)));
+  assert.equal(company.authorizations.public_verification_as_of, '2026-10-14');
+  assert.deepEqual(company.authorizations.asbestos_removal_scope_as_published, ['BJ, EXT', 'INT']);
+  assert.match(company.authorizations.public_verification, /Centrálny firemný zdroj ASTANA/);
+  assert.match(company.authorizations.public_verification, /14\. 10\. 2026/);
+  assert.match(company.authorizations.public_verification_url, /\/web\/uvz\/zoznam-fyzickych-osob-podnikatelov/);
+  assert.equal(company.authorizations.verification_source_url, 'https://www.astana.sk/overene-informacie');
+  assert.equal(company.authorizations.historical_snapshot.as_of, '2024-09-19');
+  assert.match(company.authorizations.historical_snapshot.note, /Historický snapshot/);
+  assert.ok(company.trust_notes.some((note) => /14\. 10\. 2026/.test(note)));
   assert.ok(company.trust_notes.every((note) => !/firma ma opravnenie pre exterier aj interier/i.test(note)));
   assert.deepEqual(company.services.slice(0, 4), [
     'Likvidácia azbestu',
@@ -148,11 +152,12 @@ test('machine-readable company facts carry the offer promise and date-bound auth
   assert.doesNotMatch(slovakProse, /\b(?:zverejneny|uvadza|opravneniami|aktualnost|likvidacia|odstranenie|demontaz|bezpecnostnych|dovodov|realizacie|vymery|neuvadzaju|spolahlivo|potvrdene)\b/i);
   assert.match(llms, /Kariéra a spolupráca.*https:\/\/likvidacia-eternitu\.sk\/kariera\//);
   assert.match(llms, /najneskôr do 24 hodín/);
-  assert.match(llms, /Tento zoznam sám nepotvrdzuje zmeny po uvedenom dátume/);
+  assert.match(llms, /Centrálny firemný zdroj ASTANA/);
+  assert.match(llms, /historickým snapshotom/);
   assert.match(firmPage, /site\.compliance\.asbestosRemovalAuthorization\.publicVerification/);
   assert.doesNotMatch(firmPage, /má oprávnenie na odstraňovanie azbestu v exteriéri aj interiéri/);
-  assert.match(siteFacts, /publicVerificationAsOf: '2024-09-19'/);
-  assert.match(siteFacts, /scopeAsPublished: \['EXT, BJ', 'INT'\]/);
+  assert.match(siteFacts, /publicVerificationAsOf: '2026-10-14'/);
+  assert.match(siteFacts, /scopeAsPublished: \['BJ, EXT', 'INT'\]/);
 });
 
 test('career remains discoverable from every public footer implementation', () => {
