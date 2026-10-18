@@ -45,7 +45,6 @@ export async function prepareReviewRequestsAction(formData: FormData) {
   }
   const eligibleById = new Map(eligible.map((job) => [job.id, job]));
   if (jobIds.some((id) => !eligibleById.has(id))) finish('not_eligible');
-  const reminderAllowed = settings.reminderEnabled && formData.get('reminderAllowed') === 'on';
   for (const id of jobIds) {
     const job = eligibleById.get(id)!;
     await createReviewRequest({
@@ -60,7 +59,7 @@ export async function prepareReviewRequestsAction(formData: FormData) {
       googleReviewLink: settings.googleReviewLink,
       subject: settings.subject,
       message: settings.body,
-      reminderAllowed,
+      reminderAllowed: false,
       status: 'pending_approval',
       createdBy: admin.email,
     });
@@ -80,13 +79,14 @@ export async function sendApprovedReviewRequestsAction(formData: FormData) {
     finish(admin.role === 'SUPER_ADMIN' ? 'batch_limit' : 'bulk_denied');
   }
   const current = new Map((await listReviewRequests()).map((request) => [request.id, request]));
+  const reminderAllowed = settings.reminderEnabled && formData.get('reminderAllowed') === 'on';
   let accepted = 0;
   let failed = 0;
   let unknown = 0;
   for (const id of parsed.data) {
     const existing = current.get(id);
     if (!existing) continue;
-    const claimed = await claimReviewRequestForDelivery(id, existing.revision, admin.email);
+    const claimed = await claimReviewRequestForDelivery(id, existing.revision, admin.email, reminderAllowed);
     if (!claimed) continue;
     const outcome = await sendReviewRequestEmail(claimed.request, claimed.token, claimed.request.message);
     const completed = await completeReviewRequestDelivery(
@@ -172,7 +172,7 @@ export async function reopenCancelledReviewRequestAction(formData: FormData) {
     subject: settings.subject,
     message: settings.body,
     googleReviewLink: settings.googleReviewLink,
-    reminderAllowed: settings.reminderEnabled && formData.get('reminderAllowed') === 'on',
+    reminderAllowed: false,
     actorEmail: admin.email,
   });
   finish(reopened ? 'reopened' : 'reopen_stale');

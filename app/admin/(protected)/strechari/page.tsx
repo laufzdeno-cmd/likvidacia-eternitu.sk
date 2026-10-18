@@ -116,7 +116,7 @@ export default async function RoofersAdminPage({
                           <div><dt>Spracovanie údajov</dt><dd>{registration.privacyConsent ? 'áno' : 'nie'}</dd></div>
                           <div><dt>Poznámka</dt><dd>{registration.note || 'bez poznámky'}</dd></div>
                           <div><dt>Submission ID</dt><dd>{registration.submissionId}</dd></div>
-                          <div><dt>Notifikácie</dt><dd><NotificationStatuses entityType="roofer_registration" csrfToken={csrfToken} notifications={notificationsByRegistration.get(registration.id) ?? []} /></dd></div>
+                          <div><dt>Notifikácie</dt><dd><NotificationStatuses entityType="roofer_registration" csrfToken={csrfToken} canManage={admin.role === 'SUPER_ADMIN'} notifications={notificationsByRegistration.get(registration.id) ?? []} /></dd></div>
                         </dl>
                       </details>
                     </td>

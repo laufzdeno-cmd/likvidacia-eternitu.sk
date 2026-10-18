@@ -132,7 +132,7 @@ export default function ReviewWorkspace({
           {!eligible.length ? <p className="review-empty">Momentálne nie je dokončená reálna zákazka s e-mailom, ktorú možno bezpečne osloviť.</p> : null}
         </div>
         {eligible.length ? <div className="review-send-bar">
-          {settings.reminderEnabled ? <label><input form="prepare-review-form" type="checkbox" name="reminderAllowed" /> Vopred povoľujem najviac jednu pripomienku po {settings.reminderDays} dňoch</label> : <span>Pripomienky sú vypnuté.</span>}
+          {settings.reminderEnabled ? <span>Prípadnú jedinú pripomienku možno výslovne povoliť až pri schválení prvej správy.</span> : <span>Pripomienky sú vypnuté.</span>}
           <button form="prepare-review-form" className="admin-primary-button" type="submit">Pripraviť vybrané žiadosti</button>
           <small>{role === 'SUPER_ADMIN' ? `Hromadný limit: ${settings.batchLimit}` : 'Operátor môže pripraviť jedného zákazníka naraz.'} Nič sa teraz neodošle.</small>
         </div> : null}
@@ -150,7 +150,11 @@ export default function ReviewWorkspace({
           </article>)}
           {!pending.length ? <p className="review-empty">Žiadna správa nečaká na schválenie.</p> : null}
         </div>
-        {pending.length ? <div className="review-send-bar review-send-confirm"><label><input form="send-review-form" type="checkbox" name="confirmSend" required /> Skontroloval(a) som adresátov a presné znenie. Schvaľujem reálne odoslanie e-mailov.</label><button form="send-review-form" className="admin-primary-button" type="submit">Schváliť a odoslať vybrané</button></div> : null}
+        {pending.length ? <div className="review-send-bar review-send-confirm">
+          <label><input form="send-review-form" type="checkbox" name="confirmSend" required /> Skontroloval(a) som adresátov a presné znenie. Schvaľujem reálne odoslanie e-mailov.</label>
+          {settings.reminderEnabled ? <label><input form="send-review-form" type="checkbox" name="reminderAllowed" /> Výslovne povoľujem pre vybrané žiadosti najviac jednu automatickú pripomienku po {settings.reminderDays} dňoch.</label> : <span>Automatické pripomienky sú vypnuté.</span>}
+          <button form="send-review-form" className="admin-primary-button" type="submit">Schváliť a odoslať vybrané</button>
+        </div> : null}
     </section>
 
     <section className="review-panel" aria-labelledby="progress-title">
@@ -209,7 +213,7 @@ export default function ReviewWorkspace({
         <div><h3>{item.customerName}</h3><p>{item.location || 'bez lokality'} · zrušené {dateTime(item.updatedAt)}</p><small>Starý odkaz je zneplatnený. Verzia {item.revision}.</small></div>
         <form action={reopenCancelledReviewRequestAction} className="review-reminder-form">
           <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={item.id} /><input type="hidden" name="revision" value={item.revision} />
-          {settings.reminderEnabled ? <label><input type="checkbox" name="reminderAllowed" defaultChecked={Boolean(item.reminderAllowed)} /> Povoliť najviac jednu pripomienku</label> : null}
+          {settings.reminderEnabled ? <span>Prípadnú jedinú pripomienku povoľte až pri neskoršom schválení odoslania.</span> : null}
           <label><input type="checkbox" name="confirmed" required /> Skontrolujem nový adresát a presný text pred prípadným odoslaním</label>
           <button type="submit">Obnoviť ako koncept</button>
         </form>

@@ -960,6 +960,64 @@ export async function listAdminAutopilotRunItems(runId: string): Promise<AdminAu
 }
 
 /**
+ * Read-only bounded source for the two rolling 30-day assistant periods.
+ * It replaces the latest-100-runs shortcut (a ten-minute cron fills that in
+ * less than one day) and avoids one query per run.
+ */
+export async function listAdminAutopilotMetricWindow(fromInclusive: string, toExclusive: string): Promise<{
+  runs: AdminAutopilotRun[];
+  items: AdminAutopilotRunItem[];
+  truncated: boolean;
+}> {
+  const fromTime = Date.parse(fromInclusive);
+  const toTime = Date.parse(toExclusive);
+  const maxWindowMs = 61 * 86_400_000;
+  if (!Number.isFinite(fromTime) || !Number.isFinite(toTime) || fromTime >= toTime || toTime - fromTime > maxWindowMs) {
+    throw new Error('Neplatné obdobie prevádzkových ukazovateľov asistenta.');
+  }
+  await ensureAdminAutopilotSchema();
+  const runLimit = 20_000;
+  const itemLimit = 100_000;
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const matchingRuns = local.adminAutopilotRuns
+      .filter((run) => run.trigger !== 'test' && run.startedAt >= fromInclusive && run.startedAt < toExclusive)
+      .sort((left, right) => right.startedAt.localeCompare(left.startedAt) || right.id.localeCompare(left.id));
+    const selectedRuns = matchingRuns.slice(0, runLimit);
+    const selectedRunIds = new Set(selectedRuns.map((run) => run.id));
+    const matchingItems = local.adminAutopilotRunItems
+      .filter((item) => selectedRunIds.has(item.runId) && item.createdAt >= fromInclusive && item.createdAt < toExclusive)
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
+    return {
+      runs: selectedRuns,
+      items: matchingItems.slice(0, itemLimit),
+      truncated: matchingRuns.length > runLimit || matchingItems.length > itemLimit,
+    };
+  }
+  const runResult = await db.query(
+    `SELECT * FROM admin_autopilot_runs
+     WHERE trigger <> 'test' AND started_at >= $1::timestamptz AND started_at < $2::timestamptz
+     ORDER BY started_at DESC, id DESC LIMIT $3`,
+    [fromInclusive, toExclusive, runLimit + 1],
+  );
+  const runRows = runResult.rows.slice(0, runLimit);
+  const runIds = runRows.map((row) => String(row.id));
+  if (!runIds.length) return { runs: [], items: [], truncated: runResult.rows.length > runLimit };
+  const itemResult = await db.query(
+    `SELECT * FROM admin_autopilot_run_items
+     WHERE run_id = ANY($1::uuid[]) AND created_at >= $2::timestamptz AND created_at < $3::timestamptz
+     ORDER BY created_at, id LIMIT $4`,
+    [runIds, fromInclusive, toExclusive, itemLimit + 1],
+  );
+  return {
+    runs: runRows.map(toAdminAutopilotRun),
+    items: itemResult.rows.slice(0, itemLimit).map(toAdminAutopilotRunItem),
+    truncated: runResult.rows.length > runLimit || itemResult.rows.length > itemLimit,
+  };
+}
+
+/**
  * Read-only allow-list for assistant metrics. Historical photo events are
  * excluded once their source photo, job or lead is removed or marked as test.
  */
@@ -7806,7 +7864,12 @@ export async function setReviewJobBlocked(jobId: string, blocked: boolean, reaso
   } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
 }
 
-export async function claimReviewRequestForDelivery(id: string, expectedRevision: number, actorEmail: string) {
+export async function claimReviewRequestForDelivery(
+  id: string,
+  expectedRevision: number,
+  actorEmail: string,
+  reminderAllowed?: boolean,
+) {
   await ensureSchema();
   const timestamp = now();
   const token = randomBytes(32).toString('base64url');
@@ -7824,10 +7887,11 @@ export async function claimReviewRequestForDelivery(id: string, expectedRevision
         || job.reviewRequestBlockedAt || job.customerEmail.trim().toLowerCase() !== request.customerEmail) return null;
       const previous = request.status;
       Object.assign(request, { status: 'sending' as const, tokenHash, tokenExpiresAt: expiresAt,
+        ...(reminderAllowed === undefined ? {} : { reminderAllowed }),
         deliveryReasonCode: undefined, deliveryMessageIdHash: undefined, revision: request.revision + 1, updatedAt: timestamp });
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'review_request', entityId: id,
         action: 'review_request_delivery_claimed', actorEmail,
-        changes: reviewRequestAudit(previous, request.status, request.revision), createdAt: timestamp });
+        changes: { ...reviewRequestAudit(previous, request.status, request.revision), reminderAllowed: request.reminderAllowed }, createdAt: timestamp });
       await writeLocalDb(local);
       return { request: { ...request }, token };
     });
@@ -7846,16 +7910,20 @@ export async function claimReviewRequestForDelivery(id: string, expectedRevision
     if (!previousResult.rows[0]) { await client.query('COMMIT'); return null; }
     const { rows } = await client.query(
       `UPDATE review_requests SET status='sending', token_hash=$1, token_expires_at=$2,
-       delivery_reason_code='', delivery_message_id_hash=NULL, revision=revision+1, updated_at=$3
+       reminder_allowed=COALESCE($6::boolean, reminder_allowed), delivery_reason_code='', delivery_message_id_hash=NULL,
+       revision=revision+1, updated_at=$3
        WHERE id=$4 AND revision=$5 AND status IN ('pending_approval','delivery_failed') RETURNING *`,
-      [tokenHash, expiresAt, timestamp, id, expectedRevision],
+      [tokenHash, expiresAt, timestamp, id, expectedRevision, reminderAllowed ?? null],
     );
     if (!rows[0]) { await client.query('COMMIT'); return null; }
     const saved = toReviewRequest(rows[0]);
     await client.query(
       `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
        VALUES ($1,'review_request',$2,'review_request_delivery_claimed',$3,$4::jsonb,$5)`,
-      [randomUUID(), id, actorEmail, JSON.stringify(reviewRequestAudit(String(previousResult.rows[0].status) as ReviewRequestStatus, 'sending', saved.revision)), timestamp],
+      [randomUUID(), id, actorEmail, JSON.stringify({
+        ...reviewRequestAudit(String(previousResult.rows[0].status) as ReviewRequestStatus, 'sending', saved.revision),
+        reminderAllowed: saved.reminderAllowed,
+      }), timestamp],
     );
     await client.query('COMMIT');
     return { request: saved, token };
@@ -10907,7 +10975,7 @@ export async function savePriceOffer(
   const settings = await getPriceOfferSettings();
   const timestamp = now();
   const offerId = id || randomUUID();
-  const existing = id ? await getPriceOffer(id) : null;
+  const existing = id ? await getPriceOffer(id, Boolean(options.allowCreateWithId)) : null;
   const lifecycle = priceOfferUpdateLifecycle(existing || undefined);
   if (!lifecycle.allowed) {
     if (['PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA'].includes(lifecycle.status)) throw new Error('Odoslanú alebo prijatú cenovú ponuku nie je možné upraviť. Rovnako nemožno upraviť odloženú ani neúspešnú ponuku. Vytvorte novú ponuku, aby zostala obchodná história zachovaná.');
@@ -11043,7 +11111,7 @@ export async function savePriceOffer(
       documentation_promotion = $31, include_transport = $32, transport_from = $33, transport_to = $34,
       transport_round_trip_km = $35, transport_price_per_km = $36, vat_rate = $37,
       email_subject = $38, email_body = $39,
-      status = $24, sent_at = $25
+      status = $24, sent_at = $25, deleted_at = NULL
      WHERE price_offers.status NOT IN ('PRIJATA', 'ODOSLANA', 'ODLOZENA', 'NEUSPESNA', 'ODOSIELA', 'NEISTY_STAV')
     RETURNING id`,
     [
@@ -11498,14 +11566,17 @@ export async function getPriceOfferStatusSummary(month: string): Promise<PriceOf
     accepted: Number(row.accepted ?? 0), acceptedValue: Number(row.accepted_value ?? 0) };
 }
 
-export async function getPriceOffer(id: string): Promise<PriceOffer | null> {
+export async function getPriceOffer(id: string, includeArchived = false): Promise<PriceOffer | null> {
   await ensureSchema();
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    return local.priceOffers.find((offer) => offer.id === id && !offer.deletedAt) ?? null;
+    return local.priceOffers.find((offer) => offer.id === id && (includeArchived || !offer.deletedAt)) ?? null;
   }
-  const { rows } = await db.query('SELECT * FROM price_offers WHERE id = $1 AND deleted_at IS NULL LIMIT 1', [id]);
+  const { rows } = await db.query(
+    `SELECT * FROM price_offers WHERE id = $1 ${includeArchived ? '' : 'AND deleted_at IS NULL'} LIMIT 1`,
+    [id],
+  );
   return rows[0] ? toPriceOffer(rows[0]) : null;
 }
 

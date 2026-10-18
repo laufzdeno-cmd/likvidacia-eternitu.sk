@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const ownedTestRoot = path.join(process.cwd(), 'tmp');
@@ -88,6 +88,17 @@ try {
   const requests = await db.listReviewRequests();
   assert.equal(requests.filter((item) => item.jobId === completedJob.id).length, 1);
   assert.equal(requests.find((item) => item.jobId === completedJob.id)?.status, 'pending_approval');
+  assert.equal(requests.find((item) => item.jobId === completedJob.id)?.reminderAllowed, false,
+    'automaticky pripravená žiadosť nesmie sama povoliť neskoršiu pripomienku');
+
+  await db.deletePriceOffer(offers[0].id, 'superadmin@local.test');
+  assert.equal((await db.listPriceOffers({ jobId: offerJob.id })).length, 0);
+  const restored = await reconcileAdminAutopilot({ actorEmail: 'system:test-autopilot' });
+  assert.equal(restored.priceOffersCreated, 1, 'archivovaný deterministický koncept sa musí obnoviť ako viditeľný koncept');
+  const restoredOffers = await db.listPriceOffers({ jobId: offerJob.id });
+  assert.equal(restoredOffers.length, 1);
+  assert.equal(restoredOffers[0].id, offers[0].id, 'lokálny režim musí obnoviť rovnaký deterministický koncept');
+  assert.equal(restoredOffers[0].deletedAt, undefined);
 
   const second = await reconcileAdminAutopilot({ actorEmail: 'system:test-autopilot' });
   assert.equal(second.priceOffersCreated, 0, 'opakovaný beh nesmie vytvoriť druhú CP');
@@ -116,11 +127,11 @@ try {
   assert.equal(local.auditLogs.some((entry) => entry.action === 'price_offer_send_sent'), true);
   assert.equal(local.auditLogs.some((entry) => entry.action === 'review_request_delivery_claimed'), false,
     'asistent nesmie prvú žiadosť sám odoslať');
-  assert.equal(local.auditLogs.filter((entry) => entry.action === 'price_offer_created').length, 2);
+  assert.equal(local.auditLogs.filter((entry) => entry.action === 'price_offer_created').length, 3);
   assert.equal(JSON.stringify(local.auditLogs).includes('Zákazník si vybral inú ponuku'), false,
     'voľný text dôvodu nesmie byť duplikovaný v auditnom logu');
   const runs = await db.listAdminAutopilotRuns(10);
-  assert.equal(runs.length, 4);
+  assert.equal(runs.length, 5);
   assert.equal(runs.every((run) => run.finishedAt && run.status === 'degraded'), true,
     'lokálny test nemá databázový foto modul, preto musí byť zhoršený stav trvalo viditeľný');
   assert.equal(runs.every((run) => run.unavailableModules.includes('photo_intake')), true);
@@ -131,6 +142,25 @@ try {
   const serializedLedger = JSON.stringify({ runs, items: starvationItems });
   assert.equal(serializedLedger.includes('@example.com'), false);
   assert.equal(serializedLedger.includes('Zákazník'), false);
+
+  const metricFixture = JSON.parse(await readFile(databasePath, 'utf8'));
+  const metricNow = Date.now();
+  for (let index = 1; index <= 105; index += 1) {
+    const startedAt = new Date(metricNow - index * 60_000).toISOString();
+    metricFixture.adminAutopilotRuns.push({
+      id: `${index.toString(16).padStart(8, '0')}-0000-4000-8000-000000000000`,
+      trigger: 'cron', actorKind: 'system', status: 'succeeded',
+      counts: { priceOffersCreated: 0, reviewRequestsPrepared: 0, realizationDraftsCreated: 0, photosAttached: 0, blockedOffers: 0 },
+      unavailableModules: [], errorCode: '', startedAt, finishedAt: startedAt,
+    });
+  }
+  await writeFile(databasePath, `${JSON.stringify(metricFixture, null, 2)}\n`, 'utf8');
+  const metricWindow = await db.listAdminAutopilotMetricWindow(
+    new Date(metricNow - 60 * 86_400_000).toISOString(),
+    new Date(metricNow + 60_000).toISOString(),
+  );
+  assert.ok(metricWindow.runs.length > 100, '60-dňový zdroj metrík nesmie zostať potichu orezaný na 100 behov');
+  assert.equal(metricWindow.truncated, false);
   console.log('PASS: asistent pripravuje idempotentne, nič sám neodosiela a bezpečne eviduje výsledok CP.');
 } finally {
   await rm(temporaryDirectory, { recursive: true, force: true });

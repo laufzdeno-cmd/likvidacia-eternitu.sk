@@ -85,7 +85,7 @@ export default async function CareerApplicationDetailPage({ params }: { params: 
 
         <article className="admin-card">
           <h2>Notifikácie</h2>
-          <NotificationStatuses entityType="career_application" csrfToken={csrfToken} notifications={notifications} />
+          <NotificationStatuses entityType="career_application" csrfToken={csrfToken} canManage={admin.role === 'SUPER_ADMIN'} notifications={notifications} />
         </article>
       </section>
 

@@ -45,9 +45,10 @@ try {
     subject:'Spätná väzba', message:'Dobrý deň {{meno}} {{odkaz}}', status:'pending_approval', reminderAllowed:true, createdBy:actor };
   const prepared = await Promise.all([db.createReviewRequest(input), db.createReviewRequest(input)]);
   assert.equal(new Set(prepared.map((item) => item.id)).size, 1, 'one job may have only one request');
-  const claims = await Promise.all([db.claimReviewRequestForDelivery(prepared[0].id, 1, actor), db.claimReviewRequestForDelivery(prepared[0].id, 1, actor)]);
+  const claims = await Promise.all([db.claimReviewRequestForDelivery(prepared[0].id, 1, actor, false), db.claimReviewRequestForDelivery(prepared[0].id, 1, actor, false)]);
   assert.equal(claims.filter(Boolean).length, 1, 'only one concurrent sender may claim a request');
   const claim = claims.find(Boolean);
+  assert.equal(claim.request.reminderAllowed, false, 'first-message approval must persist the explicit reminder choice');
   const smtpAccepted = await db.completeReviewRequestDelivery(claim.request.id, claim.request.revision, { status:'smtp_accepted', messageId:'private-smtp-id' }, actor, 5);
   assert.equal(smtpAccepted.status, 'smtp_accepted');
   assert.ok((new Date(smtpAccepted.tokenExpiresAt).getTime() - new Date(claim.request.updatedAt).getTime()) / 86400000 >= 29.99);

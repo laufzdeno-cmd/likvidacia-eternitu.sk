@@ -169,7 +169,10 @@ export async function reconcileAdminAutopilot(options: {
             googleReviewLink: reviewSettings.googleReviewLink,
             subject: reviewSettings.subject,
             message: reviewSettings.body,
-            reminderAllowed: reviewSettings.reminderEnabled,
+            // The global setting only makes reminders available. A concrete
+            // customer reminder still needs an explicit human opt-in when the
+            // first request is approved for sending.
+            reminderAllowed: false,
             status: 'pending_approval',
             createdBy: actorEmail,
           });

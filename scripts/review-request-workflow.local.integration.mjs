@@ -44,7 +44,8 @@ test('local review workflow is linked, idempotent, token-hashed and separately a
       googleReviewLink:'https://example.com/google', subject:'Spätná väzba', message:'Dobrý deň {{meno}} {{odkaz}}',
       status:'pending_approval', reminderAllowed:true, createdBy:'operator@example.invalid' });
     const duplicate = await db.createReviewRequest({ ...request, createdBy:'operator@example.invalid' });
-    const claim = await db.claimReviewRequestForDelivery(request.id, request.revision, 'operator@example.invalid');
+    const claim = await db.claimReviewRequestForDelivery(request.id, request.revision, 'operator@example.invalid', false);
+    assert.equal(claim.request.reminderAllowed, false, 'schválenie prvej správy musí vedieť výslovne ponechať pripomienku vypnutú');
     const concurrentClaim = await db.claimReviewRequestForDelivery(request.id, request.revision, 'operator@example.invalid');
     const smtpAccepted = await db.completeReviewRequestDelivery(request.id, claim.request.revision,
       { status:'smtp_accepted', messageId:'smtp-sensitive-message-id' }, 'operator@example.invalid', 6);

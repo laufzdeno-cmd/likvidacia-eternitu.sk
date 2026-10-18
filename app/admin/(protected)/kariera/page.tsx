@@ -155,6 +155,7 @@ export default async function CareerAdminPage({ searchParams }: { searchParams: 
                     <NotificationStatuses
                       entityType="career_application"
                       csrfToken={csrfToken}
+                      canManage={admin.role === 'SUPER_ADMIN'}
                       notifications={notificationsByApplication.get(application.id) ?? []}
                     />
                   </td>

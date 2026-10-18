@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addAuditLog, claimLeadEmailOutbox, getLeadEmailOutboxHealth, listDueFollowups, listLeadEmailOutbox, listPendingLeadEmailDeliveries, listPlannerActions, markLeadFollowupNotificationSent, markPlannerNotificationSent, markStaleLeadEmailClaimsUnknown, purgeExpiredApiRateLimitBuckets, recordLeadEmailRecipientResult, recoverAcceptedLeadAnalytics } from '@/src/server/db';
 import { leadDeliveryMode } from '@/src/server/astana-local-relay';
+import { evaluateDailyNotificationsHealth } from '@/src/server/cron-delivery-health';
 import { hasLeadEmailTransportConfiguration, hasUsableLeadSmtpConfiguration, sendLeadEmailToRecipient, sendLeadEmails, sendPlannerNotificationEmail } from '@/src/server/mail';
 import type { PlannerAction } from '@/src/server/types';
 
@@ -265,8 +266,17 @@ export async function GET(request: Request) {
 
   const emailOutbox = await getLeadEmailOutboxHealth();
   leadEmailFailed = leadEmailFailed || ((!transportConfigured || pairsOnly) && emailOutbox.pending > 0);
+  const health = evaluateDailyNotificationsHealth({
+    notificationFailures: failed,
+    leadEmailFailed,
+    rateLimitCleanupFailed,
+    analyticsFailed: analyticsRecovery.failed,
+    analyticsRemaining: analyticsRecovery.remaining,
+    analyticsUnrecoverable: analyticsRecovery.unrecoverable,
+    emailOutbox,
+  });
   return NextResponse.json({
-    ok: failed === 0 && !leadEmailFailed && !rateLimitCleanupFailed && !analyticsRecovery.failed && !analyticsRecovery.remaining && analyticsRecovery.unrecoverable === 0 && emailOutbox.pending === 0 && emailOutbox.sending === 0 && emailOutbox.failed === 0 && emailOutbox.unknown === 0,
+    ok: health.ok,
     checked: actions.length,
     sent,
     failed,
@@ -276,5 +286,5 @@ export async function GET(request: Request) {
     rateLimitCleanupFailed,
     analyticsRecovery,
     emailOutbox,
-  });
+  }, { status: health.status });
 }

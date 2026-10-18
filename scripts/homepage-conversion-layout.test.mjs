@@ -75,11 +75,11 @@ function textOf(value) {
   return typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 }
 
-test('protects the accepted continuous form, quote section and navigation', () => {
-  // 2026-10-11 continuous-form baseline; only CRLF/LF is normalized. No JSX, copy, attributes or whitespace is ignored.
+test('protects the accepted continuous form with optional roofer help, quote section and navigation', () => {
+  // 2026-10-18 continuous-form baseline; only CRLF/LF is normalized. No JSX, copy, attributes or whitespace is ignored.
   const protectedBlocks = [
-    ['form', /<form className="lead-form"[\s\S]*?<\/form>/, 'ee3f758c1add5e7a76f284f3d43b352c212cc5f820d86a41d0d9bb62dd137b2e'],
-    ['quote section', /<section className="quote-section"[\s\S]*?<\/section>/, 'af19a27f2783cb7e30be63d57fb05e023189714136e6dc316ddf388d0fcd429f'],
+    ['form', /<form className="lead-form"[\s\S]*?<\/form>/, '1dccd6d32e64e5e449a6f534717737b023fa88a14e360ad79fcd3fafe6706efb'],
+    ['quote section', /<section className="quote-section"[\s\S]*?<\/section>/, 'dedff1dece5634d9059a556e1111b028714510def9ba35c763ebed4b4779bdab'],
     ['navigation', /<header className="site-header"[\s\S]*?<\/header>/, 'ea30112e452486547d7f35336c532c5ba6eef1cbfeb5e7502a10b37063be765c'],
   ];
   for (const [name, pattern, expected] of protectedBlocks) {
@@ -89,14 +89,14 @@ test('protects the accepted continuous form, quote section and navigation', () =
   }
 });
 
-test('renders nine main sections with the calculator immediately before the intact quote section', async () => {
+test('renders ten main sections with the calculator immediately before the intact quote section', async () => {
   const tree = await renderPage();
   const main = elements(tree).find(({ node }) => node.type === 'main').node;
   const sections = main.props.children.filter((node) => isValidElement(node) && node.type === 'section');
-  assert.equal(sections.length, 9); // Previously 13 inline sections plus TrustComplianceSection = 14.
+  assert.equal(sections.length, 10); // Includes the approved, focused roofer-help section.
   assert.equal(sections[0].props.className, 'hero', 'sticky CTA needs main > .hero');
   assert.deepEqual(sections.map((node) => node.props.id || node.props.className), [
-    'hero', 'preco', 'orientacna-cena', 'dopyt', 'realizacie-astana', 'cena', 'azbest', 'faq', 'final-cta',
+    'hero', 'preco', 'orientacna-cena', 'dopyt', 'conversion-rooferHelp', 'realizacie-astana', 'cena', 'azbest', 'faq', 'final-cta',
   ]);
   assert.equal(elements(byId(tree, 'dopyt')).some(({ node }) => node.props['data-price-calculator'] !== undefined), false,
     'quote_section_view must not begin at the calculator');
@@ -106,7 +106,7 @@ test('retains old section anchors and heading targets once, with visible content
   const tree = await renderPage();
   const anchors = [
     'top', 'site-nav', 'hero-title', 'preco', 'why-title', 'orientacna-cena', 'price-calculator-title',
-    'dopyt', 'quote-title', 'realizacie-astana', 'real-work-title', 'cena', 'included-title',
+    'dopyt', 'quote-title', 'roofer-help-title', 'realizacie-astana', 'real-work-title', 'cena', 'included-title',
     'ako-to-prebieha', 'process-title', 'strechari', 'roofers-title', 'azbest', 'risk-title',
     'doklady-ku-stavbe', 'caution-title', 'faq', 'faq-title', 'final-title', 'kontakt',
   ];
@@ -122,6 +122,22 @@ test('retains old section anchors and heading targets once, with visible content
   for (const { node } of elements(tree)) {
     if (node.type === 'a' && node.props.href?.startsWith('#')) byId(tree, node.props.href.slice(1));
   }
+});
+
+test('keeps roofer coordination optional and prevents automatic data sharing', async () => {
+  const tree = await renderPage();
+  const field = byId(tree, 'roofer-recommendation-field');
+  const optIn = byId(tree, 'roofer-recommendation-opt-in');
+  const help = byId(tree, 'roofer-help-title');
+  const helpSection = elements(tree).find(({ node }) => node.props['aria-labelledby'] === 'roofer-help-title').node;
+
+  assert.equal(field.props.hidden, true, 'the extra choice stays hidden until the customer selects that they have no roofer');
+  assert.equal(optIn.props.type, 'checkbox');
+  assert.equal(optIn.props.name, undefined, 'the visual opt-in must not create an unreviewed external-sharing field');
+  assert.match(textOf(field), /Vaše údaje neposielame strechárovi automaticky/);
+  assert.match(textOf(help), /Potrebujete po eternite aj novú strechu/);
+  assert.ok(elements(helpSection).some(({ node }) => node.type === 'a'
+    && node.props.href === '/?wantsRooferRecommendation=true#dopyt'));
 });
 
 test('shows three real photos including a corrugated farm roof, without changing the full gallery', async () => {

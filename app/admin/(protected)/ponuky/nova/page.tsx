@@ -1,20 +1,17 @@
-import { getLeadWithFiles, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
-import type { BusinessJob } from '@/src/server/types';
+import { getLeadWithFiles, getPriceOfferSettings, listOperationalBusinessJobs } from '@/src/server/db';
+import { toPriceOfferJobOption, type PriceOfferJobOption } from '@/src/lib/price-offer-job-option';
 import { savePriceOfferAction } from '../actions';
 import PriceOfferForm from '../offer-form';
 
 export default async function NewPriceOfferPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const [jobs, settings, lead] = await Promise.all([
-    listBusinessJobs(),
+    listOperationalBusinessJobs(),
     getPriceOfferSettings(),
     params.lead ? getLeadWithFiles(params.lead) : Promise.resolve(null),
   ]);
-  const prefillJob: BusinessJob | null = lead ? {
+  const prefillJob: PriceOfferJobOption | null = lead ? {
     id: 'lead-prefill',
-    createdAt: lead.createdAt,
-    updatedAt: lead.updatedAt,
-    demolitionDate: new Date().toISOString().slice(0, 10),
     customerName: lead.fullName,
     customerPhone: lead.phone,
     customerEmail: lead.email,
@@ -24,23 +21,10 @@ export default async function NewPriceOfferPage({ searchParams }: { searchParams
     objectType: lead.objectType,
     term: lead.term || '',
     leadSource: `dopyt:${lead.id}`,
-    preferredContact: lead.preferredContact || '',
     m2: lead.areaEstimate,
-    pricePerM2: 0,
-    totalPrice: 0,
-    paymentType: 'FAKTURA',
-    workType: 'DEMONTAZ_A_ODVOZ',
-    wasteKg: 0,
-    landfill: 'INA',
-    status: 'DOPYT',
-    note: lead.note || '',
-    workers: [],
-    costs: { jobId: 'lead-prefill', fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0, total: 0 },
-    rewardsTotal: 0,
-    grossProfit: 0,
-    marginPercent: 0,
   } : null;
-  const formJobs = prefillJob ? [prefillJob, ...jobs] : jobs;
+  const formJobs = jobs.map(toPriceOfferJobOption);
+  if (prefillJob) formJobs.unshift(prefillJob);
   return (
     <main className="admin-page">
       <div className="admin-heading price-offer-heading">

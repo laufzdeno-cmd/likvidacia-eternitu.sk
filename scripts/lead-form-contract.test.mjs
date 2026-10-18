@@ -447,7 +447,7 @@ test('pending lead emails have a protected worker and interrupted sends become v
   assert.match(emailCron, /claim: \(role\) => claimLeadEmailOutbox\(pendingDelivery\.lead\.id, role\)/);
   assert.match(emailCron, /listLeadEmailOutbox\(pendingDelivery\.lead\.id\)/);
   assert.match(emailCron, /getLeadEmailOutboxHealth\(\)/);
-  assert.match(emailCron, /emailOutbox\.unknown === 0/);
+  assert.match(emailCron, /evaluateDailyNotificationsHealth\(\{[\s\S]{0,360}emailOutbox,/);
   assert.match(database, /export async function claimLeadEmailOutbox\(leadId: string, recipientRole\?/);
   assert.match(database, /status = 'failed' AND retryable = true AND attempts < 3/);
   assert.match(database, /INTERVAL '15 minutes'/);
@@ -460,7 +460,8 @@ test('pending lead emails have a protected worker and interrupted sends become v
   assert.match(database, /requireBothRecipients = false/);
   assert.match(database, /HAVING NOT \$2::boolean OR COUNT\(\*\) = 2/);
   assert.doesNotMatch(database, /HAVING COUNT\(\*\) = 2/);
-  assert.match(emailCron, /ok: failed === 0 && !leadEmailFailed/);
+  assert.match(emailCron, /ok: health\.ok/);
+  assert.match(emailCron, /status: health\.status/);
   assert.match(emailCron, /leadEmailFailed/);
   assert.equal(vercelConfig.crons.some((cron) => cron.path === '/api/cron/lead-emails'), false);
   assert.equal(vercelConfig.crons.some((cron) => cron.path === '/api/cron/notifications/' && cron.schedule === '0 7 * * *'), true);
@@ -599,6 +600,8 @@ test('cron marks planner and follow-up notices sent only after confirmed deliver
   assert.match(emailCron, /if \(delivery\.sent\) \{\s*await markPlannerNotificationSent\(action\.id, 'notify1DaySent'\)/);
   assert.match(emailCron, /if \(delivery\.sent\) \{\s*await markPlannerNotificationSent\(action\.id, 'notifyCustomerSent'\)/);
   assert.match(emailCron, /if \(delivery\.sent\) \{\s*await markLeadFollowupNotificationSent\(lead\.id\)/);
-  assert.match(emailCron, /ok: failed === 0 && !leadEmailFailed && !rateLimitCleanupFailed && !analyticsRecovery\.failed && !analyticsRecovery\.remaining && analyticsRecovery\.unrecoverable === 0 && emailOutbox\.pending === 0/);
+  assert.match(emailCron, /evaluateDailyNotificationsHealth\(\{/);
+  assert.match(emailCron, /ok: health\.ok/);
+  assert.match(emailCron, /status: health\.status/);
   assert.match(emailCron, /emailOutbox,/);
 });

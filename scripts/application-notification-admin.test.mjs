@@ -11,7 +11,7 @@ const action = readFileSync(new URL('../app/admin/(protected)/notifications/acti
 test('career admin loads persisted statuses and displays both notification recipients', () => {
   assert.match(careerPage, /listApplicationNotificationStatuses\(\s*'career_application'/);
   assert.match(careerPage, /<th>Notifikácie<\/th>/);
-  assert.match(careerPage, /<NotificationStatuses\s+entityType="career_application"\s+csrfToken=\{csrfToken\}\s+notifications=\{notificationsByApplication\.get\(application\.id\)/);
+  assert.match(careerPage, /<NotificationStatuses\s+entityType="career_application"\s+csrfToken=\{csrfToken\}\s+canManage=\{admin\.role === 'SUPER_ADMIN'\}\s+notifications=\{notificationsByApplication\.get\(application\.id\)/);
 });
 
 test('career admin distinguishes an incomplete CV from an application sent without a CV', () => {
@@ -31,7 +31,7 @@ test('career admin pages filtered applications and reports the filtered count', 
 test('roofer admin loads persisted statuses and displays them in registration details', () => {
   assert.match(rooferPage, /listApplicationNotificationStatuses\('roofer_registration'/);
   assert.match(rooferPage, /<dt>Notifikácie<\/dt>/);
-  assert.match(rooferPage, /NotificationStatuses entityType="roofer_registration" csrfToken=\{csrfToken\} notifications=\{notificationsByRegistration\.get\(registration\.id\)/);
+  assert.match(rooferPage, /NotificationStatuses entityType="roofer_registration" csrfToken=\{csrfToken\} canManage=\{admin\.role === 'SUPER_ADMIN'\} notifications=\{notificationsByRegistration\.get\(registration\.id\)/);
 });
 
 test('risky states instruct mailbox verification and no resend action or provider details are exposed', () => {
@@ -47,8 +47,9 @@ test('risky states instruct mailbox verification and no resend action or provide
   assert.doesNotMatch(statusComponent, /notification\.(?:lastError|messageId)|resend|retryApplicationNotification/i);
 });
 
-test('unknown status reconciliation is CSRF-protected, admin-only, stores only an allowlisted evidence code and does not send', () => {
-  assert.match(action, /await verifyCsrf\(formData\);\s*const actor = await requireAdmin\(\);/);
+test('unknown status reconciliation is CSRF-protected, superadmin-only, stores only an allowlisted evidence code and does not send', () => {
+  assert.match(action, /await verifyCsrf\(formData\);\s*const actor = \(await requireSuperAdmin\(\)\)\.email;/);
+  assert.doesNotMatch(action, /\brequireAdmin\b/);
   assert.match(action, /checked !== 'yes'/);
   assert.match(action, /isApplicationNotificationEvidenceValid\(resolution, evidence\)/);
   assert.match(action, /resolveUnknownApplicationNotification\(/);
@@ -59,12 +60,23 @@ test('unknown status reconciliation is CSRF-protected, admin-only, stores only a
   assert.doesNotMatch(db, /input\.evidence\.trim\(\).*slice\(0, 1000\)/);
 });
 
+test('operator sees notification state but not superadmin reconciliation or resend forms', () => {
+  assert.match(statusComponent, /canManage: boolean/);
+  assert.match(statusComponent, /canResolveManually && canManage/);
+  assert.match(statusComponent, /notification\.status === 'confirmed_not_delivered' && canManage/);
+  assert.match(statusComponent, /Overenie výsledku alebo nový pokus môže vykonať iba superadmin/);
+  assert.match(careerPage, /canManage=\{admin\.role === 'SUPER_ADMIN'\}/);
+  assert.match(careerDetailPage, /canManage=\{admin\.role === 'SUPER_ADMIN'\}/);
+  assert.match(rooferPage, /canManage=\{admin\.role === 'SUPER_ADMIN'\}/);
+});
+
 test('manual resend is audited, gated by provider-confirmed non-delivery and isolated per recipient', () => {
   assert.match(statusComponent, /notification\.status === 'confirmed_not_delivered'/);
   assert.match(statusComponent, /Týmto sa odošle nový email iba vybranému príjemcovi\./);
   assert.match(statusComponent, /Znova odoslať tento email/);
   assert.doesNotMatch(statusComponent, /Znova odoslať oba emaily|careerPair|Kariérny relay/);
   assert.match(action, /checked !== 'yes'/);
+  assert.match(action, /const actor = \(await requireSuperAdmin\(\)\)\.email;/);
   assert.match(action, /prepareConfirmedApplicationNotificationRetry\(/);
   assert.match(action, /processCareerApplicationNotification\(entityId, recipient as ApplicationNotificationRecipient\)/);
   assert.match(action, /processRooferRegistrationNotification\(entityId, recipient/);

@@ -310,17 +310,17 @@ export async function getAdminAssistantMetrics(
 ): Promise<AdminAssistantMetrics> {
   if (role !== 'SUPER_ADMIN') throw new Error('Prevádzkové ukazovatele asistenta sú dostupné iba superadminovi.');
   const db = await import('./db');
-  const runsPromise = db.listAdminAutopilotRuns(100);
-  const [runs, leads, jobs, offers, auditLogs] = await Promise.all([
-    runsPromise,
+  const metricWindowFrom = new Date(now.getTime() - 2 * ROLLING_PERIOD_DAYS * DAY_MS).toISOString();
+  const metricWindowTo = now.toISOString();
+  const [autopilotWindow, leads, jobs, offers, auditLogs] = await Promise.all([
+    db.listAdminAutopilotMetricWindow(metricWindowFrom, metricWindowTo),
     listAllEligibleLeads(db.listLeadSummaryPage),
     db.listOperationalBusinessJobs({ limit: null, excludeTestData: true }),
     db.listPriceOffers(),
     db.listAuditLogs(1000),
   ]);
-  const itemGroups = await Promise.all(runs.filter((run) => run.trigger !== 'test')
-    .map((run) => db.listAdminAutopilotRunItems(run.id)));
-  const runItems = itemGroups.flat();
+  const runs = autopilotWindow.runs;
+  const runItems = autopilotWindow.items;
   const eligiblePhotoEntityIds = await db.listEligibleAdminAssistantPhotoIds(runItems
     .filter((item) => item.module === 'photo_intake')
     .map((item) => item.entityId));
@@ -339,7 +339,7 @@ export async function getAdminAssistantMetrics(
         : [];
     }),
     coverage: {
-      autopilotRunLimitReached: runs.length === 100,
+      autopilotRunLimitReached: autopilotWindow.truncated,
       priceOfferLimitReached: offers.length === 1000,
       suggestionAuditLimitReached: auditLogs.length === 1000,
     },

@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { claimReviewReminder, listDueReviewReminders, recordReviewReminderResult, recoverStaleReviewRequestDeliveries } from '@/src/server/db';
+import { evaluateReviewReminderHealth } from '@/src/server/cron-delivery-health';
 import { sendReviewRequestEmail } from '@/src/server/review-request-mail';
 import { getReviewRequestSettings } from '@/src/server/review-request-settings';
 
@@ -19,7 +20,11 @@ export async function GET(request: Request) {
   const recovered = await recoverStaleReviewRequestDeliveries('cron:review-reminders');
   const settings = await getReviewRequestSettings();
   if (!settings.reminderEnabled) {
-    return NextResponse.json({ ok: true, disabled: true, processed: 0, recovered }, { headers: { 'Cache-Control': 'no-store' } });
+    const health = evaluateReviewReminderHealth({ failed: 0, unknown: 0, recovered });
+    return NextResponse.json(
+      { ok: health.ok, disabled: true, processed: 0, recovered },
+      { status: health.status, headers: { 'Cache-Control': 'no-store' } },
+    );
   }
 
   const due = await listDueReviewReminders(settings.batchLimit);
@@ -45,8 +50,9 @@ export async function GET(request: Request) {
     else unknown += 1;
   }
 
+  const health = evaluateReviewReminderHealth({ failed, unknown, recovered });
   return NextResponse.json(
-    { ok: true, processed: smtpAccepted + failed + unknown, smtpAccepted, failed, unknown, recovered },
-    { headers: { 'Cache-Control': 'no-store' } },
+    { ok: health.ok, processed: smtpAccepted + failed + unknown, smtpAccepted, failed, unknown, recovered },
+    { status: health.status, headers: { 'Cache-Control': 'no-store' } },
   );
 }

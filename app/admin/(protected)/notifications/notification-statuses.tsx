@@ -15,10 +15,12 @@ export default function NotificationStatuses({
   notifications,
   entityType,
   csrfToken,
+  canManage,
 }: {
   notifications: ApplicationNotification[];
   entityType: ApplicationNotificationEntity;
   csrfToken: string;
+  canManage: boolean;
 }) {
   if (!notifications.length) {
     return <span className="admin-warning-badge">Stav sa neeviduje. Pred opakovaným odoslaním najprv skontrolujte schránku.</span>;
@@ -31,7 +33,7 @@ export default function NotificationStatuses({
       return <div key={notification.recipient}>
         <strong>{notification.recipient === 'applicant' ? 'Uchádzač / strechár' : 'ASTANA'}:</strong>{' '}
         <span className={needsMailboxCheck ? 'admin-warning-badge' : undefined}>{statusLabels[notification.status]}</span>
-        {canResolveManually ? <form action={resolveApplicationNotificationUnknownAction} className="admin-quote-form admin-notification-resolution-form">
+        {canResolveManually && canManage ? <form action={resolveApplicationNotificationUnknownAction} className="admin-quote-form admin-notification-resolution-form">
           <input type="hidden" name="_csrf" value={csrfToken} />
           <input type="hidden" name="entityType" value={entityType} />
           <input type="hidden" name="entityId" value={notification.entityId} />
@@ -58,8 +60,11 @@ export default function NotificationStatuses({
           </label>
           <button type="submit">Uložiť overený výsledok</button>
         </form> : null}
-        {notification.status === 'confirmed_not_delivered'
+        {notification.status === 'confirmed_not_delivered' && canManage
           ? <RetryForm entityType={entityType} entityId={notification.entityId} recipient={notification.recipient} csrfToken={csrfToken} />
+          : null}
+        {!canManage && (canResolveManually || notification.status === 'confirmed_not_delivered')
+          ? <small>Overenie výsledku alebo nový pokus môže vykonať iba superadmin.</small>
           : null}
         {needsMailboxCheck && !canResolveManually ? <small>Pred prípadným opakovaným odoslaním najprv skontrolujte schránku.</small> : null}
       </div>;

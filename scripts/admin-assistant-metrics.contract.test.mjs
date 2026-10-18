@@ -92,7 +92,7 @@ test('duration statistics use arithmetic median, nearest-rank p90 and expose the
   });
 });
 
-test('server DTO is superadmin-only, read-only and uses bounded-source coverage flags', async () => {
+test('server DTO is superadmin-only, read-only and uses a bounded sixty-day source window', async () => {
   const [source, autopilot] = await Promise.all([
     readFile(sourceUrl, 'utf8'),
     readFile(new URL('../src/server/admin-autopilot.ts', import.meta.url), 'utf8'),
@@ -101,9 +101,11 @@ test('server DTO is superadmin-only, read-only and uses bounded-source coverage 
   assert.match(source, /role !== 'SUPER_ADMIN'/);
   assert.match(source, /listLeadSummaryPage/);
   assert.match(source, /listOperationalBusinessJobs\(\{ limit: null, excludeTestData: true \}\)/);
-  assert.match(source, /listAdminAutopilotRuns\(100\)/);
+  assert.match(source, /listAdminAutopilotMetricWindow\(metricWindowFrom, metricWindowTo\)/);
+  assert.match(source, /2 \* ROLLING_PERIOD_DAYS \* DAY_MS/);
+  assert.doesNotMatch(source, /listAdminAutopilotRuns\(100\)/);
   assert.match(source, /listEligibleAdminAssistantPhotoIds/);
-  assert.match(source, /autopilotRunLimitReached: runs\.length === 100/);
+  assert.match(source, /autopilotRunLimitReached: autopilotWindow\.truncated/);
   assert.match(source, /priceOfferLimitReached: offers\.length === 1000/);
   assert.match(autopilot, /entityId: offerId, outcome: 'created'/);
   assert.doesNotMatch(source, /\bsave[A-Z]|\bcreate[A-Z]|\bupdate[A-Z]|\bdelete[A-Z]|\bsend[A-Z]|\bpublish[A-Z]/);

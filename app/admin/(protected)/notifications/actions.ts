@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { requireAdmin, verifyCsrf } from '@/src/server/auth';
+import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { prepareConfirmedApplicationNotificationRetry, resolveUnknownApplicationNotification } from '@/src/server/db';
 import { processCareerApplicationNotification, processRooferRegistrationNotification } from '@/src/server/application-notifications';
 import { isApplicationNotificationEvidenceValid } from '@/src/server/application-notification-evidence.mjs';
@@ -9,7 +9,7 @@ import type { ApplicationNotificationEntity, ApplicationNotificationRecipient } 
 
 export async function resolveApplicationNotificationUnknownAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const entityType = String(formData.get('entityType') || '');
   const entityId = String(formData.get('entityId') || '');
   const recipient = String(formData.get('recipient') || '');
@@ -40,7 +40,7 @@ export async function resolveApplicationNotificationUnknownAction(formData: Form
 
 export async function retryConfirmedApplicationNotificationAction(formData: FormData) {
   await verifyCsrf(formData);
-  const actor = await requireAdmin();
+  const actor = (await requireSuperAdmin()).email;
   const entityType = String(formData.get('entityType') || '');
   const entityId = String(formData.get('entityId') || '');
   const recipient = String(formData.get('recipient') || '');

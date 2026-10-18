@@ -15,7 +15,10 @@ test('review requests require an authenticated explicit approval and role-bound 
   assert.match(actions, /canProcessReviewRequestSelection\(admin\.role/);
   assert.match(actions, /claimReviewRequestForDelivery/);
   assert.ok(actions.indexOf('claimReviewRequestForDelivery') < actions.indexOf('sendReviewRequestEmail'));
+  assert.match(actions, /formData\.get\('reminderAllowed'\) === 'on'/);
+  assert.match(actions, /claimReviewRequestForDelivery\(id, existing\.revision, admin\.email, reminderAllowed\)/);
   assert.match(workspace, /Schvaľujem reálne odoslanie e-mailov/);
+  assert.match(workspace, /Výslovne povoľujem pre vybrané žiadosti najviac jednu automatickú pripomienku/);
   assert.match(workspace, /Nič sa teraz neodošle/);
   assert.match(workspace, /Presná správa pred odoslaním/);
 });

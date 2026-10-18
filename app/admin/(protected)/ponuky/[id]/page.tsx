@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
-import { getPriceOffer, getPriceOfferSettings, listBusinessJobs } from '@/src/server/db';
+import { getPriceOffer, getPriceOfferSettings, listOperationalBusinessJobs } from '@/src/server/db';
+import { toPriceOfferJobOption } from '@/src/lib/price-offer-job-option';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { priceOfferEmailText } from '@/src/server/mail';
 import { evaluatePriceOfferPreflight, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
@@ -45,7 +46,7 @@ const customerDeclineReasonLabels: Record<string, string> = {
 export default async function PriceOfferDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const query = await searchParams;
-  const [adminUser, offer, jobs, settings] = await Promise.all([requireAdminUser(), getPriceOffer(id), listBusinessJobs(), getPriceOfferSettings()]);
+  const [adminUser, offer, jobs, settings] = await Promise.all([requireAdminUser(), getPriceOffer(id), listOperationalBusinessJobs(), getPriceOfferSettings()]);
   if (!offer) notFound();
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const linkedJob = offer.jobId ? jobs.find((job) => job.id === offer.jobId) : undefined;
@@ -216,7 +217,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         className="admin-pending-form"
       >
         <input type="hidden" name="_csrf" value={csrfToken} />
-        <PriceOfferForm jobs={jobs} settings={settings} offer={offer} />
+        <PriceOfferForm jobs={jobs.map(toPriceOfferJobOption)} settings={settings} offer={offer} />
       </form> : <section className="admin-card">
         <h2>Odoslaná verzia je uzamknutá</h2>
         <p>Obsah odoslanej alebo prijatej ponuky sa už nemení, aby PDF, email a obchodná história zostali zhodné. Ak treba cenu alebo rozsah upraviť, vytvorte novú cenovú ponuku.</p>

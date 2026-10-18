@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
-import type { BusinessJob, PriceOffer, PriceOfferMaterialType, PriceOfferSettings } from '@/src/server/types';
+import type { PriceOffer, PriceOfferMaterialType, PriceOfferSettings } from '@/src/server/types';
+import type { PriceOfferJobOption } from '@/src/lib/price-offer-job-option';
 import { calculatePriceOfferPricing } from '@/src/lib/price-offer-pricing';
 import { MAX_PRICE_OFFER_NOTE_LENGTH } from '@/src/lib/price-offer-note';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
@@ -12,7 +13,7 @@ import { calculateTransportDistanceAction } from './actions';
 import { euro, priceOfferMaterialLabels } from './constants';
 
 type Props = {
-  jobs: BusinessJob[];
+  jobs: PriceOfferJobOption[];
   settings: PriceOfferSettings;
   offer?: PriceOffer;
   selectedJobId?: string;
