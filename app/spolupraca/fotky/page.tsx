@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { currentAdminUser } from '@/src/server/auth';
 import { listPhotoIntakeRecords } from '@/src/server/db';
 import { currentPhotoUploadInvite } from '@/src/server/photo-intake-auth';
 import { privatePhotoIntakeEnabled } from '@/src/server/photo-intake-config';
@@ -24,7 +25,10 @@ export default async function PhotoIntakePage({ searchParams }: { searchParams: 
   const requestedPage = Number(params.page);
   const requestedPageNumber = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   const enabled = privatePhotoIntakeEnabled();
-  const invite = enabled ? await currentPhotoUploadInvite() : null;
+  const [invite, admin] = await Promise.all([
+    enabled ? currentPhotoUploadInvite() : Promise.resolve(null),
+    currentAdminUser(),
+  ]);
   const history = invite
     ? await listPhotoIntakeRecords({ inviteId: invite.id, page: requestedPageNumber, pageSize: 50 }).then((data) => ({ data, error: false })).catch(() => ({ data: null, error: true }))
     : { data: null, error: false };
@@ -36,6 +40,7 @@ export default async function PhotoIntakePage({ searchParams }: { searchParams: 
     <div className="photo-intake-content">
       <p className="photo-intake-eyebrow">ASTANA · FOTKY Z TERÉNU</p>
       <h1>Nahraj fotografie z realizácie</h1>
+      {admin?.role === 'SUPER_ADMIN' ? <p className="photo-intake-assignment"><a href="/admin/realizacie/fotky">← Späť do správy fotografií</a></p> : null}
       {invite?.workerLabel ? <p className="photo-intake-assignment">Pozvánka pre: <strong>{invite.workerLabel}</strong></p> : null}
       {invite?.businessJob ? <p className="photo-intake-assignment">Fotky patria k dokončenej zákazke: <strong>{invite.businessJob.demolitionDate}{invite.businessJob.district ? ` · ${invite.businessJob.district}` : ''}</strong></p> : null}
       <p className="photo-intake-intro">Fotografie sa uložia súkromne a najprv ich skontrolujeme. Bez výslovného schválenia ich nezverejníme. Miesto a kategóriu môžeš doplniť aj neskôr. Ak si nie si istý, nechaj ich prázdne. Nepíš mená zákazníkov, ulicu ani presnú adresu.</p>

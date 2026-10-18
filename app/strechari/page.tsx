@@ -9,7 +9,7 @@ import { buildPageMetadata } from '../seo-components';
 export const metadata: Metadata = buildPageMetadata({
   title: 'Spolupráca pre strechárov | ASTANA',
   description:
-    'Spolupráca pre strechárov pri výmene eternitových striech. ASTANA pomáha zladiť demontáž, odvoz a nadväzujúce strechárske práce.',
+    'ASTANA rieši odstránenie azbestu a doklady, strechár novú strechu. Koordinujeme nadväzujúce práce podľa regiónu a kapacity.',
   path: '/strechari/',
   image: '/og/strechari.jpg',
 });
@@ -17,8 +17,8 @@ export const metadata: Metadata = buildPageMetadata({
 const benefits = [
   {
     icon: 'handshake',
-    title: 'Zákazky oboma smermi',
-    text: 'Keď sa nám ozve zákazník bez strechára, môžeme mu odporučiť partnera z jeho regiónu. Keď váš zákazník rieši eternit, pošlete ho k nám.',
+    title: 'Nadväzujúce zákazky',
+    text: 'Keď má váš zákazník eternit, môžete ho poslať k nám. Keď náš zákazník potrebuje novú strechu, podľa regiónu a kapacity môžeme preveriť vhodného partnera.',
   },
   {
     icon: 'shield',
@@ -41,7 +41,7 @@ const steps = [
   ['Zaregistrujete sa', 'Vyplníte krátky formulár — región, typ zákaziek, kontakt.'],
   ['Zladíme termín', 'Keď máte zákazníka s azbestom, napíšete nám. Dohodneme konkrétny čas príchodu v pracovnom čase.'],
   ['My zlikvidujeme, vy staviate', 'Prídeme, urobíme svoju prácu čisto a odídeme. Vy nastúpite na čerstvú strechu.'],
-  ['Dohadzujeme si zákazky navzájom', 'Ak zákazník nemá strechára, odporučíme vás. Funguje to oboma smermi.'],
+  ['Koordinujeme nadväzujúce práce', 'Ak zákazník nemá strechára, môžeme podľa regiónu a kapacity preveriť vhodného partnera.'],
 ] as const;
 
 const regions = [
@@ -112,16 +112,16 @@ export default function RoofersPage() {
           <div className="roofer-b2b-inner">
             <div className="roofer-b2b-hero-copy">
               <p className="roofer-b2b-eyebrow">Partner pre strechárov po celom Slovensku</p>
-              <h1 id="roofer-title">Získajte zákazky od ľudí, ktorí už riešia novú strechu.</h1>
+              <h1 id="roofer-title">Vy robíte strechu. My vyriešime azbest.</h1>
               <p>
-                Veľa zákazníkov sa na nás obráti kvôli eternitu, ale ešte nemá vybraného strechára.
-                Keď poznáme spoľahlivého partnera v ich regióne, radi ho odporučíme. A keď vy narazíte na zákazku s azbestom, pošlete zákazníka k nám.
+                Keď má váš zákazník eternit, môžete sa obrátiť na ASTANA. Keď má náš zákazník záujem o novú strechu,
+                podľa regiónu a kapacity mu môžeme odporučiť vhodného partnera.
               </p>
               <div className="hero-actions">
                 <a className="button button-primary" href="#registracia">Chcem byť medzi odporúčanými strechármi <span aria-hidden="true" style={{ marginInlineStart: '0.45em' }}>→</span></a>
                 <a className="button button-outline" href="tel:+421905217946">Zavolať 0905 217 946</a>
               </div>
-              <p className="roofer-b2b-hero-trust">Vy sa nemusíte púšťať do azbestu. My sa nemusíme hrať na strechárov. Každý urobí svoju robotu dobre a zákazník dostane kompletné riešenie.</p>
+              <p className="roofer-b2b-hero-trust">Každý rieši svoju časť. ASTANA azbest a doklady, strechár novú strechu. Termín vieme zladiť tak, aby zákazník nezostal zbytočne s otvorenou strechou.</p>
               <div className="roofer-b2b-trust-row" aria-label="Výhody spolupráce s ASTANA">
                 <span><strong>Nástup podľa dohody</strong><small>zladený s vašou partiou</small></span>
                 <span><strong>Čistá strecha</strong><small>pripravená pre vašu partiu</small></span>
@@ -167,8 +167,25 @@ export default function RoofersPage() {
               </article>
               <article>
                 <span className="roofer-b2b-winwin-kicker">Máme zákazníka bez strechára?</span>
-                <p>Ak máme vhodného partnerského strechára v jeho regióne, radi mu dáme kontakt.</p>
+                <p>Podľa regiónu a kapacity môžeme preveriť vhodného spolupracujúceho strechára. Zákazník si partnera vyberá sám.</p>
               </article>
+            </div>
+          </div>
+        </section>
+
+        <section className="roofer-b2b-partner-kit" aria-labelledby="partner-kit-title">
+          <div className="roofer-b2b-inner">
+            <div className="roofer-b2b-partner-kit-heading">
+              <p className="roofer-b2b-section-eyebrow">Podklady pre schválených partnerov</p>
+              <h2 id="partner-kit-title">Máte s ASTANA potvrdenú spoluprácu?</h2>
+              <p>
+                Texty a grafické podklady poskytujeme individuálne až po overení spolupráce. Samotná registrácia
+                neoprávňuje firmu používať označenie partnera ani logo ASTANA.
+              </p>
+            </div>
+            <div className="roofer-b2b-downloads">
+              <a className="button button-primary" href="#registracia">Požiadať o spoluprácu</a>
+              <a className="button button-outline" href="tel:+421905217946">Overiť partnerstvo telefonicky</a>
             </div>
           </div>
         </section>

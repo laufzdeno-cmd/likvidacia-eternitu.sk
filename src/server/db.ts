@@ -150,7 +150,6 @@ import { maxLeadFiles } from './validation';
 import { summarizeLeadAttribution } from './lead-attribution-report';
 import { persistAcceptedLeadAnalyticsBatch } from './analytics-recovery';
 import { careerCvUploadContentTypes, isCareerCvUploadPath, validateCareerCvReservation } from './career-cv-policy';
-import type { ApplicationRecipientResult } from './application-notification-policy';
 import {
   opsAlertMetricKeys,
   opsAlertReasonCodes,
@@ -15745,51 +15744,6 @@ export async function getApplicationNotificationHealth() {
   };
 }
 
-export async function claimCareerNotificationBatch(entityId: string): Promise<string | false> {
-  await ensureSchema();
-  const db = getPool();
-  if (!db) return false;
-  const client = await db.connect();
-  const token = randomUUID();
-  try {
-    await client.query('BEGIN');
-    const application = await client.query(
-      `SELECT cv_expected, cv_storage_key, cv_storage_driver FROM career_applications WHERE id=$1 FOR UPDATE`,
-      [entityId],
-    );
-    if (!application.rows[0] || (application.rows[0].cv_expected &&
-      (!application.rows[0].cv_storage_key || !['vercel_blob', 's3', 'local'].includes(application.rows[0].cv_storage_driver)))) {
-      await client.query('ROLLBACK');
-      return false;
-    }
-    const rows = await client.query(
-      `SELECT recipient_role FROM application_notification_outbox
-       WHERE entity_type='career_application' AND entity_id=$1
-       AND (status='pending' OR (status='failed' AND retryable=true AND updated_at <= now() - interval '5 minutes'))
-       FOR UPDATE`,
-      [entityId],
-    );
-    if (rows.rowCount !== 2 || new Set(rows.rows.map((row) => row.recipient_role)).size !== 2) {
-      await client.query('ROLLBACK');
-      return false;
-    }
-    await client.query(
-      `UPDATE application_notification_outbox
-       SET status='sending', attempts=attempts+1, retryable=false, attempt_token=$2,
-           claimed_at=now(), attempted_at=now(), updated_at=now(), last_error=''
-       WHERE entity_type='career_application' AND entity_id=$1 AND recipient_role IN ('applicant','internal')`,
-      [entityId, token],
-    );
-    await client.query('COMMIT');
-    return token;
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
 export async function claimApplicationNotification(
   entityType: ApplicationNotificationEntity,
   entityId: string,
@@ -15804,7 +15758,12 @@ export async function claimApplicationNotification(
      SET status='sending', attempts=attempts+1, retryable=false, attempt_token=$4,
          claimed_at=now(), attempted_at=now(), updated_at=now(), last_error=''
      WHERE entity_type=$1 AND entity_id=$2 AND recipient_role=$3
-       AND (status='pending' OR (status='failed' AND retryable=true AND updated_at <= now() - interval '5 minutes'))`,
+       AND (status='pending' OR (status='failed' AND retryable=true AND updated_at <= now() - interval '5 minutes'))
+       AND ($1 <> 'career_application' OR EXISTS (
+         SELECT 1 FROM career_applications AS application
+         WHERE application.id=application_notification_outbox.entity_id
+           AND (application.cv_expected=false OR (application.cv_storage_key <> '' AND application.cv_storage_driver IN ('vercel_blob', 's3', 'local')))
+       ))`,
     [entityType, entityId, recipient, token],
   );
   return rowCount === 1 ? token : false;
@@ -15834,52 +15793,6 @@ export async function recordApplicationNotificationResult(
     [entityType, entityId, recipient, attemptToken, status, retryable, result.messageId || '', error],
   );
   return rowCount === 1;
-}
-
-export async function recordCareerNotificationBatchResult(
-  entityId: string,
-  attemptToken: string,
-  results: { applicant: ApplicationRecipientResult; internal: ApplicationRecipientResult },
-): Promise<boolean> {
-  await ensureSchema();
-  const db = getPool();
-  if (!db) return false;
-  const client = await db.connect();
-  try {
-    await client.query('BEGIN');
-    const current = await client.query(
-      `SELECT recipient_role FROM application_notification_outbox
-       WHERE entity_type='career_application' AND entity_id=$1
-         AND status='sending' AND attempt_token=$2 FOR UPDATE`,
-      [entityId, attemptToken],
-    );
-    if (current.rowCount !== 2 || new Set(current.rows.map((row) => row.recipient_role)).size !== 2) {
-      await client.query('ROLLBACK');
-      return false;
-    }
-    for (const recipient of ['applicant', 'internal'] as const) {
-      const result = results[recipient];
-      const retryable = result.status === 'failed' && result.retryable === true;
-      const { rowCount } = await client.query(
-        `UPDATE application_notification_outbox
-         SET status=$4, retryable=$5, attempt_token=NULL, claimed_at=NULL,
-             sent_at=CASE WHEN $4='sent' THEN now() ELSE sent_at END,
-             message_id=CASE WHEN $4='sent' THEN $6 ELSE message_id END,
-             last_error=$7, updated_at=now()
-         WHERE entity_type='career_application' AND entity_id=$1 AND recipient_role=$2
-           AND status='sending' AND attempt_token=$3`,
-        [entityId, recipient, attemptToken, result.status, retryable, result.messageId || '', (result.reason || '').slice(0, 1000)],
-      );
-      if (rowCount !== 1) throw new Error('Kariérny emailový pár sa počas zápisu zmenil.');
-    }
-    await client.query('COMMIT');
-    return true;
-  } catch (error) {
-    await client.query('ROLLBACK').catch(() => undefined);
-    throw error;
-  } finally {
-    client.release();
-  }
 }
 
 export async function markStaleApplicationNotificationClaimsUnknown(): Promise<number> {
@@ -15960,48 +15873,24 @@ export async function prepareConfirmedApplicationNotificationRetry(input: {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    let recipients: ApplicationNotificationRecipient[] = [];
-    if (input.entityType === 'career_application') {
-      const selected = await client.query(
-        `SELECT recipient_role, status FROM application_notification_outbox
-         WHERE entity_type='career_application' AND entity_id=$1
-         ORDER BY recipient_role FOR UPDATE`,
-        [input.entityId],
-      );
-      if (selected.rowCount !== 2 || selected.rows.some((row) => row.status !== 'confirmed_not_delivered')
-        || new Set(selected.rows.map((row) => row.recipient_role)).size !== 2) {
-        await client.query('ROLLBACK');
-        return false;
-      }
-      recipients = ['applicant', 'internal'];
-      await client.query(
-        `UPDATE application_notification_outbox
-         SET status='pending', retryable=false, attempt_token=NULL, claimed_at=NULL,
-             sent_at=NULL, message_id='', last_error='', updated_at=now()
-         WHERE entity_type='career_application' AND entity_id=$1 AND status='confirmed_not_delivered'`,
-        [input.entityId],
-      );
-    } else {
-      const { rowCount } = await client.query(
-        `UPDATE application_notification_outbox
-         SET status='pending', retryable=false, attempt_token=NULL, claimed_at=NULL,
-             sent_at=NULL, message_id='', last_error='', updated_at=now()
-         WHERE entity_type='roofer_registration' AND entity_id=$1 AND recipient_role=$2 AND status='confirmed_not_delivered'`,
-        [input.entityId, input.recipient],
-      );
-      if (rowCount !== 1) {
-        await client.query('ROLLBACK');
-        return false;
-      }
-      recipients = [input.recipient];
+    const { rowCount } = await client.query(
+      `UPDATE application_notification_outbox
+       SET status='pending', retryable=false, attempt_token=NULL, claimed_at=NULL,
+           sent_at=NULL, message_id='', last_error='', updated_at=now()
+       WHERE entity_type=$1 AND entity_id=$2 AND recipient_role=$3 AND status='confirmed_not_delivered'`,
+      [input.entityType, input.entityId, input.recipient],
+    );
+    if (rowCount !== 1) {
+      await client.query('ROLLBACK');
+      return false;
     }
     await client.query(
       `INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at)
        VALUES ($1, $2, $3, 'application_notification_retry_queued', $4, $5::jsonb, now())`,
       [randomUUID(), input.entityType, input.entityId, input.actorEmail, JSON.stringify({
-        recipients,
+        recipients: [input.recipient],
         requiresPriorConfirmedNonDelivery: true,
-        careerRelayPair: input.entityType === 'career_application',
+        perRecipient: true,
       })],
     );
     await client.query('COMMIT');

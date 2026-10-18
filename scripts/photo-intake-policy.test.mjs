@@ -394,11 +394,12 @@ test('crew can save changed locality and categories after upload instead of only
 });
 
 test('crew can securely submit photos with unknown metadata, but internal approval requires locality and category', async () => {
-  const [confirmRoute, metadataRoute, database, admin] = await Promise.all([
+  const [confirmRoute, metadataRoute, database, admin, inviteTool] = await Promise.all([
     readFile(new URL('../app/api/photo-intake/confirm/route.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/api/photo-intake/metadata/route.ts', import.meta.url), 'utf8'),
     readFile(new URL('../src/server/db.ts', import.meta.url), 'utf8'),
     readFile(new URL('../app/admin/(protected)/realizacie/fotky/page.tsx', import.meta.url), 'utf8'),
+    readFile(new URL('../app/admin/(protected)/realizacie/fotky/invite-tool.tsx', import.meta.url), 'utf8'),
   ]);
   assert.match(confirmRoute, /locality: z\.string\(\)\.trim\(\)\.max\(120\)\.default\(''\)/);
   assert.match(confirmRoute, /categories: z\.array\(z\.string\(\)\.max\(40\)\)\.max\(5\)\.default\(\[\]\)/);
@@ -409,10 +410,12 @@ test('crew can securely submit photos with unknown metadata, but internal approv
   assert.match(database, /\$1 <> 'approved_private' OR \([\s\S]{0,300}locality !~ '\^\[\[:space:\]\]\*\$'[\s\S]{0,300}btrim\(locality\) !~ '\[0-9\]'[\s\S]{0,300}jsonb_array_length\(categories\) > 0[\s\S]{0,160}categories <@ /);
   assert.match(admin, /Pred interným schválením doplňte a overte približnú lokalitu a aspoň jeden typ objektu/);
   assert.match(admin, /disabled=\{!isApproximateLocality\(photo\.locality\) \|\| !photo\.categories\.length\}/);
-  assert.match(admin, /Návrh technických lehôt – pred zapnutím ich musí potvrdiť majiteľ/);
-  assert.match(admin, /Automatické odstránenie začne fungovať až po samostatnom zapnutí a overení retenčného jobu/);
-  assert.match(admin, /Samotný konfiguračný príznak režim úložiska nedokazuje/);
-  assert.match(admin, /Majiteľ musí osobitne potvrdiť retenčné lehoty/);
+  assert.match(admin, /Bezpečné lehoty uloženia/);
+  assert.match(admin, /Asistent ju pri najbližšom úspešnom behu pripojí ku konceptu realizácie/);
+  assert.match(inviteTool, /Nahrať fotky teraz/);
+  assert.match(inviteTool, /fetch\('\/api\/photo-intake\/session'/);
+  assert.match(admin, /Private úložisko, jeho token, podpisový kľúč, retenčný prepínač alebo kontrolný podpis projektu a databázy/);
+  assert.match(admin, /znovu neoverí odmietnutie verejného čítania/);
 });
 
 test('photo upload invite history is paginated so older still-active links remain revocable', async () => {

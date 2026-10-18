@@ -85,8 +85,6 @@ let listApplicationNotificationStatuses;
 let listDueApplicationNotifications;
 let getApplicationNotificationHealth;
 let claimApplicationNotification;
-let claimCareerNotificationBatch;
-let recordCareerNotificationBatchResult;
 let recordApplicationNotificationResult;
 let markStaleApplicationNotificationClaimsUnknown;
 let resolveUnknownApplicationNotification;
@@ -194,7 +192,7 @@ async function startIsolatedDatabase() {
   process.env.DATABASE_URL = connectionString;
   process.env.ADMIN_EMAIL = '';
 
-  ({ createLeadSubmission, recordAcceptedLeadAnalytics, recoverAcceptedLeadAnalytics, getLeadAttributionReport, getLeadEmailOutboxAttention, reserveLeadUploadDraft, markLeadUploadDraftUploaded, claimExpiredLeadUploadDrafts, completeLeadUploadDraftDeletion, trackUnreservedLegacyLeadPhoto, consumeApiRateLimit, purgeExpiredApiRateLimitBuckets, claimDuePhotoIntakeDeletions, listRevokedPendingPhotoRecords, listPhotoIntakeRecords, markPhotoIntakeUploadTokenIssued, reservePhotoIntakeSanitizationAttempt, abandonPhotoIntakeSanitizationAttempt, claimPhotoIntakeSanitizationCleanups, completePhotoIntakeSanitizationCleanup, failPhotoIntakeSanitizationCleanup, markPhotoIntakeDeletionFailed, completePhotoIntakeDeletion, updatePhotoIntakeMetadata, withdrawApprovedPhotoIntakeRecord, completePhotoIntakeRecord, reviewPhotoIntakeRecord, createTestimonial, updateTestimonial, updateTestimonialStatus, listApprovedTestimonials, createCareerApplication, createRooferRegistration, getRooferRegistrationBySubmissionId, attachCareerApplicationCv, listApplicationNotificationStatuses, listDueApplicationNotifications, getApplicationNotificationHealth, claimApplicationNotification, claimCareerNotificationBatch, recordApplicationNotificationResult, recordCareerNotificationBatchResult, markStaleApplicationNotificationClaimsUnknown, resolveUnknownApplicationNotification, prepareConfirmedApplicationNotificationRetry, LeadSubmissionConflictError, createRealization, updateRealizationStatus, listPublishedRealizations, listRealizationCaseDrafts, saveRealizationCaseDraft, setRealizationCaseDraftMedia, updateRealizationCaseDraftMediaMetadata, transitionRealizationCaseDraft, listPublishedRealizationCases, countPublishedRealizationCases, getPublishedRealizationCasePhoto, listPhotoIntakeJobOptions, createPhotoUploadInvite, consumePhotoUploadInviteByHash, getActivePhotoUploadInvite } = await import('../src/server/db.ts'));
+  ({ createLeadSubmission, recordAcceptedLeadAnalytics, recoverAcceptedLeadAnalytics, getLeadAttributionReport, getLeadEmailOutboxAttention, reserveLeadUploadDraft, markLeadUploadDraftUploaded, claimExpiredLeadUploadDrafts, completeLeadUploadDraftDeletion, trackUnreservedLegacyLeadPhoto, consumeApiRateLimit, purgeExpiredApiRateLimitBuckets, claimDuePhotoIntakeDeletions, listRevokedPendingPhotoRecords, listPhotoIntakeRecords, markPhotoIntakeUploadTokenIssued, reservePhotoIntakeSanitizationAttempt, abandonPhotoIntakeSanitizationAttempt, claimPhotoIntakeSanitizationCleanups, completePhotoIntakeSanitizationCleanup, failPhotoIntakeSanitizationCleanup, markPhotoIntakeDeletionFailed, completePhotoIntakeDeletion, updatePhotoIntakeMetadata, withdrawApprovedPhotoIntakeRecord, completePhotoIntakeRecord, reviewPhotoIntakeRecord, createTestimonial, updateTestimonial, updateTestimonialStatus, listApprovedTestimonials, createCareerApplication, createRooferRegistration, getRooferRegistrationBySubmissionId, attachCareerApplicationCv, listApplicationNotificationStatuses, listDueApplicationNotifications, getApplicationNotificationHealth, claimApplicationNotification, recordApplicationNotificationResult, markStaleApplicationNotificationClaimsUnknown, resolveUnknownApplicationNotification, prepareConfirmedApplicationNotificationRetry, LeadSubmissionConflictError, createRealization, updateRealizationStatus, listPublishedRealizations, listRealizationCaseDrafts, saveRealizationCaseDraft, setRealizationCaseDraftMedia, updateRealizationCaseDraftMediaMetadata, transitionRealizationCaseDraft, listPublishedRealizationCases, countPublishedRealizationCases, getPublishedRealizationCasePhoto, listPhotoIntakeJobOptions, createPhotoUploadInvite, consumePhotoUploadInviteByHash, getActivePhotoUploadInvite } = await import('../src/server/db.ts'));
   ({ createCaseDraftFromApprovedPhoto } = await import('../src/server/db.ts'));
   ({ getBusinessJobIdsWithPriceOffers } = await import('../src/server/db.ts'));
   ({ getTestimonial, listTestimonialsPage, listTestimonialAdminHistory } = await import('../src/server/db.ts'));
@@ -2482,8 +2480,8 @@ async function runIntegrationChecks() {
     [...abandonedCareerIds].sort(),
     'all 52 accepted applications waiting for CV remain visible across admin pages',
   );
-  assert.equal(await claimCareerNotificationBatch(abandonedCareerIds[0]), false,
-    'an application still waiting for its expected CV cannot reserve either email notification');
+  assert.equal(await claimApplicationNotification('career_application', abandonedCareerIds[0], 'applicant'), false,
+    'an application still waiting for its expected CV cannot reserve an email notification');
   const incompleteDriver = await createCareerApplication({
     ...careerInput, submissionId: randomUUID(), email: 'career-invalid-driver@example.invalid',
   });
@@ -2499,26 +2497,29 @@ async function runIntegrationChecks() {
     'an incomplete storage record must not enter the notification recovery queue');
   assert.equal((await getApplicationNotificationHealth()).pending, healthBeforeIncompleteCv.pending,
     'career notification health must use the same valid-CV eligibility as recovery');
-  assert.equal(await claimCareerNotificationBatch(incompleteDriver.application.id), false,
-    'a key without a recognized storage driver cannot reserve the paired emails');
+  assert.equal(await claimApplicationNotification('career_application', incompleteDriver.application.id, 'internal'), false,
+    'a key without a recognized storage driver cannot reserve an email notification');
 
   const careerClaims = await Promise.all([
-    claimCareerNotificationBatch(careerCreated.application.id),
-    claimCareerNotificationBatch(careerCreated.application.id),
+    claimApplicationNotification('career_application', careerCreated.application.id, 'applicant'),
+    claimApplicationNotification('career_application', careerCreated.application.id, 'applicant'),
   ]);
-  assert.equal(careerClaims.filter(Boolean).length, 1, 'súbežné cron behy nesmú naraz odosielať tú istú kariérnu dávku');
+  assert.equal(careerClaims.filter(Boolean).length, 1, 'súbežné cron behy nesmú naraz odosielať ten istý kariérny email');
   const careerClaimToken = careerClaims.find(Boolean);
   assert.ok(careerClaimToken);
+  const careerInternalToken = await claimApplicationNotification('career_application', careerCreated.application.id, 'internal');
+  assert.ok(careerInternalToken, 'druhý príjemca sa musí rezervovať nezávisle');
   assert.equal(await recordApplicationNotificationResult('career_application', careerCreated.application.id, 'applicant', careerClaimToken, {
     status: 'sent', messageId: 'test-career-message-id',
   }), true);
-  assert.equal(await recordApplicationNotificationResult('career_application', careerCreated.application.id, 'internal', careerClaimToken, {
+  assert.equal(await recordApplicationNotificationResult('career_application', careerCreated.application.id, 'internal', careerInternalToken, {
     status: 'unknown', reason: 'Izolovaný test neodosiela e-mail.',
   }), true);
   const careerFinalStatuses = await listApplicationNotificationStatuses('career_application', [careerCreated.application.id]);
   assert.deepEqual(careerFinalStatuses.map((item) => [item.recipient, item.status]), [['applicant', 'sent'], ['internal', 'unknown']]);
-  assert.equal(await claimCareerNotificationBatch(careerCreated.application.id), false,
-    'neznámy/čiastočne potvrdený relay výsledok sa nesmie bezpečne zopakovať ako celá dvojica');
+  assert.equal(await claimApplicationNotification('career_application', careerCreated.application.id, 'applicant'), false);
+  assert.equal(await claimApplicationNotification('career_application', careerCreated.application.id, 'internal'), false,
+    'neznámy výsledok sa nesmie automaticky zopakovať');
   const careerResolution = await resolveUnknownApplicationNotification({
     entityType: 'career_application', entityId: careerCreated.application.id, recipient: 'internal',
     resolution: 'delivered', evidence: 'inbox_message_found', actorEmail: 'qa-admin@example.invalid',
@@ -2539,49 +2540,51 @@ async function runIntegrationChecks() {
   assert.equal(careerResolutionAudit.rows[0].changes.evidence, 'inbox_message_found');
   assert.equal(await prepareConfirmedApplicationNotificationRetry({
     entityType: 'career_application', entityId: careerCreated.application.id, recipient: 'applicant', actorEmail: 'qa-admin@example.invalid',
-  }), false, 'kariérny relay nesmie zopakovať pár, keď jeden príjemca už má potvrdené doručenie');
+  }), false, 'technicky odoslaný príjemca sa nesmie zaradiť na opakovanie');
 
-  const careerPair = await createCareerApplication({
+  const careerPerRecipient = await createCareerApplication({
     ...careerInput,
     cvExpected: false,
     submissionId: randomUUID(),
-    fullName: 'Test kariérneho páru — nekontaktovať',
-    email: 'career-pair-test@example.invalid',
+    fullName: 'Test samostatných kariérnych emailov — nekontaktovať',
+    email: 'career-recipient-test@example.invalid',
   });
-  const careerPairToken = await claimCareerNotificationBatch(careerPair.application.id);
-  assert.ok(careerPairToken);
-  await assert.rejects(recordCareerNotificationBatchResult(careerPair.application.id, careerPairToken, {
-    applicant: { status: 'sent', messageId: 'test-would-have-been-sent' },
-    internal: { status: 'invalid-state' },
-  }), 'invalid second result must roll back the first result in the same transaction');
-  assert.deepEqual(
-    (await listApplicationNotificationStatuses('career_application', [careerPair.application.id])).map((item) => [item.recipient, item.status]),
-    [['applicant', 'sending'], ['internal', 'sending']],
-    'failed second write must not strand a mixed career pair',
-  );
-  assert.equal(await recordCareerNotificationBatchResult(careerPair.application.id, careerPairToken, {
-    applicant: { status: 'unknown', reason: 'Izolovaný test simuloval nejednoznačný výsledok.' },
-    internal: { status: 'unknown', reason: 'Izolovaný test simuloval nejednoznačný výsledok.' },
-  }), true);
   for (const recipient of ['applicant', 'internal']) {
-    assert.equal(await resolveUnknownApplicationNotification({
-      entityType: 'career_application', entityId: careerPair.application.id, recipient, resolution: 'not_delivered',
-      evidence: 'provider_rejected', actorEmail: 'qa-admin@example.invalid',
+    const token = await claimApplicationNotification('career_application', careerPerRecipient.application.id, recipient);
+    assert.ok(token);
+    assert.equal(await recordApplicationNotificationResult('career_application', careerPerRecipient.application.id, recipient, token, {
+      status: 'unknown', reason: 'Izolovaný test simuloval nejednoznačný výsledok.',
     }), true);
   }
-  assert.equal(await prepareConfirmedApplicationNotificationRetry({
-    entityType: 'career_application', entityId: careerPair.application.id, recipient: 'applicant', actorEmail: 'qa-admin@example.invalid',
-  }), true, 'kariérny relay môže zaradiť dvojicu iba po potvrdení nedoručenia obom adresátom');
-  assert.deepEqual(
-    (await listApplicationNotificationStatuses('career_application', [careerPair.application.id])).map((item) => [item.recipient, item.status]),
-    [['applicant', 'pending'], ['internal', 'pending']],
-  );
-  const careerPairRetryToken = await claimCareerNotificationBatch(careerPair.application.id);
-  assert.ok(careerPairRetryToken);
-  assert.equal(await recordCareerNotificationBatchResult(careerPair.application.id, careerPairRetryToken, {
-    applicant: { status: 'sent', messageId: 'test-retry-applicant' },
-    internal: { status: 'sent', messageId: 'test-retry-internal' },
+  assert.equal(await resolveUnknownApplicationNotification({
+    entityType: 'career_application', entityId: careerPerRecipient.application.id, recipient: 'applicant', resolution: 'not_delivered',
+    evidence: 'provider_rejected', actorEmail: 'qa-admin@example.invalid',
   }), true);
+  assert.equal(await resolveUnknownApplicationNotification({
+    entityType: 'career_application', entityId: careerPerRecipient.application.id, recipient: 'internal', resolution: 'delivered',
+    evidence: 'inbox_message_found', actorEmail: 'qa-admin@example.invalid',
+  }), true);
+  assert.equal(await prepareConfirmedApplicationNotificationRetry({
+    entityType: 'career_application', entityId: careerPerRecipient.application.id, recipient: 'applicant', actorEmail: 'qa-admin@example.invalid',
+  }), true, 'na opakovanie sa smie zaradiť iba príjemca s potvrdeným nedoručením');
+  assert.deepEqual(
+    (await listApplicationNotificationStatuses('career_application', [careerPerRecipient.application.id])).map((item) => [item.recipient, item.status]),
+    [['applicant', 'pending'], ['internal', 'confirmed_delivered']],
+  );
+  assert.equal(await prepareConfirmedApplicationNotificationRetry({
+    entityType: 'career_application', entityId: careerPerRecipient.application.id, recipient: 'internal', actorEmail: 'qa-admin@example.invalid',
+  }), false, 'potvrdene doručený interný email sa nesmie zaradiť na opakovanie');
+  const careerRecipientRetryToken = await claimApplicationNotification('career_application', careerPerRecipient.application.id, 'applicant');
+  assert.ok(careerRecipientRetryToken);
+  assert.equal(await recordApplicationNotificationResult('career_application', careerPerRecipient.application.id, 'applicant', careerRecipientRetryToken, {
+    status: 'sent', messageId: 'test-retry-applicant',
+  }), true);
+  const careerRetryAudit = await inspectPool.query(
+    `SELECT changes FROM audit_logs WHERE entity_type='career_application' AND entity_id=$1 AND action='application_notification_retry_queued'`,
+    [careerPerRecipient.application.id],
+  );
+  assert.deepEqual(careerRetryAudit.rows[0].changes.recipients, ['applicant']);
+  assert.equal(careerRetryAudit.rows[0].changes.perRecipient, true);
 
   const rooferSubmissionId = randomUUID();
   const rooferCreated = await createRooferRegistration({

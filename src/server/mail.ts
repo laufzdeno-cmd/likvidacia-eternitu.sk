@@ -1,7 +1,9 @@
 import nodemailer from 'nodemailer';
-import { canSafelyFallbackToLocalRelay, isAstanaLocalRelayConfigured, leadDeliveryMode, sendCareerApplicationThroughAstanaLocalRelay, sendLeadThroughAstanaLocalRelay, type LeadDeliveryMode, type LeadDeliveryResult, type LeadRecipientDeliveryRecorder } from './astana-local-relay';
+import { canSafelyFallbackToLocalRelay, isAstanaLocalRelayConfigured, leadDeliveryMode, sendLeadThroughAstanaLocalRelay, type LeadDeliveryMode, type LeadDeliveryResult, type LeadRecipientDeliveryRecorder } from './astana-local-relay';
 import { cleanSlovakText } from './slovak-text';
 import { classifyRequiredSmtpRecipient, classifySmtpAcceptance, classifySmtpError, isRetryableSmtpFailure } from './email-delivery-policy';
+import type { ApplicationRecipientResult } from './application-notification-policy';
+import { careerApplicationEmailContent } from './career-application-email';
 import type { ApplicationNotificationRecipient } from './types';
 import type { CareerApplication, Lead, LeadFile, PriceOffer, PriceOfferSettings } from './types';
 import { calculatePriceOfferPricing } from '../lib/price-offer-pricing';
@@ -516,8 +518,49 @@ async function sendLeadEmailsViaSmtp(
   };
 }
 
-export async function sendCareerApplicationEmails(application: CareerApplication): Promise<LeadDeliveryResult> {
-  return sendCareerApplicationThroughAstanaLocalRelay(application);
+export async function sendCareerApplicationNotification(
+  application: CareerApplication,
+  recipient: ApplicationNotificationRecipient,
+): Promise<ApplicationRecipientResult> {
+  let client: ReturnType<typeof transporter>;
+  try {
+    client = transporter({ applicationNotification: true });
+  } catch (error) {
+    return { status: classifySmtpError(error), retryable: false, reason: mailErrorMessage(error) };
+  }
+  if (!client) return { status: 'failed', retryable: false, reason: 'SMTP pre kariérne notifikácie nie je nastavené.' };
+
+  const requiredRecipient = resolveOutboundEmailRecipient(recipient === 'applicant' ? application.email : leadRecipient());
+  const adminUrl = `${siteUrl()}/admin/kariera/${encodeURIComponent(application.id)}/`;
+  const content = careerApplicationEmailContent(application, recipient, adminUrl);
+  try {
+    const info = await client.sendMail({
+      from: namedFromHeader(content.fromName),
+      to: requiredRecipient,
+      replyTo: recipient === 'internal' ? application.email : leadRecipient(),
+      subject: content.subject,
+      text: content.text,
+      html: content.html,
+    });
+    const status = classifyRequiredSmtpRecipient(info, requiredRecipient);
+    return {
+      status,
+      retryable: status === 'failed' && isRetryableSmtpFailure(info),
+      messageId: status === 'sent' ? info.messageId || undefined : undefined,
+      reason: status === 'sent'
+        ? undefined
+        : status === 'failed'
+          ? 'SMTP odmietlo zvoleného príjemcu kariérnej notifikácie.'
+          : 'SMTP nepotvrdilo prijatie zvoleným príjemcom; automatické opakovanie je vypnuté.',
+    };
+  } catch (error) {
+    const status = classifySmtpError(error);
+    return {
+      status,
+      retryable: status === 'failed' && isRetryableSmtpFailure(error),
+      reason: mailErrorMessage(error),
+    };
+  }
 }
 
 export function canManuallyRetryLeadEmail() {
@@ -529,20 +572,6 @@ export function canManuallyRetryLeadEmail() {
   } catch {
     return false;
   }
-}
-
-export async function sendCareerApplicationNotificationBatch(application: CareerApplication) {
-  const result = await sendCareerApplicationThroughAstanaLocalRelay(application);
-  const toRecipient = (status: 'sent' | 'failed' | 'unknown' | undefined, messageId?: string, reason?: string) => ({
-    status: status || 'unknown',
-    retryable: status === 'failed',
-    messageId,
-    reason: reason || (status === 'sent' ? undefined : result.reason || 'Relay nepotvrdil výsledok; automatické opakovanie je vypnuté.'),
-  } as const);
-  return {
-    applicant: toRecipient(result.customerStatus, result.customerMessageId, result.customerReason),
-    internal: toRecipient(result.adminStatus, result.adminMessageId, result.adminReason),
-  };
 }
 
 export async function sendLeadEmails(

@@ -337,8 +337,8 @@ test('acceptance evidence binds the tested source candidate to immutable local l
   assert.match(runbook, /ďalší nejednoznačný výsledok musí zachovať `unknown`/);
   assert.match(runbook, /bez dôkazu zostáva `unknown` nevyriešené/);
   assert.match(runbook, /obnovu chýbajúceho CV alebo e-mailu bez duplicity/);
-  assert.match(runbook, /obaja príjemcovia potvrdene nedoručení/);
-  assert.match(runbook, /retry iba konkrétnemu potvrdene nedoručenému adresátovi/);
+  assert.match(runbook, /Kariérne aj strechárske emaily sa spracujú samostatne pre každého príjemcu/);
+  assert.match(runbook, /retry je povolený iba konkrétnemu potvrdene nedoručenému adresátovi/);
   assert.match(runbook, /bez automatickej ponuky alebo kontaktovania uchádzača/);
   for (const cronPath of [
     '/api/cron/backup/',

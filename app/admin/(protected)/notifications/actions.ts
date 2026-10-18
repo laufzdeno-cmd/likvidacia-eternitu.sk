@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { requireAdmin, verifyCsrf } from '@/src/server/auth';
 import { prepareConfirmedApplicationNotificationRetry, resolveUnknownApplicationNotification } from '@/src/server/db';
-import { processCareerApplicationNotificationBatch, processRooferRegistrationNotification } from '@/src/server/application-notifications';
+import { processCareerApplicationNotification, processRooferRegistrationNotification } from '@/src/server/application-notifications';
 import { isApplicationNotificationEvidenceValid } from '@/src/server/application-notification-evidence.mjs';
 import type { ApplicationNotificationEntity, ApplicationNotificationRecipient } from '@/src/server/types';
 
@@ -60,7 +60,7 @@ export async function retryConfirmedApplicationNotificationAction(formData: Form
   if (!queued) throw new Error('Opakovanie nie je povolené: nedoručenie nemusí byť potvrdené alebo sa zmenil stav. Obnovte stránku.');
 
   if (entityType === 'career_application') {
-    await processCareerApplicationNotificationBatch(entityId);
+    await processCareerApplicationNotification(entityId, recipient as ApplicationNotificationRecipient);
     revalidatePath('/admin/kariera');
   } else {
     await processRooferRegistrationNotification(entityId, recipient as ApplicationNotificationRecipient);

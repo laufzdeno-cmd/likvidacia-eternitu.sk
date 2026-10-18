@@ -25,10 +25,6 @@ export default function NotificationStatuses({
   }
 
   return <div className="admin-form-stack">
-    {entityType === 'career_application' && notifications.length === 2
-      && notifications.every((notification) => notification.status === 'confirmed_not_delivered')
-      ? <RetryForm entityType={entityType} entityId={notifications[0].entityId} recipient="applicant" csrfToken={csrfToken} careerPair />
-      : null}
     {notifications.map((notification) => {
       const needsMailboxCheck = notification.status === 'unknown' || notification.status === 'failed' || notification.status === 'pending';
       const canResolveManually = notification.status === 'unknown' || (notification.status === 'failed' && !notification.retryable);
@@ -62,7 +58,7 @@ export default function NotificationStatuses({
           </label>
           <button type="submit">Uložiť overený výsledok</button>
         </form> : null}
-        {entityType === 'roofer_registration' && notification.status === 'confirmed_not_delivered'
+        {notification.status === 'confirmed_not_delivered'
           ? <RetryForm entityType={entityType} entityId={notification.entityId} recipient={notification.recipient} csrfToken={csrfToken} />
           : null}
         {needsMailboxCheck && !canResolveManually ? <small>Pred prípadným opakovaným odoslaním najprv skontrolujte schránku.</small> : null}
@@ -76,26 +72,22 @@ function RetryForm({
   entityId,
   recipient,
   csrfToken,
-  careerPair = false,
 }: {
   entityType: ApplicationNotificationEntity;
   entityId: string;
   recipient: ApplicationNotification['recipient'];
   csrfToken: string;
-  careerPair?: boolean;
 }) {
   return <form action={retryConfirmedApplicationNotificationAction} className="admin-notification-resolution-form">
     <input type="hidden" name="_csrf" value={csrfToken} />
     <input type="hidden" name="entityType" value={entityType} />
     <input type="hidden" name="entityId" value={entityId} />
     <input type="hidden" name="recipient" value={recipient} />
-    <p>{careerPair
-      ? 'Kariérny relay odosiela dvojicu emailov spolu; opakovanie je dostupné až po potvrdení nedoručenia obom adresátom.'
-      : 'Týmto sa odošle nový email iba vybranému príjemcovi.'}</p>
+    <p>Týmto sa odošle nový email iba vybranému príjemcovi.</p>
     <label className="admin-checkbox">
       <input type="checkbox" name="confirmedNonDelivery" value="yes" required />
       Potvrdzujem, že schránka aj záznam poskytovateľa dokazujú nedoručenie.
     </label>
-    <button type="submit">{careerPair ? 'Znova odoslať oba emaily' : 'Znova odoslať email'}</button>
+    <button type="submit">Znova odoslať tento email</button>
   </form>;
 }

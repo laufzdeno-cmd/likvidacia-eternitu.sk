@@ -1,15 +1,13 @@
 import {
   claimApplicationNotification,
-  claimCareerNotificationBatch,
   getApplicationNotificationHealth,
   getApplicationNotificationEntity,
   listDueApplicationNotifications,
   markStaleApplicationNotificationClaimsUnknown,
   recordApplicationNotificationResult,
-  recordCareerNotificationBatchResult,
 } from './db';
 import {
-  sendCareerApplicationNotificationBatch,
+  sendCareerApplicationNotification,
   sendRooferRegistrationNotification,
 } from './mail';
 import type { ApplicationRecipientResult } from './application-notification-policy';
@@ -30,28 +28,36 @@ async function persistResult(
   if (!saved) throw new Error('Výsledok notifikácie už nepatrí aktívnemu pokusu.');
 }
 
-export async function processCareerApplicationNotificationBatch(entityId: string) {
+export async function processCareerApplicationNotification(
+  entityId: string,
+  recipient: ApplicationNotificationRecipient,
+) {
   const application = await getApplicationNotificationEntity('career_application', entityId);
   if (!application || application.cvExpected && !application.cv) return false;
-  const token = await claimCareerNotificationBatch(entityId);
+  const token = await claimApplicationNotification('career_application', entityId, recipient);
   if (!token) return false;
-  let result: Awaited<ReturnType<typeof sendCareerApplicationNotificationBatch>>;
   try {
-    result = await sendCareerApplicationNotificationBatch(application);
+    const result = await sendCareerApplicationNotification(application, recipient);
+    await persistResult('career_application', entityId, recipient, token, result);
   } catch (error) {
-    // The relay may have accepted either email before its response was lost.
-    // Mark both roles unknown; never retry the pair automatically in that case.
-    const reason = error instanceof Error ? error.message : 'Výsledok relaya nie je možné potvrdiť.';
-    const saved = await recordCareerNotificationBatchResult(entityId, token, {
-      applicant: { status: 'unknown', retryable: false, reason },
-      internal: { status: 'unknown', retryable: false, reason },
+    // The SMTP server may have accepted this exact recipient before the
+    // connection was interrupted. Unknown outcomes are never retried
+    // automatically, so a person must first verify delivery evidence.
+    await persistResult('career_application', entityId, recipient, token, {
+      status: 'unknown',
+      retryable: false,
+      reason: error instanceof Error ? error.message : 'Výsledok SMTP odoslania nie je známy.',
     });
-    if (!saved) throw new Error('Výsledok kariérneho emailového páru už nepatrí aktívnemu pokusu.');
-    return true;
   }
-  const saved = await recordCareerNotificationBatchResult(entityId, token, result);
-  if (!saved) throw new Error('Výsledok kariérneho emailového páru už nepatrí aktívnemu pokusu.');
   return true;
+}
+
+export async function processCareerApplicationNotificationBatch(entityId: string) {
+  let processed = false;
+  for (const recipient of ['applicant', 'internal'] as const) {
+    if (await processCareerApplicationNotification(entityId, recipient)) processed = true;
+  }
+  return processed;
 }
 
 export async function processRooferRegistrationNotification(
@@ -82,10 +88,7 @@ export async function processRooferRegistrationNotification(
 
 export async function processApplicationNotification(item: ApplicationNotification) {
   if (item.entityType === 'career_application') {
-    // The existing career transport is a combined relay call. Retry only as one
-    // atomic pair when both recipients are still safely claimable.
-    if (item.recipient !== 'applicant') return false;
-    return processCareerApplicationNotificationBatch(item.entityId);
+    return processCareerApplicationNotification(item.entityId, item.recipient);
   }
   return processRooferRegistrationNotification(item.entityId, item.recipient);
 }

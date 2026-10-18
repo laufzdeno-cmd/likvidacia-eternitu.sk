@@ -34,6 +34,8 @@ export default function initializeHomepageCriticalClient({
     const submissionIdInput = document.querySelector<HTMLInputElement>('#submissionId');
     const selectedRooferInput = document.querySelector<HTMLInputElement>('#selectedRooferId');
     const rooferSelect = document.querySelector<HTMLSelectElement>('#roofer');
+    const rooferRecommendationField = document.querySelector<HTMLElement>('#roofer-recommendation-field');
+    const rooferRecommendationInput = document.querySelector<HTMLInputElement>('#roofer-recommendation-opt-in');
     const materialSelect = document.querySelector<HTMLSelectElement>('#materialType');
     const fileDrop = document.querySelector<HTMLElement>('.file-drop');
     const preview = document.querySelector<HTMLElement>('.file-preview');
@@ -106,6 +108,12 @@ export default function initializeHomepageCriticalClient({
       const wantsRoofer = params.get('wantsRooferRecommendation') === 'true';
       if (selectedRooferId && selectedRooferInput) selectedRooferInput.value = selectedRooferId;
       if (selectedRooferId || wantsRoofer) rooferSelect.value = 'Chcem odporučiť strechára podľa regiónu';
+    };
+
+    const syncRooferRecommendationControl = () => {
+      const showControl = rooferSelect?.value === 'Nemám strechára';
+      if (rooferRecommendationField) rooferRecommendationField.hidden = !showControl;
+      if (!showControl && rooferRecommendationInput) rooferRecommendationInput.checked = false;
     };
 
     const applyMaterialFromUrl = () => {
@@ -547,6 +555,9 @@ export default function initializeHomepageCriticalClient({
       clearStatus();
       const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
       const payload = new FormData(form);
+      if (rooferSelect?.value === 'Nemám strechára' && rooferRecommendationInput?.checked) {
+        payload.set('roofer', 'Chcem odporučiť strechára podľa regiónu');
+      }
       payload.set('leadAttribution', JSON.stringify(getLeadAttribution()));
       const analyticsSessionId = getAnalyticsSessionId();
       if (analyticsSessionId) payload.set('analyticsSessionId', analyticsSessionId);
@@ -573,6 +584,7 @@ export default function initializeHomepageCriticalClient({
         }
         const result = await submitLeadForm(payload);
         form.reset();
+        syncRooferRecommendationControl();
         form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('[aria-invalid="true"]').forEach(clearFieldError);
         validationSummary?.remove();
         validationSummary = null;
@@ -674,6 +686,7 @@ export default function initializeHomepageCriticalClient({
       } catch { /* Browser storage may be unavailable; leave the form untouched. */ }
     }
     applyRooferSelectionFromUrl();
+    syncRooferRecommendationControl();
     void applyNativeSubmitResult();
     fileInput?.addEventListener('change', onFilesChange);
     const onFileDragOver = (event: DragEvent) => {
@@ -694,6 +707,7 @@ export default function initializeHomepageCriticalClient({
     form?.addEventListener('input', onFormStart);
     form?.addEventListener('input', onValidationInput);
     form?.addEventListener('change', onValidationInput);
+    rooferSelect?.addEventListener('change', syncRooferRecommendationControl);
     if (!clickAnalyticsAlreadyTracked) document.addEventListener('click', onAnalyticsClick);
     document.addEventListener('click', preserveCampaignAttributionOnInternalLink, true);
     if (!pageViewAlreadyTracked) trackAnalytics('page_view');
@@ -815,6 +829,7 @@ export default function initializeHomepageCriticalClient({
       form?.removeEventListener('input', onFormStart);
       form?.removeEventListener('input', onValidationInput);
       form?.removeEventListener('change', onValidationInput);
+      rooferSelect?.removeEventListener('change', syncRooferRecommendationControl);
       if (!clickAnalyticsAlreadyTracked) document.removeEventListener('click', onAnalyticsClick);
       document.removeEventListener('click', preserveCampaignAttributionOnInternalLink, true);
       heroSectionObserver?.disconnect();

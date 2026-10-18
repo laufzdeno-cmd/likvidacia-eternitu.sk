@@ -13,11 +13,11 @@ export default function PartnerRoofersPage() {
       breadcrumb={{ name: 'Spolupracujúci strechári', path: '/spolupracujuci-strechari/' }}
       eyebrow="Strechári"
       title="Potrebujete strechára?"
-      lead="Ak strechára nemáte, uveďte kraj a termín v dopyte. Preveríme vhodného spolupracujúceho partnera podľa dostupnosti."
+      lead="Ak strechára nemáte, uveďte kraj a termín v dopyte. Podľa regiónu a kapacity preveríme možnosť odporučiť spolupracujúceho strechára."
       sections={[
         { title: 'Máte svojho strechára', text: 'Zladíme termín demontáže tak, aby strechár mohol plynulo pokračovať.' },
-        { title: 'Nemáte strechára', text: 'Podľa kraja a termínu preveríme dostupného partnera.' },
-        { title: 'Bez katalógu bez dát', text: 'Verejne nezobrazujeme prázdny katalóg partnerov bez overených údajov.' },
+        { title: 'Nemáte strechára', text: 'Podľa kraja, termínu a kapacity preveríme možnosť odporučenia. Dohodu so strechárom robíte vždy priamo vy.' },
+        { title: 'Verejné profily až so súhlasom', text: 'Verejne nezobrazujeme prázdny katalóg ani firmy bez samostatne potvrdeného súhlasu so zverejnením.' },
       ]}
     />
   );

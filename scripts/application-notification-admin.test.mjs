@@ -59,13 +59,13 @@ test('unknown status reconciliation is CSRF-protected, admin-only, stores only a
   assert.doesNotMatch(db, /input\.evidence\.trim\(\).*slice\(0, 1000\)/);
 });
 
-test('manual resend is audited and gated by provider-confirmed non-delivery; career relay requires both recipients', () => {
-  assert.match(statusComponent, /notifications\.every\(\(notification\) => notification\.status === 'confirmed_not_delivered'\)/);
-  assert.match(statusComponent, /entityType === 'roofer_registration' && notification\.status === 'confirmed_not_delivered'/);
-  assert.match(statusComponent, /Znova odoslať oba emaily/);
-  assert.match(statusComponent, /Znova odoslať email/);
+test('manual resend is audited, gated by provider-confirmed non-delivery and isolated per recipient', () => {
+  assert.match(statusComponent, /notification\.status === 'confirmed_not_delivered'/);
+  assert.match(statusComponent, /Týmto sa odošle nový email iba vybranému príjemcovi\./);
+  assert.match(statusComponent, /Znova odoslať tento email/);
+  assert.doesNotMatch(statusComponent, /Znova odoslať oba emaily|careerPair|Kariérny relay/);
   assert.match(action, /checked !== 'yes'/);
   assert.match(action, /prepareConfirmedApplicationNotificationRetry\(/);
-  assert.match(action, /processCareerApplicationNotificationBatch\(entityId\)/);
+  assert.match(action, /processCareerApplicationNotification\(entityId, recipient as ApplicationNotificationRecipient\)/);
   assert.match(action, /processRooferRegistrationNotification\(entityId, recipient/);
 });

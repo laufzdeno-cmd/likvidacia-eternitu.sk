@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import { createPhotoInviteAction, type PhotoInviteActionState } from './actions';
 
 const initial: PhotoInviteActionState = {};
@@ -9,6 +9,28 @@ type PhotoJobOption = { id: string; demolitionDate: string; district: string; st
 
 export default function InviteTool({ csrfToken, enabled, jobs }: { csrfToken: string; enabled: boolean; jobs: PhotoJobOption[] }) {
   const [state, action, pending] = useActionState(createPhotoInviteAction, initial);
+  const [openingUpload, setOpeningUpload] = useState(false);
+  const [openingError, setOpeningError] = useState('');
+
+  async function openUploadForAdmin() {
+    if (!state.code || openingUpload) return;
+    setOpeningUpload(true);
+    setOpeningError('');
+    try {
+      const response = await fetch('/api/photo-intake/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: state.code }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Nahrávanie sa nepodarilo otvoriť.');
+      window.location.assign('/spolupraca/fotky');
+    } catch (error) {
+      setOpeningError(error instanceof Error ? error.message : 'Nahrávanie sa nepodarilo otvoriť.');
+      setOpeningUpload(false);
+    }
+  }
+
   return <div>
     <form action={action} className="admin-quote-form">
       <input type="hidden" name="_csrf" value={csrfToken} />
@@ -32,10 +54,12 @@ export default function InviteTool({ csrfToken, enabled, jobs }: { csrfToken: st
     {enabled && !jobs.length ? <p role="status">Nie je dostupná dokončená zákazka. Najprv ju evidujte v administrácii; bez priradenej zákazky kód nevytvoríme.</p> : null}
     {state.error ? <p className="photo-intake-error" role="alert">{state.error}</p> : null}
     {state.code ? <div className="photo-admin-created-code" role="status">
-      <strong>Kód sa zobrazí iba teraz. Pošlite ho pracovníkovi bezpečným súkromným kanálom.</strong>
+      <strong>Kód sa zobrazí iba teraz. Môžete s ním nahrať fotky sami alebo ho poslať pracovníkovi bezpečným súkromným kanálom.</strong>
       <p>Platný do {new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(state.expiresAt || ''))}.</p>
+      <button className="admin-primary-button" type="button" disabled={openingUpload} onClick={() => void openUploadForAdmin()}>{openingUpload ? 'Otváram nahrávanie…' : 'Nahrať fotky teraz'}</button>
       <textarea readOnly rows={3} value={state.code} aria-label="Jednorazový prístupový kód" onFocus={(event) => event.currentTarget.select()} />
       <small>Kód je jednorazový. Po jeho použití ho už nemožno zobraziť ani znovu použiť.</small>
+      {openingError ? <p className="photo-intake-error" role="alert">{openingError}</p> : null}
     </div> : null}
   </div>;
 }

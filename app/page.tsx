@@ -554,6 +554,15 @@ export default async function HomePage() {
                     <option>Riešim iba likvidáciu bez novej strechy</option>
                   </select>
                 </div>
+                <div className={`${styles.rooferRecommendation} field field-full`} id="roofer-recommendation-field" hidden>
+                  <label htmlFor="roofer-recommendation-opt-in">
+                    <input id="roofer-recommendation-opt-in" type="checkbox" />
+                    <span>
+                      <strong>Chcem, aby mi ASTANA pomohla nájsť strechára v mojom regióne.</strong>
+                      <small>Odporúčanie preveríme podľa regiónu a kapacity. Vaše údaje neposielame strechárovi automaticky.</small>
+                    </span>
+                  </label>
+                </div>
                 <div className="field">
                   <label htmlFor="term">Kedy to chcete riešiť?</label>
                   <select id="term" name="term" defaultValue="Čo najskôr">
@@ -623,6 +632,24 @@ export default async function HomePage() {
               <p className="form-status" role="status" aria-live="polite"></p>
             </form>
           </aside>
+          </div>
+        </section>
+
+        <section className={styles.rooferHelp} aria-labelledby="roofer-help-title">
+          <div>
+            <p className={styles.rooferHelpEyebrow}>Nadväzujúce práce</p>
+            <h2 id="roofer-help-title">Potrebujete po eternite aj novú strechu?</h2>
+          </div>
+          <div className={styles.rooferHelpGrid}>
+            <article>
+              <h3>Mám strechára</h3>
+              <p>Termín demontáže vieme zladiť s vašou strechárskou partiou, aby mohla plynulo pokračovať novou strechou.</p>
+            </article>
+            <article>
+              <h3>Nemám strechára</h3>
+              <p>Podľa regiónu a kapacity môžeme preveriť spolupracujúceho strechára. Výber aj dohoda zostávajú vždy na vás.</p>
+              <a className="button button-outline" href="/?wantsRooferRecommendation=true#dopyt">Chcem pomôcť so strechárom</a>
+            </article>
           </div>
         </section>
 

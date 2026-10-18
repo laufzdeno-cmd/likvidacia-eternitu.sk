@@ -1080,6 +1080,7 @@ async function runHarness() {
       page.on('requestfailed', (request) => logs.push('LOGIN REQUEST FAILED: ' + request.url() + ' ' + request.failure()?.errorText));
       await page.goto(appOrigin + '/spolupraca/fotky/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
       await page.waitForLoadState('networkidle', { timeout: 30_000 });
+      await page.locator('.photo-intake-login[data-client-ready="true"]').waitFor({ timeout: 30_000 });
       await page.locator('#invite-code').fill(invite.code);
       try { await page.waitForFunction(() => {
         const button = document.querySelector('.photo-intake-login button');
@@ -1103,11 +1104,17 @@ async function runHarness() {
     anonymousPage.on('requestfailed', (request) => logs.push('BROWSER REQUEST FAILED: ' + request.url() + ' ' + request.failure()?.errorText));
     await anonymousPage.goto(appOrigin + '/spolupraca/fotky/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await anonymousPage.locator('#invite-code').waitFor();
+    await anonymousPage.locator('.photo-intake-login[data-client-ready="true"]').waitFor({ timeout: 30_000 });
     assert.equal(await anonymousPage.locator('.photo-intake-history').count(), 0);
     const beforeAnonymous = fake.counts.privateGet;
     assert.equal((await mediaRead(anonymousPage, invites[0].mediaId)).status, 401);
     assert.equal(fake.counts.privateGet, beforeAnonymous, 'denied read must not fetch Blob bytes');
     assert.equal((await localFetch(blobOrigin + '/' + invites[0].storageKey)).status, 401);
+    // Route compilation in Next dev can trigger one Fast Refresh. Wait for it
+    // before editing the controlled login field so the value is not reset.
+    await anonymousPage.waitForLoadState('networkidle', { timeout: 30_000 });
+    await anonymousPage.locator('.photo-intake-login[data-client-ready="true"]').waitFor({ timeout: 30_000 });
+    await anonymousPage.locator('#invite-code').fill('');
     await anonymousPage.locator('#invite-code').fill('not-a-real-invitation-code-000000000000');
     await anonymousPage.getByRole('button', { name: 'Otvoriť nahrávanie' }).waitFor({ state: 'visible' });
     await anonymousPage.waitForFunction(() => {
@@ -1351,6 +1358,10 @@ async function runHarness() {
     const adminContext = await newContext();
     await adminContext.addCookies([{ name: 'astana_admin_session', value: adminCookie, url: appOrigin, httpOnly: true, sameSite: 'Lax' }]);
     const adminPage = await adminContext.newPage();
+    // First compilation and the intentionally slow private-image emulator can
+    // keep a Server Action navigation busy for more than Playwright's default.
+    adminPage.setDefaultTimeout(90_000);
+    adminPage.setDefaultNavigationTimeout(90_000);
     adminPage.on('pageerror', (error) => logs.push('ADMIN BROWSER PAGE ERROR: ' + error.message));
     const moderationResponse = await adminPage.goto(appOrigin + '/admin/realizacie/fotky/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
     assert.equal(moderationResponse?.status(), 200, 'isolated admin photo moderation page must load');
@@ -1400,7 +1411,10 @@ async function runHarness() {
     caseState = await pglite.query('SELECT lifecycle, publication_rights_confirmed FROM realization_case_drafts WHERE business_job_id=$1', [syntheticJobId]);
     assert.deepEqual(caseState.rows[0], { lifecycle: 'reviewed', publication_rights_confirmed: false },
       'review submission must not publish or implicitly approve a case');
-    const approvalForm = adminPage.locator('form.admin-case-draft-form');
+    await adminPage.getByText('Schváliť bez okamžitého zverejnenia', { exact: true }).click();
+    const approvalForm = adminPage.locator('form.admin-case-draft-form').filter({
+      has: adminPage.getByRole('button', { name: 'Schváliť na zverejnenie', exact: true }),
+    });
     await approvalForm.locator('input[name="publicationEvidence"]').fill('Syntetický QA podklad – žiadne reálne práva ani klient');
     await approvalForm.getByLabel(/Práva na zverejnenie textu a fotografií sú doložené/).check();
     await approvalForm.getByLabel(/Lokalita je bezpečne zovšeobecnená/).check();

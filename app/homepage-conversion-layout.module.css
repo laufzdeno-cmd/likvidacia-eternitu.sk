@@ -241,3 +241,140 @@ main .trustSection:global(.trust-bar) :global(.trust-item) strong {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
+
+.rooferRecommendation {
+  margin-top: -2px;
+  padding: 14px;
+  border: 1px solid #cfe1e9;
+  border-radius: 14px;
+  background: #f4fafc;
+}
+
+.rooferRecommendation label {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  cursor: pointer;
+}
+
+.rooferRecommendation input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: #8f163c;
+}
+
+.rooferRecommendation span {
+  display: grid;
+  gap: 4px;
+}
+
+.rooferRecommendation strong {
+  color: #17324d;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.rooferRecommendation small {
+  color: #52657b;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.rooferHelp {
+  display: grid;
+  grid-template-columns: minmax(0, 0.68fr) minmax(0, 1.32fr);
+  align-items: center;
+  gap: clamp(22px, 4vw, 56px);
+  width: min(1180px, calc(100% - 40px));
+  margin: clamp(32px, 5vw, 64px) auto;
+  padding: clamp(24px, 3.5vw, 38px);
+  border: 1px solid #d9e6ea;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #ffffff 0%, #f5fafb 100%);
+}
+
+.rooferHelpEyebrow {
+  margin: 0 0 8px;
+  color: #8f163c;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rooferHelp h2,
+.rooferHelp h3 {
+  margin: 0;
+  color: #17324d;
+}
+
+.rooferHelp h2 {
+  max-width: 13ch;
+  font-size: clamp(24px, 3vw, 38px);
+  line-height: 1.14;
+}
+
+.rooferHelpGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rooferHelpGrid article {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #d9e6ea;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.rooferHelpGrid h3 {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.rooferHelpGrid p {
+  margin: 0;
+  color: #52657b;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.rooferHelpGrid :global(.button) {
+  justify-self: start;
+  min-height: 44px;
+  margin-top: 2px;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+@media (max-width: 760px) {
+  .rooferHelp {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    width: min(100% - 28px, 680px);
+    padding: 22px 18px;
+    border-radius: 18px;
+  }
+
+  .rooferHelp h2 {
+    max-width: none;
+  }
+
+  .rooferHelpGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rooferHelpGrid article {
+    padding: 18px;
+  }
+
+  .rooferHelpGrid :global(.button) {
+    width: 100%;
+  }
+}

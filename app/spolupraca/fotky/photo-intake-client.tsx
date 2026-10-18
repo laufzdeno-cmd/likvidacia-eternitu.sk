@@ -18,9 +18,12 @@ type Draft = { key: string; file: File; previewUrl: string; previewError?: boole
 type HistoryPhoto = { id: string; originalName: string; locality: string; categories: PhotoCategory[]; status: string; sizeBytes: number; metadataVersion: number };
 
 export function PhotoIntakeLogin() {
+  const [clientReady, setClientReady] = useState(false);
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => setClientReady(true), []);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,10 +45,10 @@ export function PhotoIntakeLogin() {
     }
   }
 
-  return <form className="photo-intake-login" onSubmit={submit}>
+  return <form className="photo-intake-login" data-client-ready={clientReady ? 'true' : 'false'} onSubmit={submit}>
     <label htmlFor="invite-code">Jednorazový prístupový kód</label>
     <input id="invite-code" type="password" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value)} required maxLength={100} />
-    <button type="submit" disabled={busy || code.length < 32}>{busy ? 'Overujem…' : 'Otvoriť nahrávanie'}</button>
+    <button type="submit" disabled={!clientReady || busy || code.length < 32}>{busy ? 'Overujem…' : 'Otvoriť nahrávanie'}</button>
     {message ? <p role="alert">{message}</p> : null}
   </form>;
 }
