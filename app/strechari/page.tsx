@@ -176,17 +176,36 @@ export default function RoofersPage() {
         <section className="roofer-b2b-partner-kit" aria-labelledby="partner-kit-title">
           <div className="roofer-b2b-inner">
             <div className="roofer-b2b-partner-kit-heading">
-              <p className="roofer-b2b-section-eyebrow">Podklady pre schválených partnerov</p>
-              <h2 id="partner-kit-title">Máte s ASTANA potvrdenú spoluprácu?</h2>
-              <p>
-                Texty a grafické podklady poskytujeme individuálne až po overení spolupráce. Samotná registrácia
-                neoprávňuje firmu používať označenie partnera ani logo ASTANA.
-              </p>
+              <p className="roofer-b2b-section-eyebrow">Podklady pre váš web</p>
+              <h2 id="partner-kit-title">SPOLUPRACUJETE S ASTANA? MÔŽETE TO UVIESŤ AJ NA SVOJOM WEBE.</h2>
+              <p>Text, odznak aj logo môžete použiť dobrovoľne. Nejde o certifikát, členstvo ani podmienku spolupráce.</p>
+            </div>
+            <div className="roofer-b2b-partner-kit-grid">
+              <article className="roofer-b2b-copy-card">
+                <h3>Text na web</h3>
+                <p>Pri zákazkách so starým eternitom spolupracujeme so spoločnosťou ASTANA, s.r.o., ktorá rieši odborné odstránenie azbestu, dokumentáciu, balenie a odvoz.</p>
+              </article>
+              <article className="roofer-b2b-copy-card">
+                <h3>Krátka verzia</h3>
+                <p>Likvidáciu eternitu pri našich zákazkách riešime v spolupráci s ASTANA, s.r.o.</p>
+              </article>
+              <article className="roofer-b2b-badge-card">
+                <img src="/assets/astana-logo-dark.png" width="240" height="72" alt="Logo ASTANA, s.r.o." />
+                <strong>SPOLUPRACUJEME S ASTANA</strong>
+                <span>ODSTRAŇOVANIE AZBESTU</span>
+                <small>Partner pre odborné odstránenie azbestu</small>
+              </article>
             </div>
             <div className="roofer-b2b-downloads">
-              <a className="button button-primary" href="#registracia">Požiadať o spoluprácu</a>
-              <a className="button button-outline" href="tel:+421905217946">Overiť partnerstvo telefonicky</a>
+              <a className="button button-outline" href="/downloads/strechari/astana-partner-badge.svg" download>Stiahnuť SVG</a>
+              <a className="button button-outline" href="/downloads/strechari/astana-partner-badge-transparent.png" download>PNG s priehľadným pozadím</a>
+              <a className="button button-outline" href="/downloads/strechari/astana-partner-badge-white.png" download>PNG s bielym pozadím</a>
             </div>
+            <details className="roofer-b2b-html-snippet">
+              <summary>Voliteľný HTML text na vloženie</summary>
+              <p>Odkaz je dobrovoľný; nejde o výmenu odkazov ani o podmienku spolupráce.</p>
+              <pre><code>{`<p>Pri zákazkách so starým eternitom spolupracujeme so spoločnosťou <a href="https://www.astana.sk/">ASTANA, s.r.o.</a>, ktorá rieši odborné odstránenie azbestu, dokumentáciu, balenie a odvoz.</p>`}</code></pre>
+            </details>
           </div>
         </section>
 

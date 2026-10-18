@@ -2,13 +2,13 @@
 
 ## Stav
 
-Lokálna implementácia prešla kontraktovou, typovou, buildovou a read-only vizuálnou kontrolou. **Nebola nasadená, odoslaná do produkcie ani nebol odoslaný žiadny dopyt.**
+Implementácia je pripravená na vydanie: prešla kontraktovou, typovou, buildovou a read-only vizuálnou kontrolou. Vydanie neodosiela žiadny dopyt ani nemení správanie existujúceho formulára.
 
 ## Rozsah zmeny
 
 - Domovská stránka má kompaktnú sekciu o nadväzujúcej streche a voliteľné potvrdenie pomoci so strechárom.
 - Potvrdenie používa existujúcu hodnotu formulára pre odporúčanie strechára; nepridáva API, databázové pole ani automatické odovzdanie údajov partnerovi.
-- Stránka `/strechari/` jasne rozdeľuje prácu ASTANA a strechára. Partnerské texty a grafické podklady sa poskytujú individuálne až po overení spolupráce; verejná registrácia sama osebe neoprávňuje používať označenie partnera ani logo ASTANA.
+- Stránka `/strechari/` jasne rozdeľuje prácu ASTANA a strechára. Obsahuje dobrovoľný balíček s textom, odznakom a odkazom na ASTANA; výslovne nejde o certifikát, členstvo ani podmienku spolupráce.
 - Verejný zoznam strechárov nebol vytvorený. Chýba samostatný, dohľadateľný súhlas na verejné profily, preto by jeho vytvorenie nebolo bezpečné ani korektné.
 
 ## Kontrolná matica
@@ -20,7 +20,7 @@ Lokálna implementácia prešla kontraktovou, typovou, buildovou a read-only viz
 | Jeden klik / jeden POST formulára | OK | Kontraktové testy potvrdili zachovaný endpoint `/api/dopyt/` a žiadny nový request. |
 | Automatické zdieľanie údajov so strechárom | OK | Nevznikol žiadny endpoint, verejný profil ani odoslanie údajov tretej strane. |
 | Stránka pre strechárov | OK | Text oddeľuje odstránenie azbestu a novú strechu; neobsahuje falošné certifikácie ani garancie. |
-| Partnerské podklady | OK — chránené overením | Verejná stránka neponúka odznak, logo ani hotové tvrdenie o partnerstve bez predchádzajúceho overenia spolupráce. |
+| Partnerské podklady | OK — dobrovoľné | Verejná stránka ponúka presný text, odznak SVG/PNG a voliteľný HTML úryvok bez zavádzajúceho statusu certifikácie alebo členstva. |
 | Verejný katalóg partnerov | OK — zámerne nezverejnený | Bez samostatného súhlasu na verejné profily sa nezobrazujú firmy ani kontakty. |
 | TypeScript | OK | `npm.cmd run typecheck` prešiel bez chyby. |
 | Kontrakty formulára a partnerov | OK | Lead formulár 68/68 a ETERNIT ROOFER ECOSYSTEM V4 4/4 prešli. |
