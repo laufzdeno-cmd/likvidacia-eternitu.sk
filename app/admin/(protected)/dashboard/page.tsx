@@ -13,13 +13,13 @@ function pct(part: number, total: number) {
 
 function WorkQueues({ counts }: { counts: { newLeads: number; unassigned: number; followups: number; waiting: number; quote: number; active: number } }) {
   const items = [
-    { href: '/admin/dopyty?queue=new', label: 'Nové dopyty', count: counts.newLeads, note: 'Ešte bez prvého kontaktu' },
-    { href: '/admin/dopyty?queue=unassigned', label: 'Bez vlastníka', count: counts.unassigned, note: 'Treba priradiť zodpovednosť' },
-    { href: '/admin/dopyty?queue=followup', label: 'Follow-up', count: counts.followups, note: 'Dnes alebo po termíne' },
-    { href: '/admin/dopyty?queue=waiting', label: 'Čaká na doplnenie', count: counts.waiting, note: 'Chýbajúce údaje' },
-    { href: '/admin/dopyty?queue=quote', label: 'Na nacenenie', count: counts.quote, note: 'Pripravené na ponuku' },
-    { href: '/admin/dopyty?queue=active', label: 'V spracovaní', count: counts.active, note: 'Kontaktované a rozpracované' },
-  ];
+    { href: '/admin/dopyty?queue=new', label: 'Nové dopyty', count: counts.newLeads, note: 'Ešte bez prvého kontaktu', tone: 'sky', icon: '✦', urgency: 'attention' },
+    { href: '/admin/dopyty?queue=unassigned', label: 'Bez vlastníka', count: counts.unassigned, note: 'Treba priradiť zodpovednosť', tone: 'amber', icon: '◌', urgency: 'high' },
+    { href: '/admin/dopyty?queue=followup', label: 'Follow-up', count: counts.followups, note: 'Dnes alebo po termíne', tone: 'rose', icon: '↻', urgency: 'high' },
+    { href: '/admin/dopyty?queue=waiting', label: 'Čaká na doplnenie', count: counts.waiting, note: 'Chýbajúce údaje', tone: 'teal', icon: '◷', urgency: 'attention' },
+    { href: '/admin/dopyty?queue=quote', label: 'Na nacenenie', count: counts.quote, note: 'Pripravené na ponuku', tone: 'violet', icon: '€', urgency: 'attention' },
+    { href: '/admin/dopyty?queue=active', label: 'V spracovaní', count: counts.active, note: 'Kontaktované a rozpracované', tone: 'indigo', icon: '→', urgency: 'normal' },
+  ] as const;
   return (
     <section className="admin-card admin-work-queues">
       <div className="admin-section-heading">
@@ -27,7 +27,23 @@ function WorkQueues({ counts }: { counts: { newLeads: number; unassigned: number
         <a href="/admin/dopyty">Všetky dopyty</a>
       </div>
       <div className="admin-queue-grid">
-        {items.map((item) => <a className="admin-queue-link" href={item.href} key={item.href}><span>{item.label}</span><strong>{item.count}</strong><small>{item.note}</small></a>)}
+        {items.map((item) => {
+          const urgency = item.count === 0 ? 'clear' : item.urgency;
+          return <a
+            aria-label={`${item.label}: ${item.count}. ${item.note}`}
+            className={`admin-queue-link tone-${item.tone} ${item.count === 0 ? 'is-empty' : 'has-items'} urgency-${urgency}`}
+            href={item.href}
+            key={item.href}
+          >
+            <span className="admin-queue-icon" aria-hidden="true">{item.icon}</span>
+            <span className="admin-queue-content">
+              <span>{item.label}</span>
+              <strong className="admin-queue-count">{item.count}</strong>
+              <small>{item.note}</small>
+            </span>
+            <span className="admin-queue-indicator" aria-hidden="true">{item.count === 0 ? '✓' : urgency === 'high' ? '!' : '→'}</span>
+          </a>;
+        })}
       </div>
     </section>
   );

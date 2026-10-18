@@ -407,6 +407,14 @@ try {
         const definitionLists = [...document.querySelectorAll('.admin-dl')]
           .filter(isRendered)
           .map((element) => getComputedStyle(element).gridTemplateColumns);
+        const queueCards = [...document.querySelectorAll('.admin-queue-link')]
+          .filter(isRendered)
+          .map((card) => ({
+            card: rectOf(card),
+            label: rectOf(card.querySelector('.admin-queue-content > span:first-child')),
+            count: rectOf(card.querySelector('.admin-queue-count')),
+            note: rectOf(card.querySelector('.admin-queue-content > small')),
+          }));
         return {
           viewportWidth: innerWidth,
           documentWidth: root.scrollWidth,
@@ -425,6 +433,7 @@ try {
           offerMain,
           offerSummary,
           definitionLists,
+          queueCards,
         };
       });
       if (viewport.screenshot) {
@@ -440,6 +449,12 @@ try {
         `${routePath} nemá viditeľný H1 v úvodnom výreze: ${JSON.stringify(metrics.h1)}`);
       assert.deepEqual(metrics.escapedControls, [],
         `${routePath} má ovládací prvok mimo hlavného obsahu: ${JSON.stringify(metrics.escapedControls)}`);
+      assert.ok(metrics.queueCards.every(({ card, label, count, note }) => card && label && count && note
+        && label.right <= count.left + 1
+        && note.top >= Math.max(label.bottom, count.bottom) - 1
+        && label.left >= card.left - 1 && count.right <= card.right + 1
+        && note.left >= card.left - 1 && note.right <= card.right + 1),
+      `${routePath} má prekrývajúci sa alebo zle zarovnaný obsah pracovnej fronty: ${JSON.stringify(metrics.queueCards)}`);
       assert.ok(metrics.tableWrappers.every((wrapper) => wrapper.left >= metrics.main.left - 2
         && wrapper.right <= metrics.main.right + 2 && ['auto', 'scroll'].includes(wrapper.overflowX)),
       `${routePath} nemá bezpečne uzavretú posuvnú tabuľku: ${JSON.stringify(metrics.tableWrappers)}`);
