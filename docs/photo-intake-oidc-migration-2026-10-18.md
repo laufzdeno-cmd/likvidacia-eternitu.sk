@@ -8,10 +8,12 @@ Zmena sa týka iba súkromných fotografií z terénu. Nemení verejný formulá
 
 ## Bezpečnostné rozhodnutia
 
-1. Produkcia bude pripravená iba vtedy, keď má `VERCEL_OIDC_TOKEN`, `PHOTO_INTAKE_BLOB_RESOURCE_ID`, overený Private store, zapnutú retenciu a platný kontrolný podpis väzby.
+1. Produkcia bude pripravená iba vtedy, keď má OIDC pripojenie s Vercelom generovaným `PHOTO_INTAKE_BLOB_STORE_ID`, zhodný `PHOTO_INTAKE_BLOB_RESOURCE_ID`, overený Private store, zapnutú retenciu a platný kontrolný podpis väzby. Krátkodobý token dodá Vercel funkcii cez request context.
 2. Väzba úložiska nebude obsahovať alebo vyžadovať načítanie dlhodobého tokenu. Bude vytvorená z identity skutočného databázového endpointu bez prihlasovacích údajov a zo stabilných identifikátorov projektu, databázy a fotoúložiska. Zmena databázového endpointu preto príjem aj retenciu bezpečne vypne.
 3. Pre lokálne a izolované integračné testy zostane explicitný statický token povolený iba mimo produkčného Vercelu. Produkčný Vercel s dlhodobým foto tokenom sa uzavrie.
 4. Každá operácia nad fotografiami dostane explicitné poverenie a store ID. Ostatné Blob použitia projektu sa nemenia.
+   Request-context OIDC token sa odovzdáva SDK explicitne; pri jeho absencii sa
+   operácia odmietne a nikdy nespadne na všeobecný `BLOB_READ_WRITE_TOKEN`.
 5. Existujúce pravidlá zostávajú: Private prístup, sanitizácia obrázka, retenčná fronta, superadmin kontrola a samostatné publikačné potvrdenie.
 
 ## Postup nasadenia
@@ -26,7 +28,7 @@ Zmena sa týka iba súkromných fotografií z terénu. Nemení verejný formulá
 
 - produkčný runtime nevyžaduje `PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN`;
 - produkčný runtime sa bez OIDC poverenia uzavrie;
-- fotooperácie sú explicitne smerované do `PHOTO_INTAKE_BLOB_RESOURCE_ID`;
+- fotooperácie sú explicitne smerované do case-sensitive `PHOTO_INTAKE_BLOB_STORE_ID`, ktorého identita sa musí zhodovať s `PHOTO_INTAKE_BLOB_RESOURCE_ID`;
 - súkromné fotografie nie sú anonymne čitateľné;
 - retenčný worker vie objekt zmazať alebo bezpečne potvrdiť jeho neprítomnosť;
 - upload, sanitizácia, interné schválenie a zverejnenie zostávajú oddelené;

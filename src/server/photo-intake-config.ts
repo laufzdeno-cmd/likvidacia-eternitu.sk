@@ -1,10 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { getVercelOidcTokenSync } from '@vercel/oidc';
 import { deploymentDatabaseIdentity } from './preview-safety';
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
 export type PrivatePhotoIntakeBlobOptions =
-  | { storeId: string; token?: never; oidcToken?: never }
+  | { storeId: string; oidcToken: string; token?: never }
   | { token: string; storeId?: never; oidcToken?: never };
 
 function normalizedBindingResourceId(value: string | undefined) {
@@ -13,8 +14,8 @@ function normalizedBindingResourceId(value: string | undefined) {
 }
 
 function normalizedBlobStoreId(value: string | undefined) {
-  const normalized = value?.trim().replace(/^store_/i, '').toLowerCase() ?? '';
-  return /^[a-z0-9]+$/.test(normalized) ? normalized : '';
+  const normalized = value?.trim().replace(/^store_/i, '') ?? '';
+  return /^[a-z0-9]+$/i.test(normalized) ? normalized : '';
 }
 
 function isProductionVercel(environment: RuntimeEnvironment) {
@@ -27,27 +28,41 @@ export function privatePhotoIntakeStorageBinding(environment: RuntimeEnvironment
   const projectId = environment.VERCEL_PROJECT_ID?.trim();
   const databaseIdentity = deploymentDatabaseIdentity(environment.DATABASE_URL);
   const databaseResourceId = normalizedBindingResourceId(environment.DATABASE_RESOURCE_ID);
-  const photoStoreId = normalizedBlobStoreId(environment.PHOTO_INTAKE_BLOB_RESOURCE_ID);
+  const photoStoreId = normalizedBlobStoreId(environment.PHOTO_INTAKE_BLOB_RESOURCE_ID).toLowerCase();
   if (!projectId || !databaseIdentity || !databaseResourceId || !photoStoreId) return null;
   return createHash('sha256')
     .update(JSON.stringify(['photo-intake-oidc-v2', projectId, databaseIdentity, databaseResourceId, photoStoreId]))
     .digest('hex');
 }
 
+function oidcPhotoStoreId(environment: RuntimeEnvironment) {
+  const providerStoreId = normalizedBlobStoreId(environment.PHOTO_INTAKE_BLOB_STORE_ID);
+  const boundStoreId = normalizedBlobStoreId(environment.PHOTO_INTAKE_BLOB_RESOURCE_ID).toLowerCase();
+  if (!providerStoreId || !boundStoreId || providerStoreId.toLowerCase() !== boundStoreId) return '';
+  const runtimeCanReceiveOidc = Boolean(environment.VERCEL_OIDC_TOKEN?.trim()) || isProductionVercel(environment);
+  return runtimeCanReceiveOidc ? providerStoreId : '';
+}
+
 export function privatePhotoIntakeUsesOidc(environment: RuntimeEnvironment = process.env) {
-  return Boolean(environment.VERCEL_OIDC_TOKEN?.trim()
-    && normalizedBlobStoreId(environment.PHOTO_INTAKE_BLOB_RESOURCE_ID));
+  return Boolean(oidcPhotoStoreId(environment));
 }
 
 export function privatePhotoIntakeBlobOptions(
   environment: RuntimeEnvironment = process.env,
 ): PrivatePhotoIntakeBlobOptions {
-  const storeId = normalizedBlobStoreId(environment.PHOTO_INTAKE_BLOB_RESOURCE_ID);
-  if (environment.VERCEL_OIDC_TOKEN?.trim() && storeId) {
-    // Do not pass the OIDC token itself. The SDK reads and refreshes the
-    // short-lived VERCEL_OIDC_TOKEN while the explicit store id prevents a
-    // fallback to the unrelated default Blob store connected to the project.
-    return { storeId };
+  const storeId = oidcPhotoStoreId(environment);
+  if (storeId) {
+    // Pass the request-context token explicitly. Otherwise the Blob SDK can
+    // silently fall back to the unrelated global BLOB_READ_WRITE_TOKEN.
+    // Vercel guarantees this short-lived token for the lifetime of a function.
+    let oidcToken = '';
+    try {
+      oidcToken = getVercelOidcTokenSync().trim();
+    } catch {
+      // Provider/context details must not escape this bounded configuration API.
+    }
+    if (!oidcToken) throw new Error('Súkromné fotoúložisko nemá platné krátkodobé oprávnenie.');
+    return { storeId, oidcToken };
   }
 
   // A long-lived token is accepted only by local/isolated test tooling. Live

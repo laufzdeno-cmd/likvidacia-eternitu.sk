@@ -63,7 +63,8 @@ test('temporary intake has explicit, bounded status retention windows and daily 
 test('photo intake requires OIDC in production and an exact project/database/store binding', () => {
   const keys = ['BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_BLOB_READ_WRITE_TOKEN', 'PHOTO_INTAKE_PRIVATE_STORE_VERIFIED',
     'PHOTO_INTAKE_RETENTION_BINDING_SHA256', 'PHOTO_INTAKE_ENABLED', 'PHOTO_INTAKE_RETENTION_ENABLED', 'PHOTO_UPLOAD_SESSION_SECRET',
-    'VERCEL', 'VERCEL_ENV', 'VERCEL_TARGET_ENV', 'VERCEL_PROJECT_ID', 'VERCEL_OIDC_TOKEN', 'DATABASE_URL', 'DATABASE_RESOURCE_ID', 'PHOTO_INTAKE_BLOB_RESOURCE_ID'];
+    'VERCEL', 'VERCEL_ENV', 'VERCEL_TARGET_ENV', 'VERCEL_PROJECT_ID', 'VERCEL_OIDC_TOKEN', 'DATABASE_URL', 'DATABASE_RESOURCE_ID',
+    'PHOTO_INTAKE_BLOB_RESOURCE_ID', 'PHOTO_INTAKE_BLOB_STORE_ID'];
   const before = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   try {
     for (const key of keys) delete process.env[key];
@@ -101,10 +102,16 @@ test('photo intake requires OIDC in production and an exact project/database/sto
     process.env.VERCEL_TARGET_ENV = 'production';
     assert.equal(privatePhotoIntakeStorageReady(), false, 'a long-lived token must never authorize live Production');
     assert.throws(() => privatePhotoIntakeBlobOptions(), /krátkodobé oprávnenie/);
-    process.env.VERCEL_OIDC_TOKEN = 'short-lived-oidc-token';
+    process.env.PHOTO_INTAKE_BLOB_STORE_ID = 'store_PhotoTest';
     assert.equal(privatePhotoIntakeStorageReady(), true);
     assert.equal(privatePhotoIntakeEnabled(), true);
-    assert.deepEqual(privatePhotoIntakeBlobOptions(), { storeId: 'phototest' });
+    assert.throws(() => privatePhotoIntakeBlobOptions(), /krátkodobé oprávnenie/,
+      'missing request-context OIDC must fail instead of falling back to BLOB_READ_WRITE_TOKEN');
+    process.env.VERCEL_OIDC_TOKEN = 'short-lived-oidc-token';
+    assert.deepEqual(privatePhotoIntakeBlobOptions(), { storeId: 'PhotoTest', oidcToken: 'short-lived-oidc-token' });
+    process.env.PHOTO_INTAKE_BLOB_STORE_ID = 'store_DifferentPhotoStore';
+    assert.equal(privatePhotoIntakeStorageReady(), false, 'the generated OIDC store must match the bound private store');
+    assert.throws(() => privatePhotoIntakeBlobOptions(), /krátkodobé oprávnenie/);
   } finally {
     for (const [key, value] of Object.entries(before)) {
       if (value === undefined) delete process.env[key]; else process.env[key] = value;
@@ -118,6 +125,7 @@ test('sample environment documents the complete fail-closed private photo intake
   assert.match(envExample, /Produkcia používa krátkodobý VERCEL_OIDC_TOKEN/);
   assert.match(envExample, /^DATABASE_RESOURCE_ID=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_BLOB_RESOURCE_ID=$/m);
+  assert.match(envExample, /^PHOTO_INTAKE_BLOB_STORE_ID=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_PRIVATE_STORE_VERIFIED=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_RETENTION_BINDING_SHA256=$/m);
   assert.match(envExample, /^PHOTO_INTAKE_RETENTION_ENABLED=$/m);

@@ -35,6 +35,7 @@ function readyEnvironment() {
     CRON_SECRET: 'cron-secret',
     GOOGLE_MAPS_API_KEY: 'maps-key',
     PHOTO_INTAKE_BLOB_RESOURCE_ID: 'store_photoproduction',
+    PHOTO_INTAKE_BLOB_STORE_ID: 'store_PhotoProduction',
     PHOTO_INTAKE_PRIVATE_STORE_VERIFIED: 'true',
     PHOTO_INTAKE_RETENTION_ENABLED: 'true',
     PHOTO_INTAKE_ENABLED: 'true',
