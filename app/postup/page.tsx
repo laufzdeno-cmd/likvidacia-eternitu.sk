@@ -265,9 +265,10 @@ export default function ProcessPage() {
             </p>
             <p>Práce plánujeme v pracovných dňoch od 8:00 do 18:00. Pri výmene strechy konkrétny čas nástupu dohodneme podľa lokality, počasia a nadväznosti so strechárom.</p>
             <p>
-              Ak strechára ešte nemáte, uveďte to vo formulári. Podľa regiónu a kapacity preveríme možnosť odporučiť spolupracujúceho strechára;
-              rozhodnutie a dohoda o strechárskej práci sú vždy priamo medzi vami a strechárom. ASTANA ponúka aj strechy a krovy;
-              konkrétny rozsah a zodpovedného dodávateľa si potvrdíme v cenovej ponuke.
+              Ak strechára ešte nemáte, uveďte to vo formulári. ASTANA ponúka aj strechy a krovy: ak vám strechársku prácu nacení ASTANA,
+              dodávateľa, rozsah aj podmienky uvedie vo vlastnej cenovej ponuke a dohodu uzatvoríte s ASTANA, s.r.o. Ak podľa regiónu a kapacity
+              odporučíme samostatného spolupracujúceho strechára, jeho vlastnú cenovú ponuku, dohodu a zodpovednosť za strechársku prácu riešite
+              priamo s ním. Ak už máte vlastného strechára, zosúladíme len nadväznosť prác.
             </p>
           </div>
           <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>

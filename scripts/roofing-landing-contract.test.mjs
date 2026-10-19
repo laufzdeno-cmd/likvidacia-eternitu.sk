@@ -14,6 +14,10 @@ test('strešná reklamná cesta má stabilný odkaz na koordináciu s pokrývač
   assert.match(page, /<p className="postup-process-column-label">Strechár<\/p>/);
   assert.match(page, /svoju cenovú ponuku, zmluvu a záruku priamo so zákazníkom/);
   assert.match(page, /ASTANA ponúka aj strechy a krovy/);
+  assert.match(page, /ak vám strechársku prácu nacení ASTANA/);
+  assert.match(page, /dohodu uzatvoríte s ASTANA, s.r.o./);
+  assert.match(page, /zodpovednosť za strechársku prácu riešite\s+priamo s ním/);
+  assert.match(page, /Ak už máte vlastného strechára, zosúladíme len nadväznosť prác/);
   assert.match(company, /Centrálna firemná stránka ASTANA uvádza strechy a krovy/);
   assert.match(company, /https:\/\/www\.astana\.sk\/Strechy-krovy/);
   assert.match(llms, /potvrdených služieb \[strechy a krovy\]/);
