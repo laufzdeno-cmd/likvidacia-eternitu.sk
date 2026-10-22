@@ -139,9 +139,12 @@ export async function clearPendingTwoFactor() {
   cookieStore.delete(pendingTwoFactorCookieName);
 }
 
-export async function setPendingBackupCodes(codes: string[]) {
+export async function setPendingBackupCodes(codes: string[], email: string, sessionEpoch: number) {
+  if (!Number.isSafeInteger(sessionEpoch) || sessionEpoch < 0) throw new Error('Invalid admin session epoch.');
   const cookieStore = await cookies();
-  cookieStore.set(backupCodesCookieName, encodeSignedJson({ codes, iat: Date.now() }), {
+  cookieStore.set(backupCodesCookieName, encodeSignedJson({
+    codes, email: email.trim().toLowerCase(), sessionEpoch, iat: Date.now(),
+  }), {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -150,13 +153,20 @@ export async function setPendingBackupCodes(codes: string[]) {
   });
 }
 
-export async function consumePendingBackupCodes() {
+export async function consumePendingBackupCodes(email: string, sessionEpoch: number) {
   const cookieStore = await cookies();
-  const pending = decodeSignedJson<{ codes?: string[]; iat?: number }>(cookieStore.get(backupCodesCookieName)?.value);
+  const pending = decodeSignedJson<{ codes?: string[]; email?: string; sessionEpoch?: number; iat?: number }>(
+    cookieStore.get(backupCodesCookieName)?.value,
+  );
   cookieStore.delete(backupCodesCookieName);
-  if (!pending?.codes?.length || !pending.iat) return [];
+  if (!pending?.codes?.length || !pending.iat || pending.email !== email.trim().toLowerCase()
+    || pending.sessionEpoch !== sessionEpoch) return [];
   if (Date.now() - pending.iat > 1000 * 60 * 10) return [];
   return pending.codes;
+}
+
+export async function clearPendingBackupCodes() {
+  (await cookies()).delete(backupCodesCookieName);
 }
 
 export async function currentAdminUser(): Promise<Pick<AdminUser, 'email' | 'name' | 'role' | 'active' | 'sessionEpoch'> | null> {

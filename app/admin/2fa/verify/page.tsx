@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createGuestCsrfToken, currentPendingTwoFactorUser } from '@/src/server/auth';
+import { isTwoFactorRequired } from '@/src/server/two-factor';
 import { verifyTwoFactorLoginAction } from '../actions';
 
 export const metadata = {
@@ -10,6 +11,7 @@ export const metadata = {
 export default async function TwoFactorVerifyPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
   const user = await currentPendingTwoFactorUser();
   if (!user?.active) redirect('/admin/login');
+  if (!isTwoFactorRequired(user.role)) redirect('/admin/login');
   if (!user.twoFactorEnabled) redirect('/admin/2fa/setup');
   const params = await searchParams;
   const csrfToken = await createGuestCsrfToken();

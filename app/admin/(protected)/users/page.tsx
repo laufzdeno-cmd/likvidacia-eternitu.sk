@@ -86,9 +86,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
                   <p>
                     {user.role === 'SUPER_ADMIN'
                       ? 'Povinné pre superadmina.'
-                      : user.twoFactorEnabled
-                        ? 'Operátor ho má aktívne.'
-                        : 'Operátor ho nemá nastavené. Môže si ho zapnúť vo svojom profile.'}
+                      : 'Pre operátora je vypnuté. Staré nastavenie 2FA možno vymazať tlačidlom nižšie.'}
                   </p>
                 </div>
                 {(user.twoFactorEnabled || user.twoFactorSecret) && user.email !== actor.email ? (

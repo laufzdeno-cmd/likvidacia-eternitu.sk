@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
-import { clearAdminSession, verifyCsrf } from '@/src/server/auth';
+import { clearAdminSession, clearPendingBackupCodes, clearPendingTwoFactor, verifyCsrf } from '@/src/server/auth';
 
 export async function POST(request: Request) {
   await verifyCsrf(await request.formData());
+  await clearPendingBackupCodes();
+  await clearPendingTwoFactor();
   await clearAdminSession();
   return NextResponse.redirect(new URL('/admin/login', request.url), { status: 303 });
 }

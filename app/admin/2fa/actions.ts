@@ -3,10 +3,13 @@
 import { redirect } from 'next/navigation';
 import {
   clearPendingTwoFactor,
+  consumePendingBackupCodes,
   currentPendingTwoFactorUser,
   currentTwoFactorSetupUser,
+  requireAdminUser,
   setAdminSession,
   setPendingBackupCodes,
+  verifyCsrf,
   verifyGuestCsrf,
 } from '@/src/server/auth';
 import {
@@ -32,6 +35,7 @@ export async function confirmTwoFactorSetupAction(formData: FormData) {
   await verifyGuestCsrf(formData);
   const user = await currentTwoFactorSetupUser();
   if (!user?.active || !user.twoFactorSecret || user.twoFactorEnabled) redirect('/admin/login');
+  if (!isTwoFactorRequired(user.role)) redirect('/admin/login');
   const limitState = await twoFactorLimitState(user.email);
   if (limitState === 'limited') redirect('/admin/2fa/setup?error=limited');
   if (limitState === 'unavailable') redirect('/admin/2fa/setup?error=unavailable');
@@ -45,16 +49,35 @@ export async function confirmTwoFactorSetupAction(formData: FormData) {
   const backupCodes = generateBackupCodes();
   const enabled = await enableAdminUserTwoFactor(user.email, hashBackupCodes(backupCodes), timeStep, user.twoFactorSecret, user.email, user.sessionEpoch);
   if (!enabled) redirect('/admin/2fa/setup?error=1');
-  await setPendingBackupCodes(backupCodes);
+  await setPendingBackupCodes(backupCodes, enabled.email, enabled.sessionEpoch);
   await clearPendingTwoFactor();
   await setAdminSession(enabled.email, enabled.sessionEpoch);
   redirect('/admin/2fa/backup-codes');
+}
+
+export type BackupCodesRevealState = { codes: string[]; error: string };
+
+export async function revealPendingBackupCodesAction(
+  _previous: BackupCodesRevealState,
+  formData: FormData,
+): Promise<BackupCodesRevealState> {
+  await verifyCsrf(formData);
+  const user = await requireAdminUser();
+  if (user.role !== 'SUPER_ADMIN') return { codes: [], error: 'Záložné kódy sú určené len superadminovi.' };
+  const codes = await consumePendingBackupCodes(user.email, user.sessionEpoch);
+  return codes.length
+    ? { codes, error: '' }
+    : { codes: [], error: 'Kódy už boli zobrazené alebo ich platnosť vypršala. Vytvorte nové 2FA nastavenie.' };
 }
 
 export async function verifyTwoFactorLoginAction(formData: FormData) {
   await verifyGuestCsrf(formData);
   const user = await currentPendingTwoFactorUser();
   if (!user?.active) redirect('/admin/login');
+  if (!isTwoFactorRequired(user.role)) {
+    await clearPendingTwoFactor();
+    redirect('/admin/login');
+  }
   const limitState = await twoFactorLimitState(user.email);
   if (limitState === 'limited') redirect('/admin/2fa/verify?error=limited');
   if (limitState === 'unavailable') redirect('/admin/2fa/verify?error=unavailable');

@@ -4,10 +4,35 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
-test('2FA is mandatory for superadmins and optional for operators', async () => {
+test('2FA is mandatory only for superadmins and is not offered to operators', async () => {
   const { isTwoFactorRequired } = await import('../src/server/two-factor.ts');
   assert.equal(isTwoFactorRequired('SUPER_ADMIN'), true);
   assert.equal(isTwoFactorRequired('OPERATOR'), false);
+  const login = await read('../app/admin/login/submit/route.ts');
+  const setup = await read('../app/admin/2fa/setup/page.tsx');
+  const verify = await read('../app/admin/2fa/verify/page.tsx');
+  const profile = await read('../app/admin/(protected)/profil/page.tsx');
+  assert.match(login, /if \(!user\.localDevelopmentFallback && isTwoFactorRequired\(user\.role\)\)/);
+  assert.doesNotMatch(login, /\|\| user\.twoFactorEnabled/);
+  assert.match(login, /await clearPendingTwoFactor\(\);\s*await setAdminSession/);
+  assert.match(login, /await clearPendingBackupCodes\(\);\s*if \(!user\.localDevelopmentFallback/);
+  assert.match(setup, /if \(!isTwoFactorRequired\(user\.role\)\) redirect\('\/admin\/dopyty'\)/);
+  assert.match(verify, /if \(!isTwoFactorRequired\(user\.role\)\) redirect\('\/admin\/login'\)/);
+  assert.match(profile, /Len pre superadmina/);
+});
+
+test('backup codes are account-bound and consumed only in a server action', async () => {
+  const auth = await read('../src/server/auth.ts');
+  const actions = await read('../app/admin/2fa/actions.ts');
+  const page = await read('../app/admin/2fa/backup-codes/page.tsx');
+  const reveal = await read('../app/admin/2fa/backup-codes/reveal.tsx');
+  const logout = await read('../app/admin/logout/route.ts');
+  assert.match(auth, /encodeSignedJson\(\{\s*codes, email: email\.trim\(\)\.toLowerCase\(\), sessionEpoch, iat: Date\.now\(\)/);
+  assert.match(auth, /pending\.email !== email\.trim\(\)\.toLowerCase\(\)[\s\S]{0,100}pending\.sessionEpoch !== sessionEpoch/);
+  assert.doesNotMatch(page, /consumePendingBackupCodes|\.delete\(/);
+  assert.match(actions, /revealPendingBackupCodesAction[\s\S]*?verifyCsrf\(formData\)[\s\S]*?requireAdminUser\(\)[\s\S]*?consumePendingBackupCodes\(user\.email, user\.sessionEpoch\)/);
+  assert.match(reveal, /useActionState\(revealPendingBackupCodesAction, initialState\)/);
+  assert.match(logout, /await clearPendingBackupCodes\(\)/);
 });
 
 test('TOTP login consumes its matched database time step before an admin session is issued', async () => {
@@ -75,7 +100,7 @@ test('login and 2FA retain the verified account generation across async operatio
   const db = await read('../src/server/db.ts');
   assert.match(login, /const user = await authenticateAdminCredentials\(email, password\)/);
   assert.doesNotMatch(login, /getAdminUserByEmail|verifyAdminCredentials/);
-  assert.match(login, /if \(!user\.localDevelopmentFallback && \(isTwoFactorRequired\(user\.role\) \|\| user\.twoFactorEnabled\)\)/);
+  assert.match(login, /if \(!user\.localDevelopmentFallback && isTwoFactorRequired\(user\.role\)\)/);
   const authenticate = auth.slice(auth.indexOf('export async function authenticateAdminCredentials('), auth.indexOf('export async function verifyAdminCredentials('));
   assert.equal((authenticate.match(/getAdminUserByEmail\(/g) || []).length, 1);
   assert.match(authenticate, /sessionEpoch: dbUser\.sessionEpoch/);

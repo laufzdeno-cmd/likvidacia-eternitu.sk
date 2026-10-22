@@ -4,8 +4,8 @@ import { getAdminUserByEmail } from '@/src/server/db';
 export default async function AdminProfilePage() {
   const sessionUser = await requireAdminUser();
   const user = await getAdminUserByEmail(sessionUser.email);
-  const twoFactorEnabled = Boolean(user?.twoFactorEnabled);
   const twoFactorRequired = sessionUser.role === 'SUPER_ADMIN';
+  const twoFactorEnabled = twoFactorRequired && Boolean(user?.twoFactorEnabled);
 
   return (
     <main className="admin-page">
@@ -23,16 +23,16 @@ export default async function AdminProfilePage() {
         <p>
           2FA:{' '}
           <strong>
-            {twoFactorRequired ? 'Povinné' : twoFactorEnabled ? 'Aktívne' : 'Voliteľné'}
+            {twoFactorRequired ? 'Povinné' : 'Len pre superadmina'}
           </strong>
         </p>
-        {!twoFactorEnabled ? (
+        {twoFactorRequired && !twoFactorEnabled ? (
           <a className="admin-primary-button" href="/admin/2fa/setup">
             Zapnúť 2FA
           </a>
-        ) : (
+        ) : twoFactorRequired ? (
           <p className="status-pill">2FA je aktívne</p>
-        )}
+        ) : null}
       </section>
     </main>
   );

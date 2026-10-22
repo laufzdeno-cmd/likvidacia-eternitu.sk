@@ -13,6 +13,7 @@ export const metadata = {
 export default async function TwoFactorSetupPage({ searchParams }: { searchParams?: Promise<{ error?: string }> }) {
   let user = await currentTwoFactorSetupUser();
   if (!user?.active) redirect('/admin/login');
+  if (!isTwoFactorRequired(user.role)) redirect('/admin/dopyty');
   if (user.twoFactorEnabled) redirect('/admin/dopyty');
 
   if (!user.twoFactorSecret) {

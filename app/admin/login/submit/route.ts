@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticateAdminCredentials, setAdminSession, setPendingTwoFactor, verifyGuestCsrf } from '@/src/server/auth';
+import { authenticateAdminCredentials, clearPendingBackupCodes, clearPendingTwoFactor, setAdminSession, setPendingTwoFactor, verifyGuestCsrf } from '@/src/server/auth';
 import { isTwoFactorRequired } from '@/src/server/two-factor';
 import { consumeSharedRateLimit, trustedRateLimitClientIp } from '@/src/server/shared-rate-limit';
 
@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
   }
 
   const normalizedEmail = user.email;
-  if (!user.localDevelopmentFallback && (isTwoFactorRequired(user.role) || user.twoFactorEnabled)) {
+  await clearPendingBackupCodes();
+  if (!user.localDevelopmentFallback && isTwoFactorRequired(user.role)) {
     await setPendingTwoFactor(normalizedEmail, user.sessionEpoch);
     if (!user.twoFactorEnabled) {
       return NextResponse.redirect(new URL('/admin/2fa/setup', request.url), { status: 303 });
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL('/admin/2fa/verify', request.url), { status: 303 });
   }
 
+  await clearPendingTwoFactor();
   await setAdminSession(normalizedEmail, user.sessionEpoch);
   return NextResponse.redirect(new URL('/admin/dopyty', request.url), { status: 303 });
 }
