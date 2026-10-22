@@ -2,7 +2,11 @@ import { createHash } from 'node:crypto';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import { calculatePriceOfferPricing } from '@/src/lib/price-offer-pricing';
 import { priceOfferEmailHtml, priceOfferEmailText } from './mail';
-import type { PriceOffer, PriceOfferSettings } from './types';
+import type { LeadStatus, PriceOffer, PriceOfferSettings } from './types';
+
+export function isPriceOfferLeadStatusOpen(status: LeadStatus | undefined) {
+  return Boolean(status && !['nevyslo', 'zrusena', 'archivovane'].includes(status));
+}
 
 export type PriceOfferPreflightItem = {
   code: string;
@@ -17,6 +21,7 @@ export type PriceOfferPreflight = {
 export type PriceOfferPreflightOptions = {
   linkedJobAvailable?: boolean;
   linkedJobIsTestData?: boolean;
+  linkedLeadActive?: boolean;
   expectedStatus?: PriceOffer['status'];
   now?: Date;
 };
@@ -49,6 +54,7 @@ export function evaluatePriceOfferPreflight(
   if (offer.isTestData) blockers.push({ code: 'test_offer', message: 'Testovaciu cenovú ponuku nemožno odoslať zákazníkovi.' });
   if (offer.jobId && options.linkedJobAvailable === false) blockers.push({ code: 'parent_job_unavailable', message: 'Prepojená zákazka už nie je aktívna. Najprv skontrolujte zdroj ponuky.' });
   if (offer.jobId && options.linkedJobIsTestData) blockers.push({ code: 'parent_job_test', message: 'Prepojená zákazka je označená ako testovacia. Ponuku nemožno odoslať.' });
+  if (options.linkedLeadActive === false) blockers.push({ code: 'parent_lead_closed', message: 'Prepojený dopyt je uzavretý alebo zrušený. Ponuku nemožno odoslať.' });
   if (!isValidIsoCalendarDate(offer.validUntil) || offer.validUntil < today) blockers.push({ code: 'offer_expired', message: 'Platnosť ponuky uplynula. Pred odoslaním vytvorte aktuálnu verziu.' });
   else if (offer.validUntil <= nearExpiry) warnings.push({ code: 'offer_near_expiry', message: 'Platnosť ponuky končí najneskôr do dvoch dní.' });
   if (!offer.contactPerson.trim()) blockers.push({ code: 'missing_contact', message: 'Chýba kontaktná osoba.' });
@@ -74,7 +80,7 @@ export function evaluatePriceOfferPreflight(
 export function priceOfferApprovalFingerprint(
   offer: PriceOffer,
   settings: PriceOfferSettings,
-  options: Pick<PriceOfferPreflightOptions, 'linkedJobAvailable' | 'linkedJobIsTestData'> = {},
+  options: Pick<PriceOfferPreflightOptions, 'linkedJobAvailable' | 'linkedJobIsTestData' | 'linkedLeadActive'> = {},
 ) {
   const approvedSnapshot = {
     id: offer.id,
@@ -84,6 +90,7 @@ export function priceOfferApprovalFingerprint(
     isTestData: Boolean(offer.isTestData),
     linkedJobAvailable: offer.jobId ? options.linkedJobAvailable !== false : true,
     linkedJobIsTestData: offer.jobId ? Boolean(options.linkedJobIsTestData) : false,
+    linkedLeadActive: options.linkedLeadActive !== false,
     number: offer.number,
     validUntil: offer.validUntil,
     objectType: offer.objectType,

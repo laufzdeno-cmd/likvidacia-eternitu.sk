@@ -1,4 +1,4 @@
-import { getSystemHealth } from '@/src/server/db';
+import { getApplicationNotificationHealth, getSystemHealth } from '@/src/server/db';
 import { requireSuperAdmin } from '@/src/server/auth';
 
 function healthClass(ok: boolean) {
@@ -13,7 +13,27 @@ function featureClass(level: 'ok' | 'warning' | 'disabled') {
 
 export default async function AdminHealthPage() {
   await requireSuperAdmin();
-  const health = await getSystemHealth();
+  const [healthResult, notificationResult] = await Promise.allSettled([
+    getSystemHealth(),
+    getApplicationNotificationHealth(),
+  ]);
+
+  if (healthResult.status === 'rejected') {
+    return (
+      <main className="admin-page">
+        <div className="admin-heading"><h1>Kontrola systému</h1></div>
+        <section className="admin-card health-warn">
+          <h2>Diagnostika je nedostupná</h2>
+          <p>Stav systému sa momentálne nepodarilo overiť. Skúste to neskôr.</p>
+        </section>
+      </main>
+    );
+  }
+
+  const health = healthResult.value;
+  const applicationNotifications = health.database.ok && notificationResult.status === 'fulfilled'
+    ? notificationResult.value
+    : null;
 
   return (
     <main className="admin-page">
@@ -32,8 +52,8 @@ export default async function AdminHealthPage() {
         </article>
         <article className={healthClass(health.database.ok)}>
           <span>Databáza</span>
-          <strong>{health.database.ok ? 'OK' : 'Pozor'}</strong>
-          <small>{health.database.detail}</small>
+          <strong>{health.database.ok ? 'OK' : 'Nedostupné'}</strong>
+          <small>{health.database.ok ? health.database.detail : 'Stav databázy sa momentálne nepodarilo overiť.'}</small>
         </article>
         <article className={healthClass(health.storage.ok)}>
           <span>Storage</span>
@@ -50,6 +70,43 @@ export default async function AdminHealthPage() {
           <strong>{health.buildCommit.slice(0, 8)}</strong>
           <small>{health.buildCommit}</small>
         </article>
+      </section>
+
+      <section className="admin-card">
+        <div className="admin-section-heading">
+          <div>
+            <p>Bez automatického opakovaného odoslania pri neistom výsledku</p>
+            <h2>Notifikácie uchádzačov a strechárov</h2>
+          </div>
+        </div>
+        <div className="admin-stat-grid health-grid">
+          {applicationNotifications ? (
+            <>
+              <article className={applicationNotifications.pending ? 'health-caution' : 'health-ok'}>
+                <span>Čakajúce</span><strong>{applicationNotifications.pending}</strong>
+                <small>Správy pripravené na ďalší pokus.</small>
+              </article>
+              <article className={applicationNotifications.failed ? 'health-warn' : 'health-ok'}>
+                <span>Neúspešné</span><strong>{applicationNotifications.failed}</strong>
+                <small>Skontrolujte stav pri konkrétnom uchádzačovi alebo strechárovi.</small>
+              </article>
+              <article className={applicationNotifications.unknown ? 'health-warn' : 'health-ok'}>
+                <span>Neisté doručenie</span><strong>{applicationNotifications.unknown}</strong>
+                <small>Najprv overte poštu. Systém ich automaticky neposiela znovu.</small>
+              </article>
+              <article className={applicationNotifications.staleSending ? 'health-warn' : 'health-ok'}>
+                <span>Prerušené odosielanie</span><strong>{applicationNotifications.staleSending}</strong>
+                <small>Po prekročení limitu sa označí ako neistý výsledok.</small>
+              </article>
+            </>
+          ) : (
+            <article className="health-warn">
+              <span>Stav notifikácií</span>
+              <strong>Nedostupné</strong>
+              <small>Počty čakajúcich a neúspešných správ sa momentálne nedajú overiť.</small>
+            </article>
+          )}
+        </div>
       </section>
 
       <section className="admin-card">

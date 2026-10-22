@@ -60,3 +60,16 @@ test('po atómovom claime preflight prijme iba očakávaný stav odosielania', (
     now: new Date('2026-10-15T10:00:00+02:00'),
   }).blockers.some((item) => item.code === 'test_offer'), true);
 });
+
+test('uzavretý dopyt zablokuje odoslanie a zneplatní predchádzajúce schválenie', () => {
+  const prepared = offer({ leadId: '00000000-0000-4000-a000-000000000099' });
+  const result = evaluatePriceOfferPreflight(prepared, {
+    linkedLeadActive: false,
+    now: new Date('2026-10-15T10:00:00+02:00'),
+  });
+  assert.ok(result.blockers.some((item) => item.code === 'parent_lead_closed'));
+  assert.notEqual(
+    priceOfferApprovalFingerprint(prepared, settings, { linkedLeadActive: true }),
+    priceOfferApprovalFingerprint(prepared, settings, { linkedLeadActive: false }),
+  );
+});

@@ -4,6 +4,12 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(path, import.meta.url), 'utf8');
 
+test('2FA is mandatory for superadmins and optional for operators', async () => {
+  const { isTwoFactorRequired } = await import('../src/server/two-factor.ts');
+  assert.equal(isTwoFactorRequired('SUPER_ADMIN'), true);
+  assert.equal(isTwoFactorRequired('OPERATOR'), false);
+});
+
 test('TOTP login consumes its matched database time step before an admin session is issued', async () => {
   const action = await read('../app/admin/2fa/actions.ts');
   const login = action.slice(action.indexOf('export async function verifyTwoFactorLoginAction'));

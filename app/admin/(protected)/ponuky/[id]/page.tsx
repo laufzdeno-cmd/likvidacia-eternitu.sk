@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
-import { getPriceOffer, getPriceOfferSettings, listOperationalBusinessJobs } from '@/src/server/db';
+import { getLeadWithFiles, getPriceOffer, getPriceOfferSettings, listOperationalBusinessJobs } from '@/src/server/db';
 import { toPriceOfferJobOption } from '@/src/lib/price-offer-job-option';
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import { priceOfferEmailText } from '@/src/server/mail';
-import { evaluatePriceOfferPreflight, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
+import { evaluatePriceOfferPreflight, isPriceOfferLeadStatusOpen, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
 import { dateInBratislava } from '@/src/server/analytics-metrics';
 import { confirmPreparedPriceOfferSentExternallyAction, confirmUncertainPriceOfferSentAction, resetUncertainPriceOfferSendAction, resolvePriceOfferCustomerResponseAction, savePriceOfferAction, sendPriceOfferAction, updatePriceOfferStatusAction } from '../actions';
 import PriceOfferForm from '../offer-form';
@@ -51,9 +51,12 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
   if (!offer) notFound();
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const linkedJob = offer.jobId ? jobs.find((job) => job.id === offer.jobId) : undefined;
+  const linkedLeadId = offer.leadId || linkedJob?.leadId;
+  const linkedLead = linkedLeadId ? await getLeadWithFiles(linkedLeadId) : null;
   const preflightContext = {
-    linkedJobAvailable: !offer.jobId || Boolean(linkedJob),
+    linkedJobAvailable: !offer.jobId || Boolean(linkedJob && linkedJob.status !== 'ZRUSENA'),
     linkedJobIsTestData: Boolean(linkedJob?.isTestData),
+    linkedLeadActive: !linkedLeadId || isPriceOfferLeadStatusOpen(linkedLead?.status),
   };
   const preflight = evaluatePriceOfferPreflight(offer, preflightContext);
   const approvalFingerprint = priceOfferApprovalFingerprint(offer, settings, preflightContext);

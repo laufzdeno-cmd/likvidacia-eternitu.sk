@@ -69,6 +69,125 @@ try {
   await startDatabase();
   db = await import('../src/server/db.ts');
 
+  const testSource = await createParents('PgTestSource');
+  await db.setLeadTestData(testSource.leadId, true, 'qa-operator@example.invalid', 'Testovacie CRM údaje');
+  const testJobOffer = await db.savePriceOffer(offerInput(testSource), 'qa-operator@example.invalid');
+  const testDirectOffer = await db.savePriceOffer(offerInput(testSource, false), 'qa-operator@example.invalid');
+  assert.equal(testJobOffer.isTestData, false, 'klasifikácia zdroja zostáva opraviteľná');
+  assert.equal(testDirectOffer.isTestData, false, 'klasifikácia zdroja zostáva opraviteľná');
+  const storedTestOffers = await pglite.query('SELECT is_test_data FROM price_offers WHERE id = ANY($1::uuid[])', [[testJobOffer.id, testDirectOffer.id]]);
+  assert.deepEqual(storedTestOffers.rows.map((row) => row.is_test_data), [false, false]);
+  assert.equal(await db.claimPriceOfferForSending(testJobOffer.id, 'qa-operator@example.invalid'), null);
+  assert.equal(await db.claimPriceOfferForSending(testDirectOffer.id, 'qa-operator@example.invalid'), null);
+
+  const lateTestSource = await createParents('PgLateTestSource');
+  const lateJobOffer = await db.savePriceOffer(offerInput(lateTestSource), 'qa-operator@example.invalid');
+  const lateDirectOffer = await db.savePriceOffer(offerInput(lateTestSource, false), 'qa-operator@example.invalid');
+  assert.equal(lateJobOffer.isTestData, false);
+  assert.equal(lateDirectOffer.isTestData, false);
+  await db.setLeadTestData(lateTestSource.leadId, true, 'qa-operator@example.invalid', 'Testovacie CRM údaje');
+  const lateStoredOffers = await pglite.query('SELECT is_test_data FROM price_offers WHERE id = ANY($1::uuid[])',
+    [[lateJobOffer.id, lateDirectOffer.id]]);
+  assert.deepEqual(lateStoredOffers.rows.map((row) => row.is_test_data), [false, false],
+    'neskoršie označenie dopytu nemení opraviteľnú klasifikáciu ponúk');
+  for (const offer of [lateJobOffer, lateDirectOffer]) {
+    assert.equal(await db.claimPriceOfferForSending(offer.id, 'qa-operator@example.invalid'), null,
+      'ponuka vytvorená pred označením dopytu za test sa nesmie odoslať');
+  }
+  await db.setLeadTestData(lateTestSource.leadId, false, 'qa-operator@example.invalid', 'Testovacie CRM údaje');
+  const correctedClaim = await db.claimPriceOfferForSending(lateDirectOffer.id, 'qa-operator@example.invalid');
+  assert.ok(correctedClaim?.sendAttemptId, 'oprava klasifikácie dopytu vráti pripravenú ponuku do odosielateľného stavu');
+  await db.finishPriceOfferSending(lateDirectOffer.id, correctedClaim.sendAttemptId, 'not_sent', 'qa-operator@example.invalid');
+
+  const competing = await createParents('PgCompeting');
+  const competingFirst = await db.savePriceOffer(offerInput(competing), 'qa-operator@example.invalid');
+  const competingSecond = await db.savePriceOffer(offerInput(competing), 'qa-operator@example.invalid');
+  for (const offer of [competingFirst, competingSecond]) {
+    const claim = await db.claimPriceOfferForSending(offer.id, 'qa-operator@example.invalid');
+    await db.finishPriceOfferSending(offer.id, claim.sendAttemptId, 'sent', 'qa-operator@example.invalid');
+  }
+  await db.updatePriceOfferStatus(competingFirst.id, 'NEUSPESNA', 'qa-operator@example.invalid', { reason: 'Zákazník uprednostnil druhú ponuku.' });
+  assert.deepEqual(await statuses(competing), { lead: 'cenova_ponuka_odoslana', job: 'PONUKA_ODOSLANA' },
+    'neúspech jednej ponuky nesmie uzavrieť rodičov s ďalšou aktívnou ponukou');
+  await db.updatePriceOfferStatus(competingSecond.id, 'NEUSPESNA', 'qa-operator@example.invalid', { reason: 'Zákazník odmietol aj druhú ponuku.' });
+  assert.deepEqual(await statuses(competing), { lead: 'nevyslo', job: 'ZRUSENA' },
+    'posledná neúspešná ponuka môže uzavrieť rodičov');
+  await assert.rejects(db.savePriceOffer(offerInput(competing), 'qa-operator@example.invalid'),
+    /Dopyt alebo zákazka už boli uzavreté/,
+    'novú ponuku nemožno pripojiť k dopytu uzavretému po zlyhaní poslednej ponuky');
+
+  const editSource = await createParents('PgEditSource');
+  const editTarget = await createParents('PgEditTarget');
+  const editable = await db.savePriceOffer(offerInput(editSource), 'qa-operator@example.invalid');
+  const edited = await db.savePriceOffer({ ...offerInput(editSource), contactPerson: 'QA opravený kontakt' },
+    'qa-operator@example.invalid', editable.id);
+  assert.equal(edited.contactPerson, 'QA opravený kontakt');
+  await assert.rejects(db.savePriceOffer(offerInput(editTarget), 'qa-operator@example.invalid', editable.id),
+    /Pripravenú ponuku nemožno presunúť/,
+    'úprava pripravenej ponuky nesmie nenápadne zmeniť rodičovský dopyt');
+
+  const cancelled = await createParents('PgCancelled');
+  const cancelledDraft = await db.savePriceOffer(offerInput(cancelled), 'qa-operator@example.invalid');
+  await pglite.query("UPDATE leads SET status='zrusena' WHERE id=$1", [cancelled.leadId]);
+  await pglite.query("UPDATE business_jobs SET status='ZRUSENA' WHERE id=$1", [cancelled.jobId]);
+  assert.equal(await db.claimPriceOfferForSending(cancelledDraft.id, 'qa-operator@example.invalid'), null,
+    'zrušený dopyt nemožno odoslať ani keď ponuka vznikla pred zrušením');
+  await assert.rejects(db.savePriceOffer(offerInput(cancelled), 'qa-operator@example.invalid'),
+    /Dopyt alebo zákazka už boli uzavreté/,
+    'zrušenému dopytu nemožno vytvoriť ďalšiu ponuku');
+
+  const createAgainstFailure = await createParents('PgCreateAgainstFailure');
+  const original = await db.savePriceOffer(offerInput(createAgainstFailure), 'qa-operator@example.invalid');
+  const originalClaim = await db.claimPriceOfferForSending(original.id, 'qa-operator@example.invalid');
+  await db.finishPriceOfferSending(original.id, originalClaim.sendAttemptId, 'sent', 'qa-operator@example.invalid');
+  const [created, failed] = await Promise.allSettled([
+    db.savePriceOffer(offerInput(createAgainstFailure), 'qa-operator@example.invalid'),
+    db.updatePriceOfferStatus(original.id, 'NEUSPESNA', 'qa-operator@example.invalid',
+      { reason: 'Súbežné vytvorenie ďalšej ponuky.' }),
+  ]);
+  assert.equal(failed.status, 'fulfilled', 'uzavretie starej ponuky musí uspieť');
+  assert.equal(failed.value?.status, 'NEUSPESNA');
+  if (created.status === 'fulfilled') {
+    assert.deepEqual(await statuses(createAgainstFailure), { lead: 'cenova_ponuka_odoslana', job: 'PONUKA_ODOSLANA' },
+      'nová aktívna ponuka musí zabrániť uzavretiu rodičov');
+  } else {
+    assert.match(String(created.reason), /Dopyt alebo zákazka už boli uzavreté/);
+    assert.deepEqual(await statuses(createAgainstFailure), { lead: 'nevyslo', job: 'ZRUSENA' },
+      'ak stará ponuka zlyhala prvá, novú nemožno uložiť k uzavretým rodičom');
+  }
+
+  const concurrent = await createParents('PgConcurrent');
+  const concurrentOffers = await Promise.all([
+    db.savePriceOffer(offerInput(concurrent), 'qa-operator@example.invalid'),
+    db.savePriceOffer(offerInput(concurrent), 'qa-operator@example.invalid'),
+  ]);
+  for (const offer of concurrentOffers) {
+    const claim = await db.claimPriceOfferForSending(offer.id, 'qa-operator@example.invalid');
+    await db.finishPriceOfferSending(offer.id, claim.sendAttemptId, 'sent', 'qa-operator@example.invalid');
+  }
+  await Promise.all(concurrentOffers.map((offer) => db.updatePriceOfferStatus(offer.id, 'NEUSPESNA',
+    'qa-operator@example.invalid', { reason: 'Súbežné odmietnutie ponuky.' })));
+  assert.deepEqual(await statuses(concurrent), { lead: 'nevyslo', job: 'ZRUSENA' },
+    'súbežné zlyhania nesmú nechať posledný dopyt otvorený');
+
+  const directAlternative = await createParents('PgDirectAlternative');
+  const directFirst = await db.savePriceOffer(offerInput(directAlternative), 'qa-operator@example.invalid');
+  const directSecond = await db.savePriceOffer(offerInput(directAlternative, false), 'qa-operator@example.invalid');
+  let directFirstToken = '';
+  for (const offer of [directFirst, directSecond]) {
+    const claim = await db.claimPriceOfferForSending(offer.id, 'qa-operator@example.invalid');
+    if (offer.id === directFirst.id) directFirstToken = claim.customerResponseToken;
+    await db.finishPriceOfferSending(offer.id, claim.sendAttemptId, 'sent', 'qa-operator@example.invalid');
+  }
+  const directReply = await db.submitPublicPriceOfferResponse({ token: directFirstToken, response: 'DECLINED', reasonCode: 'price', confirmedReview: true });
+  assert.equal(directReply.status, 'created');
+  const directFirstPending = await db.getPriceOffer(directFirst.id);
+  const directResolved = await db.resolvePriceOfferCustomerResponse({ id: directFirst.id, expectedRevision: directFirstPending.customerResponseRevision,
+    resolution: 'apply', actorEmail: 'qa-operator@example.invalid' });
+  assert.equal(directResolved?.status, 'NEUSPESNA');
+  assert.deepEqual(await statuses(directAlternative), { lead: 'cenova_ponuka_odoslana', job: 'PONUKA_ODOSLANA' },
+    'schválené odmietnutie zákazníka nesmie uzavrieť rodičov pri ďalšej relevantnej ponuke');
+
   const normal = await createParents('PgNormal');
   const normalOffer = await db.savePriceOffer(offerInput(normal), 'qa-operator@example.invalid');
   assert.deepEqual(await statuses(normal), { lead: 'naceneny', job: 'DOPYT' });

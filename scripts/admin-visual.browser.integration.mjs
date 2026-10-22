@@ -494,6 +494,12 @@ try {
           `${routePath} musí mať mobilné definície v jednom čitateľnom stĺpci: ${JSON.stringify(metrics.definitionLists)}`);
       }
       assert.deepEqual(metrics.clippedControls, [], `${routePath} orezáva ovládací alebo nadpisový text.`);
+      if (slug === 'dopyty' && viewport.name === 'desktop') {
+        const row = page.locator(`.admin-lead-row[data-lead-href="/admin/dopyty/${syntheticIds.lead}"]`);
+        await row.locator('td[data-label="Lokalita"]').click();
+        await page.waitForURL(`**/admin/dopyty/${syntheticIds.lead}/`, { timeout: 15_000 });
+        await page.goto(origin + routePath, { waitUntil: 'networkidle', timeout: 60_000 });
+      }
       if (slug === 'asistent' && viewport.screenshot && (viewport.name === 'desktop' || viewport.name === 'mobile-390')) {
         const editor = page.locator('.work-inline-details').first();
         await editor.locator('summary').click();

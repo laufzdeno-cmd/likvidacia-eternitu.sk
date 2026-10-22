@@ -149,7 +149,7 @@ export function renderPriceOfferPdfHtml(offer: PriceOffer, settings: PriceOfferS
     .price-table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 0 0 20px; font-size: 12px; }
     .price-table th { background: var(--accent); color: white; text-align: left; padding: 9px 14px; font-size: 10.67px; text-transform: uppercase; letter-spacing: 0.08em; }
     .price-table td { padding: 9px 14px; border-bottom: 1px solid #F1F5F9; color: var(--text); overflow-wrap: anywhere; }
-    .price-table tbody tr:nth-child(even) td { background: var(--soft); }
+    .price-table tbody tr:not(.total):nth-child(even) td { background: var(--soft); }
     .price-table .right { text-align: right; white-space: normal; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
     .price-table .summary td { background: var(--plum-light); color: var(--text); font-weight: 700; border-top: 1px solid var(--border); }
     .price-table .total td { background: var(--accent); color: white; padding: 12px 14px; font-size: 12px; font-weight: 700; border-bottom: 0; }

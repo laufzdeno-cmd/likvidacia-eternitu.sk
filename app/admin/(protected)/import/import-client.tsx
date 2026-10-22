@@ -1,26 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
+import { importBusinessJobsAction, type ImportActionState } from './actions';
+import { parseImportCsv } from './csv-import';
 
-function parseLine(line: string) {
-  return line.split(/[;,]/).map((item) => item.trim());
-}
+const initialState: ImportActionState = { status: 'idle', message: '', errors: [] };
 
-export default function ImportClient() {
+export default function ImportClient({ workerNames }: { workerNames: string[] }) {
   const [csv, setCsv] = useState('');
-  const rows = useMemo(() => {
-    const lines = csv.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-    const data = lines[0]?.toLowerCase().includes('datum') ? lines.slice(1) : lines;
-    return data.map((line, index) => {
-      const cols = parseLine(line);
-      const errors = [];
-      if (!cols[0]) errors.push('chýba dátum');
-      if (!cols[1]) errors.push('chýba meno');
-      if (!cols[2]) errors.push('chýba lokalita');
-      if (!Number(String(cols[3] || '').replace(',', '.'))) errors.push('chýba m2');
-      return { index: index + 1, cols, errors };
-    });
-  }, [csv]);
+  const [submittedCsv, setSubmittedCsv] = useState('');
+  const [state, formAction, pending] = useActionState(importBusinessJobsAction, initialState);
+  const preview = useMemo(() => parseImportCsv(csv, workerNames), [csv, workerNames]);
+  const rowErrors = preview.rows.flatMap((row) => row.errors.map((error) => `Riadok ${row.line}: ${error}`));
+  const canImport = preview.rows.length > 0 && !preview.errors.length && !rowErrors.length;
 
   async function loadFile(file?: File) {
     if (!file) return;
@@ -28,25 +20,30 @@ export default function ImportClient() {
   }
 
   return (
-    <>
+    <form action={formAction} onSubmit={() => setSubmittedCsv(csv)} className="admin-quote-form">
       <label>
         CSV súbor
         <input type="file" accept=".csv,text/csv" onChange={(event) => void loadFile(event.target.files?.[0])} />
       </label>
       <label>
         CSV obsah
-        <textarea name="csv" rows={10} value={csv} onChange={(event) => setCsv(event.target.value)} placeholder="datum, meno, lokalita, m2, cena_za_m2, platba..." />
+        <textarea name="csv" rows={10} value={csv} onChange={(event) => setCsv(event.target.value)} placeholder="id_zakazky,datum,meno,lokalita,m2,cena_za_m2,platba,..." />
       </label>
-      <h2>Preview pred importom</h2>
+      <h2>Náhľad pred importom</h2>
+      <p>CSV musí mať hlavičku a presne 16 stĺpcov vrátane jedinečného ID každej zákazky. Pri bodkočiarkovom CSV uzavrite pole so zoznamom pracovníkov do úvodzoviek.</p>
       <div className="admin-table-wrap">
         <table className="admin-table">
-          <thead><tr><th>Riadok</th><th>Dátum</th><th>Meno</th><th>Lokalita</th><th>m2</th><th>Chyby</th></tr></thead>
-          <tbody>{rows.map((row) => <tr key={row.index} className={row.errors.length ? 'is-error-row' : ''}><td>{row.index}</td><td>{row.cols[0]}</td><td>{row.cols[1]}</td><td>{row.cols[2]}</td><td>{row.cols[3]}</td><td>{row.errors.join(', ') || 'OK'}</td></tr>)}</tbody>
+          <thead><tr><th>Riadok</th><th>ID</th><th>Dátum</th><th>Meno</th><th>Lokalita</th><th>m2</th><th>Kontrola</th></tr></thead>
+          <tbody>{preview.rows.map((row) => <tr key={row.line} className={row.errors.length ? 'is-error-row' : ''}><td>{row.line}</td><td>{row.columns[0]}</td><td>{row.columns[1]}</td><td>{row.columns[2]}</td><td>{row.columns[3]}</td><td>{row.columns[4]}</td><td>{row.errors.join('; ') || 'OK'}</td></tr>)}</tbody>
         </table>
       </div>
-      <button className="admin-primary-button" type="submit" disabled={!rows.length || rows.some((row) => row.errors.length)}>
-        Importovať {rows.filter((row) => !row.errors.length).length} zákaziek
+      {(preview.errors.length > 0 || rowErrors.length > 0) && (
+        <div role="alert"><p>Opravte CSV pred importom:</p><ul>{[...preview.errors, ...rowErrors].map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}</ul></div>
+      )}
+      {state.message && submittedCsv === csv && <div role={state.status === 'error' ? 'alert' : 'status'} aria-live="polite"><p>{state.message}</p>{state.errors.length > 0 && <ul>{state.errors.map((error, index) => <li key={`${index}-${error}`}>{error}</li>)}</ul>}</div>}
+      <button className="admin-primary-button" type="submit" disabled={!canImport || pending}>
+        {pending ? 'Importujem…' : `Importovať ${preview.rows.length} zákaziek`}
       </button>
-    </>
+    </form>
   );
 }

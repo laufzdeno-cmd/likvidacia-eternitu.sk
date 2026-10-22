@@ -1,10 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { requireAdmin, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { createRealization, updateRealizationStatus } from '@/src/server/db';
-import { normalizePublicRealizationImageUrl } from '@/src/server/public-realization-image.mjs';
+import { createRealization, listRealizations, updateRealizationStatus } from '@/src/server/db';
+import { checkPublicRealizationImagesAvailable, normalizePublicRealizationImageUrl } from '@/src/server/public-realization-image.mjs';
 import type { RealizationStatus } from '@/src/server/types';
 
 const allowedStatuses: RealizationStatus[] = ['draft', 'published', 'hidden'];
@@ -64,6 +65,20 @@ export async function updateRealizationStatusAction(formData: FormData) {
   if (!id || !allowedStatuses.includes(status)) return;
   if (status === 'published' && (!rightsConfirmed || !locationConfirmed || evidence.length < 4)) {
     redirect('/admin/realizacie?error=schvalenie');
+  }
+  if (status === 'published') {
+    const realization = (await listRealizations()).find((item) => item.id === id);
+    if (!realization) redirect('/admin/realizacie?error=fotky');
+    if (realization.status !== 'published') {
+      const availability = await checkPublicRealizationImagesAvailable(realization.imageUrls, {
+        requestHost: (await headers()).get('host'),
+      });
+      if (!availability.available) {
+        redirect(availability.reason === 'verification-unavailable'
+          ? '/admin/realizacie?error=foto-overenie'
+          : '/admin/realizacie?error=fotky-nedostupne');
+      }
+    }
   }
 
   await updateRealizationStatus(id, status, actorEmail, {

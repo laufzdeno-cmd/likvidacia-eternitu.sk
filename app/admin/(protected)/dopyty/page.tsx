@@ -7,6 +7,7 @@ import type { LeadStatus } from '@/src/server/types';
 import { isLeadOfferFilter, leadFollowupPresentation, leadOfferFilterOptions, leadOfferPresentation } from '@/src/lib/admin-lead-overview';
 import { businessTodayKey } from '@/src/lib/business-period';
 import { archiveTestLeadFromListAction, restoreLeadAction } from './[id]/actions';
+import { LeadTableBody } from './lead-table-body';
 
 const statusOptions: Array<['', string] | [LeadStatus, string]> = [
   ['', 'Všetky stavy'],
@@ -248,7 +249,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 <th>Akcie</th>
               </tr>
             </thead>
-            <tbody>
+            <LeadTableBody>
               {leads.map(({ lead, insight }) => {
                 const currentOffer = latestOffers.get(lead.id);
                 const offerView = leadOfferPresentation(currentOffer?.status);
@@ -259,7 +260,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                   lead.isTestData ? 'is-test-lead' : '',
                   lead.deletedAt ? 'is-archived-lead' : '',
                 ].filter(Boolean).join(' ');
-                return <tr className={rowClasses} data-status={lead.status} key={lead.id}>
+                return <tr className={rowClasses} data-status={lead.status} data-lead-href={`/admin/dopyty/${lead.id}`} key={lead.id}>
                   <td data-label="Dátum">{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(lead.createdAt))}</td>
                   <td data-label="Meno a telefón">
                     <strong>{cleanSlovakText(lead.fullName)}</strong>
@@ -297,7 +298,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
                 </tr>;
               })}
               {!leads.length ? <tr><td colSpan={10}>Nenašli sa žiadne dopyty pre zvolené filtre.</td></tr> : null}
-            </tbody>
+            </LeadTableBody>
           </table>
         </div>
         {leadPage.total > 0 ? (

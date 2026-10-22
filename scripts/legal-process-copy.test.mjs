@@ -77,6 +77,6 @@ test('homepage and process FAQ distinguish RÚVZ notification from a permit', ()
   assert.match(homepage, /rozsah oprávnenia zodpovedá konkrétnemu typu prác/i);
   assert.doesNotMatch(`${homepage}\n${cmsDefaults}`, /všeobecné oprávnenie/i);
   assert.match(homepage, /<strong>Doklady<\/strong>\s*<span>po likvidácii<\/span>/i);
-  assert.match(processPage, /Zoznam k 19\. 9\. 2024/);
-  assert.doesNotMatch(`${homepage}\n${processPage}`, /Verejný register/i);
+  assert.match(processPage, /Otvoriť aktuálny register ÚVZ SR \(IČO 46 157 701\)/);
+  assert.doesNotMatch(processPage, /Zoznam k 19\. 9\. 2024/);
 });

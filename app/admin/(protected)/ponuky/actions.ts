@@ -10,6 +10,7 @@ import {
   deletePriceOffer,
   finishPriceOfferSending,
   getBusinessJob,
+  getLeadWithFiles,
   getPriceOffer,
   getPriceOfferSettings,
   savePriceOffer,
@@ -23,7 +24,7 @@ import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
 import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import type { PriceOfferInput, PriceOfferMaterialType, PriceOfferStatus } from '@/src/server/types';
-import { evaluatePriceOfferPreflight, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
+import { evaluatePriceOfferPreflight, isPriceOfferLeadStatusOpen, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
 import { bratislavaMidnightUtc } from '@/src/server/analytics-metrics';
 
 const allowedMaterialTypes = new Set<PriceOfferMaterialType>([
@@ -162,9 +163,12 @@ export async function sendPriceOfferAction(formData: FormData) {
     getPriceOfferSettings(),
     current.jobId ? getBusinessJob(current.jobId) : Promise.resolve(null),
   ]);
+  const linkedLeadId = current.leadId || linkedJob?.leadId;
+  const linkedLead = linkedLeadId ? await getLeadWithFiles(linkedLeadId) : null;
   const preflightContext = {
-    linkedJobAvailable: !current.jobId || Boolean(linkedJob),
+    linkedJobAvailable: !current.jobId || Boolean(linkedJob && linkedJob.status !== 'ZRUSENA'),
     linkedJobIsTestData: Boolean(linkedJob?.isTestData),
+    linkedLeadActive: !linkedLeadId || isPriceOfferLeadStatusOpen(linkedLead?.status),
   };
   const preflight = evaluatePriceOfferPreflight(current, preflightContext);
   const approvalFingerprint = String(formData.get('approvalFingerprint') || '');
@@ -188,9 +192,12 @@ export async function sendPriceOfferAction(formData: FormData) {
     throw new Error('Ponuka nemá bezpečný jednorazový odkaz. Nič sa neodoslalo.');
   }
   const linkedJobAfterClaim = offer.jobId ? await getBusinessJob(offer.jobId) : null;
+  const linkedLeadIdAfterClaim = offer.leadId || linkedJobAfterClaim?.leadId;
+  const linkedLeadAfterClaim = linkedLeadIdAfterClaim ? await getLeadWithFiles(linkedLeadIdAfterClaim) : null;
   const claimedPreflightContext = {
-    linkedJobAvailable: !offer.jobId || Boolean(linkedJobAfterClaim),
+    linkedJobAvailable: !offer.jobId || Boolean(linkedJobAfterClaim && linkedJobAfterClaim.status !== 'ZRUSENA'),
     linkedJobIsTestData: Boolean(linkedJobAfterClaim?.isTestData),
+    linkedLeadActive: !linkedLeadIdAfterClaim || isPriceOfferLeadStatusOpen(linkedLeadAfterClaim?.status),
   };
   const claimedPreflight = evaluatePriceOfferPreflight(offer, {
     ...claimedPreflightContext,

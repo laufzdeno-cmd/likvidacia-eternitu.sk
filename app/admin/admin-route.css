@@ -6037,6 +6037,10 @@ body .admin-main .admin-page .admin-card,
   box-shadow: inset 4px 0 0 #7f94a5;
 }
 
+.admin-leads-table .admin-lead-row {
+  cursor: pointer;
+}
+
 .admin-lead-row.is-status-novy td:first-child { box-shadow: inset 4px 0 0 var(--ops-blue); }
 .admin-lead-row.is-status-caka_na_doplnenie td:first-child { box-shadow: inset 4px 0 0 var(--ops-teal); }
 .admin-lead-row.is-status-kontaktovany td:first-child,

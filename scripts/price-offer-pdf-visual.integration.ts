@@ -145,6 +145,12 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });
     await page.setContent(html, { waitUntil: 'networkidle' });
+    const totalRowStyles = await page.locator('.price-table .total td').first().evaluate((cell) => ({
+      background: getComputedStyle(cell).backgroundColor,
+      color: getComputedStyle(cell).color,
+    }));
+    assert.deepEqual(totalRowStyles, { background: 'rgb(185, 90, 50)', color: 'rgb(255, 255, 255)' },
+      'Celková cena musí zostať čitateľná aj keď je riadok párny.');
     const pages = await page.locator('.page').evaluateAll((nodes) => nodes.map((node, index) => {
       const pageElement = node as HTMLElement;
       const content = node.querySelector('.page-content') as HTMLElement;

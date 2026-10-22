@@ -10839,6 +10839,65 @@ function localLinkedBusinessJob(local: LocalDb, offer: PriceOffer) {
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 
+const priceOfferOpenStatuses: PriceOfferStatus[] = ['PRIPRAVENA', 'ODOSIELA', 'NEISTY_STAV', 'ODOSLANA', 'ODLOZENA', 'PRIJATA'];
+
+function priceOfferParentLockKey(offer: PriceOffer) {
+  return `price-offer-parent:${offer.leadId || offer.jobId || offer.id}`;
+}
+
+function priceOfferParentWasClosed(leadStatus: string | undefined, jobStatus: string | undefined) {
+  return leadStatus === 'nevyslo' || leadStatus === 'zrusena' || leadStatus === 'archivovane'
+    || jobStatus === 'ZRUSENA';
+}
+
+function closePriceOfferParentsLocal(local: LocalDb, offer: PriceOffer, timestamp: string) {
+  const others = local.priceOffers.filter((item) => item.id !== offer.id && !item.deletedAt && !item.isTestData
+    && priceOfferOpenStatuses.includes(item.status));
+  const job = offer.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+  const lead = offer.leadId ? local.leads.find((item) => item.id === offer.leadId && !item.deletedAt) : undefined;
+  const jobHasOffer = job && others.some((item) => item.jobId === job.id
+    || (!item.jobId && item.leadId === job.leadId && localLinkedBusinessJob(local, item)?.id === job.id));
+  const leadHasOffer = lead && others.some((item) => item.leadId === lead.id || (job && item.jobId === job.id));
+  if (job && !jobHasOffer && ['DOPYT', 'DOPYT_PRIJATY', 'PONUKA_ODOSLANA'].includes(job.status)) {
+    job.status = 'ZRUSENA';
+    job.updatedAt = timestamp;
+  }
+  if (lead && !leadHasOffer && ['novy', 'kontaktovany', 'caka_na_doplnenie', 'naceneny', 'cenova_ponuka_odoslana'].includes(lead.status)) {
+    lead.status = 'nevyslo';
+    lead.updatedAt = timestamp;
+  }
+}
+
+async function closePriceOfferParentsPostgres(client: PoolClient, offer: PriceOffer, timestamp: string) {
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [priceOfferParentLockKey(offer)]);
+  // Serialize the other-offer check with new offer creation and manual parent
+  // status updates. A check made before waiting on the parent row can go stale.
+  if (offer.leadId) await client.query('SELECT id FROM leads WHERE id=$1 FOR UPDATE', [offer.leadId]);
+  if (offer.jobId) await client.query('SELECT id FROM business_jobs WHERE id=$1 FOR UPDATE', [offer.jobId]);
+  const { rows } = await client.query(
+    `SELECT
+       EXISTS (SELECT 1 FROM price_offers other
+         WHERE other.id <> $1 AND other.deleted_at IS NULL AND NOT other.is_test_data
+           AND other.status = ANY($2::text[])
+           AND (other.lead_id = $3::uuid OR other.job_id = $4::uuid)) AS lead_has_offer,
+       EXISTS (SELECT 1 FROM price_offers other
+         WHERE other.id <> $1 AND other.deleted_at IS NULL AND NOT other.is_test_data
+           AND other.status = ANY($2::text[])
+           AND (other.job_id = $4::uuid OR (other.job_id IS NULL AND other.lead_id = $3::uuid
+             AND (SELECT count(*) FROM business_jobs job
+               WHERE job.lead_id = $3::uuid AND job.deleted_at IS NULL AND job.status <> 'ZRUSENA') = 1))) AS job_has_offer`,
+    [offer.id, priceOfferOpenStatuses, offer.leadId || null, offer.jobId || null],
+  );
+  if (offer.jobId && !rows[0]?.job_has_offer) await client.query(
+    `UPDATE business_jobs SET status='ZRUSENA', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('DOPYT','DOPYT_PRIJATY','PONUKA_ODOSLANA')`,
+    [offer.jobId, timestamp],
+  );
+  if (offer.leadId && !rows[0]?.lead_has_offer) await client.query(
+    `UPDATE leads SET status='nevyslo', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('novy','kontaktovany','caka_na_doplnenie','naceneny','cenova_ponuka_odoslana')`,
+    [offer.leadId, timestamp],
+  );
+}
+
 function priceOfferParentAuditChanges(
   offer: PriceOffer,
   previous: string,
@@ -11042,6 +11101,10 @@ export async function savePriceOffer(
     customerResponseDismissedBy: existing?.customerResponseDismissedBy,
     customerResponseDismissReason: existing?.customerResponseDismissReason,
   };
+  if (existing && ((offer.leadId || '') !== (existing.leadId || '')
+    || (Boolean(offer.jobId) && offer.jobId !== existing.jobId))) {
+    throw new Error('Pripravenú ponuku nemožno presunúť k inému dopytu alebo samostatnej zákazke. Vytvorte novú ponuku.');
+  }
   const db = getPool();
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
@@ -11057,7 +11120,18 @@ export async function savePriceOffer(
       const currentPreviousJob = currentExisting?.jobId ? local.businessJobs.find((item) => item.id === currentExisting.jobId) : undefined;
       offer.leadId = input.jobId ? currentJob?.leadId : currentDirectLead?.id ?? currentExisting?.leadId ?? currentPreviousJob?.leadId;
       offer.sourceJobIds = [...new Set([...(currentExisting?.sourceJobIds ?? []), ...(currentExisting?.jobId ? [currentExisting.jobId] : []), ...(input.jobId ? [input.jobId] : [])])];
-      offer.isTestData = Boolean(currentExisting?.isTestData);
+      offer.isTestData = Boolean(existing?.isTestData || currentExisting?.isTestData);
+      if (currentExisting && ((offer.leadId || '') !== (currentExisting.leadId || '')
+        || (Boolean(offer.jobId) && offer.jobId !== currentExisting.jobId))) {
+        throw new Error('Pripravenú ponuku nemožno presunúť k inému dopytu alebo samostatnej zákazke. Vytvorte novú ponuku.');
+      }
+      if (!currentExisting) {
+        const parentLead = offer.leadId ? local.leads.find((item) => item.id === offer.leadId && !item.deletedAt) : undefined;
+        if (offer.leadId && !parentLead) throw new Error('Zdrojový dopyt už nie je aktívny. Obnovte formulár.');
+        if (priceOfferParentWasClosed(parentLead?.status, currentJob?.status)) {
+          throw new Error('Dopyt alebo zákazka už boli uzavreté. Obnovte ich pred vytvorením novej cenovej ponuky.');
+        }
+      }
       if (!offer.number) {
         const year = priceOfferNumberYear();
         const highest = local.priceOffers
@@ -11072,7 +11146,7 @@ export async function savePriceOffer(
       if (current?.status === 'ODOSIELA' || current?.status === 'NEISTY_STAV') throw new Error('Odoslanie ponuky prebieha alebo sa musí overiť. Zatiaľ ju neupravujte ani neodosielajte znova.');
       local.priceOffers = [offer, ...local.priceOffers.filter((item) => item.id !== offerId)];
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id, action: currentExisting ? 'price_offer_updated' : 'price_offer_created', actorEmail, changes: { number: offer.number, requiresResend: lifecycle.requiresResend }, createdAt: timestamp });
-      syncPriceOfferParentsLocal(local, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
+      if (!currentExisting) syncPriceOfferParentsLocal(local, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
       await writeLocalDb(local);
       return offer;
     });
@@ -11080,6 +11154,24 @@ export async function savePriceOffer(
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    if (!existing) {
+      // A failed offer and a newly prepared offer must serialize on the same parent.
+      // Only new offers take this lock: status transitions already hold their offer
+      // row lock, so taking it for edits would reverse lock order and deadlock.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [priceOfferParentLockKey(offer)]);
+      const currentLead = offer.leadId ? await client.query(
+        'SELECT status FROM leads WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [offer.leadId],
+      ) : null;
+      const currentJob = offer.jobId ? await client.query(
+        'SELECT status FROM business_jobs WHERE id=$1 AND deleted_at IS NULL FOR UPDATE', [offer.jobId],
+      ) : null;
+      if ((offer.leadId && !currentLead?.rows[0]) || (offer.jobId && !currentJob?.rows[0])) {
+        throw new Error('Zdrojový dopyt alebo zákazka už nie sú aktívne. Obnovte formulár.');
+      }
+      if (priceOfferParentWasClosed(currentLead?.rows[0]?.status, currentJob?.rows[0]?.status)) {
+        throw new Error('Dopyt alebo zákazka už boli uzavreté. Obnovte ich pred vytvorením novej cenovej ponuky.');
+      }
+    }
     if (!offer.number) {
       const year = priceOfferNumberYear();
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`price-offer-number:${year}`]);
@@ -11163,7 +11255,9 @@ export async function savePriceOffer(
       [randomUUID(), offer.jobId || offer.id, existing ? 'price_offer_updated' : 'price_offer_created', actorEmail,
         { number: offer.number, requiresResend: lifecycle.requiresResend }, timestamp],
     );
-    await syncPriceOfferParentsPostgres(client, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
+    // Editing a prepared offer does not change its parent status. Avoid taking a
+    // lead row lock after the offer row lock: sending claims use the reverse order.
+    if (!existing) await syncPriceOfferParentsPostgres(client, offer, 'prepared', actorEmail, timestamp, 'price_offer_prepared');
     await client.query('COMMIT');
     return offer;
   } catch (error) {
@@ -12083,12 +12177,7 @@ export async function updatePriceOfferStatus(
       local.auditLogs.unshift({ id: randomUUID(), entityType: 'business_job', entityId: offer.jobId || offer.id,
         action: 'price_offer_status_changed', actorEmail, changes: auditChanges(offer, previous), createdAt: timestamp });
       if (status === 'PRIJATA') syncPriceOfferParentsLocal(local, offer, 'accepted', actorEmail, timestamp, auditReason);
-      if (status === 'NEUSPESNA') {
-        const job = offer.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
-        const lead = offer.leadId ? local.leads.find((item) => item.id === offer.leadId && !item.deletedAt) : undefined;
-        if (job && ['DOPYT', 'DOPYT_PRIJATY', 'PONUKA_ODOSLANA'].includes(job.status)) job.status = 'ZRUSENA';
-        if (lead && ['novy', 'kontaktovany', 'caka_na_doplnenie', 'naceneny', 'cenova_ponuka_odoslana'].includes(lead.status)) lead.status = 'nevyslo';
-      }
+      if (status === 'NEUSPESNA') closePriceOfferParentsLocal(local, offer, timestamp);
       await writeLocalDb(local);
       return offer;
     });
@@ -12119,16 +12208,7 @@ export async function updatePriceOfferStatus(
         auditChanges(offer, previous), timestamp],
     );
     if (status === 'PRIJATA') await syncPriceOfferParentsPostgres(client, offer, 'accepted', actorEmail, timestamp, auditReason);
-    if (status === 'NEUSPESNA') {
-      if (offer.jobId) await client.query(
-        `UPDATE business_jobs SET status='ZRUSENA', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('DOPYT','DOPYT_PRIJATY','PONUKA_ODOSLANA')`,
-        [offer.jobId, timestamp],
-      );
-      if (offer.leadId) await client.query(
-        `UPDATE leads SET status='nevyslo', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('novy','kontaktovany','caka_na_doplnenie','naceneny','cenova_ponuka_odoslana')`,
-        [offer.leadId, timestamp],
-      );
-    }
+    if (status === 'NEUSPESNA') await closePriceOfferParentsPostgres(client, offer, timestamp);
     await client.query('COMMIT');
     return offer;
   } catch (error) {
@@ -12199,8 +12279,11 @@ export async function claimPriceOfferForSending(id: string, actorEmail: string):
       const local = await readLocalDb();
       const offer = local.priceOffers.find((item) => item.id === id && !item.deletedAt);
       const linkedJob = offer?.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
+      const linkedLeadIds = [...new Set([offer?.leadId, linkedJob?.leadId].filter((leadId): leadId is string => Boolean(leadId)))];
       if (!offer || offer.status !== 'PRIPRAVENA' || offer.isTestData
-        || (offer.jobId && (!linkedJob || linkedJob.isTestData))) return null;
+        || (offer.jobId && (!linkedJob || linkedJob.isTestData || linkedJob.status === 'ZRUSENA'))
+        || linkedLeadIds.some((leadId) => !local.leads.some((lead) => lead.id === leadId && !lead.deletedAt
+          && !lead.isTestData && !priceOfferParentWasClosed(lead.status, undefined)))) return null;
       offer.status = 'ODOSIELA';
       offer.sendStartedAt = timestamp;
       offer.sendAttemptId = attemptId;
@@ -12226,6 +12309,18 @@ export async function claimPriceOfferForSending(id: string, actorEmail: string):
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const parentRows = await client.query(
+      `SELECT o.lead_id, j.lead_id AS job_lead_id
+       FROM price_offers o LEFT JOIN business_jobs j ON j.id = o.job_id
+       WHERE o.id = $1 AND o.deleted_at IS NULL`,
+      [id],
+    );
+    const parentLeadIds: string[] = [...new Set([parentRows.rows[0]?.lead_id, parentRows.rows[0]?.job_lead_id]
+      .filter((leadId): leadId is string => typeof leadId === 'string'))];
+    if (parentLeadIds.length) {
+      // Classification takes the lead lock before touching offers; use the same order here.
+      await client.query('SELECT id FROM leads WHERE id = ANY($1::uuid[]) ORDER BY id FOR UPDATE', [parentLeadIds]);
+    }
     const { rows } = await client.query(
       `UPDATE price_offers SET status = 'ODOSIELA', send_started_at = $2, send_attempt_id = $3,
          response_token_hash=$4, response_token_expires_at=$5,
@@ -12237,7 +12332,17 @@ export async function claimPriceOfferForSending(id: string, actorEmail: string):
          AND COALESCE(is_test_data,false)=false
          AND (job_id IS NULL OR EXISTS (
            SELECT 1 FROM business_jobs j
-           WHERE j.id=price_offers.job_id AND j.deleted_at IS NULL AND COALESCE(j.is_test_data,false)=false
+           WHERE j.id=price_offers.job_id AND j.deleted_at IS NULL AND j.status <> 'ZRUSENA'
+             AND COALESCE(j.is_test_data,false)=false
+             AND (j.lead_id IS NULL OR EXISTS (
+               SELECT 1 FROM leads l WHERE l.id = j.lead_id AND l.deleted_at IS NULL
+                 AND l.status NOT IN ('nevyslo','zrusena','archivovane') AND COALESCE(l.is_test_data,false)=false
+             ))
+         ))
+         AND (price_offers.lead_id IS NULL OR EXISTS (
+           SELECT 1 FROM leads l WHERE l.id = price_offers.lead_id
+             AND l.deleted_at IS NULL AND l.status NOT IN ('nevyslo','zrusena','archivovane')
+             AND COALESCE(l.is_test_data,false)=false
          ))
        RETURNING *`,
       [id, timestamp, attemptId, responseTokenHash, responseTokenExpiresAt],
@@ -12839,12 +12944,7 @@ export async function resolvePriceOfferCustomerResponse(input: {
         createdAt: timestamp,
       });
       if (input.resolution === 'apply' && resolved.nextStatus === 'PRIJATA') syncPriceOfferParentsLocal(local, offer, 'accepted', actorEmail, timestamp, 'customer_secure_link');
-      if (input.resolution === 'apply' && resolved.nextStatus === 'NEUSPESNA') {
-        const job = offer.jobId ? local.businessJobs.find((item) => item.id === offer.jobId && !item.deletedAt) : undefined;
-        const lead = offer.leadId ? local.leads.find((item) => item.id === offer.leadId && !item.deletedAt) : undefined;
-        if (job && ['DOPYT', 'DOPYT_PRIJATY', 'PONUKA_ODOSLANA'].includes(job.status)) job.status = 'ZRUSENA';
-        if (lead && ['novy', 'kontaktovany', 'caka_na_doplnenie', 'naceneny', 'cenova_ponuka_odoslana'].includes(lead.status)) lead.status = 'nevyslo';
-      }
+      if (input.resolution === 'apply' && resolved.nextStatus === 'NEUSPESNA') closePriceOfferParentsLocal(local, offer, timestamp);
       await writeLocalDb(local);
       return { ...offer };
     });
@@ -12887,16 +12987,7 @@ export async function resolvePriceOfferCustomerResponse(input: {
           responseRevision: saved.customerResponseRevision, reasonCode: input.resolution === 'dismiss' ? 'manually_dismissed' : 'customer_secure_link' }), timestamp],
     );
     if (input.resolution === 'apply' && saved.status === 'PRIJATA') await syncPriceOfferParentsPostgres(client, saved, 'accepted', actorEmail, timestamp, 'customer_secure_link');
-    if (input.resolution === 'apply' && saved.status === 'NEUSPESNA') {
-      if (saved.jobId) await client.query(
-        `UPDATE business_jobs SET status='ZRUSENA', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('DOPYT','DOPYT_PRIJATY','PONUKA_ODOSLANA')`,
-        [saved.jobId, timestamp],
-      );
-      if (saved.leadId) await client.query(
-        `UPDATE leads SET status='nevyslo', updated_at=$2 WHERE id=$1 AND deleted_at IS NULL AND status IN ('novy','kontaktovany','caka_na_doplnenie','naceneny','cenova_ponuka_odoslana')`,
-        [saved.leadId, timestamp],
-      );
-    }
+    if (input.resolution === 'apply' && saved.status === 'NEUSPESNA') await closePriceOfferParentsPostgres(client, saved, timestamp);
     await client.query('COMMIT');
     return saved;
   } catch (error) {

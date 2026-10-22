@@ -36,7 +36,11 @@ const nextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ['pdfkit', '@sparticuz/chromium', 'puppeteer-core'],
   outputFileTracingIncludes: {
-    '/*': ['./node_modules/@sparticuz/chromium/bin/**/*'],
+    '/*': [
+      './node_modules/@sparticuz/chromium/bin/**/*',
+      './node_modules/@puppeteer/browsers/package.json',
+      './node_modules/@puppeteer/browsers/lib/**/*',
+    ],
   },
   outputFileTracingExcludes: {
     '/*': ['./.data/**/*', './storage/**/*', './data/**/*'],

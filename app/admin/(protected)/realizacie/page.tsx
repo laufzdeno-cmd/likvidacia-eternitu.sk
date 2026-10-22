@@ -30,6 +30,8 @@ export default async function RealizationsPage({ searchParams }: { searchParams?
       <section className="admin-card">
         <h2>Pridať realizáciu</h2>
         {params?.error === 'fotky' ? <p role="alert">Fotky sa neuložili. Použite iba cestu k verejnej fotke na tomto webe, ktorá začína na <code>/assets/</code>.</p> : null}
+        {params?.error === 'foto-overenie' ? <p role="alert">Fotky sa nedajú bezpečne overiť v náhľade alebo cez adresu nasadenia. Zverejnenie vykonajte cez verejnú produkčnú doménu.</p> : null}
+        {params?.error === 'fotky-nedostupne' ? <p role="alert">Realizácia sa nezverejnila. Aspoň jedna fotka nie je dostupná ako verejný obrázok na aktuálnej produkčnej doméne. Skontrolujte cesty k fotkám a skúste to znova.</p> : null}
         {params?.error === 'schvalenie' ? <p role="alert">Pred zverejnením potvrďte oprávnenie použiť fotografie, skontrolovanú približnú lokalitu a zadajte internú evidenciu podkladu.</p> : null}
         <p>Nové realizácie sa ukladajú ako rozpracované. Používajte len schválené fotografie bez súkromných údajov zákazníka; verejné fotky vkladajte ako cestu z webu začínajúcu na <code>/assets/</code>. Pred zverejnením treba potvrdiť práva k fotografiám, skontrolovať približnú lokalitu a zaznamenať interný podklad; existujúce verejné položky zostávajú bez zmeny.</p>
         <form className="admin-quote-form" action={createRealizationAction}>
