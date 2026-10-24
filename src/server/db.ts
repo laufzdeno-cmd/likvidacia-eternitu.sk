@@ -296,6 +296,11 @@ function getPool() {
   return pool;
 }
 
+/** Server-only escape hatch for isolated, additive feature stores. */
+export function getServerDatabasePool() {
+  return getPool();
+}
+
 function now() {
   return new Date().toISOString();
 }

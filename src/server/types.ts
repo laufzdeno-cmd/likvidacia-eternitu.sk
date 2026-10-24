@@ -147,7 +147,8 @@ export type AuditLog = {
     | 'admin_user'
     | 'planner_action'
     | 'admin_work_item'
-    | 'realization_media';
+    | 'realization_media'
+    | 'facebook_conversation';
   entityId: string;
   action: string;
   actorEmail: string;

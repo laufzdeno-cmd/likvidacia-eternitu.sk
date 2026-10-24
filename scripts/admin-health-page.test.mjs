@@ -45,6 +45,7 @@ function health(databaseOk = true) {
       careerRetention: feature,
       photoIntake: feature,
       operationsAlert: feature,
+      facebookMessenger: feature,
     },
     buildCommit: 'abcdef123456',
     siteUrl: 'https://example.test',

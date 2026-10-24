@@ -31,6 +31,11 @@ export default async function AdminHealthPage() {
   }
 
   const health = healthResult.value;
+  const facebookMessenger = health.features.facebookMessenger ?? {
+    level: 'disabled' as const,
+    label: 'Bezpečne vypnuté',
+    detail: 'Neúplná konfigurácia neprijíma ani neodosiela Facebook správy.',
+  };
   const applicationNotifications = health.database.ok && notificationResult.status === 'fulfilled'
     ? notificationResult.value
     : null;
@@ -146,6 +151,11 @@ export default async function AdminHealthPage() {
             <span>Upozornenia na doručovanie</span>
             <strong>{health.features.operationsAlert.label}</strong>
             <small>{health.features.operationsAlert.detail}</small>
+          </article>
+          <article className={featureClass(facebookMessenger.level)}>
+            <span>Facebook správy</span>
+            <strong>{facebookMessenger.label}</strong>
+            <small>{facebookMessenger.detail}</small>
           </article>
         </div>
       </section>

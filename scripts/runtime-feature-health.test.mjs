@@ -31,6 +31,12 @@ function readyEnvironment() {
     NEXT_PUBLIC_META_PIXEL_ID: '123456789012345',
     META_CAPI_ACCESS_TOKEN: 'meta-token',
     META_GRAPH_API_VERSION: 'v99.0',
+    META_MESSENGER_APP_ID: '123456789012345',
+    META_MESSENGER_APP_SECRET: 'messenger-app-secret',
+    META_MESSENGER_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
+    META_MESSENGER_VERIFY_TOKEN: 'messenger-webhook-verify-token',
+    META_MESSENGER_PAGE_ID: '987654321098765',
+    NEXT_PUBLIC_SITE_URL: 'https://likvidacia-eternitu.sk',
     CONVERSION_EVENT_SECRET: 'conversion-secret',
     CRON_SECRET: 'cron-secret',
     GOOGLE_MAPS_API_KEY: 'maps-key',
@@ -114,6 +120,9 @@ test('runtime feature health is fail-closed and returns no environment values', 
     'CAREER_CV_RETENTION_BINDING_SHA256',
     'PHOTO_UPLOAD_SESSION_SECRET',
     'OPS_ALERT_SIGNING_SECRET',
+    'META_MESSENGER_APP_SECRET',
+    'META_MESSENGER_ENCRYPTION_KEY',
+    'META_MESSENGER_VERIFY_TOKEN',
   ]) delete environment[key];
 
   const health = getRuntimeFeatureHealth(environment);
@@ -123,6 +132,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
   assert.equal(health.careerRetention.level, 'disabled');
   assert.equal(health.photoIntake.level, 'warning');
   assert.equal(health.operationsAlert.level, 'warning');
+  assert.equal(health.facebookMessenger.level, 'disabled');
   const serialized = JSON.stringify(health);
   for (const secret of Object.values(environment)) {
     if (secret && secret.length >= 16) assert.doesNotMatch(serialized, new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -132,7 +142,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
 test('runtime feature health reports only exact complete production bindings as ready', () => {
   const environment = readyEnvironment();
   const health = getRuntimeFeatureHealth(environment);
-  for (const feature of Object.values(health)) assert.equal(feature.level, 'ok');
+  for (const [name, feature] of Object.entries(health)) assert.equal(feature.level, 'ok', name);
 
   const preview = getRuntimeFeatureHealth({ ...environment, VERCEL_ENV: 'preview' });
   assert.equal(preview.leadRetention.level, 'disabled');

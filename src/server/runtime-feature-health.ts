@@ -8,6 +8,7 @@ import {
   privatePhotoIntakeStorageReady,
 } from './photo-intake-config';
 import { deploymentRequestBlocked } from './preview-safety';
+import { getFacebookMessengerConfiguration } from './facebook-messenger-config';
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -79,6 +80,7 @@ export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = proces
   const workerReady = scheduledWorkerReady(environment);
   const mapsReady = Boolean(environment.GOOGLE_MAPS_API_KEY?.trim());
   const careerRetentionReady = careerCvRetentionBound(environment);
+  const facebookMessenger = getFacebookMessengerConfiguration(environment);
   return {
     conversion: metaReady && workerReady
       ? { level: 'ok', label: 'Pripravené', detail: 'Serverové meranie je nakonfigurované; prijatie poskytovateľom sleduje outbox.' }
@@ -96,5 +98,8 @@ export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = proces
         : { level: 'disabled', label: 'Bezpečne vypnutá', detail: 'Automatické mazanie životopisov nemá úplnú overenú produkčnú väzbu.' },
     photoIntake: photoIntakeState(environment),
     operationsAlert: operationsAlertState(environment),
+    facebookMessenger: facebookMessenger.configured
+      ? { level: 'ok', label: 'Konfigurácia pripravená', detail: 'Meta aplikácia, podpis webhooku a šifrovanie tokenu sú pripravené. Stav pripojenej stránky je vo Facebook správach.' }
+      : { level: 'disabled', label: 'Bezpečne vypnuté', detail: 'Neúplná konfigurácia neprijíma ani neodosiela Facebook správy.' },
   } satisfies Record<string, RuntimeFeatureState>;
 }

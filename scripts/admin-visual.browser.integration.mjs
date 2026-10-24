@@ -26,6 +26,9 @@ const syntheticIds = Object.freeze({
   career: '44444444-4444-4444-8444-444444444444',
   submission: '55555555-5555-4555-8555-555555555555',
   workItem: '66666666-6666-4666-8666-666666666666',
+  facebookConversation: '77777777-7777-4777-8777-777777777777',
+  facebookInbound: '88888888-8888-4888-8888-888888888888',
+  facebookOutbound: '99999999-9999-4999-8999-999999999999',
 });
 const logs = [];
 const pageErrors = [];
@@ -44,6 +47,8 @@ const allRoutes = [
   ['/admin/ai-asistent/', 'ai-asistent'],
   ['/admin/dopyty/', 'dopyty'],
   [`/admin/dopyty/${syntheticIds.lead}/`, 'dopyt-detail'],
+  ['/admin/facebook/', 'facebook'],
+  [`/admin/facebook/${syntheticIds.facebookConversation}/`, 'facebook-detail'],
   ['/admin/ponuky/', 'ponuky'],
   ['/admin/ponuky/nova/', 'ponuka-nova'],
   [`/admin/ponuky/${syntheticIds.offer}/`, 'ponuka-detail'],
@@ -80,6 +85,8 @@ const routes = process.argv.includes('--review-only')
     ? allRoutes.filter(([, slug]) => slug === 'users')
     : process.argv.includes('--dopyty-only')
       ? allRoutes.filter(([, slug]) => slug === 'dopyty')
+      : process.argv.includes('--facebook-only')
+        ? allRoutes.filter(([, slug]) => slug.startsWith('facebook'))
       : process.argv.includes('--completion-only')
         ? allRoutes.filter(([, slug]) => slug === 'zakazka-detail')
       : process.argv.includes('--assistant-only')
@@ -215,6 +222,28 @@ async function seedSyntheticAdminData(database) {
       'Výhradne lokálny vizuálny audit. Kandidáta nekontaktovať.',
     ],
   );
+  await database.query(
+    `INSERT INTO facebook_page_connections (
+       page_id,page_name,encrypted_page_access_token,app_id,graph_version,active,connected_by,token_validated_at,last_webhook_at
+     ) VALUES ('123456789','ASTANA – lokálny vizuálny test','v1.synthetic.synthetic.synthetic','test-app','v24.0',true,$1,now(),now())`,
+    [adminEmail],
+  );
+  await database.query(
+    `INSERT INTO facebook_conversations (
+       id,page_id,participant_id,participant_name,status,assigned_to,lead_id,unread_count,
+       last_message_preview,last_inbound_at,last_outbound_at,last_message_at
+     ) VALUES ($1,'123456789','psid-synthetic','Alexandra Veľmi-Dlhé-Priezvisko z Facebooku','riesi_sa',$2,$3,2,
+       'Prosím o cenu za likvidáciu eternitovej strechy, posielam aj fotografie.',now() - interval '20 minutes',now() - interval '15 minutes',now() - interval '10 minutes')`,
+    [syntheticIds.facebookConversation, adminEmail, syntheticIds.lead],
+  );
+  await database.query(
+    `INSERT INTO facebook_messages (
+       id,conversation_id,provider_message_id,direction,message_text,attachment_types,status,sent_by,provider_timestamp
+     ) VALUES
+       ($1,$3,'mid-synthetic-inbound','inbound','Dobrý deň, prosím o cenu za likvidáciu eternitovej strechy s výmerou približne 145 m². Dom je pri Poprade.','["image"]'::jsonb,'received','',now() - interval '20 minutes'),
+       ($2,$3,'mid-synthetic-outbound','outbound','Dobrý deň, ďakujeme za správu. Podklady sme prijali a po kontrole sa vám ozveme.','[]'::jsonb,'delivered',$4,now() - interval '15 minutes')`,
+    [syntheticIds.facebookInbound, syntheticIds.facebookOutbound, syntheticIds.facebookConversation, adminEmail],
+  );
 }
 
 async function freePort() {
@@ -315,6 +344,10 @@ try {
     { cwd: tempRoot, env: childEnv, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
   for (const stream of [child.stdout, child.stderr]) stream.on('data', (chunk) => logs.push(chunk.toString('utf8')));
   await waitForApp(origin);
+  const facebookSchemaResponse = await fetch(origin + '/admin/facebook/', {
+    redirect: 'manual', headers: { Cookie: `astana_admin_session=${sessionCookie()}` }, signal: AbortSignal.timeout(15_000),
+  });
+  assert.equal(facebookSchemaResponse.status, 200, 'Facebook admin musí pripraviť aditívnu schému pred syntetickým seedovaním.');
   await seedSyntheticAdminData(database);
 
   const browserPath = process.env.ASTANA_HARNESS_BROWSER || 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';

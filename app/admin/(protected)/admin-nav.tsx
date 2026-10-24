@@ -18,6 +18,7 @@ const navGroups = [
     title: 'OBCHOD',
     items: [
       { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
+      { href: '/admin/facebook', label: 'Facebook správy', icon: 'chat' },
       { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
       { href: '/admin/strechari', label: 'Strechári', icon: 'users' },
     ],
