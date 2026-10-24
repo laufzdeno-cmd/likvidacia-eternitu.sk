@@ -45,9 +45,9 @@ export const homeContentDefaults = {
   whyText:
     'Nie sme firma, ktorá len zloží eternit zo strechy. Riešime dokumentáciu ku konkrétnej stavbe, stabilizáciu, kontrolovanú demontáž, balenie, odvoz aj doklady po likvidácii.',
   realizationsEyebrow: 'Vybrané realizácie',
-  realizationsTitle: 'Naša práca v praxi',
+  realizationsTitle: 'Naše realizácie',
   realizationsText:
-    'Pozrite si tri ukážky prác na rodinnom dome, hospodárskej budove a priemyselnom objekte. Ďalšie fotografie nájdete vo filtrovaných realizáciách.',
+    'Pozrite si ukážky našej práce pri odstraňovaní azbestu (eternitu), balení a odvoze odpadu.',
   testimonialsEyebrow: 'Referencie',
   testimonialsTitle: 'Čo hovoria zákazníci',
   testimonialsText: 'Krátke skúsenosti zákazníkov po realizácii a odovzdaní zákazky.',
