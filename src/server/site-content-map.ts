@@ -91,6 +91,12 @@ function keepLegalFaqCurrent(savedFaq: string, defaultFaq: string) {
 /** Defaults fill missing keys; a statutory FAQ answer stays canonical without writing to the database. */
 export function mergeSiteContent(defaults: Record<string, string>, items: SiteContentItem[]) {
   const saved = Object.fromEntries(items.map(({ key, value }) => [key, value]));
+  if (saved.realizationsTitle === 'Schválené realizácie z adminu') {
+    saved.realizationsTitle = 'Naše realizácie';
+  }
+  if (saved.realizationsText === 'Schválené ukážky prác z adminu: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.') {
+    saved.realizationsText = 'Pozrite si ukážky našej práce pri odstraňovaní azbestu (eternitu), balení a odvoze odpadu.';
+  }
   if (typeof saved.faqItems === 'string' && typeof defaults.faqItems === 'string') {
     saved.faqItems = keepLegalFaqCurrent(saved.faqItems, defaults.faqItems);
     saved.faqItems = keepWorkingHoursCurrent(saved.faqItems, defaults.faqItems);
