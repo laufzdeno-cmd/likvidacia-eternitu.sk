@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set(
     'scope',
-    'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata,business_management',
+    'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata',
   );
   return NextResponse.redirect(url);
 }

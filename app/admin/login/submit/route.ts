@@ -42,5 +42,5 @@ export async function POST(request: NextRequest) {
 
   await clearPendingTwoFactor();
   await setAdminSession(normalizedEmail, user.sessionEpoch);
-  return NextResponse.redirect(new URL('/admin/dopyty', request.url), { status: 303 });
+  return NextResponse.redirect(new URL(user.role === 'META_REVIEWER' ? '/admin/facebook' : '/admin/dopyty', request.url), { status: 303 });
 }

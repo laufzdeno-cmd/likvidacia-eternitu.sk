@@ -17464,10 +17464,10 @@ export async function listAdminTaskAssignees(): Promise<AdminTaskAssignee[]> {
   const db = getPool();
   if (!db) {
     const local = await ensureLocalBusinessDefaults();
-    return local.adminUsers.filter((user) => user.active).map((user) => ({ id: user.id, email: user.email, name: user.name || user.email, role: user.role }))
+    return local.adminUsers.filter((user) => user.active && user.role !== 'META_REVIEWER').map((user) => ({ id: user.id, email: user.email, name: user.name || user.email, role: user.role }))
       .sort((left, right) => left.name.localeCompare(right.name, 'sk'));
   }
-  const { rows } = await db.query('SELECT id, email, name, role FROM admin_users WHERE active = true ORDER BY lower(COALESCE(NULLIF(name,\'\'), email)) ASC');
+  const { rows } = await db.query("SELECT id, email, name, role FROM admin_users WHERE active = true AND role <> 'META_REVIEWER' ORDER BY lower(COALESCE(NULLIF(name,''), email)) ASC");
   return rows.map((row) => ({ id: String(row.id), email: String(row.email).trim().toLowerCase(), name: String(row.name || row.email), role: String(row.role) as AdminRole }));
 }
 
@@ -17486,7 +17486,7 @@ export async function getAdminWorkItemSuggestion(input: {
   const db = getPool();
   if (!db) {
     const local = await ensureLocalBusinessDefaults();
-    const candidates = local.adminUsers.filter((user) => user.active).map((user) => ({
+    const candidates = local.adminUsers.filter((user) => user.active && user.role !== 'META_REVIEWER').map((user) => ({
       id: user.id, email: user.email, name: user.name || user.email, role: user.role,
     }));
     const workItems: AdminSuggestionWorkItem[] = local.adminWorkItems.filter((item) => item.status === 'OPEN' && item.ownerEmail).map((item) => ({
@@ -17500,7 +17500,7 @@ export async function getAdminWorkItemSuggestion(input: {
       visibility: input.visibility, today, generatedAt });
   }
   const [candidateResult, taskResult, leadResult] = await Promise.all([
-    db.query('SELECT id,email,name,role FROM admin_users WHERE active=true ORDER BY id'),
+    db.query("SELECT id,email,name,role FROM admin_users WHERE active=true AND role <> 'META_REVIEWER' ORDER BY id"),
     db.query(`SELECT id,revision,owner_email,priority,due_date FROM admin_work_items
       WHERE status='OPEN' AND owner_email<>'' ORDER BY id`),
     db.query(`SELECT id,owner_email,followup_date,updated_at FROM leads
@@ -17697,7 +17697,7 @@ export async function createAdminWorkItem(
     }
     if (item.ownerEmail) {
       const owner = await client.query(
-        `SELECT 1 FROM admin_users WHERE active=true AND lower(email)=lower($1)
+        `SELECT 1 FROM admin_users WHERE active=true AND role <> 'META_REVIEWER' AND lower(email)=lower($1)
           AND ($2::text <> 'SUPER_ADMIN' OR role='SUPER_ADMIN') LIMIT 1`,
         [item.ownerEmail, item.visibility],
       );
@@ -17829,7 +17829,7 @@ export async function updateAdminWorkItem(
     if (current.status !== 'OPEN') throw new Error('Dokončenú alebo zrušenú úlohu treba najprv znovu otvoriť.');
     if (normalized.ownerEmail) {
       const owner = await client.query(
-        `SELECT 1 FROM admin_users WHERE active=true AND lower(email)=lower($1)
+        `SELECT 1 FROM admin_users WHERE active=true AND role <> 'META_REVIEWER' AND lower(email)=lower($1)
           AND ($2::text <> 'SUPER_ADMIN' OR role='SUPER_ADMIN') LIMIT 1`,
         [normalized.ownerEmail, normalized.visibility],
       );

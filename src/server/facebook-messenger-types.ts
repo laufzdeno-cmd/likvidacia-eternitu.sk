@@ -61,4 +61,5 @@ export type FacebookMessengerListFilter = {
   status?: FacebookConversationStatus;
   assignedTo?: string;
   unreadOnly?: boolean;
+  participantId?: string;
 };

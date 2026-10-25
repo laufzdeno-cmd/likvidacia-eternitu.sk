@@ -30,7 +30,7 @@ export default async function CareerApplicationDetailPage({ params }: { params: 
 
   const csrfToken = csrfTokenForEmail(admin.email);
   const createdAt = new Intl.DateTimeFormat('sk-SK', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(application.createdAt));
-  const activeAdminUsers = adminUsers.filter((user) => user.active);
+  const activeAdminUsers = adminUsers.filter((user) => user.active && user.role !== 'META_REVIEWER');
   const currentOwnerIsActive = !application.ownerEmail
     || activeAdminUsers.some((user) => user.email === application.ownerEmail);
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireAdminUser, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
+import { requireAdminUser, requireFacebookAdminUser, requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import {
   completeFacebookOutboundMessage,
   disconnectFacebookPageConnection,
@@ -65,16 +65,24 @@ export async function unlinkFacebookConversationAction(formData: FormData) {
 
 export async function sendFacebookReplyAction(formData: FormData) {
   await verifyCsrf(formData);
-  const admin = await requireAdminUser();
+  const admin = await requireFacebookAdminUser();
   const id = conversationId(formData);
   const requestId = String(formData.get('clientRequestId') || '');
   if (!uuidPattern.test(requestId)) throw new Error('Neplatný identifikátor odoslania. Obnovte stránku.');
   const text = normalizeFacebookReply(formData.get('message'));
   const config = getFacebookMessengerConfiguration();
   if (!config.configured || !config.encryptionKey) redirect(`/admin/facebook/${id}?send=configuration`);
-  const conversation = await getFacebookConversation(id);
+  const expectedParticipantId = admin.role === 'META_REVIEWER' ? config.reviewParticipantId : '';
+  if (admin.role === 'META_REVIEWER' && !expectedParticipantId) redirect('/admin/facebook?access=restricted');
+  const conversation = await getFacebookConversation(id, expectedParticipantId);
   if (!conversation || !isWithinFacebookReplyWindow(conversation.lastInboundAt)) redirect(`/admin/facebook/${id}?send=window`);
-  const prepared = await prepareFacebookOutboundMessage({ conversationId: id, clientRequestId: requestId, text, actorEmail: admin.email });
+  const prepared = await prepareFacebookOutboundMessage({
+    conversationId: id,
+    clientRequestId: requestId,
+    text,
+    actorEmail: admin.email,
+    expectedParticipantId,
+  });
   if (prepared.duplicate) redirect(`/admin/facebook/${id}?send=duplicate`);
   const pageAccessToken = decryptFacebookPageToken(prepared.encryptedPageAccessToken, config.encryptionKey);
   const result = await sendFacebookTextMessage({

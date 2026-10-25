@@ -93,8 +93,10 @@ export default function AdminNav({ role }: { role: AdminRole }) {
   const pathname = usePathname();
   const groups = navGroups.map((group) => ({
     ...group,
-    items: group.items.filter((item) => role === 'SUPER_ADMIN' || !('superOnly' in item && item.superOnly)),
-  }));
+    items: group.items.filter((item) => role === 'META_REVIEWER'
+      ? item.href === '/admin/facebook'
+      : role === 'SUPER_ADMIN' || !('superOnly' in item && item.superOnly)),
+  })).filter((group) => group.items.length > 0);
   const activeHref = groups
     .flatMap((group) => group.items)
     .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))

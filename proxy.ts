@@ -34,6 +34,11 @@ export function proxy(request: NextRequest) {
     response.headers.set('Referrer-Policy', 'no-referrer');
     return response;
   }
+  if (request.nextUrl.pathname.startsWith('/admin/')) {
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-astana-admin-path', request.nextUrl.pathname);
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
   return NextResponse.next();
 }
 

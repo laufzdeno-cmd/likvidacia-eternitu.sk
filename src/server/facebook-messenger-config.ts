@@ -10,6 +10,7 @@ export type FacebookMessengerConfiguration = {
   encryptionKey?: Buffer;
   verifyToken: string;
   pageId: string;
+  reviewParticipantId: string;
   graphVersion: string;
   siteUrl: string;
   redirectUri: string;
@@ -30,6 +31,9 @@ export function getFacebookMessengerConfiguration(environment: RuntimeEnvironmen
   const encryptionKey = decodeEncryptionKey(environment.META_MESSENGER_ENCRYPTION_KEY?.trim() ?? '');
   const verifyToken = environment.META_MESSENGER_VERIFY_TOKEN?.trim() ?? '';
   const pageId = environment.META_MESSENGER_PAGE_ID?.trim() ?? '';
+  const reviewParticipantId = /^\d{5,32}$/.test(environment.META_MESSENGER_REVIEW_PARTICIPANT_ID?.trim() ?? '')
+    ? environment.META_MESSENGER_REVIEW_PARTICIPANT_ID!.trim()
+    : '';
   const graphVersion = environment.META_GRAPH_API_VERSION?.trim() ?? '';
   const siteUrl = (environment.NEXT_PUBLIC_SITE_URL?.trim() ?? '').replace(/\/$/, '');
   const missing = [
@@ -49,6 +53,7 @@ export function getFacebookMessengerConfiguration(environment: RuntimeEnvironmen
     encryptionKey,
     verifyToken,
     pageId,
+    reviewParticipantId,
     graphVersion,
     siteUrl,
     redirectUri: siteUrl ? `${siteUrl}/api/meta/messenger/oauth/callback` : '',

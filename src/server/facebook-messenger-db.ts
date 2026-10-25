@@ -404,6 +404,7 @@ export async function listFacebookConversations(filter: FacebookMessengerListFil
   if (filter.assignedTo === 'none') where.push("assigned_to=''");
   else if (filter.assignedTo) { values.push(filter.assignedTo); where.push(`lower(assigned_to)=lower($${values.length})`); }
   if (filter.unreadOnly) where.push('unread_count > 0');
+  if (filter.participantId) { values.push(filter.participantId); where.push(`participant_id=$${values.length}`); }
   const result = await db.query(
     `SELECT * FROM facebook_conversations WHERE ${where.join(' AND ')}
      ORDER BY (unread_count > 0) DESC,last_message_at DESC LIMIT 200`,
@@ -412,7 +413,7 @@ export async function listFacebookConversations(filter: FacebookMessengerListFil
   return result.rows.map(toConversation);
 }
 
-export async function getFacebookConversationCounts(): Promise<FacebookConversationCounts> {
+export async function getFacebookConversationCounts(participantId = ''): Promise<FacebookConversationCounts> {
   await ensureFacebookMessengerSchema();
   const db = getServerDatabasePool();
   if (!db) return { all: 0, unread: 0, unassigned: 0, open: 0, waiting: 0 };
@@ -421,17 +422,17 @@ export async function getFacebookConversationCounts(): Promise<FacebookConversat
     COUNT(*) FILTER (WHERE assigned_to='')::int AS unassigned,
     COUNT(*) FILTER (WHERE status IN ('nova','riesi_sa'))::int AS open,
     COUNT(*) FILTER (WHERE status='cakame_na_zakaznika')::int AS waiting
-    FROM facebook_conversations`);
+    FROM facebook_conversations WHERE ($1='' OR participant_id=$1)`, [participantId]);
   const row = result.rows[0] ?? {};
   return { all: Number(row.all || 0), unread: Number(row.unread || 0), unassigned: Number(row.unassigned || 0), open: Number(row.open || 0), waiting: Number(row.waiting || 0) };
 }
 
-export async function getFacebookConversation(id: string): Promise<FacebookConversationDetail | undefined> {
+export async function getFacebookConversation(id: string, participantId = ''): Promise<FacebookConversationDetail | undefined> {
   await ensureFacebookMessengerSchema();
   const db = getServerDatabasePool();
   if (!db) return undefined;
   const [conversation, messages] = await Promise.all([
-    db.query('SELECT * FROM facebook_conversations WHERE id=$1 LIMIT 1', [id]),
+    db.query("SELECT * FROM facebook_conversations WHERE id=$1 AND ($2='' OR participant_id=$2) LIMIT 1", [id, participantId]),
     db.query('SELECT * FROM facebook_messages WHERE conversation_id=$1 ORDER BY provider_timestamp ASC,created_at ASC', [id]),
   ]);
   if (!conversation.rows[0]) return undefined;
@@ -483,6 +484,7 @@ export async function prepareFacebookOutboundMessage(input: {
   clientRequestId: string;
   text: string;
   actorEmail: string;
+  expectedParticipantId?: string;
 }) {
   await ensureFacebookMessengerSchema();
   const db = requireDatabase();
@@ -495,8 +497,8 @@ export async function prepareFacebookOutboundMessage(input: {
           AND c.last_inbound_at >= now() - interval '24 hours') AS reply_window_open
        FROM facebook_conversations c
        JOIN facebook_page_connections p ON p.page_id=c.page_id AND p.active=true
-       WHERE c.id=$1 FOR UPDATE`,
-      [input.conversationId],
+       WHERE c.id=$1 AND ($2='' OR c.participant_id=$2) FOR UPDATE`,
+      [input.conversationId, input.expectedParticipantId || ''],
     );
     const row = conversationResult.rows[0];
     if (!row) throw new Error('Facebook konverzácia alebo aktívne pripojenie sa nenašli.');

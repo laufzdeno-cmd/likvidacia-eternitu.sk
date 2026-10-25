@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { notFound } from 'next/navigation';
-import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+import { csrfTokenForEmail, requireFacebookAdminUser } from '@/src/server/auth';
 import { getFacebookConversation } from '@/src/server/facebook-messenger-db';
+import { getFacebookMessengerConfiguration } from '@/src/server/facebook-messenger-config';
 import { facebookReplyWindowEndsAt, isWithinFacebookReplyWindow } from '@/src/server/facebook-messenger-policy';
 import { listAdminTaskAssignees, listLeadSummaryPage } from '@/src/server/db';
 import { linkFacebookConversationAction, resolveFacebookUnknownDeliveryAction, saveFacebookConversationWorkflowAction, unlinkFacebookConversationAction } from '../actions';
@@ -29,13 +30,15 @@ export default async function FacebookConversationPage({
   params: Promise<{ id: string }>;
   searchParams?: Promise<Record<string, string | undefined>>;
 }) {
-  const admin = await requireAdminUser();
+  const admin = await requireFacebookAdminUser();
+  const isReviewer = admin.role === 'META_REVIEWER';
+  const reviewParticipantId = isReviewer ? getFacebookMessengerConfiguration().reviewParticipantId || '__reviewer_not_configured__' : '';
   const { id } = await params;
   const query = searchParams ? await searchParams : {};
   const [conversation, assignees, leadsPage] = await Promise.all([
-    getFacebookConversation(id),
-    listAdminTaskAssignees(),
-    listLeadSummaryPage({ page: 1, pageSize: 100, excludeTestData: true }),
+    getFacebookConversation(id, reviewParticipantId),
+    isReviewer ? Promise.resolve([]) : listAdminTaskAssignees(),
+    isReviewer ? Promise.resolve({ items: [], total: 0, page: 1, pageSize: 100, totalPages: 0 }) : listLeadSummaryPage({ page: 1, pageSize: 100, excludeTestData: true }),
   ]);
   if (!conversation) notFound();
   const csrfToken = csrfTokenForEmail(admin.email);
@@ -68,7 +71,7 @@ export default async function FacebookConversationPage({
                   {message.attachmentTypes.length ? <div className="facebook-attachments">{message.attachmentTypes.map((type, index) => <span key={`${type}-${index}`}>{attachmentLabels[type] || 'Príloha'} — zostáva súkromná vo Facebooku</span>)}</div> : null}
                   {!message.text && !message.attachmentTypes.length ? <p>Správa bez textu</p> : null}
                 </div>
-                <div className="facebook-message-meta"><time dateTime={message.providerTimestamp}>{formatDate(message.providerTimestamp)}</time>{message.direction === 'outbound' ? <span>{message.status === 'read' ? 'Prečítaná' : message.status === 'delivered' ? 'Doručená' : message.status === 'sent' ? 'Odoslaná' : message.status === 'unknown' ? 'Výsledok neznámy' : message.status === 'failed' ? 'Neodoslaná' : 'Odosiela sa'}</span> : null}{message.sentBy && message.sentBy !== 'facebook-external' ? <span>{message.sentBy}</span> : null}</div>
+                <div className="facebook-message-meta"><time dateTime={message.providerTimestamp}>{formatDate(message.providerTimestamp)}</time>{message.direction === 'outbound' ? <span>{message.status === 'read' ? 'Prečítaná' : message.status === 'delivered' ? 'Doručená' : message.status === 'sent' ? 'Odoslaná' : message.status === 'unknown' ? 'Výsledok neznámy' : message.status === 'failed' ? 'Neodoslaná' : 'Odosiela sa'}</span> : null}{message.sentBy && message.sentBy !== 'facebook-external' ? <span>{isReviewer ? 'ASTANA tím' : message.sentBy}</span> : null}</div>
               </article>
             )) : <div className="facebook-empty"><strong>Bez uložených správ</strong></div>}
           </div>
@@ -76,7 +79,7 @@ export default async function FacebookConversationPage({
             <strong>{canReply ? 'Odpoveď je povolená' : 'Bežná odpoveď je zablokovaná'}</strong>
             <span>{windowEndsAt ? `${canReply ? '24-hodinové okno končí' : 'Okno skončilo'} ${formatDate(windowEndsAt)}.` : 'Najprv musí prísť správa od zákazníka.'}</span>
           </div>
-          {unknownMessage ? <form className="facebook-delivery-check" action={resolveFacebookUnknownDeliveryAction}>
+          {unknownMessage && !isReviewer ? <form className="facebook-delivery-check" action={resolveFacebookUnknownDeliveryAction}>
             <input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={conversation.id} /><input type="hidden" name="messageId" value={unknownMessage.id} />
             <strong>Najprv overte predchádzajúce odoslanie</strong>
             <p>Výsledok správy z {formatDate(unknownMessage.providerTimestamp)} je neznámy. Otvorte firemný Facebook a zistite, či ju zákazník dostal.</p>
@@ -88,7 +91,7 @@ export default async function FacebookConversationPage({
           <FacebookReplyComposer conversationId={conversation.id} csrfToken={csrfToken} clientRequestId={randomUUID()} disabled={!canReply || Boolean(unknownMessage)} />
         </section>
 
-        <aside className="facebook-thread-sidebar">
+        {!isReviewer ? <aside className="facebook-thread-sidebar">
           <section className="admin-card">
             <p className="facebook-eyebrow">ZODPOVEDNOSŤ</p><h2>Pracovný stav</h2>
             <form className="facebook-side-form" action={saveFacebookConversationWorkflowAction}>
@@ -112,7 +115,7 @@ export default async function FacebookConversationPage({
           </section>
 
           <section className="admin-card facebook-privacy-card"><p className="facebook-eyebrow">SÚKROMIE</p><h2>Bezpečné spracovanie</h2><p>Prílohy sa z Facebooku automaticky nepublikujú. Na web môžu ísť iba neskôr cez existujúce schválenie fotografií.</p></section>
-        </aside>
+        </aside> : <aside className="facebook-thread-sidebar"><section className="admin-card facebook-privacy-card"><p className="facebook-eyebrow">KONTROLNÝ PRÍSTUP</p><h2>Iba Messenger</h2><p>Tento dočasný účet nevidí dopyty, ponuky, zákazky, financie, používateľov ani nastavenia firmy.</p></section></aside>}
       </div>
     </main>
   );

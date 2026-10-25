@@ -47,7 +47,7 @@ export default function AdminTopbar({ email, name, role, initial }: { email: str
       <div className="admin-user-chip">
         <small>Prihlásený ako:</small>
         <strong>{name || email}</strong>
-        <em>{role === 'SUPER_ADMIN' ? 'Super admin' : 'Operátor'}</em>
+        <em>{role === 'SUPER_ADMIN' ? 'Super admin' : role === 'META_REVIEWER' ? 'Kontrolór Meta' : 'Operátor'}</em>
         <span>{initial}</span>
       </div>
     </header>

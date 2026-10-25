@@ -211,7 +211,18 @@ export async function currentTwoFactorSetupUser(): Promise<AdminUser | null> {
 export async function requireAdminUser() {
   const user = await currentAdminUser();
   if (!user?.active) redirect('/admin/login');
+  if (user.role === 'META_REVIEWER') redirect('/admin/facebook?access=restricted');
   return user;
+}
+
+export async function requireAnyAdminUser() {
+  const user = await currentAdminUser();
+  if (!user?.active) redirect('/admin/login');
+  return user;
+}
+
+export async function requireFacebookAdminUser() {
+  return requireAnyAdminUser();
 }
 
 export async function requireSuperAdmin() {
@@ -222,6 +233,9 @@ export async function requireSuperAdmin() {
 
 export function canAccessAdminPath(role: AdminRole, pathname: string) {
   if (role === 'SUPER_ADMIN') return true;
+  if (role === 'META_REVIEWER') {
+    return pathname === '/admin/facebook' || pathname.startsWith('/admin/facebook/');
+  }
   return !(
     pathname.startsWith('/admin/analytics') ||
     pathname.startsWith('/admin/rok') ||

@@ -95,7 +95,7 @@ test('admin mutations stay authenticated, CSRF protected and human initiated', (
   assert.match(startRoute, /await requireSuperAdmin\(\)/);
   assert.match(
     startRoute,
-    /pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata,business_management/,
+    /pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata/,
   );
   assert.match(composer, /type="submit"/);
   assert.match(composer, /Správa sa odošle až po vašom kliknutí/);

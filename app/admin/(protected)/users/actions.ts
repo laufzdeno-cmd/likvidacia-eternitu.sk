@@ -11,7 +11,7 @@ const managedUserSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
-  role: z.enum(['SUPER_ADMIN', 'OPERATOR']),
+  role: z.enum(['SUPER_ADMIN', 'OPERATOR', 'META_REVIEWER']),
   active: z.boolean(),
   password: z.string().max(128),
   currentPassword: z.string().min(1).max(128),

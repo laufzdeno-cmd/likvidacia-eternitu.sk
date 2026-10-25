@@ -326,7 +326,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <label>Vlastník dopytu
                 <select name="ownerEmail" defaultValue={lead.ownerEmail || ''}>
                   <option value="">Bez vlastníka</option>
-                  {adminUsers.filter((user) => user.active).map((user) => <option key={user.id} value={user.email}>{user.name || user.email} · {user.role === 'SUPER_ADMIN' ? 'superadmin' : 'operátor'}</option>)}
+                  {adminUsers.filter((user) => user.active && user.role !== 'META_REVIEWER').map((user) => <option key={user.id} value={user.email}>{user.name || user.email} · {user.role === 'SUPER_ADMIN' ? 'superadmin' : 'operátor'}</option>)}
                 </select>
               </label>
               <label>Ďalší krok

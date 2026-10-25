@@ -1,4 +1,4 @@
-import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+import { csrfTokenForEmail, requireFacebookAdminUser } from '@/src/server/auth';
 import { getFacebookMessengerConfiguration } from '@/src/server/facebook-messenger-config';
 import { getFacebookConversationCounts, getFacebookPageConnection, listFacebookConversations } from '@/src/server/facebook-messenger-db';
 import type { FacebookConversationStatus } from '@/src/server/facebook-messenger-types';
@@ -17,18 +17,20 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('sk-SK', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Bratislava' }).format(new Date(value));
 }
 export default async function FacebookInboxPage({ searchParams }: { searchParams?: Promise<Record<string, string | undefined>> }) {
-  const admin = await requireAdminUser();
+  const admin = await requireFacebookAdminUser();
+  const isReviewer = admin.role === 'META_REVIEWER';
+  const config = getFacebookMessengerConfiguration();
+  const reviewParticipantId = isReviewer ? config.reviewParticipantId || '__reviewer_not_configured__' : '';
   const query = searchParams ? await searchParams : {};
   const status = ['nova', 'riesi_sa', 'cakame_na_zakaznika', 'vybavena'].includes(query.status || '')
     ? query.status as FacebookConversationStatus
     : undefined;
   const [connection, counts, assignees, conversations] = await Promise.all([
     getFacebookPageConnection(),
-    getFacebookConversationCounts(),
-    listAdminTaskAssignees(),
-    listFacebookConversations({ status, assignedTo: query.assigned || undefined, unreadOnly: query.unread === '1' }),
+    getFacebookConversationCounts(reviewParticipantId),
+    isReviewer ? Promise.resolve([]) : listAdminTaskAssignees(),
+    listFacebookConversations({ status, assignedTo: isReviewer ? undefined : query.assigned || undefined, unreadOnly: query.unread === '1', participantId: reviewParticipantId }),
   ]);
-  const config = getFacebookMessengerConfiguration();
   const csrfToken = csrfTokenForEmail(admin.email);
   const connectMessage = query.connect === 'ok' ? 'Facebook stránka bola pripojená a webhook je prihlásený.'
     : query.connect === 'disconnected' ? 'Facebook stránka bola odpojená.'
@@ -43,6 +45,8 @@ export default async function FacebookInboxPage({ searchParams }: { searchParams
         {connection ? <span className="facebook-live-badge">Pripojené</span> : <span className="facebook-offline-badge">Nepripojené</span>}
       </div>
       {connectMessage ? <p className={query.connect === 'ok' || query.connect === 'disconnected' ? 'facebook-notice' : 'admin-alert'} role="status">{connectMessage}</p> : null}
+      {query.access === 'restricted' && isReviewer ? <p className="facebook-notice" role="status">Kontrolný účet má zámerne prístup iba k Facebook správam.</p> : null}
+      {isReviewer && !config.reviewParticipantId ? <p className="admin-alert" role="status">Kontrolná konverzácia ešte nie je priradená. Tento účet dovtedy nevidí žiadne správy.</p> : null}
 
       <section className="admin-card facebook-connection-card" aria-labelledby="facebook-connection-title">
         <div>
@@ -78,7 +82,7 @@ export default async function FacebookInboxPage({ searchParams }: { searchParams
         <div className="facebook-section-heading"><div><p className="facebook-eyebrow">DORUČENÉ</p><h2>Konverzácie</h2></div><span>{conversations.length} z {counts.all}</span></div>
         <form className="admin-filter-bar" method="get" action="/admin/facebook">
           <label>Stav<select name="status" defaultValue={status || ''}><option value="">Všetky stavy</option>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-          <label>Pridelenie<select name="assigned" defaultValue={query.assigned || ''}><option value="">Všetci</option><option value="none">Bez pridelenia</option>{assignees.map((item) => <option key={item.id} value={item.email}>{item.name || item.email}</option>)}</select></label>
+          {!isReviewer ? <label>Pridelenie<select name="assigned" defaultValue={query.assigned || ''}><option value="">Všetci</option><option value="none">Bez pridelenia</option>{assignees.map((item) => <option key={item.id} value={item.email}>{item.name || item.email}</option>)}</select></label> : null}
           <label className="admin-checkbox"><input type="checkbox" name="unread" value="1" defaultChecked={query.unread === '1'} /> Iba nové</label>
           <button type="submit">Použiť filter</button>
           <a href="/admin/facebook">Vyčistiť</a>

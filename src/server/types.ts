@@ -338,7 +338,7 @@ export type BusinessJobStatus =
 export type PriceOfferMaterialType = 'VLNITY_ETERNIT' | 'HLADKY_ETERNIT' | 'AZBESTOVE_RURY' | 'PODHLADOVE_DOSKY' | 'BOLETICKY' | 'INE';
 export type PriceOfferStatus = 'PRIPRAVENA' | 'ODOSIELA' | 'NEISTY_STAV' | 'ODOSLANA' | 'ODLOZENA' | 'PRIJATA' | 'NEUSPESNA' | 'ZRUSENA';
 export type PriceOfferCustomerResponse = 'ACCEPTED' | 'DEFERRED' | 'DECLINED';
-export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR';
+export type AdminRole = 'SUPER_ADMIN' | 'OPERATOR' | 'META_REVIEWER';
 
 export type AdminUser = {
   id: string;

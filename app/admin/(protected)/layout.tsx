@@ -1,4 +1,6 @@
-import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
+import { headers } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { canAccessAdminPath, csrfTokenForEmail, requireAnyAdminUser } from '@/src/server/auth';
 import AdminNav from './admin-nav';
 import AdminTopbar from './admin-topbar';
 
@@ -7,7 +9,9 @@ export const metadata = {
 };
 
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireAdminUser();
+  const user = await requireAnyAdminUser();
+  const pathname = (await headers()).get('x-astana-admin-path') || '/admin/dashboard';
+  if (!canAccessAdminPath(user.role, pathname)) redirect('/admin/facebook?access=restricted');
   const email = user.email;
   const initial = (user.name || email).trim().charAt(0).toUpperCase() || 'A';
   const csrfToken = csrfTokenForEmail(email);

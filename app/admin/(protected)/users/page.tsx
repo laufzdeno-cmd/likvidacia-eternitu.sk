@@ -44,11 +44,11 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
           <label>Email<input name="email" type="email" required /></label>
           <label>Heslo<input name="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" required /></label>
           <label>Vaše aktuálne heslo<input name="currentPassword" type="password" maxLength={128} autoComplete="current-password" required /></label>
-          <label>Rola<select name="role" defaultValue="OPERATOR"><option value="OPERATOR">Operátor</option><option value="SUPER_ADMIN">Super admin</option></select></label>
+          <label>Rola<select name="role" defaultValue="OPERATOR"><option value="OPERATOR">Operátor</option><option value="META_REVIEWER">Kontrolór Meta – iba Facebook</option><option value="SUPER_ADMIN">Super admin</option></select></label>
           <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked /> Aktívny</label>
           <button className="admin-primary-button admin-form-wide" type="submit">Pridať používateľa</button>
         </form>
-        <p>Operátor vidí pracovné časti CRM, ale nemá prístup k nastaveniam, používateľom, auditu ani systémovej kontrole.</p>
+        <p>Operátor vidí pracovné časti CRM, ale nemá prístup k nastaveniam, používateľom, auditu ani systémovej kontrole. Dočasný kontrolór Meta vidí iba Facebook schránku a po ukončení kontroly sa jeho účet deaktivuje.</p>
       </section>
 
       <section className="admin-card">
@@ -62,7 +62,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
                   <p>{user.email}</p>
                 </div>
                 <div className="admin-user-card-statuses" aria-label="Stav účtu">
-                  <span className="status-pill">{user.role === 'SUPER_ADMIN' ? 'Super admin' : 'Operátor'}</span>
+                  <span className="status-pill">{user.role === 'SUPER_ADMIN' ? 'Super admin' : user.role === 'META_REVIEWER' ? 'Kontrolór Meta' : 'Operátor'}</span>
                   <span className="status-pill">{user.active ? 'Aktívny' : 'Neaktívny'}</span>
                 </div>
               </header>
@@ -73,7 +73,7 @@ export default async function AdminUsersPage({ searchParams }: { searchParams?: 
                 <input type="hidden" name="expectedSessionEpoch" value={user.sessionEpoch} />
                 <label>Meno<input name="name" defaultValue={user.name} required maxLength={120} /></label>
                 <label>Email<input name="email" type="email" defaultValue={user.email} required maxLength={254} /></label>
-                <label>Rola<select name="role" defaultValue={user.role}><option value="OPERATOR">Operátor</option><option value="SUPER_ADMIN">Super admin</option></select></label>
+                <label>Rola<select name="role" defaultValue={user.role}><option value="OPERATOR">Operátor</option><option value="META_REVIEWER">Kontrolór Meta – iba Facebook</option><option value="SUPER_ADMIN">Super admin</option></select></label>
                 <label>Nové heslo<input name="password" type="password" minLength={12} maxLength={128} autoComplete="new-password" placeholder="Nechať nezmenené" /></label>
                 <label>Vaše aktuálne heslo<input name="currentPassword" type="password" maxLength={128} autoComplete="current-password" required /></label>
                 <label className="admin-checkbox"><input name="active" type="checkbox" defaultChecked={user.active} /> Aktívny účet</label>
