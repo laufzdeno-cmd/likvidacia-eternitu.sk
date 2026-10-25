@@ -50,3 +50,7 @@ Admin zobrazuje technický stav konfigurácie, pripojenú stránku, čas posledn
 4. Operátor nevidí token a nevie pripojiť alebo odpojiť stránku.
 5. Odpoveď sa odošle iba po ručnom stlačení tlačidla a iba v povolenom 24-hodinovom okne.
 6. Build, typová kontrola, cielené testy a mobilná aj desktopová vizuálna kontrola prejdú pred nasadením.
+
+## Produkčné OAuth overenie — 25. 10. 2026
+
+Produkčný OAuth tok úspešne udelil prístup k jednej vybratej stránke ASTANA, ale volanie `/me/accounts` nevrátilo použiteľný Page access token. OAuth preto musí žiadať aj `pages_read_engagement`, ktoré dopĺňa `pages_show_list`, `pages_messaging` a `pages_manage_metadata` pri bezpečnom získaní tokenu vybratej stránky. Rozsah zostáva obmedzený na čítanie základných údajov stránky potrebných na pripojenie; automatické odosielanie správ ani publikovanie obsahu sa tým nezapína.
