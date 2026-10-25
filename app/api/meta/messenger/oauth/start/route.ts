@@ -16,6 +16,9 @@ export async function GET(request: Request) {
   url.searchParams.set('redirect_uri', config.redirectUri);
   url.searchParams.set('state', state);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata');
+  url.searchParams.set(
+    'scope',
+    'pages_show_list,pages_read_engagement,pages_messaging,pages_manage_metadata,business_management',
+  );
   return NextResponse.redirect(url);
 }

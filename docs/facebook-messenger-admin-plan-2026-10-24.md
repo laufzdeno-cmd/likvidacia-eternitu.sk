@@ -54,3 +54,5 @@ Admin zobrazuje technický stav konfigurácie, pripojenú stránku, čas posledn
 ## Produkčné OAuth overenie — 25. 10. 2026
 
 Produkčný OAuth tok úspešne udelil prístup k jednej vybratej stránke ASTANA, ale volanie `/me/accounts` nevrátilo použiteľný Page access token. OAuth preto musí žiadať aj `pages_read_engagement`, ktoré dopĺňa `pages_show_list`, `pages_messaging` a `pages_manage_metadata` pri bezpečnom získaní tokenu vybratej stránky. Rozsah zostáva obmedzený na čítanie základných údajov stránky potrebných na pripojenie; automatické odosielanie správ ani publikovanie obsahu sa tým nezapína.
+
+Po doplnení `pages_read_engagement` Meta potvrdila všetky štyri Page oprávnenia, ale stránka vlastnená cez Business Portfolio zostala v `/me/accounts` nedostupná. OAuth preto žiada aj výslovne schválené `business_management`, ktoré sprístupní vybratú firemnú stránku tomuto tokenu. Integrácia nežiada `ads_read`, `ads_management` ani oprávnenia na publikovanie príspevkov.
