@@ -1178,6 +1178,13 @@ async function initializeSchema() {
   // promise coalesces requests in this process; the advisory lock also guards
   // cold starts in other serverless instances sharing the database.
   const schemaSql = `
+    CREATE TABLE IF NOT EXISTS astana_google_ads_order_counters (
+      order_date text NOT NULL,
+      domain_code text NOT NULL,
+      last_value integer NOT NULL CHECK (last_value >= 1 AND last_value <= 999999),
+      PRIMARY KEY (order_date, domain_code)
+    );
+
     CREATE TABLE IF NOT EXISTS leads (
       id uuid PRIMARY KEY,
       submission_id uuid,
@@ -2064,6 +2071,109 @@ async function initializeSchema() {
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS review_request_blocked_at timestamptz;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS review_request_blocked_by text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS review_request_blocked_reason text NOT NULL DEFAULT '';
+
+    -- Restore and rollback compatibility for predecessors of the current
+    -- lead-email and Meta delivery pipelines. New code never writes to these
+    -- tables; keeping their exact schema lets a full production backup be
+    -- restored without silently dropping historical operational evidence.
+    CREATE TABLE IF NOT EXISTS lead_email_delivery_outbox (
+      id uuid PRIMARY KEY,
+      lead_id uuid NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      business_job_id uuid NOT NULL REFERENCES business_jobs(id) ON DELETE CASCADE,
+      kind text NOT NULL CHECK (kind IN ('internal', 'customer')),
+      recipient text NOT NULL,
+      template_version text NOT NULL,
+      message_id text NOT NULL UNIQUE,
+      dedupe_key text NOT NULL UNIQUE,
+      file_count integer NOT NULL DEFAULT 0 CHECK (file_count >= 0),
+      expected_file_count integer NOT NULL DEFAULT 0 CHECK (expected_file_count >= 0),
+      state text NOT NULL DEFAULT 'waiting' CHECK (state IN ('waiting', 'pending', 'sending', 'sent', 'retrying', 'permanently_failed')),
+      attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+      max_attempts integer NOT NULL DEFAULT 5 CHECK (max_attempts > 0),
+      next_attempt_at timestamptz NOT NULL DEFAULT now(),
+      lease_token uuid,
+      lease_expires_at timestamptz,
+      last_attempt_at timestamptz,
+      sent_at timestamptz,
+      last_error_code text,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (lead_id, kind)
+    );
+    CREATE INDEX IF NOT EXISTS lead_email_delivery_outbox_dispatch_idx
+      ON lead_email_delivery_outbox (state, next_attempt_at, lease_expires_at);
+    CREATE INDEX IF NOT EXISTS lead_email_delivery_outbox_health_idx
+      ON lead_email_delivery_outbox (state, updated_at DESC);
+
+    CREATE TABLE IF NOT EXISTS meta_capi_delivery_outbox (
+      event_id uuid PRIMARY KEY REFERENCES leads(id) ON DELETE CASCADE,
+      consent_subject uuid NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      event_time timestamptz NOT NULL,
+      material text NOT NULL,
+      event_source_url text NOT NULL,
+      client_ip text,
+      client_user_agent text,
+      fbp text,
+      fbc text,
+      state text NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'sending', 'sent', 'retrying', 'permanently_failed')),
+      attempt_count integer NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+      max_attempts integer NOT NULL DEFAULT 5 CHECK (max_attempts > 0),
+      next_attempt_at timestamptz NOT NULL DEFAULT now(),
+      lease_token uuid,
+      lease_expires_at timestamptz,
+      last_attempt_at timestamptz,
+      sent_at timestamptz,
+      last_status integer,
+      last_error_code text,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS meta_capi_delivery_outbox_consent_subject_idx
+      ON meta_capi_delivery_outbox (consent_subject, state);
+    CREATE INDEX IF NOT EXISTS meta_capi_delivery_outbox_dispatch_idx
+      ON meta_capi_delivery_outbox (state, next_attempt_at, lease_expires_at);
+
+    CREATE TABLE IF NOT EXISTS meta_capi_outbox (
+      id uuid PRIMARY KEY,
+      event_id uuid NOT NULL UNIQUE,
+      event_name text NOT NULL DEFAULT 'Lead',
+      event_time bigint NOT NULL,
+      payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      status text NOT NULL DEFAULT 'pending',
+      attempts integer NOT NULL DEFAULT 0,
+      last_error text NOT NULL DEFAULT '',
+      sent_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS meta_capi_outbox_pending_idx
+      ON meta_capi_outbox (status, attempts, created_at);
+
+    CREATE TABLE IF NOT EXISTS meta_conversion_outbox (
+      id uuid PRIMARY KEY,
+      lead_id uuid NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+      event_name text NOT NULL,
+      event_id text NOT NULL UNIQUE,
+      event_time timestamptz NOT NULL,
+      payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+      status text NOT NULL DEFAULT 'pending',
+      attempts integer NOT NULL DEFAULT 0,
+      next_attempt_at timestamptz NOT NULL DEFAULT now(),
+      locked_at timestamptz,
+      sent_at timestamptz,
+      last_error text NOT NULL DEFAULT '',
+      trace_id text NOT NULL DEFAULT '',
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_meta_conversion_outbox_due
+      ON meta_conversion_outbox (status, next_attempt_at);
+
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      id text PRIMARY KEY,
+      checksum text NOT NULL,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    );
 
     -- Internal financial evidence only. Existing jobs are intentionally not backfilled:
     -- a quoted value, job status or preferred payment type is not proof of an invoice or payment.

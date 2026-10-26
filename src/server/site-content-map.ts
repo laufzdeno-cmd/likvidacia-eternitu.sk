@@ -94,8 +94,11 @@ export function mergeSiteContent(defaults: Record<string, string>, items: SiteCo
   if (saved.realizationsTitle === 'Schválené realizácie z adminu') {
     saved.realizationsTitle = 'Naše realizácie';
   }
-  if (saved.realizationsText === 'Schválené ukážky prác z adminu: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.') {
-    saved.realizationsText = 'Pozrite si ukážky našej práce pri odstraňovaní azbestu (eternitu), balení a odvoze odpadu.';
+  if (
+    saved.realizationsText === 'Schválené ukážky prác z adminu: stav pred zásahom, priebeh demontáže, balenie materiálu a výsledok po odvoze.'
+    || saved.realizationsText === 'Pozrite si ukážky našej práce pri odstraňovaní azbestu (eternitu), balení a odvoze odpadu.'
+  ) {
+    saved.realizationsText = 'Pozrite si tri ukážky prác na rodinnom dome, hospodárskej budove a priemyselnom objekte.';
   }
   if (typeof saved.faqItems === 'string' && typeof defaults.faqItems === 'string') {
     saved.faqItems = keepLegalFaqCurrent(saved.faqItems, defaults.faqItems);

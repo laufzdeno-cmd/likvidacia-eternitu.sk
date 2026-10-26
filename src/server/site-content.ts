@@ -47,7 +47,7 @@ export const homeContentDefaults = {
   realizationsEyebrow: 'Vybrané realizácie',
   realizationsTitle: 'Naše realizácie',
   realizationsText:
-    'Pozrite si ukážky našej práce pri odstraňovaní azbestu (eternitu), balení a odvoze odpadu.',
+    'Pozrite si tri ukážky prác na rodinnom dome, hospodárskej budove a priemyselnom objekte.',
   testimonialsEyebrow: 'Referencie',
   testimonialsTitle: 'Čo hovoria zákazníci',
   testimonialsText: 'Krátke skúsenosti zákazníkov po realizácii a odovzdaní zákazky.',
