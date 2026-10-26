@@ -1558,6 +1558,142 @@
   }
 }
 
+/* Practical CRM additions: customer overview, approved media library and content versions. */
+.customer-directory-grid,
+.content-version-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.customer-directory-card,
+.content-version-card {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.customer-directory-card > header,
+.content-version-card > header,
+.media-library-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.customer-directory-card h2,
+.content-version-card h2 {
+  margin: 0;
+  color: #102a56;
+  font-size: clamp(1.05rem, 1.7vw, 1.3rem);
+}
+
+.customer-directory-card > header > span {
+  flex: 0 0 auto;
+  color: #61728a;
+  font-size: .8rem;
+}
+
+.customer-directory-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.customer-directory-counts span {
+  display: grid;
+  gap: 3px;
+  padding: 10px;
+  border: 1px solid #dce8f6;
+  border-radius: 12px;
+  color: #52677f;
+  background: #f7fbff;
+  font-size: .75rem;
+}
+
+.customer-directory-counts strong {
+  color: #164982;
+  font-size: 1.05rem;
+}
+
+.customer-directory-links,
+.media-library-uses {
+  display: grid;
+  gap: 7px;
+}
+
+.customer-directory-links a,
+.media-library-uses a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid #e3ebf4;
+  border-radius: 10px;
+  color: #164982;
+  background: #fff;
+  text-decoration: none;
+}
+
+.customer-directory-links a:hover,
+.media-library-uses a:hover {
+  border-color: #8eb9df;
+  background: #f5faff;
+}
+
+.media-library-grid article {
+  border-color: #d9e8f5;
+  box-shadow: 0 12px 30px rgba(20, 68, 113, .07);
+}
+
+.media-library-grid img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.media-library-meta .status-pill {
+  flex: 0 0 auto;
+}
+
+.media-library-uses {
+  padding-top: 9px;
+  border-top: 1px solid #e6edf5;
+}
+
+.content-version-card.is-restored {
+  border-color: #52a684;
+  box-shadow: 0 0 0 3px rgba(82, 166, 132, .12);
+}
+
+.content-version-card code {
+  color: #425d78;
+  font-size: .82rem;
+}
+
+@media (max-width: 880px) {
+  .customer-directory-grid,
+  .content-version-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-directory-card > header,
+  .content-version-card > header,
+  .media-library-meta {
+    flex-direction: column;
+  }
+
+  .customer-directory-counts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Riadené uzavretie zákazky: živé farby majú význam, nie iba dekoráciu. */
 .completion-wizard {
   border-color: #b9ddd9 !important;

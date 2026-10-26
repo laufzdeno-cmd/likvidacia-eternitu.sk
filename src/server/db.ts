@@ -128,16 +128,20 @@ import type {
   RooferInput,
   RooferRegistration,
   RooferRegistrationStatus,
+  CustomerDirectorySummary,
   SiteContentItem,
+  SiteContentVersion,
   TestimonialAdminHistoryItem,
   Testimonial,
   TestimonialInput,
   TestimonialStatus,
   Worker,
 } from './types';
+import { buildCustomerDirectory, type CustomerDirectorySourceRecord } from './customer-directory';
 import { createAcceptedLeadConversion } from './lead-conversion';
 import { cleanSlovakText } from './slovak-text';
 import { mergeSiteContent } from './site-content-map';
+import { homepageEditableKeys } from './site-content';
 import { canUseTestimonialStatus, testimonialPublicContentHash } from './testimonial-policy';
 import { testimonialConsentHistoryEntries } from './testimonial-consent-history';
 import {
@@ -216,6 +220,7 @@ type LocalDb = {
   rooferRegistrations: RooferRegistration[];
   careerApplications: CareerApplication[];
   siteContent: SiteContentItem[];
+  siteContentVersions: SiteContentVersion[];
   analyticsEvents: AnalyticsEvent[];
   opsAlertStates: OpsAlertStateRecord[];
   adminSettings: Record<string, string>;
@@ -1895,6 +1900,19 @@ async function initializeSchema() {
       updated_by text
     );
 
+    CREATE TABLE IF NOT EXISTS site_content_versions (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      created_by text NOT NULL,
+      action text NOT NULL,
+      values jsonb NOT NULL,
+      content_hash text NOT NULL,
+      restored_from_id uuid,
+      CONSTRAINT site_content_versions_action_check CHECK (action IN ('baseline','saved','restored'))
+    );
+    CREATE INDEX IF NOT EXISTS site_content_versions_created_idx
+      ON site_content_versions (created_at DESC, id DESC);
+
     CREATE TABLE IF NOT EXISTS admin_settings (
       key text PRIMARY KEY,
       value text NOT NULL,
@@ -2697,6 +2715,11 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     rooferRegistrations: data.rooferRegistrations ?? [],
     careerApplications: data.careerApplications ?? [],
     siteContent: data.siteContent ?? [],
+    siteContentVersions: (data.siteContentVersions ?? []).map((version) => ({
+      ...version,
+      action: version.action === 'restored' || version.action === 'baseline' ? version.action : 'saved',
+      values: version.values && typeof version.values === 'object' ? version.values : {},
+    })),
     analyticsEvents: data.analyticsEvents ?? [],
     opsAlertStates: (data.opsAlertStates ?? []).filter((item) => (
       (item.workerKey === 'lead_email_delivery' || item.workerKey === 'application_notifications')
@@ -3273,6 +3296,7 @@ async function readLocalDb(): Promise<LocalDb> {
       rooferRegistrations: [],
       careerApplications: [],
       siteContent: [],
+      siteContentVersions: [],
       analyticsEvents: [],
       opsAlertStates: [],
       adminSettings: {},
@@ -11628,6 +11652,114 @@ export async function searchAdminData(query: string, includeFinance: boolean): P
   };
 }
 
+export type CustomerDirectoryPage = {
+  items: CustomerDirectorySummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  truncated: boolean;
+};
+
+const customerDirectorySourceLimit = 5_000;
+
+function customerDirectoryPage(records: CustomerDirectorySourceRecord[], query: string, requestedPage: number, requestedPageSize: number, truncated: boolean): CustomerDirectoryPage {
+  const customers = buildCustomerDirectory(records, query);
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(requestedPageSize) || 40));
+  const totalPages = Math.max(1, Math.ceil(customers.length / pageSize));
+  const page = Math.max(1, Math.min(totalPages, Math.trunc(requestedPage) || 1));
+  return {
+    items: customers.slice((page - 1) * pageSize, page * pageSize),
+    total: customers.length,
+    page,
+    pageSize,
+    totalPages,
+    truncated,
+  };
+}
+
+export async function listCustomerDirectory(options: { query?: string; page?: number; pageSize?: number } = {}): Promise<CustomerDirectoryPage> {
+  await ensureSchema();
+  const query = cleanSlovakText(String(options.query ?? '')).slice(0, 100);
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const testJobIds = new Set(local.businessJobs
+      .filter((job) => job.isTestData || Boolean(job.leadId && testLeadIds.has(job.leadId)))
+      .map((job) => job.id));
+    const records: CustomerDirectorySourceRecord[] = [
+      ...local.leads.filter((lead) => !lead.deletedAt && !lead.isTestData).map((lead) => ({
+        kind: 'inquiry' as const, id: lead.id, name: lead.fullName, email: lead.email, phone: lead.phone,
+        location: lead.city || lead.district || '', activityAt: lead.updatedAt || lead.createdAt,
+        label: `Dopyt · ${lead.city || 'bez lokality'}`, href: `/admin/dopyty/${lead.id}`,
+      })),
+      ...local.businessJobs.filter((job) => !job.deletedAt && !testJobIds.has(job.id)).map((job) => ({
+        kind: 'job' as const, id: job.id, name: job.customerName, email: job.customerEmail, phone: job.customerPhone,
+        location: job.location || job.district || '', activityAt: job.updatedAt || job.createdAt,
+        label: `Zákazka · ${job.demolitionDate || job.location || 'bez termínu'}`, href: `/admin/zakazky/${job.id}`,
+      })),
+      ...localBusinessPriceOffers(local).map((offer) => ({
+        kind: 'offer' as const, id: offer.id, name: offer.contactPerson, email: offer.email, phone: offer.phone,
+        location: offer.objectAddress || offer.municipality || offer.district || '', activityAt: offer.outcomeUpdatedAt || offer.sentAt || offer.createdAt,
+        label: `${offer.number} · ${offer.status}`, href: `/admin/ponuky/${offer.id}`,
+      })),
+    ];
+    return customerDirectoryPage(records, query, options.page ?? 1, options.pageSize ?? 40, false);
+  }
+
+  const [leadResult, jobResult, offerResult] = await Promise.all([
+    db.query(
+      `SELECT id, full_name, email, phone, city, district, created_at, updated_at
+       FROM leads WHERE deleted_at IS NULL AND COALESCE(is_test_data, false)=false
+       ORDER BY updated_at DESC, id DESC LIMIT $1`,
+      [customerDirectorySourceLimit + 1],
+    ),
+    db.query(
+      `SELECT j.id, j.customer_name, j.customer_email, j.customer_phone, j.location, j.district,
+              j.demolition_date::text AS demolition_date, j.created_at, j.updated_at
+       FROM business_jobs j LEFT JOIN leads source_lead ON source_lead.id=j.lead_id
+       WHERE j.deleted_at IS NULL AND COALESCE(j.is_test_data, false)=false
+         AND COALESCE(source_lead.is_test_data, false)=false
+       ORDER BY j.updated_at DESC, j.id DESC LIMIT $1`,
+      [customerDirectorySourceLimit + 1],
+    ),
+    db.query(
+      `SELECT o.id, o.number, o.contact_person, o.email, o.phone, o.object_address, o.municipality, o.district,
+              o.status, o.created_at, o.sent_at, o.outcome_updated_at
+       FROM price_offers o WHERE o.deleted_at IS NULL AND ${businessPriceOfferCondition}
+       ORDER BY COALESCE(o.outcome_updated_at, o.sent_at, o.created_at) DESC, o.id DESC LIMIT $1`,
+      [customerDirectorySourceLimit + 1],
+    ),
+  ]);
+  const truncated = [leadResult, jobResult, offerResult].some((result) => result.rows.length > customerDirectorySourceLimit);
+  const records: CustomerDirectorySourceRecord[] = [
+    ...leadResult.rows.slice(0, customerDirectorySourceLimit).map((row) => ({
+      kind: 'inquiry' as const, id: String(row.id), name: cleanSlovakText(String(row.full_name ?? '')),
+      email: String(row.email ?? ''), phone: String(row.phone ?? ''),
+      location: cleanSlovakText(String(row.city || row.district || '')),
+      activityAt: new Date(String(row.updated_at ?? row.created_at)).toISOString(),
+      label: `Dopyt · ${cleanSlovakText(String(row.city || 'bez lokality'))}`, href: `/admin/dopyty/${row.id}`,
+    })),
+    ...jobResult.rows.slice(0, customerDirectorySourceLimit).map((row) => ({
+      kind: 'job' as const, id: String(row.id), name: cleanSlovakText(String(row.customer_name ?? '')),
+      email: String(row.customer_email ?? ''), phone: String(row.customer_phone ?? ''),
+      location: cleanSlovakText(String(row.location || row.district || '')),
+      activityAt: new Date(String(row.updated_at ?? row.created_at)).toISOString(),
+      label: `Zákazka · ${dateOnly(row.demolition_date) || cleanSlovakText(String(row.location || 'bez termínu'))}`,
+      href: `/admin/zakazky/${row.id}`,
+    })),
+    ...offerResult.rows.slice(0, customerDirectorySourceLimit).map((row) => ({
+      kind: 'offer' as const, id: String(row.id), name: cleanSlovakText(String(row.contact_person ?? '')),
+      email: String(row.email ?? ''), phone: String(row.phone ?? ''),
+      location: cleanSlovakText(String(row.object_address || row.municipality || row.district || '')),
+      activityAt: new Date(String(row.outcome_updated_at ?? row.sent_at ?? row.created_at)).toISOString(),
+      label: `${String(row.number)} · ${String(row.status)}`, href: `/admin/ponuky/${row.id}`,
+    })),
+  ];
+  return customerDirectoryPage(records, query, options.page ?? 1, options.pageSize ?? 40, truncated);
+}
+
 export type PriceOfferStatusSummary = { created: number; sent: number; accepted: number; acceptedValue: number };
 
 function priceOfferMonthRange(month: string) {
@@ -13340,6 +13472,18 @@ export type RealizationMediaIntake = {
   reviewedBy?: string;
 };
 
+export type MediaLibraryRecord = RealizationMediaIntake & {
+  caseUses: Array<{ id: string; title: string; lifecycle: RealizationCaseDraft['lifecycle'] }>;
+};
+
+export type MediaLibraryPage = {
+  records: MediaLibraryRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
+
 function toRealizationCaseDraft(row: Record<string, unknown>, mediaRows: Record<string, unknown>[] = []): RealizationCaseDraft {
   return {
     id: String(row.id),
@@ -14745,6 +14889,80 @@ export async function listPhotoIntakeRecords(options: { inviteId?: string; busin
     [...values, pageSize, (page - 1) * pageSize],
   );
   return { records: rows.map(toRealizationMediaIntake), total, page, pageSize, totalPages };
+}
+
+export async function listMediaLibraryRecords(options: {
+  query?: string;
+  status?: RealizationMediaIntake['status'] | 'all';
+  category?: string;
+  usage?: 'all' | 'used' | 'unused';
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<MediaLibraryPage> {
+  await ensureSchema();
+  const db = requirePhotoIntakeDatabase();
+  const clauses: string[] = ["m.status <> 'pending_upload'", "m.status <> 'deletion_pending'"];
+  const values: unknown[] = [];
+  const allowedStatuses = new Set<RealizationMediaIntake['status']>(['pending_review', 'approved_private', 'rejected']);
+  const status = options.status && options.status !== 'all' && allowedStatuses.has(options.status) ? options.status : 'all';
+  if (status !== 'all') {
+    values.push(status);
+    clauses.push(`m.status=$${values.length}`);
+  }
+  const categoryValue = options.category ?? '';
+  const category = isPhotoCategory(categoryValue) ? categoryValue : '';
+  if (category) {
+    values.push(category);
+    clauses.push(`m.categories ? $${values.length}`);
+  }
+  const query = cleanSlovakText(String(options.query ?? '')).trim().slice(0, 100);
+  if (query) {
+    values.push(`%${query.replace(/[\\%_]/g, '\\$&')}%`);
+    clauses.push(`(m.original_name ILIKE $${values.length} ESCAPE '\\' OR m.locality ILIKE $${values.length} ESCAPE '\\')`);
+  }
+  const usage = options.usage === 'used' || options.usage === 'unused' ? options.usage : 'all';
+  if (usage !== 'all') {
+    clauses.push(`${usage === 'used' ? '' : 'NOT '}EXISTS (SELECT 1 FROM realization_case_draft_media usage_link WHERE usage_link.media_id=m.id)`);
+  }
+  const where = `WHERE ${clauses.join(' AND ')}`;
+  const countResult = await db.query(`SELECT COUNT(*)::int AS total FROM realization_media_intake m ${where}`, values);
+  const total = Number(countResult.rows[0]?.total ?? 0);
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(options.pageSize ?? 48) || 48));
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.max(1, Math.min(totalPages, Math.trunc(options.page ?? 1) || 1));
+  const { rows } = await db.query(
+    `SELECT m.*, i.business_job_id AS invite_business_job_id,
+       COALESCE((
+         SELECT jsonb_agg(jsonb_build_object('id', draft.id, 'title', draft.title, 'lifecycle', draft.lifecycle)
+           ORDER BY draft.updated_at DESC, draft.id)
+         FROM realization_case_draft_media media_link
+         JOIN realization_case_drafts draft ON draft.id=media_link.draft_id
+         WHERE media_link.media_id=m.id
+       ), '[]'::jsonb) AS case_uses
+     FROM realization_media_intake m
+     JOIN photo_upload_invites i ON i.id=m.invite_id
+     ${where}
+     ORDER BY COALESCE(m.reviewed_at, m.uploaded_at, m.created_at) DESC, m.id DESC
+     LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+    [...values, pageSize, (page - 1) * pageSize],
+  );
+  return {
+    records: rows.map((row) => ({
+      ...toRealizationMediaIntake(row),
+      caseUses: (Array.isArray(row.case_uses) ? row.case_uses : []).map((item: unknown) => {
+        const value = item as Record<string, unknown>;
+        return {
+          id: String(value.id),
+          title: cleanSlovakText(String(value.title || 'Nepomenovaný koncept')),
+          lifecycle: String(value.lifecycle || 'draft') as RealizationCaseDraft['lifecycle'],
+        };
+      }),
+    })),
+    total,
+    page,
+    pageSize,
+    totalPages,
+  };
 }
 
 export async function getBusinessJobPhotoEvidence(jobId: string): Promise<{ approvedCount: number; pendingCount: number } | null> {
@@ -16536,6 +16754,68 @@ export async function getSiteContentMap(defaults: Record<string, string> = {}) {
   return mergeSiteContent(defaults, items);
 }
 
+function normalizedSiteContentSnapshot(items: SiteContentItem[] | Record<string, string>) {
+  const entries = Array.isArray(items)
+    ? items.map((item) => [item.key, item.value] as const)
+    : Object.entries(items);
+  return Object.fromEntries(entries
+    .map(([key, value]) => [String(key).trim(), String(value)] as const)
+    .filter(([key]) => key.length > 0)
+    .sort(([left], [right]) => left.localeCompare(right)));
+}
+
+const restorableSiteContentKeys = new Set<string>(homepageEditableKeys);
+
+function restorableSiteContentEntries(values: Record<string, string>) {
+  return Object.entries(values).filter(([key, value]) => restorableSiteContentKeys.has(key)
+    && value.length <= (key.endsWith('Items') ? 10_000 : 3_000));
+}
+
+export function siteContentSnapshotHash(values: Record<string, string>) {
+  return createHash('sha256').update(JSON.stringify(normalizedSiteContentSnapshot(values))).digest('hex');
+}
+
+function toSiteContentVersion(row: Record<string, unknown>): SiteContentVersion {
+  const values = row.values && typeof row.values === 'object' && !Array.isArray(row.values)
+    ? normalizedSiteContentSnapshot(row.values as Record<string, string>)
+    : {};
+  const action = String(row.action) as SiteContentVersion['action'];
+  return {
+    id: String(row.id),
+    createdAt: new Date(String(row.created_at ?? row.createdAt)).toISOString(),
+    createdBy: String(row.created_by ?? row.createdBy ?? ''),
+    action: action === 'baseline' || action === 'restored' ? action : 'saved',
+    values,
+    contentHash: String(row.content_hash ?? row.contentHash ?? siteContentSnapshotHash(values)),
+    restoredFromId: row.restored_from_id || row.restoredFromId ? String(row.restored_from_id ?? row.restoredFromId) : undefined,
+  };
+}
+
+function createSiteContentVersion(values: Record<string, string>, createdBy: string, action: SiteContentVersion['action'], restoredFromId?: string): SiteContentVersion {
+  const snapshot = normalizedSiteContentSnapshot(values);
+  return {
+    id: randomUUID(),
+    createdAt: now(),
+    createdBy,
+    action,
+    values: snapshot,
+    contentHash: siteContentSnapshotHash(snapshot),
+    restoredFromId,
+  };
+}
+
+export async function listSiteContentVersions(limit = 30): Promise<SiteContentVersion[]> {
+  await ensureSchema();
+  const boundedLimit = Math.max(1, Math.min(100, Math.trunc(limit) || 30));
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    return [...local.siteContentVersions].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, boundedLimit);
+  }
+  const { rows } = await db.query('SELECT * FROM site_content_versions ORDER BY created_at DESC, id DESC LIMIT $1', [boundedLimit]);
+  return rows.map(toSiteContentVersion);
+}
+
 export async function upsertSiteContentValues(values: Record<string, string>, actorEmail: string) {
   await ensureSchema();
   const entries = Object.entries(values)
@@ -16548,6 +16828,9 @@ export async function upsertSiteContentValues(values: Record<string, string>, ac
   if (!db) {
     await withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
+      if (!local.siteContentVersions.length && local.siteContent.length) {
+        local.siteContentVersions.push(createSiteContentVersion(normalizedSiteContentSnapshot(local.siteContent), actorEmail, 'baseline'));
+      }
       for (const [key, value] of entries) {
         const existing = local.siteContent.find((item) => item.key === key);
         if (existing) {
@@ -16558,23 +16841,122 @@ export async function upsertSiteContentValues(values: Record<string, string>, ac
           local.siteContent.push({ key, value, updatedAt: timestamp, updatedBy: actorEmail });
         }
       }
+      local.siteContentVersions.push(createSiteContentVersion(normalizedSiteContentSnapshot(local.siteContent), actorEmail, 'saved'));
       await writeLocalDb(local);
     });
     await addAuditLog('site_content', siteContentAuditId, 'site_content_updated', actorEmail, { keys: entries.map(([key]) => key) });
     return entries.map(([key]) => key);
   }
 
-  for (const [key, value] of entries) {
-    await db.query(
-      `INSERT INTO site_content (key, value, updated_at, updated_by)
-       VALUES ($1,$2,$3,$4)
-       ON CONFLICT (key)
-       DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by`,
-      [key, value, timestamp, actorEmail],
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await client.query('SELECT * FROM site_content ORDER BY key ASC FOR UPDATE');
+    const versionCount = await client.query('SELECT COUNT(*)::int AS count FROM site_content_versions');
+    if (Number(versionCount.rows[0]?.count ?? 0) === 0 && current.rows.length) {
+      const baseline = createSiteContentVersion(normalizedSiteContentSnapshot(current.rows.map(toSiteContent)), actorEmail, 'baseline');
+      await client.query(
+        `INSERT INTO site_content_versions (id, created_at, created_by, action, values, content_hash, restored_from_id)
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)`,
+        [baseline.id, baseline.createdAt, baseline.createdBy, baseline.action, JSON.stringify(baseline.values), baseline.contentHash, null],
+      );
+    }
+    for (const [key, value] of entries) {
+      await client.query(
+        `INSERT INTO site_content (key, value, updated_at, updated_by)
+         VALUES ($1,$2,$3,$4)
+         ON CONFLICT (key)
+         DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by`,
+        [key, value, timestamp, actorEmail],
+      );
+    }
+    const updated = await client.query('SELECT * FROM site_content ORDER BY key ASC');
+    const saved = createSiteContentVersion(normalizedSiteContentSnapshot(updated.rows.map(toSiteContent)), actorEmail, 'saved');
+    await client.query(
+      `INSERT INTO site_content_versions (id, created_at, created_by, action, values, content_hash, restored_from_id)
+       VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)`,
+      [saved.id, saved.createdAt, saved.createdBy, saved.action, JSON.stringify(saved.values), saved.contentHash, null],
     );
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
   await addAuditLog('site_content', siteContentAuditId, 'site_content_updated', actorEmail, { keys: entries.map(([key]) => key) });
   return entries.map(([key]) => key);
+}
+
+export async function restoreSiteContentVersion(input: { versionId: string; expectedCurrentHash: string; actorEmail: string }) {
+  await ensureSchema();
+  if (!uuidPattern.test(input.versionId) || !/^[a-f0-9]{64}$/.test(input.expectedCurrentHash)) return null;
+  const timestamp = now();
+  const db = getPool();
+  if (!db) {
+    let restored: SiteContentVersion | null = null;
+    await withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const source = local.siteContentVersions.find((version) => version.id === input.versionId);
+      const currentHash = siteContentSnapshotHash(normalizedSiteContentSnapshot(local.siteContent));
+      if (!source || currentHash !== input.expectedCurrentHash) return;
+      const sourceEntries = restorableSiteContentEntries(source.values);
+      if (!sourceEntries.length) return;
+      for (const [key, value] of sourceEntries) {
+        const existing = local.siteContent.find((item) => item.key === key);
+        if (existing) Object.assign(existing, { value, updatedAt: timestamp, updatedBy: input.actorEmail });
+        else local.siteContent.push({ key, value, updatedAt: timestamp, updatedBy: input.actorEmail });
+      }
+      restored = createSiteContentVersion(normalizedSiteContentSnapshot(local.siteContent), input.actorEmail, 'restored', source.id);
+      local.siteContentVersions.push(restored);
+      local.auditLogs.unshift({
+        id: randomUUID(), entityType: 'site_content', entityId: siteContentAuditId,
+        action: 'site_content_restored', actorEmail: input.actorEmail,
+        changes: { restoredFromId: source.id, contentHash: restored.contentHash }, createdAt: restored.createdAt,
+      });
+      await writeLocalDb(local);
+    });
+    return restored;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const sourceResult = await client.query('SELECT * FROM site_content_versions WHERE id=$1 LIMIT 1', [input.versionId]);
+    if (!sourceResult.rows[0]) { await client.query('ROLLBACK'); return null; }
+    const currentResult = await client.query('SELECT * FROM site_content ORDER BY key ASC FOR UPDATE');
+    const currentHash = siteContentSnapshotHash(normalizedSiteContentSnapshot(currentResult.rows.map(toSiteContent)));
+    if (currentHash !== input.expectedCurrentHash) { await client.query('ROLLBACK'); return null; }
+    const source = toSiteContentVersion(sourceResult.rows[0]);
+    const sourceEntries = restorableSiteContentEntries(source.values);
+    if (!sourceEntries.length) { await client.query('ROLLBACK'); return null; }
+    for (const [key, value] of sourceEntries) {
+      await client.query(
+        `INSERT INTO site_content (key, value, updated_at, updated_by) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=EXCLUDED.updated_at, updated_by=EXCLUDED.updated_by`,
+        [key, value, timestamp, input.actorEmail],
+      );
+    }
+    const restoredResult = await client.query('SELECT * FROM site_content ORDER BY key ASC');
+    const restored = createSiteContentVersion(normalizedSiteContentSnapshot(restoredResult.rows.map(toSiteContent)), input.actorEmail, 'restored', source.id);
+    await client.query(
+      `INSERT INTO site_content_versions (id, created_at, created_by, action, values, content_hash, restored_from_id)
+       VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7)`,
+      [restored.id, restored.createdAt, restored.createdBy, restored.action, JSON.stringify(restored.values), restored.contentHash, source.id],
+    );
+    await client.query(
+      `INSERT INTO audit_logs (id,entity_type,entity_id,action,actor_email,changes,created_at)
+       VALUES ($1,'site_content',$2,'site_content_restored',$3,$4::jsonb,$5)`,
+      [randomUUID(), siteContentAuditId, input.actorEmail, JSON.stringify({ restoredFromId: source.id, contentHash: restored.contentHash }), restored.createdAt],
+    );
+    await client.query('COMMIT');
+    return restored;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function getAdminSetting(key: string) {

@@ -45,6 +45,7 @@ const allRoutes = [
   ['/admin/kontrola-dat/', 'kontrola-dat'],
   ['/admin/automatizacie/', 'automatizacie'],
   ['/admin/ai-asistent/', 'ai-asistent'],
+  ['/admin/klienti/', 'klienti'],
   ['/admin/dopyty/', 'dopyty'],
   [`/admin/dopyty/${syntheticIds.lead}/`, 'dopyt-detail'],
   ['/admin/facebook/', 'facebook'],
@@ -68,6 +69,8 @@ const allRoutes = [
   ['/admin/kariera/', 'kariera'],
   [`/admin/kariera/${syntheticIds.career}/`, 'kariera-detail'],
   ['/admin/obsah/', 'obsah'],
+  ['/admin/obsah/historia/', 'obsah-historia'],
+  ['/admin/media/', 'media'],
   ['/admin/realizacie/fotky/', 'fotky'],
   ['/admin/realizacie/pripady/', 'realizacie-pripady'],
   ['/admin/referencie/', 'referencie'],
@@ -79,7 +82,7 @@ const allRoutes = [
   ['/admin/analytics/', 'analytics'],
   ['/admin/health/', 'health'],
 ];
-const routes = process.argv.includes('--review-only')
+const selectedRoutes = process.argv.includes('--review-only')
   ? allRoutes.filter(([, slug]) => slug === 'referencie' || slug.startsWith('review-request'))
   : process.argv.includes('--users-only')
     ? allRoutes.filter(([, slug]) => slug === 'users')
@@ -95,7 +98,23 @@ const routes = process.argv.includes('--review-only')
           ? allRoutes.filter(([, slug]) => slug.startsWith('zakazka-podklady'))
         : process.argv.includes('--intelligence-only')
           ? allRoutes.filter(([, slug]) => ['vyhladavanie', 'kontrola-dat', 'automatizacie', 'ai-asistent'].includes(slug))
+        : process.argv.includes('--practical-only')
+          ? allRoutes.filter(([, slug]) => ['klienti', 'obsah-historia', 'media'].includes(slug))
         : allRoutes;
+const routeStartArg = process.argv.find((argument) => argument.startsWith('--route-start='));
+const routeLimitArg = process.argv.find((argument) => argument.startsWith('--route-limit='));
+const routeStart = routeStartArg ? Number.parseInt(routeStartArg.split('=')[1] ?? '', 10) : 0;
+const routeLimit = routeLimitArg ? Number.parseInt(routeLimitArg.split('=')[1] ?? '', 10) : selectedRoutes.length;
+if (!Number.isInteger(routeStart) || routeStart < 0) {
+  throw new Error('--route-start musí byť celé nezáporné číslo.');
+}
+if (!Number.isInteger(routeLimit) || routeLimit <= 0) {
+  throw new Error('--route-limit musí byť celé kladné číslo.');
+}
+const routes = selectedRoutes.slice(routeStart, routeStart + routeLimit);
+if (routes.length === 0) {
+  throw new Error('Zvolený rozsah neobsahuje žiadnu administratívnu trasu.');
+}
 
 const viewports = [
   { width: 1440, height: 1000, name: 'desktop', screenshot: true },

@@ -18,6 +18,7 @@ const navGroups = [
     title: 'OBCHOD',
     items: [
       { href: '/admin/dopyty', label: 'Dopyty', icon: 'mail' },
+      { href: '/admin/klienti', label: 'Klienti', icon: 'user' },
       { href: '/admin/facebook', label: 'Facebook správy', icon: 'chat' },
       { href: '/admin/ponuky', label: 'Ponuky', icon: 'doc' },
       { href: '/admin/strechari', label: 'Strechári', icon: 'users' },
@@ -30,6 +31,7 @@ const navGroups = [
       { href: '/admin/planovac', label: 'Plánovač', icon: 'calendar' },
       { href: '/admin/realizacie', label: 'Realizácie', icon: 'image' },
       { href: '/admin/realizacie/fotky', label: 'Fotky z terénu', icon: 'image', superOnly: true },
+      { href: '/admin/media', label: 'Knižnica médií', icon: 'image', superOnly: true },
     ],
   },
   {

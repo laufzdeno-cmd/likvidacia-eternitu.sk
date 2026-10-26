@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
-import { upsertSiteContentValues } from '@/src/server/db';
+import { restoreSiteContentVersion, upsertSiteContentValues } from '@/src/server/db';
 import { homepageEditableKeys } from '@/src/server/site-content';
 
 const editableKeys = new Set<string>(homepageEditableKeys);
@@ -30,4 +30,20 @@ export async function updateSiteContentAction(formData: FormData) {
   revalidatePath('/admin/obsah');
   revalidatePath('/');
   redirect('/admin/obsah?stav=ulozene');
+}
+
+export async function restoreSiteContentVersionAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const actorEmail = (await requireSuperAdmin()).email;
+  const versionId = String(formData.get('versionId') || '');
+  const expectedCurrentHash = String(formData.get('expectedCurrentHash') || '');
+  const confirmation = String(formData.get('confirmation') || '').trim().toLocaleUpperCase('sk-SK');
+  if (confirmation !== 'OBNOVIŤ') redirect('/admin/obsah/historia?stav=potvrdenie');
+
+  const restored = await restoreSiteContentVersion({ versionId, expectedCurrentHash, actorEmail });
+  if (!restored) redirect('/admin/obsah/historia?stav=konflikt');
+  revalidatePath('/admin/obsah');
+  revalidatePath('/admin/obsah/historia');
+  revalidatePath('/');
+  redirect(`/admin/obsah/historia?stav=obnovene&verzia=${restored.id}`);
 }

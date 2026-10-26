@@ -992,6 +992,35 @@ export type SiteContentItem = {
   updatedBy?: string;
 };
 
+export type SiteContentVersion = {
+  id: string;
+  createdAt: string;
+  createdBy: string;
+  action: 'baseline' | 'saved' | 'restored';
+  values: Record<string, string>;
+  contentHash: string;
+  restoredFromId?: string;
+};
+
+export type CustomerDirectoryRecordLink = {
+  id: string;
+  label: string;
+  href: string;
+  activityAt: string;
+};
+
+export type CustomerDirectorySummary = {
+  key: string;
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  latestActivityAt: string;
+  inquiries: CustomerDirectoryRecordLink[];
+  jobs: CustomerDirectoryRecordLink[];
+  offers: CustomerDirectoryRecordLink[];
+};
+
 export type AnalyticsEventType =
   | 'page_view'
   | 'quote_section_view'

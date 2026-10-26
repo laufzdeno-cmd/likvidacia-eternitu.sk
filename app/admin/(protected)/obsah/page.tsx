@@ -93,7 +93,10 @@ export default async function SiteContentPage({ searchParams }: { searchParams?:
           <p>Verejný web</p>
           <h1>Texty úvodnej stránky</h1>
         </div>
-        <a className="admin-secondary-link" href="/" target="_blank" rel="noreferrer">Otvoriť náhľad webu</a>
+        <div className="admin-inline-actions">
+          <a className="admin-secondary-link" href="/admin/obsah/historia">História verzií</a>
+          <a className="admin-secondary-link" href="/" target="_blank" rel="noreferrer">Otvoriť náhľad webu</a>
+        </div>
       </div>
 
       <section className="admin-card">

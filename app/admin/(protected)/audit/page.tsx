@@ -42,6 +42,8 @@ const actionLabels: Record<string, string> = {
   quote_updated: 'Ponuka upravená',
   price_offer_email_sent: 'Ponuka odoslaná emailom',
   price_offer_email_error: 'Chyba odoslania ponuky',
+  site_content_updated: 'Obsah webu upravený',
+  site_content_restored: 'Staršia verzia obsahu obnovená',
   admin_user_created: 'Používateľ vytvorený',
   admin_user_updated: 'Používateľ upravený',
   admin_user_active_changed: 'Aktivita používateľa zmenená',
@@ -75,6 +77,9 @@ const changeLabels: Record<string, string> = {
   visibility: 'Viditeľnosť',
   revision: 'Revízia',
   changedFields: 'Zmenené polia',
+  keys: 'Upravené textové polia',
+  contentHash: 'Kontrolný odtlačok verzie',
+  restoredFromId: 'Zdrojová verzia',
   previous: 'Predchádzajúci stav',
   next: 'Nový stav',
 };
