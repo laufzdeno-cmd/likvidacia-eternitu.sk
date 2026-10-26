@@ -6575,7 +6575,7 @@ body .admin-main .admin-page .admin-card,
 .price-offers-page .admin-card .admin-filter-bar label.admin-check-label { display: inline-flex !important; flex-direction: row; align-items: center; gap: 7px; align-self: end; min-height: 38px; padding: 0 4px !important; background: transparent !important; color: #294c63 !important; font-size: 11px !important; letter-spacing: 0 !important; white-space: nowrap; }
 .price-offers-page .admin-filter-bar .admin-check-label input[type='checkbox'] { flex: 0 0 17px; width: 17px !important; height: 17px; min-height: 0 !important; margin: 0; }
 .price-offers-page .admin-table-wrap { overflow-x: auto; }
-.price-offers-page .price-offers-table { min-width: 1080px; table-layout: auto; }
+.price-offers-page .price-offers-table { min-width: 1024px; table-layout: auto; }
 .price-offers-page .price-offers-table th,
 .price-offers-page .price-offers-table td { vertical-align: middle; }
 .price-offers-page .price-offers-table th { background: #e8f2f8 !important; color: #163b53 !important; }
@@ -6592,7 +6592,7 @@ body .admin-main .admin-page .admin-card,
 .price-offers-page .price-offer-row.is-odlozena td:first-child { border-left-color: #a76a00 !important; }
 .price-offers-page .price-offer-row.is-prijata td:first-child { border-left-color: #21804a !important; }
 .price-offers-page .price-offer-row.is-zrusena td:first-child { border-left-color: #677482 !important; }
-.price-offers-page .price-offer-status-cell { min-width: 150px; }
+.price-offers-page .price-offer-status-cell { min-width: 145px; }
 .price-offers-page .price-offer-status-cell small { display: block; margin-top: 5px; max-width: 200px; overflow-wrap: anywhere; }
 .price-offers-page .price-offer-status-cell .status-pill,
 .offer-follow-up-page .status-pill { color: #17334b !important; border-width: 1px !important; border-style: solid !important; font-size: 12px !important; }
@@ -6608,7 +6608,7 @@ body .admin-main .admin-page .admin-card,
 .price-offers-page .status-pill.status-neuspesna,
 .offer-follow-up-page .status-pill.status-failed { background: #ffeae5 !important; border-color: #efb1a4 !important; color: #8b2b1e !important; }
 .price-offers-page .status-pill.status-zrusena { background: #eff2f5 !important; border-color: #c8d0d8 !important; color: #445463 !important; }
-.price-offers-page .price-offer-action-cell { min-width: 190px !important; width: 190px; }
+.price-offers-page .price-offer-action-cell { min-width: 150px !important; width: 150px; }
 .price-offers-page .price-offer-action-controls { display: flex; align-items: flex-start; gap: 7px; white-space: nowrap; }
 .price-offers-page .price-offer-open,
 .price-offers-page .price-offer-more > summary { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 6px 11px; border-radius: 8px; font-size: 12px !important; font-weight: 800; line-height: 1.2; text-decoration: none; cursor: pointer; }

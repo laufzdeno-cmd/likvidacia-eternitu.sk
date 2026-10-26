@@ -120,6 +120,7 @@ if (routes.length === 0) {
 
 const viewports = [
   { width: 1440, height: 1000, name: 'desktop', screenshot: true },
+  { width: 1366, height: 900, name: 'desktop-1366', screenshot: true },
   { width: 1201, height: 900, name: 'boundary-1201', screenshot: false },
   { width: 1200, height: 900, name: 'boundary-1200', screenshot: true },
   { width: 961, height: 900, name: 'boundary-961', screenshot: false },
@@ -549,6 +550,14 @@ try {
       }
       assert.deepEqual(metrics.clippedControls, [], `${routePath} orezáva ovládací alebo nadpisový text.`);
       if (slug === 'ponuky') {
+        if (viewport.name === 'desktop-1366') {
+          const tableWidth = await page.locator('.price-offers-page .admin-table-wrap').evaluate((element) => ({
+            visible: element.clientWidth,
+            content: element.scrollWidth,
+          }));
+          assert.ok(tableWidth.content <= tableWidth.visible + 1,
+            `Akcie ponúk sú pri bežnom desktopovom okne skryté za posunom: ${JSON.stringify(tableWidth)}`);
+        }
         const offerRow = page.locator('.price-offer-row').first();
         const appearance = await offerRow.evaluate((row) => {
           const pill = row.querySelector('.status-pill');
