@@ -4982,6 +4982,10 @@ body .admin-main .admin-page .admin-card,
   color: #fff !important;
 }
 
+.admin-page .review-hero h1 {
+  color: #fff !important;
+}
+
 .admin-row-link.is-orange,
 .admin-row-link.is-plum,
 .admin-primary-link.is-plum-full,

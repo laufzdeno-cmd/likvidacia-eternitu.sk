@@ -115,14 +115,16 @@ test('monthly reference metrics use exact created and submitted events in Bratis
 });
 
 test('navigation exposes one canonical references workspace and preserves legacy redirect', async () => {
-  const [nav, legacy] = await Promise.all([
+  const [nav, legacy, adminStyles] = await Promise.all([
     read('app/admin/(protected)/admin-nav.tsx'),
     read('app/admin/(protected)/reviews/request/page.tsx'),
+    read('app/admin/admin-route.css'),
   ]);
   assert.equal((nav.match(/href: '\/admin\/referencie'/g) || []).length, 1);
   assert.doesNotMatch(nav, /href: '\/admin\/reviews\/request'/);
   assert.match(nav, /label: 'Referencie a hodnotenia'/);
   assert.match(legacy, /redirect\(suffix \? `\/admin\/referencie\?\$\{suffix\}` : '\/admin\/referencie'\)/);
+  assert.match(adminStyles, /\.admin-page \.review-hero h1\s*\{[^}]*color:\s*#fff\s*!important/);
 });
 
 test('admin navigation uses operational groups and keeps finance superadmin-only', async () => {
