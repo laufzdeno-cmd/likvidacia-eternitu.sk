@@ -86,3 +86,10 @@ Operátori nemajú prístup k OAuth nastaveniam ani tokenom. Automatické označ
 5. Pripojiť určený Gmail účet cez superadmina.
 6. Urobiť syntetický test na internú adresu; nie na zákazníka.
 7. Pri regresii vrátiť predchádzajúci deployment. Gmail worker je oddelený, takže rollback nespôsobí opätovné odoslanie ponúk.
+
+## Verejné vysvetlenie pre Google OAuth (26. 10. 2026)
+
+- Existujúca domovská stránka vysvetľuje likvidáciu azbestu, nie internú aplikáciu „ASTANA – cenové ponuky“. Pre overenie značky preto vznikne samostatná verejne dostupná stránka `/prepojenie-gmailu/`, ktorú možno použiť ako domovskú stránku OAuth aplikácie. Nebude v reklamných cieľoch ani v SEO sitemap; jej účel je transparentnosť pre používateľa účtu a kontrolóra Google.
+- Stránka musí presne uviesť jedinú funkciu: po superadminovom súhlase nájsť odoslanú firemnú kópiu ponuky podľa Message-ID a pridať zelený štítok a hviezdičku. Gmail API ponuku neodosiela, nečíta telo správy na účely evidencie a nesmie automaticky spracúvať nejednoznačné zhody.
+- Viditeľné odkazy na existujúce zásady ochrany osobných údajov a podmienky používania budú mať rovnaké adresy ako v nastavení Google. Žiadne heslo Gmailu sa nezbiera.
+- Google aktuálne označuje `gmail.modify` ako obmedzený rozsah. Oprávnenie je potrebné na označenie konkrétnej správy; jeho používateľský opis od Google je širší než reálna implementácia. Žiadosť musí vysvetliť tento rozdiel, obsahovať demo všetkých OAuth klientov a prípadné nezávislé bezpečnostné posúdenie sa rieši až po rozhodnutí Google. Bez overenia nevyhlasovať pripojenie za funkčné.
