@@ -21,6 +21,7 @@ test('every worker surfaced by runtime feature health remains scheduled', async 
     '/api/cron/lead-file-deletions/',
     '/api/cron/review-reminders/',
     '/api/cron/admin-autopilot/',
+    '/api/cron/gmail-price-offers/',
   ]) assert.equal(paths.has(path), true, `${path} must remain scheduled`);
 });
 

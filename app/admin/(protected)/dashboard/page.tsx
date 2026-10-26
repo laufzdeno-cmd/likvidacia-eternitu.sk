@@ -15,7 +15,7 @@ function WorkQueues({ counts }: { counts: { newLeads: number; unassigned: number
   const items = [
     { href: '/admin/dopyty?queue=new', label: 'Nové dopyty', count: counts.newLeads, note: 'Ešte bez prvého kontaktu', tone: 'sky', icon: '✦', urgency: 'attention' },
     { href: '/admin/dopyty?queue=unassigned', label: 'Bez vlastníka', count: counts.unassigned, note: 'Treba priradiť zodpovednosť', tone: 'amber', icon: '◌', urgency: 'high' },
-    { href: '/admin/dopyty?queue=followup', label: 'Follow-up', count: counts.followups, note: 'Dnes alebo po termíne', tone: 'rose', icon: '↻', urgency: 'high' },
+    { href: '/admin/dopyty?queue=followup', label: 'Ozvať sa', count: counts.followups, note: 'Dnes alebo po termíne', tone: 'rose', icon: '↻', urgency: 'high' },
     { href: '/admin/dopyty?queue=waiting', label: 'Čaká na doplnenie', count: counts.waiting, note: 'Chýbajúce údaje', tone: 'teal', icon: '◷', urgency: 'attention' },
     { href: '/admin/dopyty?queue=quote', label: 'Na nacenenie', count: counts.quote, note: 'Pripravené na ponuku', tone: 'violet', icon: '€', urgency: 'attention' },
     { href: '/admin/dopyty?queue=active', label: 'V spracovaní', count: counts.active, note: 'Kontaktované a rozpracované', tone: 'indigo', icon: '→', urgency: 'normal' },
@@ -99,7 +99,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <section className="admin-stat-grid">
           <article><span>Nové dopyty dnes</span><strong>{leadMetrics.newToday}</strong><a href="/admin/dopyty">Otvoriť dopyty</a></article>
           <article><span>Otvorené dopyty</span><strong>{leadMetrics.waitingForOffer}</strong><a href="/admin/dopyty">Spracovať</a></article>
-          <article><span>Follow-up na vybavenie</span><strong>{leadMetrics.followupsDue}</strong><a href="/admin/dopyty?queue=followup">Zavolať</a></article>
+          <article><span>Kontakty na vybavenie</span><strong>{leadMetrics.followupsDue}</strong><a href="/admin/dopyty?queue=followup">Zavolať</a></article>
           <article><span>Naplánované akcie dnes</span><strong>{todayActions.length}</strong><a href="/admin/planovac">Plánovač</a></article>
         </section>
         <MailQueueStatus queue={mailQueue} />
@@ -124,7 +124,7 @@ export default async function AdminDashboardPage({ searchParams }: { searchParam
         <section className="admin-card">
           <h2>Dopyty ktoré nevyšli</h2>
           <div className="admin-table-wrap" role="region" aria-label="Dopyty ktoré nevyšli" tabIndex={0}><table className="admin-table">
-            <thead><tr><th>Meno</th><th>Lokalita</th><th>Dôvod / follow-up</th><th></th></tr></thead>
+            <thead><tr><th>Meno</th><th>Lokalita</th><th>Dôvod / ďalší kontakt</th><th></th></tr></thead>
             <tbody>
               {lostLeadPage.items.map((lead) => (
                 <tr key={lead.id}><td>{lead.fullName}</td><td>{lead.city}</td><td>{lead.followupNote || 'Bez poznámky'}</td><td><a className="admin-row-link is-orange" href={`/admin/dopyty/${lead.id}`}>Otvoriť</a></td></tr>

@@ -173,6 +173,7 @@ import { validatePriceOfferNote } from '../lib/price-offer-note';
 import { priceOfferUpdateLifecycle } from '../lib/price-offer-state';
 import { defaultPriceOfferEmailBody, defaultPriceOfferEmailSubject } from '../lib/price-offer-email-copy';
 import { MAX_BUSINESS_FINANCE_CENTS, projectBusinessJobFinance } from '../lib/business-billing';
+import { normalizeRfc822MessageId } from './gmail-price-offer-policy';
 
 type OpsAlertStateRecord = {
   id: string;
@@ -304,6 +305,11 @@ function getPool() {
 /** Server-only escape hatch for isolated, additive feature stores. */
 export function getServerDatabasePool() {
   return getPool();
+}
+
+/** Additive feature stores use this before issuing queries of their own. */
+export async function ensureServerDatabaseSchema() {
+  await ensureSchema();
 }
 
 function now() {
@@ -2430,6 +2436,47 @@ async function initializeSchema() {
     ALTER TABLE price_offer_follow_ups ADD CONSTRAINT price_offer_follow_ups_resolution_check
       CHECK (resolution IS NULL OR resolution IN ('sent', 'not_sent'));
 
+    CREATE TABLE IF NOT EXISTS gmail_price_offer_connections (
+      connection_key text PRIMARY KEY,
+      email_address text NOT NULL,
+      encrypted_refresh_token text NOT NULL,
+      active boolean NOT NULL DEFAULT true,
+      label_id text NOT NULL DEFAULT '',
+      label_name text NOT NULL DEFAULT '✓ CP odoslaná',
+      connected_by text NOT NULL,
+      connected_at timestamptz NOT NULL DEFAULT now(),
+      token_validated_at timestamptz,
+      last_success_at timestamptz,
+      last_error_code text NOT NULL DEFAULT '',
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS gmail_price_offer_oauth_states (
+      state_hash char(64) PRIMARY KEY,
+      actor_email text NOT NULL,
+      encrypted_code_verifier text NOT NULL,
+      expires_at timestamptz NOT NULL,
+      used_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS gmail_price_offer_label_jobs (
+      id uuid PRIMARY KEY,
+      offer_id uuid NOT NULL REFERENCES price_offers(id) ON DELETE RESTRICT,
+      rfc822_message_id text NOT NULL,
+      gmail_message_id text NOT NULL DEFAULT '',
+      status text NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending','processing','retry','completed','attention')),
+      attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+      next_attempt_at timestamptz NOT NULL DEFAULT now(),
+      claim_token uuid,
+      claimed_at timestamptz,
+      last_error_code text NOT NULL DEFAULT '',
+      completed_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      UNIQUE (offer_id),
+      UNIQUE (rfc822_message_id)
+    );
+
     CREATE TABLE IF NOT EXISTS business_job_workers (
       id uuid PRIMARY KEY,
       job_id uuid NOT NULL REFERENCES business_jobs(id) ON DELETE CASCADE,
@@ -2579,6 +2626,10 @@ async function initializeSchema() {
     CREATE INDEX IF NOT EXISTS price_offer_follow_ups_offer_created_idx ON price_offer_follow_ups (offer_id, created_at DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS price_offer_follow_ups_sending_offer_uq ON price_offer_follow_ups (offer_id) WHERE status = 'sending';
     CREATE UNIQUE INDEX IF NOT EXISTS price_offer_follow_ups_resolution_operation_uq ON price_offer_follow_ups (resolution_operation_id) WHERE resolution_operation_id IS NOT NULL;
+    CREATE INDEX IF NOT EXISTS gmail_price_offer_oauth_states_expiry_idx
+      ON gmail_price_offer_oauth_states (expires_at);
+    CREATE INDEX IF NOT EXISTS gmail_price_offer_label_jobs_due_idx
+      ON gmail_price_offer_label_jobs (status, next_attempt_at, created_at);
     CREATE INDEX IF NOT EXISTS admin_users_email_idx ON admin_users (lower(email));
     CREATE INDEX IF NOT EXISTS planner_actions_date_idx ON planner_actions (datum, stav);
     CREATE INDEX IF NOT EXISTS admin_work_items_status_due_idx ON admin_work_items (status, due_date, priority, updated_at DESC);
@@ -12655,7 +12706,13 @@ export async function claimPriceOfferForSending(id: string, actorEmail: string):
   }
 }
 
-export async function finishPriceOfferSending(id: string, attemptId: string, result: 'sent' | 'not_sent' | 'unknown', actorEmail: string) {
+export async function finishPriceOfferSending(
+  id: string,
+  attemptId: string,
+  result: 'sent' | 'not_sent' | 'unknown',
+  actorEmail: string,
+  rfc822MessageId?: string,
+) {
   await ensureSchema();
   const timestamp = now();
   const nextStatus: PriceOfferStatus = result === 'sent' ? 'ODOSLANA' : result === 'not_sent' ? 'PRIPRAVENA' : 'NEISTY_STAV';
@@ -12699,10 +12756,23 @@ export async function finishPriceOfferSending(id: string, attemptId: string, res
       return null;
     }
     const offer = toPriceOffer(rows[0]);
+    const normalizedMessageId = result === 'sent' ? normalizeRfc822MessageId(rfc822MessageId) : '';
+    if (normalizedMessageId) {
+      await client.query(
+        `INSERT INTO gmail_price_offer_label_jobs (
+           id,offer_id,rfc822_message_id,status,attempts,next_attempt_at,last_error_code,created_at,updated_at
+         ) VALUES ($1,$2,$3,'pending',0,$4,'',$4,$4)
+         ON CONFLICT (offer_id) DO NOTHING`,
+        [randomUUID(), offer.id, normalizedMessageId, timestamp],
+      );
+    }
     await client.query(
       'INSERT INTO audit_logs (id, entity_type, entity_id, action, actor_email, changes, created_at) VALUES ($1,$2,$3,$4,$5,$6,$7)',
       [randomUUID(), 'business_job', offer.jobId || offer.id, `price_offer_send_${result}`, actorEmail,
-        priceOfferParentAuditChanges(offer, 'ODOSIELA', nextStatus, `price_offer_send_${result}`), timestamp],
+        {
+          ...priceOfferParentAuditChanges(offer, 'ODOSIELA', nextStatus, `price_offer_send_${result}`),
+          gmailLabelQueued: Boolean(normalizedMessageId),
+        }, timestamp],
     );
     if (result === 'sent') await syncPriceOfferParentsPostgres(client, offer, 'sent', actorEmail, timestamp, 'price_offer_sent');
     await client.query('COMMIT');

@@ -9,6 +9,7 @@ import { confirmPreparedPriceOfferSentExternallyAction, confirmUncertainPriceOff
 import PriceOfferForm from '../offer-form';
 import PendingOfferButton from '../pending-offer-button';
 import { euro, priceOfferStatusLabels } from '../constants';
+import { getGmailPriceOfferJobForOffer } from '@/src/server/gmail-price-offer-db';
 
 function dateSk(value: string) {
   return new Intl.DateTimeFormat('sk-SK', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(value));
@@ -47,7 +48,10 @@ const customerDeclineReasonLabels: Record<string, string> = {
 export default async function PriceOfferDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | undefined>> }) {
   const { id } = await params;
   const query = await searchParams;
-  const [adminUser, offer, jobs, settings] = await Promise.all([requireAdminUser(), getPriceOffer(id), listOperationalBusinessJobs(), getPriceOfferSettings()]);
+  const [adminUser, offer, jobs, settings, gmailLabelJob] = await Promise.all([
+    requireAdminUser(), getPriceOffer(id), listOperationalBusinessJobs(), getPriceOfferSettings(),
+    getGmailPriceOfferJobForOffer(id),
+  ]);
   if (!offer) notFound();
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const linkedJob = offer.jobId ? jobs.find((job) => job.id === offer.jobId) : undefined;
@@ -74,7 +78,7 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
         <div className="admin-action-row">
           <a className="admin-secondary-link" href={`/api/admin/ponuka/${offer.id}/pdf`} target="_blank">Náhľad PDF</a>
           {offer.status === 'PRIPRAVENA' ? <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}?send=1`}>Odoslať zákazníkovi</a> : null}
-          {offer.status === 'ODOSLANA' ? <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}/follow-up`}>Pripraviť follow-up</a> : null}
+          {offer.status === 'ODOSLANA' ? <a className="admin-primary-link" href={`/admin/ponuky/${offer.id}/follow-up`}>Pripraviť pripomienku</a> : null}
           <a className="admin-text-link" href="/admin/ponuky">Späť na ponuky</a>
         </div>
       </div>
@@ -84,6 +88,9 @@ export default async function PriceOfferDetailPage({ params, searchParams }: { p
           <div className="admin-alert is-success">Cenová ponuka bola odoslaná zákazníkovi.</div>
         </section>
       ) : null}
+      {gmailLabelJob?.status === 'completed' ? <section className="admin-card"><div className="admin-alert is-success">Správa je v Gmaili označená zeleným štítkom „✓ CP odoslaná“.</div></section> : null}
+      {gmailLabelJob && ['pending', 'processing', 'retry'].includes(gmailLabelJob.status) ? <section className="admin-card"><div className="admin-alert">Ponuka je odoslaná. Označenie v Gmaili sa dokončí automaticky; ponuku neposielajte znova.</div></section> : null}
+      {gmailLabelJob?.status === 'attention' ? <section className="admin-card"><div className="admin-alert">Ponuka je odoslaná, ale jej Gmail označenie treba skontrolovať. Superadmin vidí detail v Nastaveniach. Ponuku neposielajte znova.</div></section> : null}
       {query.sendError ? (
         <section className="admin-card">
           <div className="admin-alert">Cenovú ponuku sa nepodarilo odoslať. Detail: {query.sendError}</div>

@@ -21,8 +21,8 @@ const entityLabels: Record<string, string> = {
 const actionLabels: Record<string, string> = {
   lead_created: 'Dopyt vytvorený',
   status_changed: 'Workflow zmenený',
-  followup_scheduled: 'Follow-up naplánovaný',
-  followup_cancelled: 'Follow-up zrušený',
+  followup_scheduled: 'Následný kontakt naplánovaný',
+  followup_cancelled: 'Následný kontakt zrušený',
   internal_note_changed: 'Interná poznámka zmenená',
   lead_archived: 'Dopyt archivovaný',
   lead_restored: 'Dopyt obnovený',

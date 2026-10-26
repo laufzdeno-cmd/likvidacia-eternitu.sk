@@ -2,12 +2,18 @@ import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
 import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
-import { changeAdminPasswordAction, deleteLandfillPriceAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
+import { changeAdminPasswordAction, deleteLandfillPriceAction, disconnectGmailPriceOfferAction, retryGmailPriceOfferJobsAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
+import { getGmailPriceOfferConfiguration } from '@/src/server/gmail-price-offer-config';
+import { getGmailPriceOfferConnection, getGmailPriceOfferJobSummary } from '@/src/server/gmail-price-offer-db';
 
-export default async function SettingsAdminPage({ searchParams }: { searchParams?: Promise<{ heslo?: string }> }) {
+export default async function SettingsAdminPage({ searchParams }: { searchParams?: Promise<{ heslo?: string; gmail?: string }> }) {
   const admin = await requireSuperAdmin();
   const csrfToken = csrfTokenForEmail(admin.email);
-  const [workers, prices, settings, offerSettings] = await Promise.all([listWorkers(true), listLandfillPrices(), getBusinessSettings(), getPriceOfferSettings()]);
+  const [workers, prices, settings, offerSettings, gmailConnection, gmailJobs] = await Promise.all([
+    listWorkers(true), listLandfillPrices(), getBusinessSettings(), getPriceOfferSettings(),
+    getGmailPriceOfferConnection(), getGmailPriceOfferJobSummary(),
+  ]);
+  const gmailConfig = getGmailPriceOfferConfiguration();
   const params = await searchParams;
   const passwordMessage =
     params?.heslo === 'ulozene'
@@ -19,6 +25,16 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
           : params?.heslo === 'konflikt'
             ? 'Účet sa medzitým zmenil. Obnovte stránku a skúste to znova.'
           : '';
+  const gmailMessage = params?.gmail === 'ok'
+    ? 'Gmail bol bezpečne pripojený. Nové odoslané ponuky sa označia automaticky.'
+    : params?.gmail === 'disconnected' ? 'Gmail bol odpojený. Odosielanie ponúk zostáva funkčné, označenie sa pozastaví.'
+      : params?.gmail === 'requeued' ? 'Problémové Gmail označenia boli vrátené na bezpečné opakovanie.'
+        : params?.gmail === 'nothing_to_retry' ? 'Nie sú žiadne problémové Gmail označenia na opakovanie.'
+          : params?.gmail === 'configuration' ? 'Najprv treba doplniť bezpečné Gmail OAuth nastavenia vo Verceli.'
+            : params?.gmail === 'state' ? 'Platnosť pripojenia vypršala alebo už bolo použité. Spustite ho znova.'
+              : params?.gmail === 'account' ? 'Bol zvolený iný Gmail účet, než povoľuje bezpečnostné nastavenie.'
+                : params?.gmail === 'cancelled' ? 'Pripojenie Gmailu bolo zrušené bez zmeny.'
+                  : params?.gmail === 'failed' ? 'Gmail pripojenie sa nepodarilo dokončiť. Skontrolujte Google oprávnenia.' : '';
 
   return (
     <main className="admin-page">
@@ -127,6 +143,45 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
         <p style={{ marginTop: 12 }}>
           Ak heslo zabudnete, použite stránku <a href="/admin/reset-password">obnovy hesla</a>. Vyžaduje resetovací token uložený v bezpečných premenných projektu.
         </p>
+      </section>
+
+      <section className="admin-card" aria-labelledby="gmail-price-offer-title">
+        <div className="admin-heading-row">
+          <div>
+            <p className="admin-eyebrow">AUTOMATIZÁCIA PONÚK</p>
+            <h2 id="gmail-price-offer-title">Prepojenie Gmailu</h2>
+          </div>
+          <span className={gmailConnection ? 'admin-status-badge is-success' : 'admin-status-badge'}>
+            {gmailConnection ? 'Pripojené' : 'Nepripojené'}
+          </span>
+        </div>
+        {gmailMessage ? <div className={['ok', 'disconnected', 'requeued', 'nothing_to_retry'].includes(params?.gmail || '') ? 'admin-alert is-success' : 'admin-alert'} role="status">{gmailMessage}</div> : null}
+        {gmailConnection ? (
+          <>
+            <p>Účet <strong>{gmailConnection.emailAddress}</strong> automaticky označuje ponuky zeleným štítkom <strong>{gmailConnection.labelName}</strong>.</p>
+            <div className="admin-inline-stats" aria-label="Stav Gmail označení">
+              <span>Čaká <strong>{gmailJobs.pending + gmailJobs.processing + gmailJobs.retry}</strong></span>
+              <span>Hotovo <strong>{gmailJobs.completed}</strong></span>
+              <span>Treba skontrolovať <strong>{gmailJobs.attention}</strong></span>
+            </div>
+            {gmailConnection.lastErrorCode ? <p className="admin-alert">Pripojenie vyžaduje kontrolu: {gmailConnection.lastErrorCode}</p> : null}
+            <div className="admin-action-row">
+              {gmailJobs.attention ? <form action={retryGmailPriceOfferJobsAction}><input type="hidden" name="_csrf" value={csrfToken} /><button className="admin-secondary-button" type="submit">Znova skúsiť problémové označenia</button></form> : null}
+              <form action={disconnectGmailPriceOfferAction} data-confirm-submit="Naozaj odpojiť Gmail? Ponuky sa budú naďalej odosielať, ale neoznačia sa v Gmaili.">
+                <input type="hidden" name="_csrf" value={csrfToken} />
+                <button className="admin-danger-outline" type="submit">Odpojiť Gmail</button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <>
+            <p>Po pripojení sa každá cenová ponuka úspešne odoslaná z adminu označí v Gmaili zeleným štítkom a hviezdičkou. Gmail heslo sa sem nikdy nezadáva.</p>
+            {gmailConfig.configured
+              ? <a className="admin-primary-link" href="/api/google/gmail/oauth/start">Pripojiť Gmail bezpečne</a>
+              : <p className="admin-muted-note">Chýbajúce nastavenia: {gmailConfig.missing.join(', ')}.</p>}
+          </>
+        )}
+        <p className="admin-muted-note">Chyba označenia nikdy nespôsobí opätovné odoslanie cenovej ponuky.</p>
       </section>
 
       <section className="admin-card">

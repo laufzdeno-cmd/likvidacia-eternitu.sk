@@ -36,6 +36,11 @@ export default async function AdminHealthPage() {
     label: 'Bezpečne vypnuté',
     detail: 'Neúplná konfigurácia neprijíma ani neodosiela Facebook správy.',
   };
+  const gmailPriceOffers = health.features.gmailPriceOffers ?? {
+    level: 'disabled' as const,
+    label: 'Bezpečne vypnuté',
+    detail: 'Neúplná konfigurácia nemení žiadne správy v Gmaili.',
+  };
   const applicationNotifications = health.database.ok && notificationResult.status === 'fulfilled'
     ? notificationResult.value
     : null;
@@ -156,6 +161,11 @@ export default async function AdminHealthPage() {
             <span>Facebook správy</span>
             <strong>{facebookMessenger.label}</strong>
             <small>{facebookMessenger.detail}</small>
+          </article>
+          <article className={featureClass(gmailPriceOffers.level)}>
+            <span>Gmail označenie ponúk</span>
+            <strong>{gmailPriceOffers.label}</strong>
+            <small>{gmailPriceOffers.detail}</small>
           </article>
         </div>
       </section>

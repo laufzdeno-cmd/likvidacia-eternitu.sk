@@ -117,7 +117,7 @@ export async function getAdminApprovalQueue(role: AdminRole, now = new Date()) {
     });
     if (offer.status === 'ODOSLANA' && effectiveOfferDate(offer) <= daysBefore(now, 5)) items.push({
       id: `offer-outcome-${offer.id}`, category: 'offer_outcome', title: `Zistiť výsledok CP ${shortNumber}`,
-      detail: 'Ponuka čaká najmenej päť dní. Skontrolujte históriu komunikácie a zaevidujte prijatie, odloženie či neúspech. Systém dovolí najviac jeden úspešný follow-up.',
+      detail: 'Ponuka čaká najmenej päť dní. Skontrolujte históriu komunikácie a zaevidujte prijatie, odloženie či neúspech. Systém dovolí najviac jednu odoslanú pripomienku.',
       createdAt: effectiveOfferDate(offer), href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
     });
     if (offer.status === 'ODLOZENA' && offer.nextFollowUpAt && offer.nextFollowUpAt <= businessTodayKey(now)) items.push({
@@ -192,7 +192,7 @@ export async function getAdminOperationalApprovalQueue(now = new Date()) {
     });
     if (offer.status === 'ODOSLANA' && effectiveOfferDate(offer) <= daysBefore(now, 5)) items.push({
       id: `offer-outcome-${offer.id}`, category: 'offer_outcome', title: `Zistiť výsledok CP ${shortNumber}`,
-      detail: 'Ponuka čaká najmenej päť dní. Skontrolujte históriu komunikácie a zaevidujte výsledok. Systém dovolí najviac jeden úspešný follow-up.',
+      detail: 'Ponuka čaká najmenej päť dní. Skontrolujte históriu komunikácie a zaevidujte výsledok. Systém dovolí najviac jednu odoslanú pripomienku.',
       createdAt: effectiveOfferDate(offer), href: `/admin/ponuky/${offer.id}`, urgency: 'attention',
     });
     if (offer.status === 'ODLOZENA' && offer.nextFollowUpAt && offer.nextFollowUpAt <= businessTodayKey(now)) items.push({

@@ -5,6 +5,13 @@ import { redirect } from 'next/navigation';
 import { clearAdminSession, hashPassword, requireSuperAdmin, verifyAdminCredentials, verifyCsrf } from '@/src/server/auth';
 import { changeAdminUserPassword, deleteLandfillPrice, getPriceOfferSettings, saveBusinessSettings, savePriceOfferSettings, upsertLandfillPrice, upsertWorker } from '@/src/server/db';
 import type { BusinessLandfill, PriceOfferMaterialType } from '@/src/server/types';
+import { decryptGmailSecret, getGmailPriceOfferConfiguration } from '@/src/server/gmail-price-offer-config';
+import {
+  disconnectGmailPriceOfferConnection,
+  getGmailPriceOfferConnectionSecret,
+  requeueGmailPriceOfferAttentionJobs,
+} from '@/src/server/gmail-price-offer-db';
+import { revokeGoogleRefreshToken } from '@/src/server/gmail-price-offer-api';
 
 function num(value: FormDataEntryValue | null) {
   return Number(String(value || '').replace(',', '.')) || 0;
@@ -95,4 +102,28 @@ export async function changeAdminPasswordAction(formData: FormData) {
   if (!changed) redirect('/admin/nastavenia?heslo=konflikt');
   await clearAdminSession();
   redirect('/admin/login?heslo=ulozene');
+}
+
+export async function disconnectGmailPriceOfferAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireSuperAdmin();
+  const [config, secret] = [getGmailPriceOfferConfiguration(), await getGmailPriceOfferConnectionSecret()];
+  if (secret && config.encryptionKey) {
+    try {
+      await revokeGoogleRefreshToken(decryptGmailSecret(secret.encryptedRefreshToken, config.encryptionKey));
+    } catch {
+      // The local connection must still be disabled if the stored token can no longer be opened.
+    }
+  }
+  await disconnectGmailPriceOfferConnection(admin.email);
+  revalidatePath('/admin/nastavenia');
+  redirect('/admin/nastavenia?gmail=disconnected');
+}
+
+export async function retryGmailPriceOfferJobsAction(formData: FormData) {
+  await verifyCsrf(formData);
+  const admin = await requireSuperAdmin();
+  const count = await requeueGmailPriceOfferAttentionJobs(admin.email);
+  revalidatePath('/admin/nastavenia');
+  redirect(`/admin/nastavenia?gmail=${count ? 'requeued' : 'nothing_to_retry'}`);
 }

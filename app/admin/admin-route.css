@@ -6519,3 +6519,120 @@ body .admin-main .admin-page .admin-card,
     width: 100% !important;
   }
 }
+.admin-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-heading-row h2,
+.admin-heading-row p {
+  margin-top: 0;
+}
+
+.admin-eyebrow {
+  color: #0f766e;
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .1em;
+}
+
+.admin-inline-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.admin-inline-stats span {
+  border: 1px solid #c9e8dd;
+  border-radius: 14px;
+  background: #f1fbf7;
+  color: #335a50;
+  padding: 12px 14px;
+}
+
+.admin-inline-stats strong {
+  display: block;
+  color: #0b624d;
+  font-size: 1.35rem;
+  margin-top: 3px;
+}
+
+@media (max-width: 640px) {
+  .admin-heading-row { align-items: stretch; flex-direction: column; }
+  .admin-inline-stats { grid-template-columns: 1fr; }
+}
+
+/* Cenové ponuky: významové stavy a kompaktné akcie bez skrytého obsahu. */
+.price-offers-page .admin-stat-grid article:nth-child(1) { background: #eff7ff !important; border-color: #c8dff7 !important; }
+.price-offers-page .admin-stat-grid article:nth-child(2) { background: #ecfbf8 !important; border-color: #b6e5dd !important; }
+.price-offers-page .admin-stat-grid article:nth-child(3) { background: #eff9ee !important; border-color: #c5e7bd !important; }
+.price-offers-page .admin-stat-grid article:nth-child(4) { background: #fff7e9 !important; border-color: #efdbac !important; }
+.price-offers-page .admin-stat-grid article:nth-child(3)::before { background: #21804a !important; }
+.price-offers-page .admin-stat-grid article:nth-child(4)::before { background: #a76a00 !important; }
+.price-offers-page .admin-card .admin-filter-bar label.admin-check-label { display: inline-flex !important; flex-direction: row; align-items: center; gap: 7px; align-self: end; min-height: 38px; padding: 0 4px !important; background: transparent !important; color: #294c63 !important; font-size: 11px !important; letter-spacing: 0 !important; white-space: nowrap; }
+.price-offers-page .admin-filter-bar .admin-check-label input[type='checkbox'] { flex: 0 0 17px; width: 17px !important; height: 17px; min-height: 0 !important; margin: 0; }
+.price-offers-page .admin-table-wrap { overflow-x: auto; }
+.price-offers-page .price-offers-table { min-width: 1080px; table-layout: auto; }
+.price-offers-page .price-offers-table th,
+.price-offers-page .price-offers-table td { vertical-align: middle; }
+.price-offers-page .price-offers-table th { background: #e8f2f8 !important; color: #163b53 !important; }
+.price-offers-page .price-offers-table td:nth-child(1),
+.price-offers-page .price-offers-table td:nth-child(2),
+.price-offers-page .price-offers-table td:nth-child(5),
+.price-offers-page .price-offers-table td:nth-child(6),
+.price-offers-page .price-offers-table td:nth-child(7) { white-space: nowrap; }
+.price-offers-page .price-offer-row td:first-child { border-left: 4px solid #5180bf !important; }
+.price-offers-page .price-offer-row.is-odosiela td:first-child { border-left-color: #7153b6 !important; }
+.price-offers-page .price-offer-row.is-neisty_stav td:first-child,
+.price-offers-page .price-offer-row.is-neuspesna td:first-child { border-left-color: #b3382c !important; }
+.price-offers-page .price-offer-row.is-odoslana td:first-child { border-left-color: #087e78 !important; }
+.price-offers-page .price-offer-row.is-odlozena td:first-child { border-left-color: #a76a00 !important; }
+.price-offers-page .price-offer-row.is-prijata td:first-child { border-left-color: #21804a !important; }
+.price-offers-page .price-offer-row.is-zrusena td:first-child { border-left-color: #677482 !important; }
+.price-offers-page .price-offer-status-cell { min-width: 150px; }
+.price-offers-page .price-offer-status-cell small { display: block; margin-top: 5px; max-width: 200px; overflow-wrap: anywhere; }
+.price-offers-page .price-offer-status-cell .status-pill,
+.offer-follow-up-page .status-pill { color: #17334b !important; border-width: 1px !important; border-style: solid !important; font-size: 12px !important; }
+.price-offers-page .status-pill.status-pripravena { background: #e8f2ff !important; border-color: #a9c9ed !important; color: #174471 !important; }
+.price-offers-page .status-pill.status-odosiela,
+.offer-follow-up-page .status-pill.status-sending { background: #f0eaff !important; border-color: #cbb8f4 !important; color: #493182 !important; }
+.price-offers-page .status-pill.status-neisty_stav,
+.offer-follow-up-page .status-pill.status-unknown { background: #ffebea !important; border-color: #efb4ae !important; color: #88251f !important; }
+.price-offers-page .status-pill.status-odoslana,
+.offer-follow-up-page .status-pill.status-sent { background: #e5f8f4 !important; border-color: #9bd9cb !important; color: #0b5c52 !important; }
+.price-offers-page .status-pill.status-odlozena { background: #fff2d6 !important; border-color: #e5bd6f !important; color: #694000 !important; }
+.price-offers-page .status-pill.status-prijata { background: #e9f7e9 !important; border-color: #acd8b2 !important; color: #1c6034 !important; }
+.price-offers-page .status-pill.status-neuspesna,
+.offer-follow-up-page .status-pill.status-failed { background: #ffeae5 !important; border-color: #efb1a4 !important; color: #8b2b1e !important; }
+.price-offers-page .status-pill.status-zrusena { background: #eff2f5 !important; border-color: #c8d0d8 !important; color: #445463 !important; }
+.price-offers-page .price-offer-action-cell { min-width: 190px !important; width: 190px; }
+.price-offers-page .price-offer-action-controls { display: flex; align-items: flex-start; gap: 7px; white-space: nowrap; }
+.price-offers-page .price-offer-open,
+.price-offers-page .price-offer-more > summary { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 6px 11px; border-radius: 8px; font-size: 12px !important; font-weight: 800; line-height: 1.2; text-decoration: none; cursor: pointer; }
+.price-offers-page .price-offer-open { border: 1px solid #1c5fad !important; background: #236cbd !important; color: #fff !important; }
+.price-offers-page .price-offer-open:hover { background: #17569d !important; }
+.price-offers-page .price-offer-more { min-width: 0; }
+.price-offers-page .price-offer-more > summary { gap: 5px; border: 1px solid #a8c5d4; background: #f0f8fc; color: #16445e; list-style: none; }
+.price-offers-page .price-offer-more > summary::-webkit-details-marker { display: none; }
+.price-offers-page .price-offer-more[open] > summary { background: #dceff6; }
+.price-offers-page .price-offer-more-content { display: grid; gap: 3px; min-width: 185px; margin-top: 6px; padding: 6px; border: 1px solid #bfd5e0; border-radius: 9px; background: #fff; white-space: normal; }
+.price-offers-page .price-offer-more-content a,
+.price-offers-page .price-offer-more-content button { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-height: 31px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent !important; color: #17445e !important; font-size: 12px !important; font-weight: 700; text-align: left; text-decoration: none; cursor: pointer; }
+.price-offers-page .price-offer-more-content a:hover,
+.price-offers-page .price-offer-more-content button:hover { background: #eaf5fb !important; }
+.price-offers-page .price-offer-more-content form { margin: 0; }
+.price-offers-page .price-offer-more-content form button { color: #9a2b25 !important; }
+.price-offers-page .price-offer-more-content form button:hover { background: #fff0ee !important; }
+.price-offers-page .price-offer-more > summary:focus-visible,
+.price-offers-page .price-offer-more-content a:focus-visible,
+.price-offers-page .price-offer-more-content button:focus-visible { outline: 3px solid #197fc0 !important; outline-offset: 2px; }
+.price-offers-scroll-hint { display: none; }
+.offer-follow-up-page .admin-card form label.admin-check-label { display: flex !important; flex-direction: row !important; align-items: flex-start; gap: 9px; padding: 10px 12px !important; background: #f0faf6 !important; color: #1b5041 !important; font-size: 13px !important; letter-spacing: normal !important; line-height: 1.45; text-transform: none !important; }
+.offer-follow-up-page .admin-check-label input[type='checkbox'] { flex: 0 0 18px; width: 18px !important; height: 18px; min-height: 18px !important; margin: 1px 0 0; }
+@media (max-width: 720px) {
+  .price-offers-page .price-offers-scroll-hint,
+  .offer-follow-up-page .price-offers-scroll-hint { display: block; margin: 0 0 9px; color: #31556a; font-size: 12px; font-weight: 700; line-height: 1.4; }
+}

@@ -36,7 +36,7 @@ const tagOptions: Array<['', string] | [LeadTag, string]> = [
 const queueOptions = [
   { value: 'new', label: 'Nové dopyty', description: 'Ešte bez prvého kontaktu', tone: 'sky', icon: '✦' },
   { value: 'unassigned', label: 'Bez vlastníka', description: 'Treba priradiť zodpovednosť', tone: 'amber', icon: '◌' },
-  { value: 'followup', label: 'Follow-up', description: 'Dnes alebo po termíne', tone: 'rose', icon: '↻' },
+  { value: 'followup', label: 'Ozvať sa', description: 'Dnes alebo po termíne', tone: 'rose', icon: '↻' },
   { value: 'waiting', label: 'Čaká na doplnenie', description: 'Chýbajú údaje od zákazníka', tone: 'teal', icon: '◷' },
   { value: 'quote', label: 'Pripravené na ponuku', description: 'Možno naceniť', tone: 'violet', icon: '€' },
   { value: 'active', label: 'V spracovaní', description: 'Kontaktované a rozpracované', tone: 'indigo', icon: '→' },

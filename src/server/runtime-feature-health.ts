@@ -9,6 +9,7 @@ import {
 } from './photo-intake-config';
 import { deploymentRequestBlocked } from './preview-safety';
 import { getFacebookMessengerConfiguration } from './facebook-messenger-config';
+import { getGmailPriceOfferConfiguration } from './gmail-price-offer-config';
 
 type RuntimeEnvironment = Record<string, string | undefined>;
 
@@ -81,6 +82,7 @@ export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = proces
   const mapsReady = Boolean(environment.GOOGLE_MAPS_API_KEY?.trim());
   const careerRetentionReady = careerCvRetentionBound(environment);
   const facebookMessenger = getFacebookMessengerConfiguration(environment);
+  const gmailPriceOffers = getGmailPriceOfferConfiguration(environment);
   return {
     conversion: metaReady && workerReady
       ? { level: 'ok', label: 'Pripravené', detail: 'Serverové meranie je nakonfigurované; prijatie poskytovateľom sleduje outbox.' }
@@ -101,5 +103,10 @@ export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = proces
     facebookMessenger: facebookMessenger.configured
       ? { level: 'ok', label: 'Konfigurácia pripravená', detail: 'Meta aplikácia, podpis webhooku a šifrovanie tokenu sú pripravené. Stav pripojenej stránky je vo Facebook správach.' }
       : { level: 'disabled', label: 'Bezpečne vypnuté', detail: 'Neúplná konfigurácia neprijíma ani neodosiela Facebook správy.' },
+    gmailPriceOffers: gmailPriceOffers.configured && workerReady
+      ? { level: 'ok', label: 'Konfigurácia pripravená', detail: 'OAuth a plánovaný worker sú pripravené. Stav pripojeného Gmail účtu je v Nastaveniach.' }
+      : gmailPriceOffers.configured
+        ? { level: 'warning', label: 'Čaká na worker', detail: 'Gmail OAuth je pripravený, ale plánované označovanie nemá autorizáciu.' }
+        : { level: 'disabled', label: 'Bezpečne vypnuté', detail: 'Neúplná konfigurácia nemení žiadne správy v Gmaili.' },
   } satisfies Record<string, RuntimeFeatureState>;
 }

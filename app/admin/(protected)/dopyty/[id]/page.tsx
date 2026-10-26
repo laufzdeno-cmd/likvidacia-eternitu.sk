@@ -335,7 +335,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
               <label>Termín kontaktovania
                 <input type="date" name="followupDate" defaultValue={lead.followupDate || ''} />
               </label>
-              <label>Poznámka k follow-upu
+              <label>Poznámka k následnému kontaktu
                 <textarea name="followupNote" rows={3} defaultValue={lead.followupNote || ''} placeholder="Napr. zavolať o 3 mesiace po streche..." />
               </label>
               <label>Dôvod odmietnutia
@@ -404,14 +404,14 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
           </section>
 
           <section className="admin-card">
-            <h2>Follow-up</h2>
+            <h2>Následný kontakt</h2>
             {lead.followupDate ? (
               <>
                 <p>📅 Zavolať: <strong>{lead.followupDate}</strong>{lead.followupDate < new Date().toISOString().slice(0, 10) ? <span className="admin-warning-badge">Po termíne</span> : null}</p>
                 {lead.followupNote ? <p>{lead.followupNote}</p> : null}
                 {!lead.deletedAt ? <form action={cancelLeadFollowup}>
                   <input type="hidden" name="id" value={lead.id} />
-                  <button className="admin-danger-outline" type="submit">Zrušiť follow-up</button>
+                  <button className="admin-danger-outline" type="submit">Zrušiť následný kontakt</button>
                 </form> : null}
               </>
             ) : <p>Termín kontaktovania nie je nastavený.</p>}

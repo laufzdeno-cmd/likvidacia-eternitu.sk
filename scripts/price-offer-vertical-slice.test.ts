@@ -158,7 +158,7 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   const mail = await readFile(new URL('../src/server/mail.ts', import.meta.url), 'utf8');
   assert.match(actions, /current\.status !== 'PRIPRAVENA'/);
   assert.match(actions, /claimPriceOfferForSending\(id, actor\)/);
-  assert.match(actions, /finishPriceOfferSending\(id, sendAttemptId, result\.status, actor\)/);
+  assert.match(actions, /finishPriceOfferSending\([\s\S]{0,180}result\.status,[\s\S]{0,80}actor,[\s\S]{0,120}result\.messageId/);
   assert.match(actions, /if \(result\.status === 'sent'\) \{[\s\S]*?sent = true;[\s\S]*?\} else \{[\s\S]*?sendError = result\.status === 'unknown'/);
   assert.doesNotMatch(actions, /result\.status !== 'not_sent'/);
   assert.doesNotMatch(actions, /price_offer_email_sent|price_offer_email_error/);
@@ -170,7 +170,7 @@ test('odoslanie CP používa atomický claim a pri neistom SMTP stave blokuje op
   assert.match(actions, /expectedStatePersisted && outcome === 'sent'[\s\S]*?sent = true;[\s\S]*?sendError = ''/);
   assert.match(actions, /confirmedNotSent.*!== 'yes'/);
   assert.doesNotMatch(list, /sendPriceOfferAction|>Odoslať<\/button>/);
-  assert.match(list, /href=\{`\/admin\/ponuky\/\$\{offer\.id\}`\}>Otvoriť CP<\/a>/);
+  assert.match(list, /href=\{`\/admin\/ponuky\/\$\{offer\.id\}`\}>Otvoriť<\/a>/);
   assert.match(detail, /offer\.status === 'PRIPRAVENA'.*Odoslať zákazníkovi/);
   assert.match(detail, /skontrolovali odoslanú poštu/);
   assert.match(mail, /status === 'failed' \? 'not_sent' as const : 'unknown' as const/);

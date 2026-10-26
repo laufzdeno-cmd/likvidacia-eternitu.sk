@@ -213,15 +213,23 @@ export async function sendPriceOfferAction(formData: FormData) {
 
   let outcome: 'sent' | 'not_sent' | 'unknown' = 'not_sent';
   let deliveryReason = '';
+  let deliveryMessageId = '';
   let sent = false;
   let sendError = '';
   try {
     const pdf = await renderPriceOfferPdf(offer, preflightSettings);
     outcome = 'unknown';
-    const result = await sendPriceOfferDocumentEmail(offer, preflightSettings, pdf, customerResponseToken);
+    const result = await sendPriceOfferDocumentEmail(offer, preflightSettings, pdf, customerResponseToken, sendAttemptId);
     outcome = result.status;
     deliveryReason = result.reason || '';
-    const finalized = await finishPriceOfferSending(id, sendAttemptId, result.status, actor);
+    deliveryMessageId = result.status === 'sent' ? result.messageId : '';
+    const finalized = await finishPriceOfferSending(
+      id,
+      sendAttemptId,
+      result.status,
+      actor,
+      result.status === 'sent' ? result.messageId : undefined,
+    );
     if (!finalized) throw new Error('Stav odoslania sa nepodarilo uzavrieť. E-mail pred ďalším pokusom overte.');
     if (result.status === 'sent') {
       sent = true;
@@ -233,7 +241,7 @@ export async function sendPriceOfferAction(formData: FormData) {
   } catch (error) {
     sendError = actionErrorMessage(error);
     try {
-      const finalized = await finishPriceOfferSending(id, sendAttemptId, outcome, actor);
+      const finalized = await finishPriceOfferSending(id, sendAttemptId, outcome, actor, deliveryMessageId || undefined);
       const persisted = finalized || await getPriceOffer(id);
       const expectedStatePersisted = outcome === 'sent'
         ? Boolean(persisted && ['ODOSLANA', 'PRIJATA'].includes(persisted.status))
@@ -445,18 +453,18 @@ export async function sendPriceOfferFollowUpAction(formData: FormData) {
   const subject = String(formData.get('subject') || '').trim();
   const body = String(formData.get('body') || '').trim();
   if (formData.get('confirmed') !== 'yes') throw new Error('Pred odoslaním musíte potvrdiť kontrolu adresáta a textu.');
-  if (!/^[0-9a-f-]{36}$/i.test(offerId) || !/^[0-9a-f-]{36}$/i.test(operationId)) throw new Error('Požiadavka na follow-up nie je platná.');
-  if (subject.length < 3 || subject.length > 180 || body.length < 20 || body.length > 4000) throw new Error('Skontrolujte predmet a text follow-upu.');
+  if (!/^[0-9a-f-]{36}$/i.test(offerId) || !/^[0-9a-f-]{36}$/i.test(operationId)) throw new Error('Požiadavka na následný kontakt nie je platná.');
+  if (subject.length < 3 || subject.length > 180 || body.length < 20 || body.length > 4000) throw new Error('Skontrolujte predmet a text pripomienky.');
   const offer = await getPriceOffer(offerId);
-  if (!offer || offer.deletedAt || offer.status !== 'ODOSLANA') throw new Error('Follow-up možno odoslať iba k aktívnej odoslanej ponuke, ktorá ešte nebola prijatá.');
+  if (!offer || offer.deletedAt || offer.status !== 'ODOSLANA') throw new Error('Pripomienku možno odoslať iba k aktívnej odoslanej ponuke, ktorá ešte nebola prijatá.');
   if (!isSingleEmailAddress(offer.email)) throw new Error('Ponuka nemá platný email zákazníka.');
 
   const persistence = await import('@/src/server/db') as unknown as FollowUpPersistence;
   if (typeof persistence.claimPriceOfferFollowUp !== 'function' || typeof persistence.finishPriceOfferFollowUp !== 'function') {
-    throw new Error('Bezpečné odoslanie follow-upu ešte nie je aktivované. Koncept zostáva uložený iba vo formulári.');
+    throw new Error('Bezpečné odoslanie pripomienky ešte nie je aktivované. Koncept zostáva uložený iba vo formulári.');
   }
   const claim = await persistence.claimPriceOfferFollowUp({ offerId, subject, body, actorEmail: actor, operationId });
-  if (!claim) throw new Error('Follow-up už spracúva iná požiadavka alebo sa stav ponuky zmenil. Obnovte stránku.');
+  if (!claim) throw new Error('Následný kontakt už spracúva iná požiadavka alebo sa stav ponuky zmenil. Obnovte stránku.');
 
   let outcome: 'sent' | 'not_sent' | 'unknown' = 'unknown';
   let error = '';

@@ -5,6 +5,15 @@ import type { PriceOfferStatus } from '@/src/server/types';
 import { deletePriceOfferAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
 
+function displayDate(value: string, calendarDate = false) {
+  if (!value || (calendarDate && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return value || '—';
+  const date = new Date(calendarDate ? `${value}T12:00:00Z` : value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('sk-SK', {
+    day: '2-digit', month: '2-digit', year: 'numeric', timeZone: calendarDate ? 'UTC' : 'Europe/Bratislava',
+  }).format(date);
+}
+
 export default async function PriceOffersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const adminUser = await requireAdminUser();
@@ -21,9 +30,9 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
   const conversion = summary.sent ? Math.round((summary.accepted / summary.sent) * 1000) / 10 : 0;
 
   return (
-    <main className="admin-page">
-      <div className="admin-heading">
-        <div><p>PDF a email workflow</p><h1>Cenové ponuky</h1></div>
+    <main className="admin-page price-offers-page">
+      <div className="admin-heading price-offers-heading">
+        <div><p>Obchodný prehľad</p><h1>Cenové ponuky</h1><span>Stav, odpoveď zákazníka a ďalší krok na jednom mieste.</span></div>
         <a className="admin-primary-link" href="/admin/ponuky/nova">Nová cenová ponuka</a>
       </div>
       <section className="admin-stat-grid">
@@ -37,34 +46,42 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
         <form className="admin-filter-bar" action="/admin/ponuky" method="get">
           <label>Stav<select name="status" defaultValue={status}><option value="">Všetky</option>{priceOfferStatuses.map((item) => <option key={item} value={item}>{priceOfferStatusLabels[item]}</option>)}</select></label>
           <label>Obdobie<input name="month" type="month" defaultValue={month} /></label>
-          {adminUser.role === 'SUPER_ADMIN' ? <label className="admin-check-label"><input name="archived" type="checkbox" value="1" defaultChecked={includeArchived} /> Zobraziť archivované</label> : null}
+          {adminUser.role === 'SUPER_ADMIN' ? <label className="admin-check-label"><input name="archived" type="checkbox" value="1" defaultChecked={includeArchived} /><span>Zobraziť archivované</span></label> : null}
           <button type="submit">Filtrovať</button>
-          <a href="/admin/ponuky">Reset</a>
+          <a href="/admin/ponuky">Vymazať filter</a>
         </form>
       </section>
       <section className="admin-card">
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead><tr><th>Číslo CP</th><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m2</th><th>Celkom €</th><th>Platná do</th><th>Stav</th><th>Akcie</th></tr></thead>
+        <p className="price-offers-scroll-hint">Stav a akcie zobrazíte posunutím tabuľky doprava.</p>
+        <div className="admin-table-wrap" role="region" aria-label="Zoznam cenových ponúk, posúvateľný do strán" tabIndex={0}>
+          <table className="admin-table price-offers-table">
+            <thead><tr><th>Číslo CP</th><th>Dátum</th><th>Zákazník</th><th>Lokalita</th><th>m²</th><th>Celkom €</th><th>Platná do</th><th>Stav</th><th>Akcie</th></tr></thead>
             <tbody>
               {offers.map((offer) => (
-                <tr key={offer.id}>
-                  <td>{offer.number}{offer.deletedAt ? <small> Archivovaná</small> : null}</td>
-                  <td>{new Intl.DateTimeFormat('sk-SK').format(new Date(offer.createdAt))}</td>
+                <tr key={offer.id} className={`price-offer-row is-${offer.status.toLowerCase()}`}>
+                  <td><strong>{offer.number}</strong>{offer.deletedAt ? <small> Archivovaná</small> : null}</td>
+                  <td>{displayDate(offer.createdAt)}</td>
                   <td>{offer.contactPerson}</td>
                   <td>{offer.municipality || offer.objectAddress}</td>
                   <td>{offer.areaM2}</td>
                   <td>{euro(offer.totalWithVat)}</td>
-                  <td>{offer.validUntil}</td>
-                  <td><span className={`status-pill status-${offer.status.toLowerCase()}`}>{priceOfferStatusLabels[offer.status]}</span>{offer.outcomeReason ? <small>{offer.outcomeReason}</small> : null}{offer.nextFollowUpAt ? <small>Ozvať sa {offer.nextFollowUpAt}</small> : null}</td>
-                  <td className="admin-action-row">
-                    <a className="admin-row-link" href={`/admin/ponuky/${offer.id}`}>Otvoriť CP</a>
-                    <a className="admin-row-link" href={`/api/admin/ponuka/${offer.id}/pdf`}>PDF</a>
-                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a className="admin-row-link" href={`/admin/ponuky/${offer.id}/follow-up`}>Follow-up</a> : null}
-                    {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a className="admin-row-link" href={`/admin/ponuky/${offer.id}#vysledok-ponuky`}>Zaevidovať výsledok</a> : null}
-                    {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
-                      <form action={deletePriceOfferAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
-                    ) : null}
+                  <td>{displayDate(offer.validUntil, true)}</td>
+                  <td className="price-offer-status-cell"><span className={`status-pill status-${offer.status.toLowerCase()}`}>{priceOfferStatusLabels[offer.status]}</span>{offer.outcomeReason ? <small>{offer.outcomeReason}</small> : null}{offer.nextFollowUpAt ? <small>Ozvať sa {displayDate(offer.nextFollowUpAt, true)}</small> : null}</td>
+                  <td className="price-offer-action-cell">
+                    <div className="price-offer-action-controls">
+                      <a className="admin-row-link price-offer-open" href={`/admin/ponuky/${offer.id}`}>Otvoriť</a>
+                      <details className="price-offer-more">
+                        <summary aria-label={`Ďalšie akcie k ponuke ${offer.number}`}>Ďalšie <span aria-hidden="true">⌄</span></summary>
+                        <div className="price-offer-more-content">
+                          <a href={`/api/admin/ponuka/${offer.id}/pdf`}>Zobraziť PDF</a>
+                          {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a href={`/admin/ponuky/${offer.id}/follow-up`}>Pripomenúť ponuku</a> : null}
+                          {!offer.deletedAt && offer.status === 'ODOSLANA' ? <a href={`/admin/ponuky/${offer.id}#vysledok-ponuky`}>Zaevidovať výsledok</a> : null}
+                          {adminUser.role === 'SUPER_ADMIN' && !offer.deletedAt ? (
+                            <form action={deletePriceOfferAction}><input type="hidden" name="_csrf" value={csrfToken} /><input type="hidden" name="id" value={offer.id} /><button type="submit">Archivovať</button></form>
+                          ) : null}
+                        </div>
+                      </details>
+                    </div>
                   </td>
                 </tr>
               ))}

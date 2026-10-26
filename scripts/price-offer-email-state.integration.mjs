@@ -93,7 +93,18 @@ async function testKnownNoSendAndSuccess() {
   assert.ok(secondClaim?.sendAttemptId, 'a confirmed pre-send failure can be retried');
   assert.notEqual(secondClaim.sendAttemptId, firstClaim.sendAttemptId, 'every retry must have a distinct attempt id');
   assert.equal(await finishPriceOfferSending(offer.id, firstClaim.sendAttemptId, 'not_sent', 'integration-test'), null, 'an older attempt cannot finalize the current claim');
-  assert.equal((await finishPriceOfferSending(offer.id, secondClaim.sendAttemptId, 'sent', 'integration-test'))?.status, 'ODOSLANA');
+  const rfc822MessageId = `<cp-${secondClaim.sendAttemptId}@likvidacia-eternitu.sk>`;
+  assert.equal((await finishPriceOfferSending(offer.id, secondClaim.sendAttemptId, 'sent', 'integration-test', rfc822MessageId))?.status, 'ODOSLANA');
+  const gmailJobs = await pglite.query(
+    'SELECT offer_id,rfc822_message_id,status,attempts FROM gmail_price_offer_label_jobs WHERE offer_id=$1',
+    [offer.id],
+  );
+  assert.deepEqual(gmailJobs.rows[0], {
+    offer_id: offer.id,
+    rfc822_message_id: rfc822MessageId,
+    status: 'pending',
+    attempts: 0,
+  }, 'confirmed SMTP and offer state must atomically queue one Gmail label job');
   assert.equal(await claimPriceOfferForSending(offer.id, 'integration-test'), null, 'sent offers cannot be resent');
   const acceptResults = await Promise.all([
     updatePriceOfferStatus(offer.id, 'PRIJATA', 'integration-test'),
@@ -118,7 +129,7 @@ try {
   await testConcurrentClaimAndUnknownDelivery();
   await testKnownNoSendAndSuccess();
   await testTestOfferCannotBeClaimed();
-  console.log('PASS: izolovaný PostgreSQL offer numbering, claim, unknown delivery, manuálna obnova a retry po potvrdenom no-send. Bez SMTP, Blobu, produkčnej DB alebo deployu.');
+  console.log('PASS: izolovaný PostgreSQL offer numbering, claim, unknown delivery, atómový Gmail outbox, manuálna obnova a retry po potvrdenom no-send. Bez SMTP, Gmail API, Blobu, produkčnej DB alebo deployu.');
 } catch (error) {
   console.error(error);
   exitCode = 1;

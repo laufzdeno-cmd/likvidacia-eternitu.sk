@@ -90,6 +90,8 @@ const selectedRoutes = process.argv.includes('--review-only')
       ? allRoutes.filter(([, slug]) => slug === 'dopyty')
       : process.argv.includes('--facebook-only')
         ? allRoutes.filter(([, slug]) => slug.startsWith('facebook'))
+      : process.argv.includes('--offers-only')
+        ? allRoutes.filter(([, slug]) => slug.startsWith('ponuk'))
       : process.argv.includes('--completion-only')
         ? allRoutes.filter(([, slug]) => slug === 'zakazka-detail')
       : process.argv.includes('--assistant-only')
@@ -205,7 +207,7 @@ async function seedSyntheticAdminData(database) {
        'VLNITY_ETERNIT', 777.75, 10.50, 161, true, false, true,
        'Poprad – sídlo ASTANA, s.r.o.', 'Najdlhšia testovacia obec pod Vysokými Tatrami',
        248.60, 0.70, 8166.38, 8501.40, 10456.72, $5, $6,
-       'PRIPRAVENA', $7, ARRAY[$2]::uuid[], true
+       'ODOSLANA', $7, ARRAY[$2]::uuid[], true
      )`,
     [
       syntheticIds.offer,
@@ -546,6 +548,41 @@ try {
           `${routePath} musí mať mobilné definície v jednom čitateľnom stĺpci: ${JSON.stringify(metrics.definitionLists)}`);
       }
       assert.deepEqual(metrics.clippedControls, [], `${routePath} orezáva ovládací alebo nadpisový text.`);
+      if (slug === 'ponuky') {
+        const offerRow = page.locator('.price-offer-row').first();
+        const appearance = await offerRow.evaluate((row) => {
+          const pill = row.querySelector('.status-pill');
+          const open = row.querySelector('.price-offer-open');
+          const more = row.querySelector('.price-offer-more > summary');
+          const rgb = (value) => (value.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+          const luminance = (value) => rgb(value).reduce((sum, channel, index) => {
+            const unit = channel / 255;
+            return sum + (unit <= .04045 ? unit / 12.92 : ((unit + .055) / 1.055) ** 2.4) * [.2126, .7152, .0722][index];
+          }, 0);
+          const foreground = luminance(getComputedStyle(pill).color);
+          const background = luminance(getComputedStyle(pill).backgroundColor);
+          return {
+            label: pill.textContent.trim(),
+            contrast: (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05),
+            actionTop: open.getBoundingClientRect().top,
+            moreTop: more.getBoundingClientRect().top,
+          };
+        });
+        assert.equal(appearance.label, 'Odoslaná', 'Vizuálny test má zobrazovať odoslanú ponuku zo snímky chyby.');
+        assert.ok(appearance.contrast >= 4.5, `Stav ponuky nemá dostatočný kontrast: ${JSON.stringify(appearance)}`);
+        assert.ok(Math.abs(appearance.actionTop - appearance.moreTop) <= 2,
+          `Akcie ponuky nie sú v jednom riadku: ${JSON.stringify(appearance)}`);
+        if (viewport.name === 'desktop' || viewport.name === 'mobile-390') {
+          const more = offerRow.locator('.price-offer-more');
+          await more.locator('summary').click();
+          assert.equal(await more.getAttribute('open'), '', 'Ďalšie akcie sa musia dať rozbaliť.');
+          await more.getByRole('link', { name: 'Zobraziť PDF' }).waitFor({ state: 'visible' });
+          const width = await page.evaluate(() => ({ viewport: innerWidth, document: document.documentElement.scrollWidth }));
+          assert.ok(width.document <= width.viewport + 1, `Rozbalené akcie spôsobujú pretečenie: ${JSON.stringify(width)}`);
+          await captureStableScreenshot(page, path.join(outputRoot, `${viewport.name}-${slug}-actions-open.png`));
+          await more.locator('summary').click();
+        }
+      }
       if (slug === 'dopyty' && viewport.name === 'desktop') {
         const row = page.locator(`.admin-lead-row[data-lead-href="/admin/dopyty/${syntheticIds.lead}"]`);
         await row.locator('td[data-label="Lokalita"]').click();

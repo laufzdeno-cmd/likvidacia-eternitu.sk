@@ -12,6 +12,7 @@ import { isCustomStagingTarget, stagingMailOverride } from './preview-safety';
 import { formatLeadAreaCompact } from './lead-area';
 import { readStoredLeadFile } from './storage';
 import { defaultPriceOfferEmailBody, defaultPriceOfferEmailSubject } from '../lib/price-offer-email-copy';
+import { normalizeRfc822MessageId } from './gmail-price-offer-policy';
 
 const siteUrl = () => process.env.ADMIN_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL || 'https://likvidacia-eternitu.sk';
 const leadRecipient = () => process.env.LEAD_TO_EMAIL || 'astana@astana.sk';
@@ -954,13 +955,21 @@ export function priceOfferEmailText(offer: PriceOffer, settings: PriceOfferSetti
   ].join('\n');
 }
 
-export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: PriceOfferSettings, pdf: Buffer, responseToken: string) {
+export async function sendPriceOfferDocumentEmail(
+  offer: PriceOffer,
+  settings: PriceOfferSettings,
+  pdf: Buffer,
+  responseToken: string,
+  sendAttemptId: string,
+) {
   const client = transporter();
   if (!client) return { status: 'not_sent' as const, reason: 'SMTP nie je nastavené.' };
   if (!offer.email) return { status: 'not_sent' as const, reason: 'Ponuka nemá email zákazníka.' };
   const c = settings.company;
   if (!/^[A-Za-z0-9_-]{40,80}$/.test(responseToken)) return { status: 'not_sent' as const, reason: 'Chýba bezpečný odkaz na odpoveď zákazníka.' };
+  if (!/^[a-f0-9-]{36}$/i.test(sendAttemptId)) return { status: 'not_sent' as const, reason: 'Chýba bezpečný identifikátor odoslania.' };
   const responseUrl = `${siteUrl().replace(/\/$/, '')}/ponuka/${encodeURIComponent(responseToken)}/`;
+  const requestedMessageId = `<cp-${sendAttemptId.toLowerCase()}@likvidacia-eternitu.sk>`;
 
   try {
     const requiredRecipient = resolveOutboundEmailRecipient(offer.email);
@@ -969,6 +978,7 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
       to: requiredRecipient,
       cc: resolveOutboundEmailCc(c.email),
       replyTo: c.email,
+      messageId: requestedMessageId,
       subject: offer.emailSubject?.trim() || defaultPriceOfferEmailSubject(offer),
       text: priceOfferEmailText(offer, settings, responseUrl),
       html: priceOfferEmailHtml(offer, settings, responseUrl),
@@ -983,6 +993,8 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
           : 'SMTP nepotvrdilo prijatie adresou zákazníka. Pred opakovaním skontrolujte odoslanú poštu.',
       };
     }
+    const messageId = normalizeRfc822MessageId(info.messageId) || requestedMessageId;
+    return { status: 'sent' as const, messageId };
   } catch (error) {
     const status = classifySmtpError(error);
     return {
@@ -991,7 +1003,7 @@ export async function sendPriceOfferDocumentEmail(offer: PriceOffer, settings: P
     };
   }
 
-  return { status: 'sent' as const };
+  return { status: 'unknown' as const, reason: 'SMTP nedokončilo odoslanie očakávaným spôsobom.' };
 }
 
 export type RooferRegistrationEmail = {

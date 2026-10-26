@@ -215,7 +215,7 @@ function followUpTimelineItem(followUp: OfferFollowUpTimelineItem): OperationsTi
   return {
     id: `offer-follow-up-${followUp.id}`,
     at: followUp.updatedAt || followUp.createdAt,
-    title: `Follow-up ponuky ${followUp.offerNumber}`,
+    title: `Následný kontakt k ponuke ${followUp.offerNumber}`,
     detail: `Predmet: ${followUp.subject || 'bez predmetu'} · Stav: ${result}`,
     category: 'communication',
     tone: followUp.status === 'sent' ? 'success' : followUp.status === 'failed' ? 'danger' : 'warning',
@@ -395,7 +395,7 @@ export function getJobAttention(job: JobAttentionJob, nowIso = new Date().toISOS
   const thresholds: Partial<Record<BusinessJob['status'], { days: number; title: string; detail: string }>> = {
     DOPYT: { days: 2, title: 'Dopyt bez posunu', detail: 'Skontrolujte kontakt a určte ďalší krok.' },
     DOPYT_PRIJATY: { days: 2, title: 'Dopyt čaká na spracovanie', detail: 'Priraďte zodpovednosť alebo pripravte ponuku.' },
-    PONUKA_ODOSLANA: { days: 3, title: 'Ponuka je dlhšie bez zmeny stavu', detail: 'Overte históriu komunikácie a podľa výsledku pripravte alebo zaevidujte follow-up.' },
+    PONUKA_ODOSLANA: { days: 3, title: 'Ponuka je dlhšie bez zmeny stavu', detail: 'Overte históriu komunikácie a podľa výsledku pripravte alebo zaevidujte následný kontakt.' },
     PONUKA_POTVRDENA: { days: 5, title: 'Potvrdená ponuka bez administratívneho posunu', detail: 'Skontrolujte podklady a termíny úradov.' },
     URADY_PODANE: { days: 14, title: 'Konanie na úradoch treba preveriť', detail: 'Overte stav podania a zapíšte výsledok.' },
     URADY_SCHVALENE: { days: 5, title: 'Schválená zákazka je dlhšie bez zmeny stavu', detail: 'Overte, či je termín a tím už evidovaný; ak nie, doplňte ich v plánovači.' },
