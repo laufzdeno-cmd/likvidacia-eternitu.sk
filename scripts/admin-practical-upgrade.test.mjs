@@ -36,3 +36,18 @@ test('knižnica médií iba číta existujúce súkromné fotografie', async () 
   assert.match(db, /m\.status <> 'pending_upload'/);
   assert.match(db, /m\.status <> 'deletion_pending'/);
 });
+
+test('produkčná migrácia histórie obsahu je explicitná a fail-closed', async () => {
+  const [migration, database] = await Promise.all([
+    read('scripts/admin-practical-production-schema.mjs'),
+    read('src/server/db.ts'),
+  ]);
+  assert.match(migration, /--apply/);
+  assert.match(migration, /--confirm-production/);
+  assert.match(migration, /DATABASE_URL_UNPOOLED \|\| process\.env\.POSTGRES_URL_NON_POOLING/);
+  assert.match(migration, /ASTANA_RELEASE_PROJECT_ID/);
+  assert.match(migration, /ASTANA_RELEASE_SITE_ORIGIN/);
+  assert.match(migration, /BEGIN[\s\S]*pg_advisory_xact_lock[\s\S]*COMMIT/);
+  assert.match(database, /adminPracticalSchemaRevision/);
+  assert.match(database, /migrateAdminPracticalSchemaOnce/);
+});

@@ -26,6 +26,16 @@ try {
   process.env.DATABASE_URL = `postgres://astana_test:astana_test@127.0.0.1:${port}/astana_test`;
 
   const db = await import('../src/server/db.ts');
+  await database.exec('DROP TABLE IF EXISTS site_content_versions');
+  const firstMigration = await db.migrateAdminPracticalSchemaOnce(database);
+  const repeatedMigration = await db.migrateAdminPracticalSchemaOnce(database);
+  assert.equal(firstMigration.tablesAdded, 1);
+  assert.equal(repeatedMigration.tablesAdded, 0);
+  assert.ok((await database.query("SELECT to_regclass('public.site_content_versions') AS relation")).rows[0].relation);
+  assert.equal((await database.query(
+    'SELECT COUNT(*)::int AS count FROM astana_targeted_schema_revisions WHERE revision=$1',
+    [db.adminPracticalSchemaRevision],
+  )).rows[0].count, 1);
   const actorEmail = 'superadmin@example.invalid';
   const lead = await db.createLead({
     fullName: 'Overovací klient', phone: '+421 905 123 456', email: 'klient@example.invalid',

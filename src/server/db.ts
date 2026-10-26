@@ -604,6 +604,48 @@ const adminAssistantReviewRequestColumnDefinitions: Record<
 };
 
 export const adminAssistantSchemaRevision = 'admin-assistant-v2.2-2026-10-15';
+export const adminPracticalSchemaRevision = 'admin-practical-v1-2026-10-26';
+
+/**
+ * Explicit additive migration for admin features that are not allowed to
+ * mutate the shared Production schema from a request handler.
+ */
+export async function migrateAdminPracticalSchemaOnce(client: Pick<PoolClient, 'query'>) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS astana_targeted_schema_revisions (
+      revision text PRIMARY KEY,
+      applied_at timestamptz NOT NULL DEFAULT now()
+    )
+  `);
+  const applied = await client.query(
+    'SELECT 1 FROM astana_targeted_schema_revisions WHERE revision=$1',
+    [adminPracticalSchemaRevision],
+  );
+  if (applied.rowCount) return { tablesAdded: 0 };
+
+  const before = await client.query(
+    "SELECT to_regclass('public.site_content_versions') IS NOT NULL AS exists",
+  );
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS site_content_versions (
+      id uuid PRIMARY KEY,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      created_by text NOT NULL,
+      action text NOT NULL,
+      values jsonb NOT NULL,
+      content_hash text NOT NULL,
+      restored_from_id uuid,
+      CONSTRAINT site_content_versions_action_check CHECK (action IN ('baseline','saved','restored'))
+    )
+  `);
+  await client.query(`CREATE INDEX IF NOT EXISTS site_content_versions_created_idx
+    ON site_content_versions (created_at DESC, id DESC)`);
+  await client.query(
+    'INSERT INTO astana_targeted_schema_revisions (revision) VALUES ($1)',
+    [adminPracticalSchemaRevision],
+  );
+  return { tablesAdded: Number(!before.rows[0]?.exists) };
+}
 
 /**
  * Narrow, forward-compatible migration for the supervised assistant. Production
