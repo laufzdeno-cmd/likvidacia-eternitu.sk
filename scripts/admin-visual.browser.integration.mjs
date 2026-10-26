@@ -429,6 +429,8 @@ try {
         const h1 = rectOf(h1Element);
         const mobileNavigation = document.querySelector('.admin-navigation-mobile');
         const desktopNavigation = document.querySelector('.admin-navigation-desktop');
+        const logoutButton = document.querySelector('.admin-topbar-logout');
+        const logoutForm = logoutButton?.closest('form');
         // Native inputs (especially date/select controls) can report an internal
         // scrollWidth larger than their visible box even when the control itself
         // is fully contained. Document/control geometry catches that class of
@@ -482,6 +484,14 @@ try {
             open: mobileNavigation.hasAttribute('open'),
           } : null,
           desktopNavigationDisplay: desktopNavigation ? getComputedStyle(desktopNavigation).display : null,
+          logout: logoutButton ? {
+            rendered: isRendered(logoutButton),
+            button: rectOf(logoutButton),
+            inInitialViewport: logoutButton.getBoundingClientRect().bottom <= innerHeight,
+            action: logoutForm?.getAttribute('action'),
+            method: logoutForm?.getAttribute('method'),
+            hasCsrf: Boolean(logoutForm?.querySelector('input[name="_csrf"][value]')),
+          } : null,
           clippedControls,
           escapedControls,
           tableWrappers,
@@ -502,6 +512,13 @@ try {
         `${routePath} má hlavný obsah mimo obrazovky: ${JSON.stringify(metrics.main)}`);
       assert.ok(metrics.h1?.rendered && metrics.h1.inInitialViewport,
         `${routePath} nemá viditeľný H1 v úvodnom výreze: ${JSON.stringify(metrics.h1)}`);
+      assert.ok(metrics.logout?.rendered && metrics.logout.inInitialViewport
+        && metrics.logout.button.left >= metrics.main.left - 1
+        && metrics.logout.button.right <= metrics.main.right + 1
+        && metrics.logout.action === '/admin/logout'
+        && metrics.logout.method === 'post'
+        && metrics.logout.hasCsrf,
+      `${routePath} nemá dostupné bezpečné odhlásenie pri ${viewport.width}px: ${JSON.stringify(metrics.logout)}`);
       assert.deepEqual(metrics.escapedControls, [],
         `${routePath} má ovládací prvok mimo hlavného obsahu: ${JSON.stringify(metrics.escapedControls)}`);
       assert.ok(metrics.queueCards.every(({ card, label, count, note }) => card && label && count && note

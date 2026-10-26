@@ -38,17 +38,23 @@ function activeCrumb(pathname: string) {
     .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? 'Admin';
 }
 
-export default function AdminTopbar({ email, name, role, initial }: { email: string; name: string; role: string; initial: string }) {
+export default function AdminTopbar({ email, name, role, initial, csrfToken }: { email: string; name: string; role: string; initial: string; csrfToken: string }) {
   const pathname = usePathname();
 
   return (
     <header className="admin-topbar">
       <span>ASTANA CRM / {activeCrumb(pathname)}</span>
-      <div className="admin-user-chip">
-        <small>Prihlásený ako:</small>
-        <strong>{name || email}</strong>
-        <em>{role === 'SUPER_ADMIN' ? 'Super admin' : role === 'META_REVIEWER' ? 'Kontrolór Meta' : 'Operátor'}</em>
-        <span>{initial}</span>
+      <div className="admin-topbar-actions">
+        <div className="admin-user-chip">
+          <small>Prihlásený ako:</small>
+          <strong title={name || email}>{name || email}</strong>
+          <em>{role === 'SUPER_ADMIN' ? 'Super admin' : role === 'META_REVIEWER' ? 'Kontrolór Meta' : 'Operátor'}</em>
+          <span>{initial}</span>
+        </div>
+        <form action="/admin/logout" method="post">
+          <input type="hidden" name="_csrf" value={csrfToken} />
+          <button className="admin-topbar-logout" type="submit">Odhlásiť</button>
+        </form>
       </div>
     </header>
   );

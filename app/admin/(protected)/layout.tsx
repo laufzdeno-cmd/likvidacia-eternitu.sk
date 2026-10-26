@@ -24,9 +24,6 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </a>
         <div className="admin-navigation-desktop">
           <AdminNav role={user.role} />
-          <form action="/admin/logout" method="post">
-            <button type="submit">Odhlásiť</button>
-          </form>
         </div>
         <details className="admin-navigation-mobile">
           <summary>
@@ -35,13 +32,10 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
             <span className="admin-navigation-close-label" aria-hidden="true">Zavrieť</span>
           </summary>
           <AdminNav role={user.role} />
-          <form action="/admin/logout" method="post">
-            <button type="submit">Odhlásiť</button>
-          </form>
         </details>
       </aside>
       <div className="admin-main">
-        <AdminTopbar email={email} name={user.name || email} role={user.role} initial={initial} />
+        <AdminTopbar email={email} name={user.name || email} role={user.role} initial={initial} csrfToken={csrfToken} />
         <span id="admin-csrf-token" data-token={csrfToken} hidden />
         {children}
       </div>

@@ -1556,6 +1556,12 @@
   .admin-action-row > * {
     width: 100% !important;
   }
+
+  .admin-topbar-actions .admin-user-chip { display: flex !important; }
+  .admin-topbar-actions .admin-user-chip small,
+  .admin-topbar-actions .admin-user-chip em,
+  .admin-topbar-actions .admin-user-chip > span { display: none !important; }
+  .admin-topbar-actions .admin-user-chip strong { max-width: none !important; }
 }
 
 /* Practical CRM additions: customer overview, approved media library and content versions. */
@@ -6294,6 +6300,17 @@ body .admin-main .admin-page .admin-card,
     min-height: 0 !important;
   }
 
+  .admin-topbar-actions {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+
+  .admin-topbar-actions .admin-user-chip {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+
   .admin-user-chip {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
@@ -6636,3 +6653,14 @@ body .admin-main .admin-page .admin-card,
   .price-offers-page .price-offers-scroll-hint,
   .offer-follow-up-page .price-offers-scroll-hint { display: block; margin: 0 0 9px; color: #31556a; font-size: 12px; font-weight: 700; line-height: 1.4; }
 }
+
+/* Odhlásenie má byť dostupné bez hľadania na každej obrazovke adminu. */
+.admin-topbar { align-items: center; }
+.admin-topbar > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-topbar-actions { display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; }
+.admin-topbar-actions .admin-user-chip { min-width: 0; max-width: min(38vw, 340px); }
+.admin-topbar-actions .admin-user-chip strong { min-width: 0; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-topbar-actions form { flex: 0 0 auto; margin: 0; }
+.admin-topbar-logout { min-height: 36px; padding: 7px 13px; border: 1px solid #8fb3cb; border-radius: 9px; background: #f0f8fc; color: #163e57; font: inherit; font-weight: 800; cursor: pointer; }
+.admin-topbar-logout:hover { border-color: #2776aa; background: #e0f1fa; color: #12374f; }
+.admin-topbar-logout:focus-visible { outline: 3px solid #197fc0; outline-offset: 2px; }
