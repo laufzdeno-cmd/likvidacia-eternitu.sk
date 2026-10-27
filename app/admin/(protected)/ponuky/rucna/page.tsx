@@ -1,9 +1,12 @@
 import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import ManualImportForm from './import-form';
 import { getJobPrivateDocument } from '@/src/server/job-workspace-db';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
+import { notFound } from 'next/navigation';
 
 export default async function ManualOfferImportPage({ searchParams }: { searchParams: Promise<{ jobId?: string; documentId?: string }> }) {
   const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) notFound();
   const params = await searchParams;
   const doc = params.documentId && /^[a-f0-9-]{36}$/i.test(params.documentId) ? await getJobPrivateDocument(params.documentId, actor) : null;
   const initialDocument = doc?.kind === 'PDF' ? { id: doc.id, originalName: doc.fileName, sha256: doc.sha256, href: `/api/admin/job-workspace/documents/${doc.id}/` } : null;

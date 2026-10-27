@@ -3,9 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { requireSuperAdmin, verifyCsrf } from '@/src/server/auth';
 import { getAdminUserByEmail, setAdminSetting } from '@/src/server/db';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 
 export async function saveJobDefaultOwnerAction(_previous: { message: string }, data: FormData) {
   await verifyCsrf(data); const actor = await requireSuperAdmin();
+  if (!jobWorkspaceEnabled()) return { message: jobWorkspaceUnavailableMessage };
   const email = String(data.get('responsibleEmail') || '').trim().toLowerCase();
   try {
     const user = email ? await getAdminUserByEmail(email) : null;

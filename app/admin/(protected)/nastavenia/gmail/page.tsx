@@ -2,9 +2,12 @@ import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
 import { listOperationalBusinessJobs } from '@/src/server/db';
 import { getJobMailAdminView } from '@/src/server/job-mail-service';
 import { GmailConfiguration, GmailMessageReview, GmailSingleAction } from './gmail-workspace';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
+import { notFound } from 'next/navigation';
 
 export default async function GmailWorkspacePage({ searchParams }: { searchParams: Promise<{ page?: string; review?: string }> }) {
   const actor = await requireSuperAdmin();
+  if (!jobWorkspaceEnabled()) notFound();
   const params = await searchParams;
   const page = Math.max(1, Number(params.page) || 1);
   const review = params.review === 'LINKED' || params.review === 'IGNORED' || params.review === 'ALL' ? params.review : 'PENDING';

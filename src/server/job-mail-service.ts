@@ -7,9 +7,11 @@ import { disableJobMailSync, mutateJobMailStore, readJobMailStore, saveJobMailCo
 import { privateDocumentPublicView, storeJobPrivateUpload } from './job-private-storage';
 import type { JobMailConfiguration, JobMailMatch, JobMailMatchCandidate, JobMailMessage } from './job-mail-types';
 import type { JobWorkspaceActor } from './job-workspace-types';
+import { assertJobWorkspaceEnabled } from './job-workspace-feature';
 
 function requireSuperadmin(actor: JobWorkspaceActor) {
   if (actor.role !== 'SUPER_ADMIN' || !actor.email) throw new Error('Gmail môže spravovať iba superadmin.');
+  assertJobWorkspaceEnabled();
 }
 function requireVerification() {
   if (process.env.ASTANA_JOB_GMAIL_VERIFIED !== 'true') throw new Error('Čítanie Gmailu čaká na potvrdenie overenia Google.');

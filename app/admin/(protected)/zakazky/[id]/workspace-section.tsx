@@ -2,11 +2,13 @@ import { listAdminUsers, listOperationalWorkers } from '@/src/server/db';
 import { getJobWorkspace, listJobPrivateDocuments } from '@/src/server/job-workspace-db';
 import type { JobWorkspaceActor } from '@/src/server/job-workspace-types';
 import WorkspacePanel from './workspace-panel';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
 import { JobAuthorityNoticePanel, JobCommunicationPanel, JobOffersPanel, JobPaymentSummary, JobPhotosPanel } from './job-linked-panels';
 
 export default async function JobWorkspaceSection({ jobId, actor, csrfToken, archived, customerName, location }: {
   jobId: string; actor: JobWorkspaceActor; csrfToken: string; archived: boolean; customerName: string; location: string;
 }) {
+  if (!jobWorkspaceEnabled()) return null;
   const [card, documents, workers, owners] = await Promise.all([
     getJobWorkspace(jobId, actor),
     listJobPrivateDocuments(jobId, actor),

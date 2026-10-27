@@ -1,6 +1,7 @@
 import { currentAdminUser, verifyCsrf } from '@/src/server/auth';
 import { registerJobPrivateDocument } from '@/src/server/job-workspace-db';
 import { privateDocumentPublicView, storeJobPrivateUpload } from '@/src/server/job-private-storage';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 
 export const runtime = 'nodejs';
 export const maxDuration = 45;
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
   const user = await currentAdminUser();
   if (!user?.active) return Response.json({ error: 'Prihláste sa do administrácie.' }, { status: 401, headers });
   if (!['SUPER_ADMIN', 'OPERATOR'].includes(user.role)) return Response.json({ error: 'Nemáte oprávnenie na súkromné prílohy.' }, { status: 403, headers });
+  if (!jobWorkspaceEnabled()) return Response.json({ error: jobWorkspaceUnavailableMessage }, { status: 503, headers });
   try {
     const form = await boundedFormData(request);
     await verifyCsrf(form);

@@ -6,10 +6,12 @@ import { requireAdminUser, verifyCsrf } from '@/src/server/auth';
 import { appendJobCommunication, getAuthorityNotice, prepareAuthorityNotice } from '@/src/server/job-workspace-db';
 import { deliverApprovedAuthorityNotice } from '@/src/server/job-authority-delivery';
 import type { AuthorityNotice } from '@/src/server/job-workspace-types';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 
 export type JobLinkedActionState = { ok: boolean; message: string; preview?: AuthorityNotice };
 export async function addJobCommunicationAction(_previous: JobLinkedActionState, data: FormData): Promise<JobLinkedActionState> {
   await verifyCsrf(data); const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   const parsed = z.object({ jobId: z.uuid(), subject: z.string().trim().min(1).max(300), text: z.string().trim().min(1).max(10000), occurredAt: z.string().datetime({ offset: true }) }).safeParse({ jobId: data.get('jobId'), subject: data.get('subject'), text: data.get('text'), occurredAt: data.get('occurredAt') });
   if (!parsed.success) return { ok: false, message: 'Doplňte predmet, poznámku a platný čas udalosti.' };
   try {
@@ -21,6 +23,7 @@ export async function addJobCommunicationAction(_previous: JobLinkedActionState,
 
 export async function prepareJobAuthorityNoticeAction(_previous: JobLinkedActionState, data: FormData): Promise<JobLinkedActionState> {
   await verifyCsrf(data); const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   const parsed = z.object({ jobId: z.uuid(), operationId: z.uuid(), expectedRevision: z.coerce.number().int().nonnegative() }).safeParse({ jobId: data.get('jobId'), operationId: data.get('operationId'), expectedRevision: data.get('revision') });
   if (!parsed.success) return { ok: false, message: 'Obnovte zákazkovú kartu.' };
   try {
@@ -31,6 +34,7 @@ export async function prepareJobAuthorityNoticeAction(_previous: JobLinkedAction
 
 export async function sendJobAuthorityNoticeAction(_previous: JobLinkedActionState, data: FormData): Promise<JobLinkedActionState> {
   await verifyCsrf(data); const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   if (data.get('confirmed') !== 'on') return { ok: false, message: 'Potvrďte správnosť adresáta a obsahu.' };
   try {
     const id = z.uuid().parse(data.get('noticeId'));

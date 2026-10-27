@@ -6,6 +6,7 @@ import PrintButton from './print-button';
 import { getJobWorkspace, listJobWorkspaceOperationalSummaries } from '@/src/server/job-workspace-db';
 import workspaceStyles from './planner-workspace.module.css';
 import { findWorkspaceCapacityWarnings } from '@/src/lib/job-workspace-planner';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
 
 const typeLabels = {
   DEMONTAZ: 'Demontáž', ODVOZ: 'Odvoz', DOKUMENTACIA: 'Dokumentácia', INE: 'Iné',
@@ -74,6 +75,7 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
   const selectedJobId = /^[0-9a-f-]{36}$/i.test(params?.zakazka || '') ? params!.zakazka! : '';
   const editId = /^[0-9a-f-]{36}$/i.test(params?.upravit || '') ? params!.upravit! : '';
   const adminUser = await requireAdminUser();
+  const workspaceEnabled = jobWorkspaceEnabled();
   const [workers, jobs] = await Promise.all([
     adminUser.role === 'SUPER_ADMIN' ? listWorkers(true) : listOperationalWorkers(true),
     adminUser.role === 'SUPER_ADMIN'
@@ -87,8 +89,8 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
   const meta = monthMeta(params?.mesiac || preselectedMonth);
   const [actions, workspacePlans, selectedWorkspace] = await Promise.all([
     listPlannerActions({ from: dateKey(meta.from), to: dateKey(meta.to) }),
-    listJobWorkspaceOperationalSummaries(adminUser, { from: dateKey(meta.from), to: dateKey(meta.to) }),
-    preselectedJob ? getJobWorkspace(preselectedJob.id, adminUser) : null,
+    workspaceEnabled ? listJobWorkspaceOperationalSummaries(adminUser, { from: dateKey(meta.from), to: dateKey(meta.to) }) : [],
+    workspaceEnabled && preselectedJob ? getJobWorkspace(preselectedJob.id, adminUser) : null,
   ]);
   const workspaceEvents = workspacePlans.flatMap((workspace) => {
     const plan = workspace.operations.plan;
@@ -153,8 +155,8 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
 
       <section className="admin-card planner-calendar no-print ops-panel">
         <div className="ops-section-heading"><div><span>Kalendár</span><h2>{meta.title}</h2></div><p>Kliknutím na akciu otvoríte jej úpravu. Červený lem znamená kolíziu pracovníka.</p></div>
-        <div className={workspaceStyles.legend}><span>Predbežný termín karty</span><span>Dohodnutý termín karty</span><span>Skutočný deň</span></div>
-        <p className="admin-muted-note">Termíny z kariet bez samostatnej akcie majú prerušovaný lem. Posádku a presný čas rezervujte cez konkrétnu akciu; viac zákaziek v jeden deň je podporovaných.</p>
+        {workspaceEnabled ? <><div className={workspaceStyles.legend}><span>Predbežný termín karty</span><span>Dohodnutý termín karty</span><span>Skutočný deň</span></div>
+        <p className="admin-muted-note">Termíny z kariet bez samostatnej akcie majú prerušovaný lem. Posádku a presný čas rezervujte cez konkrétnu akciu; viac zákaziek v jeden deň je podporovaných.</p></> : null}
         <div className="planner-grid planner-weekdays">{['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'].map((day) => <strong key={day}>{day}</strong>)}</div>
         <div className="planner-grid">
           {days.map((day) => {

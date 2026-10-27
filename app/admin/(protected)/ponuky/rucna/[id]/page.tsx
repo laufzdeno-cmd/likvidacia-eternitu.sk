@@ -5,12 +5,14 @@ import { getAdminSetting, listAdminUsers } from '@/src/server/db';
 import ManualOfferStateForms from './offer-state-forms';
 import ManualImportForm from '../import-form';
 import styles from '../manual-offer.module.css';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
 
 const statusLabels = { DRAFT: 'Na overenie', SENT_VERIFIED: 'Odoslaná · čakáme na odpoveď', ACCEPTED: 'Prijatá', DEFERRED: 'Odložená', REJECTED: 'Odmietnutá' };
 const money = (value: number | null) => value === null ? 'Zatiaľ nedoplnené' : new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' }).format(value / 100);
 
 export default async function ImportedOfferPage({ params }: { params: Promise<{ id: string }> }) {
   const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) notFound();
   const { id } = await params;
   if (!/^[a-f0-9-]{36}$/i.test(id)) notFound();
   const offer = await getManualPriceOffer(id, actor);

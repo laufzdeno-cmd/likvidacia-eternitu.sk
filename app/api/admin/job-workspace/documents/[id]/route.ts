@@ -3,6 +3,7 @@ import { getJobPrivateDocument } from '@/src/server/job-workspace-db';
 import { readJobPrivateBytes } from '@/src/server/job-private-storage';
 import { createHash } from 'node:crypto';
 import { verifiedImageMime } from '@/src/server/photo-intake-policy';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 
 export const runtime = 'nodejs';
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -10,6 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const headers = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; sandbox", 'Referrer-Policy': 'no-referrer', 'X-Robots-Tag': 'noindex, nofollow, noarchive' };
   if (!user?.active) return new Response('Neprihlásené', { status: 401, headers });
   if (!['SUPER_ADMIN', 'OPERATOR'].includes(user.role)) return new Response('Zakázané', { status: 403, headers });
+  if (!jobWorkspaceEnabled()) return new Response(jobWorkspaceUnavailableMessage, { status: 503, headers });
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return new Response('Nenájdené', { status: 404, headers });
   try {

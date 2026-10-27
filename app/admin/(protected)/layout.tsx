@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { canAccessAdminPath, csrfTokenForEmail, requireAnyAdminUser } from '@/src/server/auth';
 import AdminNav from './admin-nav';
 import AdminTopbar from './admin-topbar';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
 
 export const metadata = {
   robots: { index: false, follow: false },
@@ -35,7 +36,7 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
         </details>
       </aside>
       <div className="admin-main">
-        <AdminTopbar email={email} name={user.name || email} role={user.role} initial={initial} csrfToken={csrfToken} />
+        <AdminTopbar email={email} name={user.name || email} role={user.role} initial={initial} csrfToken={csrfToken} workspaceEnabled={jobWorkspaceEnabled()} />
         <span id="admin-csrf-token" data-token={csrfToken} hidden />
         {children}
       </div>

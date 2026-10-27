@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { lstat, mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, posix, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evaluateJobWorkspaceRuntimeException, JOB_WORKSPACE_RUNTIME_EXCEPTION, JOB_WORKSPACE_RUNTIME_EXCEPTION_FLAG } from './reviewed-job-workspace-release-exception.mjs';
 
 const RELEASE_GUARD_COMMAND = 'node scripts/check-release-guardrails.mjs';
 const REVIEWED_DEPLOY_COMMAND = 'node scripts/deploy-reviewed-release.mjs';
@@ -31,7 +32,7 @@ const SINGLE_VALUE_ARGUMENTS = new Set([
   '--previous-production-deployment',
 ]);
 const REPEATABLE_ARGUMENTS = new Set(['--allow', '--protected', '--allow-protected-change']);
-const BOOLEAN_ARGUMENTS = new Set([VERCEL_IAM_ACKNOWLEDGEMENT, RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT]);
+const BOOLEAN_ARGUMENTS = new Set([VERCEL_IAM_ACKNOWLEDGEMENT, RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT, JOB_WORKSPACE_RUNTIME_EXCEPTION_FLAG]);
 const DEFAULT_PROTECTED_FILES = [
   'app/api/dopyt/route.ts',
   'app/api/lead/route.ts',
@@ -147,6 +148,7 @@ function parseArguments(argv) {
     allowedProtectedChanges: repeated.get('--allow-protected-change'),
     vercelIamBoundaryAcknowledged: true,
     releaseGuardChangeAcknowledged: booleans.has(RELEASE_GUARD_CHANGE_ACKNOWLEDGEMENT),
+    reviewedJobWorkspaceRuntimeRequested: booleans.has(JOB_WORKSPACE_RUNTIME_EXCEPTION_FLAG),
   };
 }
 
@@ -380,9 +382,9 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
   const unusedProtectedChangeApprovals = allowedProtectedChanges.filter(
     (file) => !protectedFileHashes.some((entry) => entry.file === file && entry.changed),
   );
-  const selfProtectedChanges = allowedProtectedChanges.filter(
+  const selfProtectedChanges = [...new Set([...allowedProtectedChanges.filter(
     (file) => file === 'scripts/check-release-guardrails.mjs' || file === 'scripts/deploy-reviewed-release.mjs',
-  );
+  ), ...(changedSet.has('scripts/reviewed-job-workspace-release-exception.mjs') ? ['scripts/reviewed-job-workspace-release-exception.mjs'] : [])])];
   const releaseGuardSelfChangePassed = selfProtectedChanges.length === 0 || parsed.releaseGuardChangeAcknowledged;
   const protectedRuntimePassed = unapprovedProtectedChanges.length === 0
     && invalidProtectedFiles.length === 0
@@ -427,8 +429,35 @@ export async function runReleaseGuard({ argv = process.argv.slice(2), cwd = proc
     const changedKeys = protectedPackageKeys.filter(
       (key) => JSON.stringify(baselinePackage[key] ?? null) !== JSON.stringify(currentPackage[key] ?? null),
     );
-    checks.packageRuntime = { keys: protectedPackageKeys, changedKeys, passed: changedKeys.length === 0 };
-    if (changedKeys.length > 0) {
+    let reviewedRuntimeException = null;
+    if (parsed.reviewedJobWorkspaceRuntimeRequested) {
+      if (changedKeys.length === 0) {
+        reviewedRuntimeException = { id: JOB_WORKSPACE_RUNTIME_EXCEPTION.id, requested: true, applied: false, passed: false,
+          errors: ['Nepoužitý príznak runtime výnimky: chránené runtime kľúče sa nezmenili.'] };
+      } else {
+        const approvedSource = JOB_WORKSPACE_RUNTIME_EXCEPTION.approvedSource;
+        let sourceIsAncestor = actualHead === approvedSource;
+        if (!sourceIsAncestor) {
+          try { requireAncestor(repo, approvedSource, actualHead, 'Schválený runtime zdroj'); sourceIsAncestor = true; }
+          catch { sourceIsAncestor = false; }
+        }
+        reviewedRuntimeException = evaluateJobWorkspaceRuntimeException({
+          optedIn: true, protectedBaseline, head: actualHead, sourceIsAncestor,
+          descendantChangedPaths: actualHead === approvedSource ? [] : changedPaths(repo, approvedSource, actualHead),
+          baselinePackage, currentPackage,
+          sourcePackageBytes: fileAt(repo, approvedSource, 'package.json'),
+          currentPackageBytes: fileAt(repo, actualHead, 'package.json'),
+          sourcePackageLockBytes: fileAt(repo, approvedSource, 'package-lock.json'),
+          currentPackageLockBytes: fileAt(repo, actualHead, 'package-lock.json'),
+        });
+      }
+      checks.reviewedRuntimeException = reviewedRuntimeException;
+      if (!reviewedRuntimeException.passed) failures.push(...reviewedRuntimeException.errors);
+    }
+    checks.packageRuntime = { keys: protectedPackageKeys, changedKeys,
+      reviewedException: reviewedRuntimeException?.applied ? reviewedRuntimeException.id : null,
+      passed: changedKeys.length === 0 ? !parsed.reviewedJobWorkspaceRuntimeRequested : reviewedRuntimeException?.applied === true };
+    if (changedKeys.length > 0 && !reviewedRuntimeException?.applied) {
       failures.push(`Balíky alebo runtime konfigurácia v package.json sa zmenili: ${changedKeys.join(', ')}.`);
     }
     const baselineScripts = baselinePackage?.scripts ?? {};

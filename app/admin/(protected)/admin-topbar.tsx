@@ -39,13 +39,13 @@ function activeCrumb(pathname: string) {
     .sort((a, b) => b.href.length - a.href.length)[0]?.label ?? 'Admin';
 }
 
-export default function AdminTopbar({ email, name, role, initial, csrfToken }: { email: string; name: string; role: string; initial: string; csrfToken: string }) {
+export default function AdminTopbar({ email, name, role, initial, csrfToken, workspaceEnabled = false }: { email: string; name: string; role: string; initial: string; csrfToken: string; workspaceEnabled?: boolean }) {
   const pathname = usePathname();
 
   return (
     <header className="admin-topbar">
       <span>ASTANA CRM / {activeCrumb(pathname)}</span>
-      {role === 'SUPER_ADMIN' || role === 'OPERATOR' ? <SearchWorkspace compact csrfToken={csrfToken} role={role} /> : null}
+      {workspaceEnabled && (role === 'SUPER_ADMIN' || role === 'OPERATOR') ? <SearchWorkspace compact csrfToken={csrfToken} role={role} /> : null}
       <div className="admin-topbar-actions">
         <div className="admin-user-chip">
           <small>Prihlásený ako:</small>

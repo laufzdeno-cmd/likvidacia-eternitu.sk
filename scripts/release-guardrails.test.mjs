@@ -166,6 +166,17 @@ test('fails closed for missing, malformed, duplicated and unknown approval argum
   });
 });
 
+test('rejects a reviewed runtime exception flag when no dependency exception is needed', () => {
+  withRepository((fixture) => {
+    const result=runGuard(fixture.repo,[...approvedArguments(fixture),'--allow-reviewed-job-workspace-pdfjs-0913']);
+    assertFails(result,/Nepoužitý príznak runtime výnimky/);
+    const manifest=readManifest(fixture.repo);
+    assert.equal(manifest.checks.packageRuntime.passed,false);
+    assert.equal(manifest.checks.reviewedRuntimeException.applied,false);
+    assert.equal(manifest.checks.reviewedRuntimeException.requested,true);
+  });
+});
+
 test('rejects dirty tracked files and untracked files', () => {
   withRepository((fixture) => {
     write(fixture.repo, 'docs/release-note.md', 'dirty\n');

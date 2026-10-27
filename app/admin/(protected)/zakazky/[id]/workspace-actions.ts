@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdminUser, verifyCsrf } from '@/src/server/auth';
 import { saveJobWorkspace } from '@/src/server/job-workspace-db';
 import { jobWorkspaceOperationsSchema, jobWorkspaceSettlementSchema } from '@/src/server/job-workspace-policy';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 import type { FinancialJobWorkspaceCard, JobWorkspaceCard, JobWorkspacePatch } from '@/src/server/job-workspace-types';
 
 export type WorkspaceActionState = { ok: boolean; message: string; card: JobWorkspaceCard | FinancialJobWorkspaceCard | null };
@@ -12,6 +13,7 @@ export async function saveWorkspaceAction(_previous: WorkspaceActionState, data:
   await verifyCsrf(data);
   const actor = await requireAdminUser();
   if (!['OPERATOR', 'SUPER_ADMIN'].includes(actor.role)) return { ok: false, message: 'Na úpravu zákazky nemáte oprávnenie.', card: null };
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage, card: null };
   const jobId = String(data.get('jobId') || '');
   const serialized = String(data.get('workspace') || '');
   if (!/^[\da-f-]{36}$/i.test(jobId) || serialized.length > 180_000) return { ok: false, message: 'Údaje zákazky nie sú platné.', card: null };

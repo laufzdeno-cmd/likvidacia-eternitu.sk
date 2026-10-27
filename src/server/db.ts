@@ -1,6 +1,7 @@
 import { mkdir, readFile, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { JobWorkspaceStore } from './job-workspace-types';
+import { jobWorkspaceEnabled } from './job-workspace-feature';
 import { createInitialJobWorkspaceCard, preserveManagedActualDate, recordLegacyActualDateChange, workspaceCalendarDay } from './job-workspace-policy';
 import path from 'node:path';
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
@@ -11859,7 +11860,151 @@ export async function getPriceOfferEventMetrics(from: string, to: string): Promi
 
 export type AdminSearchData = Omit<import('./admin-intelligence').AdminSearchResult, 'query'>;
 
+function foldLegacyAdminSearchText(value: unknown) {
+  return String(value ?? '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('sk');
+}
+async function searchLegacyAdminData(query: string, includeFinance: boolean): Promise<AdminSearchData> {
+  const needle = foldLegacyAdminSearchText(query.trim().slice(0, 100));
+  const compactNeedle = needle.replace(/[^a-z0-9]+/g, '');
+  const empty: AdminSearchData = { leads: [], jobs: [], offers: [], reviews: [], finance: [] };
+  if (needle.length < 2) return empty;
+  await ensureSchema();
+  const db = getPool();
+  if (!db) {
+    const local = await readLocalDb();
+    const matches = (...values: unknown[]) => values.some((value) => {
+      const folded = foldLegacyAdminSearchText(value);
+      const compact = folded.replace(/[^a-z0-9]+/g, '');
+      return folded.includes(needle) || (compactNeedle.length >= 2 && compact.includes(compactNeedle));
+    });
+    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
+    const testJobIds = new Set(local.businessJobs
+      .filter((job) => job.isTestData || Boolean(job.leadId && testLeadIds.has(job.leadId)))
+      .map((job) => job.id));
+    const jobsById = new Map(local.businessJobs.map((job) => [job.id, job]));
+    const leads = local.leads
+      .filter((lead) => !lead.deletedAt && !lead.isTestData
+        && matches(lead.fullName, lead.phone, lead.email, lead.city, lead.district, lead.id))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((lead) => ({ id: lead.id, fullName: lead.fullName, phone: lead.phone, email: lead.email,
+        city: lead.city, status: lead.status }));
+    const jobs = local.businessJobs
+      .filter((job) => !job.deletedAt && !testJobIds.has(job.id)
+        && matches(job.customerName, job.customerPhone, job.customerEmail, job.location, job.district, job.id))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((job) => ({ id: job.id, customerName: job.customerName, location: job.location,
+        demolitionDate: job.demolitionDate, status: job.status }));
+    const offers = localBusinessPriceOffers(local)
+      .filter((offer) => matches(offer.number, offer.contactPerson, offer.phone, offer.email,
+        offer.objectAddress, offer.municipality, offer.district, offer.id))
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((offer) => ({ id: offer.id, number: offer.number, contactPerson: offer.contactPerson,
+        objectAddress: offer.objectAddress, totalWithVat: offer.totalWithVat }));
+    const reviews = local.reviewRequests
+      .filter((request) => {
+        const job = request.jobId ? jobsById.get(request.jobId) : undefined;
+        return !job?.isTestData
+          && !(job?.leadId && testLeadIds.has(job.leadId))
+          && !(request.leadId && testLeadIds.has(request.leadId))
+          && matches(request.customerName, request.customerEmail, request.phone, request.location, request.id);
+      })
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+      .slice(0, 20)
+      .map((request) => ({ id: request.id, customerName: request.customerName,
+        customerEmail: request.customerEmail, phone: request.phone || '', location: request.location || '',
+        status: request.status }));
+    const finance = includeFinance
+      ? local.businessJobInvoices
+        .filter((invoice) => !testJobIds.has(invoice.jobId)
+          && matches(invoice.invoiceNumber, invoice.id, invoice.jobId))
+        .sort((left, right) => right.issuedOn.localeCompare(left.issuedOn) || right.createdAt.localeCompare(left.createdAt))
+        .slice(0, 20)
+        .map((invoice) => ({ id: invoice.id, jobId: invoice.jobId, invoiceNumber: invoice.invoiceNumber,
+          issuedOn: invoice.issuedOn, dueOn: invoice.dueOn || '', amountWithVatCents: invoice.amountWithVatCents }))
+      : [];
+    return { leads, jobs, offers, reviews, finance };
+  }
+
+  const folded = (column: string) => {
+    const expression = `translate(lower(COALESCE(${column}::text, '')), 'áäčďéíĺľňóôŕšťúýž', 'aacdeillnoorstuyz')`;
+    return `(strpos(${expression}, $1) > 0 OR ($2 <> '' AND strpos(regexp_replace(${expression}, '[^a-z0-9]+', '', 'g'), $2) > 0))`;
+  };
+  const [leadRows, jobRows, offerRows, reviewRows, financeRows] = await Promise.all([
+    db.query(
+      `SELECT l.id, l.full_name, l.phone, l.email, l.city, l.status
+       FROM leads l
+       WHERE l.deleted_at IS NULL AND COALESCE(l.is_test_data, false) = false
+         AND (${[folded('l.full_name'), folded('l.phone'), folded('l.email'), folded('l.city'), folded('l.district'), folded('l.id')].join(' OR ')})
+       ORDER BY l.created_at DESC, l.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    db.query(
+      `SELECT j.id, j.customer_name, j.location, j.demolition_date, j.status
+       FROM business_jobs j
+       LEFT JOIN leads source_lead ON source_lead.id = j.lead_id
+       WHERE j.deleted_at IS NULL AND COALESCE(j.is_test_data, false) = false
+         AND COALESCE(source_lead.is_test_data, false) = false
+         AND (${[folded('j.customer_name'), folded('j.customer_phone'), folded('j.customer_email'), folded('j.location'), folded('j.district'), folded('j.id')].join(' OR ')})
+       ORDER BY j.created_at DESC, j.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    db.query(
+      `SELECT o.id, o.number, o.contact_person, o.object_address, o.total_with_vat
+       FROM price_offers o
+       WHERE o.deleted_at IS NULL AND ${businessPriceOfferCondition}
+         AND (${[folded('o.number'), folded('o.contact_person'), folded('o.phone'), folded('o.email'), folded('o.object_address'), folded('o.municipality'), folded('o.district'), folded('o.id')].join(' OR ')})
+       ORDER BY o.created_at DESC, o.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    db.query(
+      `SELECT r.id, r.customer_name, r.customer_email, r.phone, r.location, r.status
+       FROM review_requests r
+       LEFT JOIN business_jobs j ON j.id = r.job_id
+       LEFT JOIN leads request_lead ON request_lead.id = r.lead_id
+       LEFT JOIN leads job_lead ON job_lead.id = j.lead_id
+       WHERE COALESCE(j.is_test_data, false) = false
+         AND COALESCE(request_lead.is_test_data, false) = false
+         AND COALESCE(job_lead.is_test_data, false) = false
+         AND (${[folded('r.customer_name'), folded('r.customer_email'), folded('r.phone'), folded('r.location'), folded('r.id')].join(' OR ')})
+       ORDER BY r.created_at DESC, r.id DESC LIMIT 20`,
+      [needle, compactNeedle],
+    ),
+    includeFinance
+      ? db.query(
+        `SELECT invoice.id, invoice.job_id, invoice.invoice_number, invoice.issued_on, invoice.due_on,
+                invoice.amount_with_vat_cents
+         FROM business_job_invoices invoice
+         JOIN business_jobs job ON job.id = invoice.job_id
+         LEFT JOIN leads source_lead ON source_lead.id = job.lead_id
+         WHERE COALESCE(job.is_test_data, false) = false AND COALESCE(source_lead.is_test_data, false) = false
+           AND (${[folded('invoice.invoice_number'), folded('invoice.id'), folded('invoice.job_id')].join(' OR ')})
+         ORDER BY invoice.issued_on DESC, invoice.created_at DESC, invoice.id DESC LIMIT 20`,
+        [needle, compactNeedle],
+      )
+      : Promise.resolve({ rows: [] }),
+  ]);
+  return {
+    leads: leadRows.rows.map((row) => ({ id: String(row.id), fullName: String(row.full_name), phone: String(row.phone),
+      email: String(row.email), city: String(row.city), status: String(row.status) })),
+    jobs: jobRows.rows.map((row) => ({ id: String(row.id), customerName: String(row.customer_name),
+      location: String(row.location || ''), demolitionDate: dateOnly(row.demolition_date), status: String(row.status) })),
+    offers: offerRows.rows.map((row) => ({ id: String(row.id), number: String(row.number),
+      contactPerson: String(row.contact_person || ''), objectAddress: String(row.object_address || ''),
+      totalWithVat: Number(row.total_with_vat || 0) })),
+    reviews: reviewRows.rows.map((row) => ({ id: String(row.id), customerName: String(row.customer_name),
+      customerEmail: String(row.customer_email || ''), phone: String(row.phone || ''),
+      location: String(row.location || ''), status: String(row.status) })),
+    finance: financeRows.rows.map((row) => ({ id: String(row.id), jobId: String(row.job_id),
+      invoiceNumber: String(row.invoice_number), issuedOn: dateOnly(row.issued_on), dueOn: dateOnly(row.due_on),
+      amountWithVatCents: Number(row.amount_with_vat_cents) })),
+  };
+}
+
 export async function searchAdminData(query: string, includeFinance: boolean, options: import('./job-workspace-types').JobWorkspaceSearchOptions = {}): Promise<AdminSearchData> {
+  if (!jobWorkspaceEnabled()) return searchLegacyAdminData(query, includeFinance);
   const { searchJobWorkspaceLocalData, searchJobWorkspacePostgres } = await import('./job-workspace-search');
   const db = getPool();
   if (db) return searchJobWorkspacePostgres(db, query, includeFinance, options);

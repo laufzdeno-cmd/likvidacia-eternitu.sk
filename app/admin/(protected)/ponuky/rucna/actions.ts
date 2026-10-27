@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { requireAdminUser, verifyCsrf } from '@/src/server/auth';
 import { acceptManualPriceOffer, getJobPrivateDocument, getManualPriceOffer, importManualPriceOffer, recordManualPriceOfferOutcome, updateManualPriceOffer, verifyManualPriceOfferSent } from '@/src/server/job-workspace-db';
 import type { ManualPriceOfferInput } from '@/src/server/job-workspace-types';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 
 export type ManualOfferActionState = { ok: boolean; message: string; id?: string; jobId?: string };
 
@@ -17,6 +18,7 @@ function safeFailure(error: unknown) {
 export async function importManualOfferAction(_previous: ManualOfferActionState, data: FormData): Promise<ManualOfferActionState> {
   await verifyCsrf(data);
   const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   try {
     const raw = String(data.get('payload') || '');
     if (raw.length > 200_000) throw new Error('Príliš veľa údajov.');
@@ -34,6 +36,7 @@ export async function importManualOfferAction(_previous: ManualOfferActionState,
 export async function verifyManualOfferSentAction(_previous: ManualOfferActionState, data: FormData): Promise<ManualOfferActionState> {
   await verifyCsrf(data);
   const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   try {
     if (data.get('confirmSent') !== 'on') return { ok: false, message: 'Potvrďte skutočné odoslanie pôvodnej ponuky.' };
     const id = z.uuid().parse(data.get('id'));
@@ -46,6 +49,7 @@ export async function verifyManualOfferSentAction(_previous: ManualOfferActionSt
 export async function acceptManualOfferAction(_previous: ManualOfferActionState, data: FormData): Promise<ManualOfferActionState> {
   await verifyCsrf(data);
   const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   try {
     if (data.get('confirmAccepted') !== 'on') return { ok: false, message: 'Potvrďte, že zákazník ponuku skutočne prijal.' };
     const id = z.uuid().parse(data.get('id'));
@@ -58,6 +62,7 @@ export async function acceptManualOfferAction(_previous: ManualOfferActionState,
 
 export async function updateManualOfferAction(_previous: ManualOfferActionState, data: FormData): Promise<ManualOfferActionState> {
   await verifyCsrf(data); const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   try {
     const id = z.uuid().parse(data.get('id'));
     const raw = String(data.get('payload') || ''); if (raw.length > 200000) throw new Error('limit');
@@ -70,6 +75,7 @@ export async function updateManualOfferAction(_previous: ManualOfferActionState,
 
 export async function recordManualOutcomeAction(_previous: ManualOfferActionState, data: FormData): Promise<ManualOfferActionState> {
   await verifyCsrf(data); const actor = await requireAdminUser();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   try {
     const id = z.uuid().parse(data.get('id'));
     const status = z.enum(['DEFERRED', 'REJECTED']).parse(data.get('status'));

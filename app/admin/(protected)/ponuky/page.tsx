@@ -5,6 +5,7 @@ import type { PriceOfferStatus } from '@/src/server/types';
 import { deletePriceOfferAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
 import { listManualPriceOffers } from '@/src/server/job-workspace-db';
+import { jobWorkspaceEnabled } from '@/src/server/job-workspace-feature';
 
 function displayDate(value: string, calendarDate = false) {
   if (!value || (calendarDate && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return value || '—';
@@ -18,6 +19,7 @@ function displayDate(value: string, calendarDate = false) {
 export default async function PriceOffersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const params = await searchParams;
   const adminUser = await requireAdminUser();
+  const workspaceEnabled = jobWorkspaceEnabled();
   const status = (params.status || '') as PriceOfferStatus | '';
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.month || '') ? params.month! : '';
   const jobId = params.jobId || '';
@@ -29,7 +31,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
   ]);
   const csrfToken = csrfTokenForEmail(adminUser.email);
   const manualStatus: Record<string, string> = { DRAFT: 'PRIPRAVENA', SENT_VERIFIED: 'ODOSLANA', ACCEPTED: 'PRIJATA', DEFERRED: 'ODLOZENA', REJECTED: 'NEUSPESNA' };
-  const manualAll = await listManualPriceOffers(adminUser, { ...(jobId ? { jobId } : {}), archived: includeArchived });
+  const manualAll = workspaceEnabled ? await listManualPriceOffers(adminUser, { ...(jobId ? { jobId } : {}), archived: includeArchived }) : [];
   const manualOffers = manualAll.filter(offer => (!status || manualStatus[offer.status] === status) && (!month || (offer.issuedOn || offer.createdAt).startsWith(month)));
   const manualMonth = manualAll.filter(offer => !offer.archivedAt && (offer.issuedOn || offer.createdAt).startsWith(monthKey));
   const conversion = summary.sent ? Math.round((summary.accepted / summary.sent) * 1000) / 10 : 0;
@@ -38,7 +40,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
     <main className="admin-page price-offers-page">
       <div className="admin-heading price-offers-heading">
         <div><p>Obchodný prehľad</p><h1>Cenové ponuky</h1><span>Stav, odpoveď zákazníka a ďalší krok na jednom mieste.</span></div>
-        <div className="price-offer-action-controls"><a className="admin-row-link" href="/admin/ponuky/rucna">Zaevidovať PDF</a><a className="admin-primary-link" href="/admin/ponuky/nova">Nová cenová ponuka</a></div>
+        <div className="price-offer-action-controls">{workspaceEnabled ? <a className="admin-row-link" href="/admin/ponuky/rucna">Zaevidovať PDF</a> : null}<a className="admin-primary-link" href="/admin/ponuky/nova">Nová cenová ponuka</a></div>
       </div>
       <section className="admin-stat-grid">
         <article><span>Ponúk v mesiaci</span><strong>{summary.created}</strong></article>
@@ -46,7 +48,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
         <article><span>Prijatých</span><strong>{summary.accepted}</strong><small>{conversion} %</small></article>
         <article><span>Hodnota prijatých</span><strong>{euro(summary.acceptedValue)}</strong></article>
       </section>
-      <p className="admin-muted-note">Súhrn vyššie zobrazuje ponuky vytvorené v admine bez testov a archívu. Ručne zaevidované PDF: {manualMonth.length} v zvolenom mesiaci, z toho {manualMonth.filter(o => o.status === 'ACCEPTED').length} prijatých. Obe evidencie nájdete nižšie aj v globálnom vyhľadávaní.</p>
+      <p className="admin-muted-note">Súhrn vyššie zobrazuje ponuky vytvorené v admine bez testov a archívu.{workspaceEnabled ? <> Ručne zaevidované PDF: {manualMonth.length} v zvolenom mesiaci, z toho {manualMonth.filter(o => o.status === 'ACCEPTED').length} prijatých. Obe evidencie nájdete nižšie aj v globálnom vyhľadávaní.</> : null}</p>
       <section className="admin-card no-print">
         <form className="admin-filter-bar" action="/admin/ponuky" method="get">
           <label>Stav<select name="status" defaultValue={status}><option value="">Všetky</option>{priceOfferStatuses.map((item) => <option key={item} value={item}>{priceOfferStatusLabels[item]}</option>)}</select></label>

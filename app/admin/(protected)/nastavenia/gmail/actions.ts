@@ -6,10 +6,12 @@ import { configureJobMailSync, disconnectJobMail, getJobMailLabels, importJobMai
 import { disableJobMailSync } from '@/src/server/job-mail-store';
 import { listBusinessJobs, listPriceOffers } from '@/src/server/db';
 import { listManualPriceOffers } from '@/src/server/job-workspace-db';
+import { jobWorkspaceEnabled, jobWorkspaceUnavailableMessage } from '@/src/server/job-workspace-feature';
 
 export type GmailWorkspaceState = { ok: boolean; message: string; labels?: Array<{ id: string; name: string }>; documentId?: string };
 export async function manageJobGmailAction(_previous: GmailWorkspaceState, data: FormData): Promise<GmailWorkspaceState> {
   await verifyCsrf(data); const actor = await requireSuperAdmin();
+  if (!jobWorkspaceEnabled()) return { ok: false, message: jobWorkspaceUnavailableMessage };
   const task = String(data.get('task') || '');
   try {
     let message = '';

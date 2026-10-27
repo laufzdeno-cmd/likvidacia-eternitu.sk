@@ -26,7 +26,7 @@ function ResultSection({ title, count, children }: { title: string; count: numbe
   return <section className="admin-card intelligence-results"><header><div><p>Výsledky</p><h2>{title}</h2></div><strong>{count}</strong></header><div>{children}</div></section>;
 }
 
-export default function SearchWorkspace({ csrfToken, role, compact = false }: { csrfToken: string; role: AdminRole; compact?: boolean }) {
+export default function SearchWorkspace({ csrfToken, role, compact = false, enhanced = true }: { csrfToken: string; role: AdminRole; compact?: boolean; enhanced?: boolean }) {
   const [state, formAction] = useActionState(searchAdminRecordsAction, initialState);
   const [closed, setClosed] = useState(false);
   const [filters, setFilters] = useState({ year: '', archived: 'exclude', workType: '', status: '', responsibleEmail: '' });
@@ -41,7 +41,7 @@ export default function SearchWorkspace({ csrfToken, role, compact = false }: { 
       <input type="hidden" name="_csrf" value={csrfToken} />
       <label htmlFor={compact ? 'top-crm-search' : 'global-search'}>{compact ? 'Nájsť zákazku alebo ponuku' : 'Hľadané slová'}</label>
       <div><input id={compact ? 'top-crm-search' : 'global-search'} name="q" defaultValue={state.query} minLength={2} maxLength={100} autoComplete="off" placeholder="Meno, obec, číslo CP, poznámka…" required /><SearchButton /></div>
-      {!compact ? <>
+      {!compact && enhanced ? <>
         <div className="crm-search-filters">
           <label>Rok<input name="year" type="number" min="1900" max="2200" placeholder="Všetky roky" value={filters.year} onChange={e => updateFilter('year', e.target.value)} /></label>
           <label>Evidencia<select name="archived" value={filters.archived} onChange={e => updateFilter('archived', e.target.value)}><option value="exclude">Aktívne záznamy</option><option value="include">Vrátane archívu</option><option value="only">Iba archív</option></select></label>

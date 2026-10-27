@@ -1,6 +1,7 @@
 import { claimAuthorityNotice, finalizeAuthorityNotice } from './job-workspace-db';
 import { sendPlannerNotificationEmail } from './mail';
 import type { AuthorityNotice, JobWorkspaceActor } from './job-workspace-types';
+import { assertJobWorkspaceEnabled } from './job-workspace-feature';
 
 const escape = (value: string) => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 export type AuthorityDeliveryDependencies = {
@@ -12,6 +13,7 @@ const dependencies: AuthorityDeliveryDependencies = { claim: claimAuthorityNotic
 
 /** Only an explicitly approved immutable preview can claim a single mail attempt. */
 export async function deliverApprovedAuthorityNotice(id: string, actor: JobWorkspaceActor, deps = dependencies): Promise<{ state: AuthorityNotice['state'] | 'ALREADY_HANDLED' }> {
+  assertJobWorkspaceEnabled();
   const notice = await deps.claim(id, actor);
   if (!notice || !notice.attemptId) return { state: 'ALREADY_HANDLED' };
   let state: 'SENT' | 'FAILED' | 'UNCERTAIN' = 'UNCERTAIN';
