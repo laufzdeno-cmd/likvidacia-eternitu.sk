@@ -1,6 +1,5 @@
 export const regionalGuides = {
   poprad: {
-    photoId: 'azbest-164', photoAlt: 'Drevenica s ohraničeným pracoviskom pri strešných prácach ASTANA',
     heading: 'Meníte strechu v okolí sídla firmy? Začnime nadväznosťou prác.',
     paragraphs: [
       'Pri dopyte z Popradu, Svitu či Kežmarku sa môžeme odraziť od konkrétnej obce a stavu strechy. Blízkosť sídla však sama osebe neurčuje voľný termín. Ak už máte objednanú novú krytinu, napíšte aj plánovaný nástup strechára a rozsah, ktorý potrebuje prevziať.',
@@ -12,7 +11,6 @@ export const regionalGuides = {
     faq: { question: 'Znamená sídlo v Poprade automaticky skorší termín?', answer: 'Nie. Blízkosť pomáha pri plánovaní trasy, ale termín sa potvrdzuje podľa kapacity, rozsahu, prípravy a nadväzujúcich prác. Pošlite aj požadovaný deň nástupu strechára.' },
   },
   kosice: {
-    photoId: 'azbest-110', photoAlt: 'Pracovné vozidlo ASTANA pri rozsiahlom priemyselnom objekte',
     heading: 'Dom v obci a objekt v prevádzkovom areáli potrebujú iné plánovanie.',
     paragraphs: [
       'Pri zákazke v Košiciach alebo širšom kraji rozlíšte presnú obec či mestskú časť od miesta vstupu do objektu. Pri hale alebo firemnom areáli potrebujeme vedieť, či je vstup voľný, cez vrátnicu alebo po dohode s kontaktnou osobou. Adresa sídla zákazníka nemusí byť adresou realizácie.',
@@ -24,7 +22,6 @@ export const regionalGuides = {
     faq: { question: 'Ako naceniť viac objektov v jednom areáli v Košickom kraji?', answer: 'Uveďte plochu a stav materiálu pre každú budovu zvlášť, možnosti prístupu a požadované etapy. Súhrnná výmera bez rozlíšenia nemusí zachytiť rozdielnu náročnosť jednotlivých objektov.' },
   },
   presov: {
-    photoId: 'azbest-135', photoAlt: 'Rozoberanie strešnej krytiny na drevenici pri realizácii ASTANA',
     heading: 'Pri viacerých strechách pomôže jednoduché rozdelenie rozsahu.',
     paragraphs: [
       'Pri dopyte z Prešova, Sabinova, Bardejova alebo vzdialenejšej obce uveďte lokalitu samotnej stavby. Ak popri dome riešite garáž, prístavbu či hospodársku budovu, neuvádzajte iba jednu sumárnu výmeru. Krátko rozdeľte, na ktorej budove je aký materiál a čo chcete odstrániť.',
@@ -36,7 +33,6 @@ export const regionalGuides = {
     faq: { question: 'Môžem v jednom dopyte z Prešovského kraja uviesť dom aj garáž?', answer: 'Áno. Oddeľte odhad plochy, stav a prístup pri každom objekte. Pripojte informáciu, či sa majú práce uskutočniť naraz a na ktorú časť nadväzuje nová strecha.' },
   },
   zilina: {
-    photoId: 'azbest-118', photoAlt: 'Drevenica so staršou krytinou pri prístupovej ceste',
     heading: 'Prístupová cesta môže byť rovnako dôležitá ako strecha.',
     paragraphs: [
       'Pri dopyte zo Žiliny, Kysúc, Oravy, Turca alebo Liptova potrebujeme konkrétnu obec. Ak je objekt mimo hlavnej cesty, opíšte posledný úsek príjazdu: úzky vjazd, svah, možnosť otočenia alebo miesto na státie pri budove. Rozhodujú reálne podmienky vášho pozemku, nie všeobecná dostupnosť regiónu.',
@@ -48,7 +44,6 @@ export const regionalGuides = {
     faq: { question: 'Čo uviesť pri objekte s úzkym alebo strmým príjazdom v Žilinskom kraji?', answer: 'Opíšte poslednú časť prístupovej cesty, miesto na státie a vzdialenosť k objektu. Fotografia príjazdu môže pomôcť, ale vhodnú logistiku treba potvrdiť individuálne.' },
   },
   'banska-bystrica': {
-    photoId: 'azbest-057', photoAlt: 'Pracovníci pri demontáži krytiny na dlhom objekte',
     heading: 'Pri rozsiahlom objekte plánujme aj poradie jednotlivých častí.',
     paragraphs: [
       'Banskobystrický kraj zahŕňa vzdialené okresy, preto je obec dôležitejšia než samotný názov kraja. Pri dopyte z okolia Banskej Bystrice, Zvolena, Brezna či južných okresov doplňte aj prístup k budove a priestor na manipuláciu. Ak sú na pozemku rôzne objekty, rozlíšte ich rozsah.',
@@ -60,7 +55,6 @@ export const regionalGuides = {
     faq: { question: 'Čo dohodnúť pri postupnej realizácii v Banskobystrickom kraji?', answer: 'Pomenovať jednotlivé časti, požadované poradie, prístup a nadväzujúce práce. V ponuke a pri odovzdaní má byť zrejmé, ktorý rozsah konkrétna etapa pokrýva.' },
   },
   bratislava: {
-    photoId: 'azbest-134', photoAlt: 'Rodinný dom s lešením pri práci na streche',
     heading: 'V meste si vopred vyjasnime státie, prístup a priestor pri dome.',
     paragraphs: [
       'Pri dopyte z Bratislavy uveďte mestskú časť; pri objekte mimo mesta presnú obec. Popri výmere nám pomôže, kde môže pracovné vozidlo zastaviť a ako sa z tohto miesta dostane materiál k nakládke. Vjazd do dvora a možnosť státia na ulici sú dve rozdielne informácie.',
@@ -72,7 +66,6 @@ export const regionalGuides = {
     faq: { question: 'Stačí v bratislavskom dopyte uviesť plochu strechy?', answer: 'Doplňte mestskú časť alebo obec, prístup a možnosť státia vozidla. Pri spoločnom dvore alebo časovo obmedzenom vstupe uveďte aj to, kto prístup zabezpečí.' },
   },
   nitra: {
-    photoId: 'azbest-091', photoAlt: 'Zabalený materiál pripravený pri pracovnom vozidle',
     heading: 'Potrebujete demontáž alebo odvoz už zložených dosiek?',
     paragraphs: [
       'Pri dopyte z Nitry, Levíc, Nových Zámkov či inej obce v kraji začnite tým, kde sa materiál nachádza. Krytina na streche a dosky uložené na dvore sú dve odlišné zadania. Ak sa na zákazke vyskytujú oba prípady, opíšte ich samostatne, aby ponuka nepokrývala iba časť potrebnej práce.',
@@ -84,7 +77,6 @@ export const regionalGuides = {
     faq: { question: 'Dá sa v Nitrianskom kraji posúdiť len odvoz už zloženého eternitu?', answer: 'Áno. Pošlite obec, opis uloženia, stavu a množstva a možnosti prístupu. Materiál pred posúdením neprekladajte ani nerozbíjajte; rozsah odvozu potvrdíme podľa podmienok.' },
   },
   trnava: {
-    photoId: 'azbest-068', photoAlt: 'Strešné práce na rodinnom dome s pracovným vozidlom pri objekte',
     heading: 'Máte dátum novej strechy? Overme, čo mu musí predchádzať.',
     paragraphs: [
       'Pri výmene krytiny v Trnave, Galante, Piešťanoch či na Záhorí býva dôležitá nadväznosť profesií. Do dopytu napíšte, či je termín strechára pevne potvrdený alebo iba predbežný. Príprava odstránenia azbestu nezačína až ráno pri dome; potrebný postup treba vyriešiť vopred.',
@@ -96,7 +88,6 @@ export const regionalGuides = {
     faq: { question: 'Čo treba zladiť so strechárom pri zákazke v Trnavskom kraji?', answer: 'Termín demontáže, odovzdanie pracoviska, rozsah odkrytej strechy a prípadné zakrytie. Napíšte aj to, či je nástup strechára už potvrdený; nadväznosť sa dohodne podľa možností oboch profesií.' },
   },
   trencin: {
-    photoId: 'azbest-069', photoAlt: 'Lešenie a prístup k fasáde pri práci ASTANA na rodinnom dome',
     heading: 'Pri dome, garáži aj obklade si najprv potvrďme celý rozsah.',
     paragraphs: [
       'Pri dopyte z Trenčína, Považia, Prievidze alebo okolia Myjavy rozlíšte, či ide o strechu, zvislé opláštenie alebo už zložený materiál. Nie všetky plochy na jednom objekte majú rovnaký prístup a spôsob manipulácie. Ak sa rieši iba časť stavby, presne ju pomenujte.',

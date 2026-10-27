@@ -15,6 +15,7 @@ import { JsonLd, buildArticleJsonLd, buildFaqJsonLd, buildServiceJsonLd } from '
 import { EditorialHero, ReadingLinks, UsefulChecklist } from './editorial-components';
 import { regionalGuides } from '@/src/content/regional-guides';
 import { transportPolicy } from '@/src/content/transport-policy.mjs';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 export function buildPageMetadata({
   title,
@@ -119,7 +120,7 @@ export function TrustComplianceSection() {
         Pri legálnej likvidácii azbestu nestačí, že firma príde, rozoberie strechu a odvezie dosky. Odborný postup začína ešte pred príchodom na stavbu.
       </p>
       <p>
-        {site.compliance.asbestosRemovalAuthorization.publicVerification}
+        {site.documents.publicLookupHint}
       </p>
       <p>
         Pri plánovanom odstraňovaní azbestu zo stavby držiteľ oprávnenia písomne oznamuje práce príslušnému orgánu verejného zdravotníctva najmenej 30 dní vopred a predkladá požadované podklady. Ak ide o neodkladné odstraňovanie v súvislosti s mimoriadnou havarijnou alebo živelnou udalosťou, oznámenie s podkladmi sa predkladá najneskôr do 48 hodín od začatia odstraňovania.
@@ -277,8 +278,7 @@ export function ServicePage({ page }: { page: ServicePageContent }) {
       <main className="seo-page">
         <JsonLd data={[buildServiceJsonLd(page.h1, page.quickAnswer, page.slug), buildFaqJsonLd(page.faqs)]} />
         <EditorialHero eyebrow={page.eyebrow} title={page.h1} lead={page.quickAnswer}
-          photoId={isRoof ? 'azbest-087' : 'azbest-111'}
-          photoAlt={isRoof ? 'Pracovník v ochrannom obleku pri ošetrení staršej krytiny na streche' : 'Pracovné vozidlá ASTANA pri priemyselnom objekte'}
+          photoId={pagePhotoId(page.slug)}
           photoCaption={isRoof ? 'Záber z prípravy strešnej krytiny pri realizácii ASTANA.' : 'Fotodokumentácia ASTANA: príprava a logistika pri väčšom objekte.'}>
           <div className="hero-actions">
             <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>
@@ -333,14 +333,14 @@ export function LocationPage({
   const path = `/likvidacia-azbestu-${location.slug}/`;
   const guide = regionalGuides[location.slug];
   const h1 = `Likvidácia azbestu a eternitu - ${location.name}`;
-  const quickAnswer = `ASTANA, s.r.o. so sídlom v Poprade zabezpečuje po dohode odbornú likvidáciu azbestu a eternitu v ${location.area}. Výjazd a termín potvrdíme podľa obce, rozsahu prác a aktuálnej kapacity; v tejto lokalite nemáme pobočku.`;
+  const quickAnswer = `ASTANA, s.r.o. so sídlom v Poprade zabezpečuje po dohode odbornú likvidáciu azbestu a eternitu v ${location.area}. Výjazd a termín potvrdíme podľa obce, rozsahu prác a aktuálnej kapacity.`;
   const relatedLocations = location.relatedSlugs
     .map((slug) => locationPages.find((item) => item.slug === slug))
     .filter((item): item is (typeof locationPages)[number] => Boolean(item));
   const faqs: FaqItem[] = [
     guide.faq,
-    { question: `Ako sa účtuje doprava pri zákazke v oblasti ${location.name}?`, answer: transportPolicy.full },
-    { question: `Treba mať presnú výmeru pred dopytom z oblasti ${location.name}?`, answer: 'Na prvé posúdenie stačí označený odhad. Uveďte obec, typ objektu, stav materiálu a prístup. Fotografie sú voliteľné; kvôli meraniu ani foteniu na starú krytinu nevstupujte.' },
+    { question: 'Ako účtujete dopravu pri tejto zákazke?', answer: transportPolicy.full },
+    { question: 'Potrebujem pred dopytom presnú výmeru?', answer: 'Na prvé posúdenie stačí približná výmera. Uveďte obec, typ objektu, stav materiálu a prístup. Fotografie sú voliteľné; kvôli meraniu ani foteniu na starú krytinu nevstupujte.' },
   ];
 
   return (
@@ -352,8 +352,8 @@ export function LocationPage({
       <main className="seo-page">
         <JsonLd data={[buildServiceJsonLd(h1, quickAnswer, path), buildFaqJsonLd(faqs)]} />
         <EditorialHero eyebrow="Výjazd z Popradu po dohode" title={h1} lead={quickAnswer}
-          photoId={guide.photoId} photoAlt={guide.photoAlt}
-          photoCaption="Ukážka z fotodokumentácie ASTANA. Fotografia neoznačuje realizáciu v tomto regióne.">
+          photoId={pagePhotoId(path)}
+          photoCaption="Vlastná fotodokumentácia z demontáží ASTANA, s.r.o.">
           <div className="hero-actions">
             <a className="button button-primary" href="/#dopyt">Pošlite výmeru a lokalitu</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
@@ -370,7 +370,6 @@ export function LocationPage({
             <h2>Dopyty z územia: {location.coverageHeading}</h2>
             <p>
               Dopyty posudzujeme aj z týchto okresov alebo blízkych miest: {location.coverageAreas.join(', ')}.
-              Zoznam vyjadruje územie pôsobnosti, nie miestne pobočky ani potvrdené realizácie.
             </p>
           </article>
           <article>
@@ -383,7 +382,7 @@ export function LocationPage({
         </section>
         <section className="seo-section" aria-labelledby={`regional-planning-${location.slug}`}>
           <p className="eyebrow">Praktické plánovanie</p>
-          <h2 id={`regional-planning-${location.slug}`}>Čo rozhoduje o výjazde v oblasti {location.coverageHeading}</h2>
+          <h2 id={`regional-planning-${location.slug}`}>Ako pripravíme výjazd k vašej stavbe</h2>
           <div className="seo-card-grid">
             {location.planningPoints.map(([title, text]) => (
               <article key={title}>
@@ -417,7 +416,7 @@ export function LocationPage({
             <a href="/kde-posobime/">Všetky oblasti a plánovanie výjazdov</a>
           </div>
         </section>
-        <FaqSection faqs={faqs} title={`Otázky k zákazke v oblasti ${location.name}`} />
+        <FaqSection faqs={faqs} title="Otázky k zákazke a výjazdu" />
         <QuoteCTA />
       </main>
     </PublicPageShell>
@@ -429,13 +428,12 @@ export function ArticleEditorialSection({ slug }: { slug: (typeof articles)[numb
 
   return (
     <section className="seo-section seo-article-editorial" aria-labelledby="article-editorial-title">
-      <p className="eyebrow">Zodpovednosť a zdroje</p>
-      <h2 id="article-editorial-title">Kto zodpovedá za obsah</h2>
+      <p className="eyebrow">Z našej praxe</p>
+      <h2 id="article-editorial-title">{editorial.sources.length ? 'Autor a odborné zdroje' : 'Odporúčania z praxe ASTANA'}</h2>
       <p className="seo-lead">
-        Za publikovaný obsah zodpovedá <strong>{site.legalName}</strong> Obsah sme naposledy aktualizovali{' '}
+        Článok pripravila <strong>{site.legalName}</strong> Naposledy aktualizované{' '}
         <time dateTime={articleEditorial.contentUpdatedAt}>{articleEditorial.contentUpdatedLabel}</time>.
       </p>
-      <p>{articleEditorial.scopeNote}</p>
       {editorial.sources.length ? (
         <>
           <h3>Použité oficiálne zdroje</h3>
@@ -450,10 +448,7 @@ export function ArticleEditorialSection({ slug }: { slug: (typeof articles)[numb
           </ul>
         </>
       ) : (
-        <div className="seo-methodology-note">
-          <h3>Praktická metodika ASTANA</h3>
-          <p>{articleEditorial.methodologyNote}</p>
-        </div>
+        <p>Praktické odporúčania vychádzajú z našich skúseností pri príprave zákaziek. Rozsah a cenu si potvrdíme podľa vašej stavby.</p>
       )}
     </section>
   );

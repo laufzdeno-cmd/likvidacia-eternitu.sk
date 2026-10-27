@@ -2,6 +2,7 @@ import { buildPageMetadata, QuoteCTA, TrustBox } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
 import { astanaWebsites, serviceOffer, site } from '@/src/content/site';
 import { EditorialHero, ReadingLinks } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 export const metadata = buildPageMetadata({
   title: 'O firme ASTANA | Likvidácia azbestu a eternitu',
@@ -16,8 +17,8 @@ export default function AboutPage() {
       <main className="seo-page">
         <EditorialHero eyebrow="O firme · Poprad" title="ASTANA: likvidácia azbestu a eternitu"
           lead="Sme ASTANA, s.r.o., firma so sídlom v Poprade. Zabezpečujeme odstránenie azbestových materiálov v dohodnutom rozsahu: od posúdenia podkladov cez demontáž a odvoz až po súvisiacu dokumentáciu. Zákazky riešime po celom Slovensku."
-          photoId="azbest-111" photoAlt="Vozidlá ASTANA pri rozsiahlom objekte počas prác"
-          photoCaption="Vlastná fotodokumentácia ASTANA. Konkrétny rozsah každej zákazky určuje potvrdená cenová ponuka.">
+          photoId={pagePhotoId('/o-firme/')}
+          photoCaption="Vozidlá a pracovisko ASTANA, s.r.o. počas realizácie.">
           <div className="hero-actions"><a className="button button-primary" href="/realizacie/">Pozrieť našu prácu</a><a className="button button-outline" href="/kontakt/">Kontaktovať firmu</a></div>
         </EditorialHero>
         <section className="seo-section"><h2>Čo od spolupráce môžete očakávať</h2><div className="seo-card-grid">
@@ -59,7 +60,7 @@ export default function AboutPage() {
         <section className="seo-section">
           <h2>Dokumenty a oprávnenia</h2>
           <p className="seo-lead">
-            {site.compliance.asbestosRemovalAuthorization.publicVerification} Pri konkrétnej stavbe sa potrebný postup a dokumentácia riešia podľa jej podmienok.
+            {site.documents.publicLookupHint} Postup a potrebnú dokumentáciu vám vysvetlíme podľa vašej stavby.
           </p>
           <p>
             <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">
@@ -68,7 +69,7 @@ export default function AboutPage() {
           </p>
         </section>
         <ReadingLinks links={[
-          { href: '/realizacie/', title: 'Fotografie z praxe', text: 'Pozrite si rôzne objekty a etapy práce bez vymyslených lokalít či výmer.' },
+          { href: '/realizacie/', title: 'Fotografie z praxe', text: 'Pozrite si naše demontáže na rôznych objektoch a v jednotlivých etapách práce.' },
           { href: '/postup/', title: 'Ako prebieha zákazka', text: 'Čo sa rieši pred začatím, počas realizácie a po práci.' },
           { href: '/kontakt/', title: 'Priamy kontakt', text: 'Telefón, e-mail a údaje potrebné na prvé posúdenie.' },
         ]} />

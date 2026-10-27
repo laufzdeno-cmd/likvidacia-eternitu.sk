@@ -53,13 +53,13 @@ test('každý článok má viditeľnú zodpovednosť, dátum aktualizácie a tem
     const rendered = renderToStaticMarkup(createElement(ArticleEditorialSection, { slug: article.slug }));
     assert.match(rendered, new RegExp(site.legalName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     assert.match(rendered, new RegExp(`datetime="${articleEditorial.contentUpdatedAt}"`, 'i'));
-    assert.match(rendered, /Obsah sme naposledy aktualizovali/);
+    assert.ok(rendered.includes(articleEditorial.contentUpdatedLabel));
     assert.doesNotMatch(rendered, /vecná a redakčná kontrola|odborná kontrola/i);
     for (const source of editorial.sources) {
       assert.ok(rendered.includes(`href="${source.url}"`), `${article.slug} must render ${source.url}`);
     }
     if (methodologyOnly.has(article.slug)) {
-      assert.match(rendered, /Praktická metodika ASTANA/);
+      assert.match(rendered, /Odporúčania z praxe ASTANA/);
       assert.doesNotMatch(rendered, /Použité oficiálne zdroje/);
     }
 

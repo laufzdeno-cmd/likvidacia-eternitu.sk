@@ -741,7 +741,7 @@ export default async function HomePage() {
           <div id="doklady-ku-stavbe" className={styles.subsection}>
             <h3 id="caution-title">{content.cautionTitle}</h3>
             <p>{content.riskNoticeText}</p>
-            <p>{site.compliance.asbestosRemovalAuthorization.publicVerification}</p>
+            <p>{site.documents.publicLookupHint}</p>
             <p>
               <a href={site.compliance.uvzAuthorizedCompaniesUrl} target="_blank" rel="noopener noreferrer">Otvoriť aktuálny register ÚVZ SR (IČO 46 157 701)</a>
             </p>

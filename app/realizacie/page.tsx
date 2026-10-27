@@ -215,8 +215,7 @@ function ReviewedGallery() {
           <h2 id="gallery-title">Fotogaléria realizácií ASTANA</h2>
         </div>
         <p>
-          Vyberte typ objektu alebo fázu procesu. Na stránke nezobrazujeme súkromné údaje zákazníkov ani citlivé
-          detaily, ktoré by nemali byť verejné. Lokality a m2 pri fotkách nevymýšľame.
+          Vyberte si rodinné domy, väčšie objekty alebo balenie a odvoz. Uvidíte, ako vyzerá naša práca v jednotlivých etapách.
         </p>
       </div>
       <div className="gallery-filters" aria-label="Filtrovanie galérie">
@@ -316,8 +315,8 @@ export default function RealizationsPage({ searchParams }: PageProps) {
             <p className="eyebrow">Fotodokumentácia z realizácií</p>
             <h1 id="realizations-page-title">Reálne realizácie ASTANA</h1>
             <p>
-              Reálne práce ASTANA: stabilizácia, demontáž, balenie a odvoz. Pri starších fotkách neuvádzame lokalitu ani výmeru
-              bez spoľahlivého podkladu.
+              Pozrite si naše práce od prípravy strechy cez demontáž až po balenie a odvoz materiálu.
+              Fotografie zachytávajú vlastné realizácie ASTANA, s.r.o.
             </p>
             <div className="hero-actions">
               <a className="button button-primary" href="/#dopyt">Naceniť podobnú realizáciu</a>
@@ -341,7 +340,7 @@ export default function RealizationsPage({ searchParams }: PageProps) {
           </div>
         </section>
 
-        <section className="section"><h2>Čo si na fotografiách všimnúť</h2><p>Celkový pohľad ukáže typ objektu a priestor pri budove. Ďalšie zábery zachytávajú rôzne etapy: prípravu pracoviska, prácu na krytine, zabalený materiál alebo stav po demontáži. Jedna fotografia nepredstavuje celý postup ani cenový rozsah zákazky.</p><p>Ak riešite podobnú stavbu, pošlite jej vlastnú lokalitu, odhad plochy a opis prístupu. Podobný vzhľad strechy ešte nepotvrdzuje rovnakú náročnosť práce. Pri novších prípadových podkladoch zverejňujeme údaje až po schválení.</p></section>
+        <section className="section"><h2>Naše demontáže v praxi</h2><p>Fotografie zachytávajú vlastné realizácie ASTANA, s.r.o. Uvidíte prípravu pracoviska, prácu na krytine, balenie materiálu aj stav po demontáži.</p><p>Riešite podobnú stavbu? Pošlite nám lokalitu, približnú výmeru a opis prístupu. Pripravíme ponuku pre vašu zákazku.</p></section>
         <ReviewedGallery />
 
         <Suspense fallback={null}>

@@ -1,6 +1,7 @@
 import { buildPageMetadata, FaqSection, QuoteCTA } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
 import { EditorialHero, ReadingLinks, UsefulChecklist } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 import { JsonLd, buildFaqJsonLd } from '../seo-json-ld';
 
 export const metadata = buildPageMetadata({
@@ -22,8 +23,8 @@ export default function PartnerRoofersPage() {
         <JsonLd data={buildFaqJsonLd(faqs)} />
         <EditorialHero eyebrow="Výmena krytiny bez zbytočného čakania" title="Potrebujete strechára po odstránení eternitu?"
           lead="Ak strechára už máte, dohodneme nadväznosť demontáže na jeho prácu. Ak ho ešte hľadáte, napíšte nám obec a plánovaný termín. Podľa regiónu a kapacity preveríme možnosť odporučenia samostatného partnera."
-          photoId="azbest-007" photoAlt="Pohľad z podkrovia na strešnú konštrukciu bez pôvodnej krytiny"
-          photoCaption="Strecha po odstránení krytiny potrebuje nadväzujúce práce. Ich rozsah a zodpovednosť si treba dohodnúť vopred.">
+          photoId={pagePhotoId('/spolupracujuci-strechari/')}
+          photoCaption="Strešná konštrukcia po demontáži eternitu – ASTANA, s.r.o.">
           <div className="hero-actions"><a className="button button-primary" href="/#dopyt">Opísať moju strechu</a><a className="button button-outline" href="/strechari/">Som strechár a chcem spolupracovať</a></div>
         </EditorialHero>
         <section className="seo-section"><h2>Máte vlastného strechára? Začnime jeho termínom.</h2><p className="editorial-faq-intro">Pošlite požadovaný nástup a povedzte, či je potvrdený alebo predbežný. Dôležité je aj to, akú časť strechy má partia prevziať. Odstránenie azbestu, príprava podkladov a nová krytina majú vlastné kroky; nestačí objednať obe firmy na rovnaké ráno bez dohody.</p><p className="editorial-faq-intro">Vopred si vyjasnite, kto preberie pracovisko a kto zabezpečí prípadné dočasné zakrytie. Konkrétny deň a postup potvrdíme podľa rozsahu, kapacity, počasia a potrebnej prípravy.</p></section>

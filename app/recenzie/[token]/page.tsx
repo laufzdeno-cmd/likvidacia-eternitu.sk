@@ -26,7 +26,7 @@ export default async function RequestedReviewPage({ params }: { params: Promise<
           <p className="eyebrow">Vaša skúsenosť</p>
           <h1>Ďakujeme za dôveru</h1>
           </header>
-        <section className="private-action-card-body" aria-labelledby="requested-review-title">
+        <section className="private-action-card-body review-request-body" aria-labelledby="requested-review-title">
           <h2 id="requested-review-title">Referencia k vašej realizácii</h2>
           <p className="private-action-note">
             {request.location ? `${request.location} · ` : ''}{request.objectType || 'Likvidácia azbestu'}

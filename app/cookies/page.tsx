@@ -15,14 +15,12 @@ export const metadata: Metadata = {
 export default function CookiesPage() {
   return (
     <PublicPageShell breadcrumb={{ name: 'Zásady cookies', path: '/cookies/' }} hideWhatsappOnMobile>
-      <main className="seo-page editorial-legal">
-        <section className="seo-hero">
+      <main className="section simple-page editorial-legal">
           <p className="eyebrow">Cookies</p>
           <h1>Zásady používania cookies</h1>
-          <p>Prehľad toho, aké cookies používame a ako s nimi môžete pracovať.</p>
-        </section>
+          <p className="editorial-lead">Prehľad toho, aké cookies používame a ako s nimi môžete pracovať.</p>
         <nav className="editorial-toc" aria-label="Najdôležitejšie informácie o cookies"><p>Vaša voľba</p><ul><li><a href="#nastavenia">Zmeniť súhlas s meraním</a></li><li><a href="#meranie">Čo sa používa pri povolenom meraní</a></li><li><a href="/ochrana-osobnych-udajov/">Ako sa spracúva dopyt</a></li></ul></nav>
-        <section className="seo-section editorial-legal-body">
+        <div className="editorial-legal-body">
           <article>
             <h2>Čo sú cookies</h2>
             <p>Cookies sú malé súbory ukladané v prehliadači. Pomáhajú stránke fungovať správne a zapamätať si základné nastavenia.</p>
@@ -33,7 +31,11 @@ export default function CookiesPage() {
           </article>
           <article>
             <h2 id="meranie">Analytika a marketingové meranie</h2>
-            <p>Analytika sa zapne iba po vašom súhlase. Používa pseudonymné ID relácie a môže zaznamenať navštívenú cestu, šírku obrazovky, doménu odkazujúcej stránky a UTM zdroj kampane. Pri súhlase s marketingovým meraním sa reklamné značky OpenAI Ads, Google Ads alebo Meta načítajú počas návštevy stránky. Poskytovatelia môžu pri načítaní spracovať technické údaje prehliadača a pripojenia. Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu. OpenAI Ads dostane názov udalosti, stabilné pseudonymné ID udalosti, zdrojovú stránku a reklamný identifikátor z odkazu; neposielame mu meno, telefón, email, poznámku ani fotografie. Meta dostane stabilné ID udalosti, všeobecnú kategóriu materiálu, zdrojovú stránku, obmedzený údaj o prehliadači a zahashovaný email a telefón na priradenie konverzie. Hashovanie nie je anonymizácia. Pri odmietnutí marketingového merania sa nové udalosti nevytvoria a čakajúce udalosti z daného prehliadača zrušíme.</p>
+            <p>Analytika sa zapne iba po vašom súhlase. Používa pseudonymné ID relácie a môže zaznamenať navštívenú cestu, šírku obrazovky, doménu odkazujúcej stránky a UTM zdroj kampane.</p>
+            <p>Pri súhlase s marketingovým meraním sa reklamné značky OpenAI Ads, Google Ads alebo Meta načítajú počas návštevy stránky. Poskytovatelia môžu pri načítaní spracovať technické údaje prehliadača a pripojenia. Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu.</p>
+            <p>OpenAI Ads dostane názov udalosti, stabilné pseudonymné ID udalosti, zdrojovú stránku a reklamný identifikátor z odkazu; neposielame mu meno, telefón, email, poznámku ani fotografie.</p>
+            <p>Meta dostane stabilné ID udalosti, všeobecnú kategóriu materiálu, zdrojovú stránku, obmedzený údaj o prehliadači a zahashovaný email a telefón na priradenie konverzie. Hashovanie nie je anonymizácia.</p>
+            <p>Pri odmietnutí marketingového merania sa nové udalosti nevytvoria a čakajúce udalosti z daného prehliadača zrušíme.</p>
           </article>
           <article>
             <h2 id="nastavenia">Zmena voľby</h2>
@@ -42,13 +44,16 @@ export default function CookiesPage() {
           </article>
           <article>
             <h2>Uloženie voľby</h2>
-            <p>Vaša voľba sa uloží v prehliadači na najviac 12 mesiacov. Pri povolenom meraní môže OpenAI Ads uložiť cookies <code>__oppref</code> na 30 dní a <code>__obref</code> na 365 dní. Pri odmietnutí alebo odvolaní súhlasu sa odstránia analytické identifikátory a údaje o kampani uložené v tomto prehliadači vrátane týchto OpenAI cookies. Ak ste už odoslali dopyt so súhlasom, povolené údaje o jeho zdroji sú pripojené k dopytu v administrácii a spracúvajú sa spolu s ním; zmena cookies ich spätne z dopytu nevymaže. Identifikátory reklamných kliknutí sa v administrácii nezobrazujú.</p>
+            <p>Vaša voľba sa uloží v prehliadači na najviac 12 mesiacov.</p>
+            <p>Pri povolenom meraní môže OpenAI Ads uložiť cookies <code>__oppref</code> na 30 dní a <code>__obref</code> na 365 dní.</p>
+            <p>Pri odmietnutí alebo odvolaní súhlasu sa odstránia analytické identifikátory a údaje o kampani uložené v tomto prehliadači vrátane týchto OpenAI cookies.</p>
+            <p>Ak ste už odoslali dopyt so súhlasom, povolené údaje o jeho zdroji sú pripojené k dopytu v administrácii a spracúvajú sa spolu s ním; zmena cookies ich spätne z dopytu nevymaže. Identifikátory reklamných kliknutí sa v administrácii nezobrazujú.</p>
           </article>
           <article>
             <h2>Kontakt</h2>
             <p>V otázkach ochrany údajov nás kontaktujte na astana@astana.sk.</p>
           </article>
-        </section>
+        </div>
       </main>
     </PublicPageShell>
   );

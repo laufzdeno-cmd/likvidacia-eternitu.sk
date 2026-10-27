@@ -1,8 +1,10 @@
 import { mkdir, readFile, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import path from 'node:path';
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { Pool, type PoolClient } from 'pg';
+import { Client, Pool, type PoolClient, type QueryConfig } from 'pg';
 import { ANALYTICS_EVENTS_LIMIT, bratislavaMidnightUtc, dateInBratislava, getAnalyticsPeriod, getMeasuredSessionSets, getSequentialMeasuredFunnel, getSessionEntryDevice, getSessionEntryEvents, limitAnalyticsEventRows, summarizeCrmCohort, type AnalyticsPeriod } from './analytics-metrics';
+import { analyticsEventExpired, analyticsEventRetained, analyticsRetentionCutoff, latestAnalyticsCutoff, normalizedAnalyticsCutoff } from './analytics-retention-policy';
 import { isApproximateLocality, isPhotoCategory, isPublishableRealizationLocality } from './photo-intake-policy';
 import { isLeadEmailEvidenceValid } from './lead-email-evidence.mjs';
 import { isApplicationNotificationEvidenceValid } from './application-notification-evidence.mjs';
@@ -223,6 +225,7 @@ type LocalDb = {
   siteContent: SiteContentItem[];
   siteContentVersions: SiteContentVersion[];
   analyticsEvents: AnalyticsEvent[];
+  analyticsRetentionCutoff?: string;
   opsAlertStates: OpsAlertStateRecord[];
   adminSettings: Record<string, string>;
 };
@@ -258,7 +261,7 @@ let schemaInitialization: Promise<void> | undefined;
 let adminAssistantSchemaReady = false;
 let adminAssistantSchemaInitialization: Promise<{ columnsAdded: number; tablesAdded: number }> | undefined;
 let localLeadSubmissionQueue: Promise<void> = Promise.resolve();
-let localDbWriteQueue: Promise<void> = Promise.resolve();
+const localFileLockContext = new AsyncLocalStorage<{ active: boolean }>();
 
 async function withLocalFileLock<T>(operation: () => Promise<T>): Promise<T> {
   const lockPath = `${localDbPath}.mutation-lock`;
@@ -277,14 +280,17 @@ async function withLocalFileLock<T>(operation: () => Promise<T>): Promise<T> {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   }
+  const context = { active: true };
   try {
-    return await operation();
+    return await localFileLockContext.run(context, operation);
   } finally {
+    context.active = false;
     await rmdir(lockPath).catch(() => undefined);
   }
 }
 
 function withLocalLeadSubmissionLock<T>(operation: () => Promise<T>): Promise<T> {
+  if (localFileLockContext.getStore()?.active) return operation();
   const guarded = () => withLocalFileLock(operation);
   const result = localLeadSubmissionQueue.then(guarded, guarded);
   localLeadSubmissionQueue = result.then(() => undefined, () => undefined);
@@ -2924,6 +2930,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
       values: version.values && typeof version.values === 'object' ? version.values : {},
     })),
     analyticsEvents: data.analyticsEvents ?? [],
+    analyticsRetentionCutoff: normalizedAnalyticsCutoff(data.analyticsRetentionCutoff),
     opsAlertStates: (data.opsAlertStates ?? []).filter((item) => (
       (item.workerKey === 'lead_email_delivery' || item.workerKey === 'application_notifications')
       && (item.observedState === 'healthy' || item.observedState === 'unhealthy')
@@ -3518,6 +3525,7 @@ async function writeLocalDb(data: LocalDb, options: {
   purgeLeadAuditId?: string;
   writeAdminUsers?: boolean;
   adminSettingKey?: string;
+  analyticsRetentionCutoff?: string;
 } = {}) {
   const persist = async () => {
     await mkdir(/*turbopackIgnore: true*/ path.dirname(localDbPath), { recursive: true });
@@ -3540,7 +3548,12 @@ async function writeLocalDb(data: LocalDb, options: {
       for (const event of [...existingAnalytics, ...data.analyticsEvents]) {
         if (!uniqueAnalytics.has(event.id)) uniqueAnalytics.set(event.id, event);
       }
-      const orderedAnalytics = [...uniqueAnalytics.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+      // Only maintenance may advance the watermark. An ordinary stale snapshot
+      // cannot lower it; filter after merging so previously deleted events stay deleted.
+      const retentionCutoff = latestAnalyticsCutoff(existingDb.analyticsRetentionCutoff, options.analyticsRetentionCutoff);
+      const orderedAnalytics = [...uniqueAnalytics.values()]
+        .filter((event) => !retentionCutoff || !analyticsEventExpired(event.createdAt, retentionCutoff))
+        .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
       const acceptedLeadEvents = orderedAnalytics.filter((item) => item.eventType === 'form_submit_success');
       const otherEvents = orderedAnalytics.filter((item) => item.eventType !== 'form_submit_success').slice(0, 5000);
       const uniqueById = <T extends { id: string }>(existing: T[], incoming: T[]) => {
@@ -3628,6 +3641,7 @@ async function writeLocalDb(data: LocalDb, options: {
           .sort((left, right) => right.recordedAt.localeCompare(left.recordedAt)),
         opsAlertStates: [...durableOpsAlertStates.values()],
         analyticsEvents: [...acceptedLeadEvents, ...otherEvents],
+        analyticsRetentionCutoff: retentionCutoff,
       };
       await writeFile(/*turbopackIgnore: true*/ tempPath, JSON.stringify(durableData, null, 2), 'utf8');
       for (let attempt = 0; ; attempt += 1) {
@@ -3645,9 +3659,9 @@ async function writeLocalDb(data: LocalDb, options: {
       throw error;
     }
   };
-  const result = localDbWriteQueue.then(persist, persist);
-  localDbWriteQueue = result.then(() => undefined, () => undefined);
-  await result;
+  // Every writer must observe the same on-disk watermark, including business
+  // snapshots that were read before maintenance. Reuse the held lock when nested.
+  await withLocalLeadSubmissionLock(persist);
 }
 
 export async function createLead(input: LeadInput): Promise<Lead> {
@@ -6870,7 +6884,8 @@ export async function exportDatabaseBackup() {
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    return { exportedAt: now(), driver: 'local', tables: local };
+    const { analyticsEvents: _analyticsEvents, ...businessTables } = local;
+    return { exportedAt: now(), driver: 'local', excludedTables: ['analyticsEvents'], tables: businessTables };
   }
   const tableResult = await db.query(`
     SELECT table_name
@@ -6881,11 +6896,11 @@ export async function exportDatabaseBackup() {
   const tables: Record<string, unknown[]> = {};
   for (const row of tableResult.rows) {
     const table = String(row.table_name);
-    if (!/^[a-zA-Z0-9_]+$/.test(table)) continue;
+    if (!/^[a-zA-Z0-9_]+$/.test(table) || table === 'analytics_events') continue;
     const data = await db.query(`SELECT * FROM ${table}`);
     tables[table] = data.rows;
   }
-  return { exportedAt: now(), driver: 'postgres', tables };
+  return { exportedAt: now(), driver: 'postgres', excludedTables: ['analytics_events'], tables };
 }
 
 function safeLeadEmailAggregateAudit(changes: Record<string, unknown>) {
@@ -18621,7 +18636,98 @@ function sourceFromEvent(event: Pick<AnalyticsEvent, 'utmSource' | 'referrer'>) 
   }
 }
 
-export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
+/** One bounded maintenance batch; never touches leads, financial records or advertising outboxes. */
+export async function purgeExpiredAnalyticsEvents(options: { referenceTime?: Date; batchSize?: number } = {}) {
+  const cutoff = analyticsRetentionCutoff(options.referenceTime);
+  const requestedSize = options.batchSize ?? 5000;
+  if (!Number.isFinite(requestedSize) || requestedSize < 1) throw new Error('Invalid analytics retention batch size.');
+  const batchSize = Math.min(10000, Math.floor(requestedSize));
+  const db = getPool();
+  if (!db) {
+    await ensureSchema();
+    return withLocalLeadSubmissionLock(async () => {
+      const local = await readLocalDb();
+      const effectiveCutoff = latestAnalyticsCutoff(local.analyticsRetentionCutoff, cutoff)!;
+      const deleted = local.analyticsEvents.filter((event) => analyticsEventExpired(event.createdAt, effectiveCutoff)).length;
+      const invalidDates = local.analyticsEvents.filter((event) => !Number.isFinite(Date.parse(event.createdAt))).length;
+      await writeLocalDb(local, { analyticsRetentionCutoff: effectiveCutoff });
+      return { cutoff: effectiveCutoff, deleted, remaining: false, invalidDates };
+    });
+  }
+  // Maintenance must not acquire the unbounded business pool or initialize a
+  // schema through it. A missing table fails closed until a reviewed migration.
+  const client = new Client({
+    ...databasePoolConfig(databaseUrl!),
+    connectionTimeoutMillis: 5000,
+    query_timeout: 6000,
+    application_name: 'analytics-retention',
+  });
+  let connectionError: Error | undefined;
+  // Dedicated clients can emit an idle transport error between two queries.
+  // Retain a safe failure state through end/destroy; never emit a raw DB log.
+  client.on('error', (error: Error) => { connectionError ??= error; });
+  // pg's installed runtime supports a per-query timeout, while @types/pg only
+  // exposes it on ClientConfig. Keep this runtime-backed extension local.
+  type RetentionQueryConfig = QueryConfig<unknown[]> & { query_timeout: number };
+  const batchDeadline = performance.now() + 10_000;
+  const query = async (text: string, values?: unknown[]) => {
+    if (connectionError) throw connectionError;
+    const remainingMs = Math.floor(batchDeadline - performance.now());
+    if (remainingMs <= 0) throw new Error('Analytics retention batch timed out.');
+    const config: RetentionQueryConfig = { text, values, query_timeout: Math.min(6000, remainingMs) };
+    const result = await client.query<Record<string, unknown>, unknown[]>(config);
+    if (connectionError) throw connectionError;
+    return result;
+  };
+  let transactionStarted = false;
+  try {
+    await client.connect();
+    await query('BEGIN');
+    transactionStarted = true;
+    await query("SET LOCAL statement_timeout = '5s'; SET LOCAL lock_timeout = '1s'");
+    const result = await query(`
+      WITH expired AS (
+        SELECT id FROM analytics_events WHERE created_at < $1
+        ORDER BY created_at ASC, id ASC LIMIT $2 FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM analytics_events e USING expired WHERE e.id = expired.id
+    `, [cutoff, batchSize]);
+    const remaining = await query('SELECT EXISTS (SELECT 1 FROM analytics_events WHERE created_at < $1) AS remaining', [cutoff]);
+    await query('COMMIT');
+    transactionStarted = false;
+    return { cutoff, deleted: result.rowCount ?? 0, remaining: remaining.rows[0]?.remaining === true, invalidDates: 0 };
+  } catch (error) {
+    if (transactionStarted && !connectionError) {
+      const rollback: RetentionQueryConfig = { text: 'ROLLBACK', query_timeout: 1000 };
+      await client.query(rollback).catch(() => undefined);
+    }
+    throw error;
+  } finally {
+    // Destroying a stalled transport also rolls back any still-open server tx.
+    const forceClose = setTimeout(() => client.connection.stream.destroy(), 1000);
+    forceClose.unref();
+    try { await client.end(); } finally { clearTimeout(forceClose); }
+  }
+}
+
+export async function runAnalyticsRetention() {
+  const referenceTime = new Date();
+  const deadline = performance.now() + 40_000;
+  let result = { cutoff: analyticsRetentionCutoff(referenceTime), deleted: 0, remaining: true, invalidDates: 0 };
+  let deleted = 0;
+  let batches = 0;
+  do {
+    result = await purgeExpiredAnalyticsEvents({ referenceTime });
+    deleted += result.deleted;
+    batches += 1;
+  } while (result.remaining && batches < 8 && performance.now() < deadline);
+  return { ...result, deleted, batches, ok: !result.remaining && result.invalidDates === 0 };
+}
+
+export async function recordAnalyticsEvent(input: AnalyticsEventInput, referenceTime = new Date()) {
+  const cutoff = analyticsRetentionCutoff(referenceTime);
+  // trusted createdAt is used for recovery; expired events must never be recreated.
+  if (input.createdAt && analyticsEventExpired(input.createdAt, cutoff)) return null;
   await ensureSchema();
   const id = input.dedupeId || randomUUID();
   const event: AnalyticsEvent = {
@@ -18645,11 +18751,13 @@ export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
   if (!db) {
     return withLocalLeadSubmissionLock(async () => {
       const local = await readLocalDb();
+      const effectiveCutoff = latestAnalyticsCutoff(cutoff, local.analyticsRetentionCutoff)!;
+      if (analyticsEventExpired(event.createdAt, effectiveCutoff)) return null;
       const existing = input.dedupeId ? local.analyticsEvents.find((item) => item.id === id) : undefined;
       if (existing) return existing;
       local.analyticsEvents.unshift(event);
-      // Keep accepted-lead conversion IDs permanently available for idempotency;
-      // only the high-volume browsing events are capped in the local fallback.
+      // Keep accepted-lead IDs idempotent within retention; maintenance expires
+      // them too. Browsing events additionally have a local volume cap.
       const acceptedLeadEvents = local.analyticsEvents.filter((item) => item.eventType === 'form_submit_success');
       const otherEvents = local.analyticsEvents.filter((item) => item.eventType !== 'form_submit_success').slice(0, 5000);
       local.analyticsEvents = [...acceptedLeadEvents, ...otherEvents];
@@ -18687,7 +18795,8 @@ export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
   return event;
 }
 
-export async function recordAcceptedLeadAnalytics(lead: Lead) {
+export async function recordAcceptedLeadAnalytics(lead: Lead, referenceTime = new Date()) {
+  if (!analyticsEventRetained(lead.createdAt, analyticsRetentionCutoff(referenceTime))) return null;
   const rawData = lead.rawData ?? {};
   if (rawData.analyticsConsentAtSubmit !== true) return null;
   const sessionId = String(rawData.analyticsSessionId ?? '');
@@ -18721,21 +18830,25 @@ export async function recordAcceptedLeadAnalytics(lead: Lead) {
     utmMedium: typeof attribution.utmMedium === 'string' ? attribution.utmMedium : undefined,
     utmCampaign: typeof attribution.utmCampaign === 'string' ? attribution.utmCampaign : undefined,
     metadata: { form: 'lead', source: 'server-accepted', ...(Object.keys(adClickIds).length ? { adClickIds } : {}) },
-  });
+  }, referenceTime);
 }
 
 export async function recoverAcceptedLeadAnalytics(limit = 100): Promise<{ recovered: number; remaining: boolean; failed: boolean; unrecoverable: number }> {
   await ensureSchema();
   const boundedLimit = Math.max(1, Math.min(500, Math.floor(limit)));
+  const referenceTime = new Date();
+  let cutoff = analyticsRetentionCutoff(referenceTime);
   const db = getPool();
   let candidates: Lead[];
   let unrecoverable = 0;
   if (!db) {
     const local = await readLocalDb();
+    cutoff = latestAnalyticsCutoff(cutoff, local.analyticsRetentionCutoff)!;
     const recordedIds = new Set(local.analyticsEvents
       .filter((event) => event.eventType === 'form_submit_success')
       .map((event) => event.id));
-    const unrecorded = local.leads.filter((lead) => lead.rawData?.analyticsConsentAtSubmit === true && !recordedIds.has(lead.id));
+    const unrecorded = local.leads.filter((lead) => lead.rawData?.analyticsConsentAtSubmit === true
+      && !lead.deletedAt && analyticsEventRetained(lead.createdAt, cutoff) && !recordedIds.has(lead.id));
     const validSession = (lead: Lead) => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(lead.rawData?.analyticsSessionId ?? ''));
     unrecoverable = unrecorded.filter((lead) => !validSession(lead)).length;
     candidates = unrecorded
@@ -18746,24 +18859,25 @@ export async function recoverAcceptedLeadAnalytics(limit = 100): Promise<{ recov
       SELECT COUNT(*)::int AS count FROM leads l
       LEFT JOIN analytics_events e ON e.id = l.id AND e.event_type = 'form_submit_success'
       WHERE l.deleted_at IS NULL AND l.raw_data->>'analyticsConsentAtSubmit' = 'true'
-        AND e.id IS NULL
+        AND l.created_at >= $1 AND e.id IS NULL
         AND COALESCE(l.raw_data->>'analyticsSessionId', '') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-    `);
+    `, [cutoff]);
     unrecoverable = Number(invalid.rows[0]?.count ?? 0);
     const { rows } = await db.query(`
       SELECT l.* FROM leads l
       LEFT JOIN analytics_events e ON e.id = l.id AND e.event_type = 'form_submit_success'
       WHERE l.deleted_at IS NULL AND l.raw_data->>'analyticsConsentAtSubmit' = 'true' AND e.id IS NULL
+        AND l.created_at >= $2
         AND l.raw_data->>'analyticsSessionId' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
       ORDER BY l.created_at ASC LIMIT $1
-    `, [boundedLimit + 1]);
+    `, [boundedLimit + 1, cutoff]);
     candidates = rows.map((row) => toLead(row));
   }
 
   const pending = candidates.slice(0, boundedLimit);
   const result = await persistAcceptedLeadAnalyticsBatch(
     pending,
-    recordAcceptedLeadAnalytics,
+    (lead) => recordAcceptedLeadAnalytics(lead, referenceTime),
     (_lead, error) => console.error('Accepted lead analytics recovery failed for a stored lead.', error),
   );
   return { ...result, remaining: candidates.length > boundedLimit || result.failed, unrecoverable };
@@ -18772,12 +18886,12 @@ export async function recoverAcceptedLeadAnalytics(limit = 100): Promise<{ recov
 export async function getAnalyticsEventsWithCoverage(days = 30, sinceOverride?: string): Promise<{ events: AnalyticsEvent[]; coverage: { limit: number; returned: number; truncated: boolean } }> {
   await ensureSchema();
   const rangeDays = Math.min(365, Math.max(1, Math.round(days)));
-  const since = sinceOverride ?? getAnalyticsPeriod(rangeDays).since;
+  const since = latestAnalyticsCutoff(sinceOverride ?? getAnalyticsPeriod(rangeDays).since, analyticsRetentionCutoff())!;
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
     const events = local.analyticsEvents
-      .filter((event) => event.createdAt >= since)
+      .filter((event) => analyticsEventRetained(event.createdAt, since))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return { events, coverage: { limit: ANALYTICS_EVENTS_LIMIT, returned: events.length, truncated: false } };
   }
@@ -19087,6 +19201,7 @@ function slovakMidnightUtc(parts: { year: number; month: number; day: number }) 
 
 export async function getAnalyticsTrafficSummary(): Promise<AnalyticsTrafficSummary> {
   await ensureSchema();
+  const cutoff = analyticsRetentionCutoff();
   const currentDate = slovakDateParts(new Date());
   const todayStart = slovakMidnightUtc(currentDate).toISOString();
   const monthStart = slovakMidnightUtc({ ...currentDate, day: 1 }).toISOString();
@@ -19094,7 +19209,7 @@ export async function getAnalyticsTrafficSummary(): Promise<AnalyticsTrafficSumm
   const db = getPool();
   if (!db) {
     const local = await readLocalDb();
-    const events = local.analyticsEvents;
+    const events = local.analyticsEvents.filter((event) => analyticsEventRetained(event.createdAt, cutoff));
     return {
       today: analyticsTrafficSlice(events, new Date(todayStart).getTime()),
       month: analyticsTrafficSlice(events, new Date(monthStart).getTime()),
@@ -19122,8 +19237,8 @@ export async function getAnalyticsTrafficSummary(): Promise<AnalyticsTrafficSumm
        COUNT(DISTINCT e.session_id) FILTER (WHERE e.event_type = 'page_view' AND e.session_id <> '')::int AS all_sessions,
        COUNT(*) FILTER (WHERE e.event_type = 'form_start')::int AS all_form_starts,
        COUNT(*) FILTER (WHERE e.event_type = 'form_submit_success')::int AS all_leads
-     FROM analytics_events e, periods p`,
-    [todayStart, monthStart, yearStart],
+     FROM analytics_events e, periods p WHERE e.created_at >= $4`,
+    [todayStart, monthStart, yearStart, cutoff],
   );
   const row = rows[0] ?? {};
   const number = (value: unknown) => Number(value ?? 0);

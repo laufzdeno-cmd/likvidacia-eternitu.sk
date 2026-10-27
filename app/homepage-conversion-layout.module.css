@@ -257,6 +257,30 @@ main .trustSection:global(.trust-bar) :global(.trust-item) strong {
   cursor: pointer;
 }
 
+/* Keep this checkbox outside the older full-width text-input rules on mobile. */
+.rooferRecommendation:global(#roofer-recommendation-field):global(.field) > label {
+  display: flex !important;
+  flex-direction: row;
+  min-width: 0;
+}
+
+.rooferRecommendation:global(.field) input[type='checkbox'] {
+  flex: 0 0 20px;
+  width: 20px !important;
+  min-width: 20px !important;
+  max-width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  max-height: 20px !important;
+  padding: 0 !important;
+  margin: 2px 0 0 !important;
+}
+
+.rooferRecommendation:global(.field) label > span {
+  min-width: 0;
+  flex: 1;
+}
+
 .rooferRecommendation input {
   width: 18px;
   height: 18px;

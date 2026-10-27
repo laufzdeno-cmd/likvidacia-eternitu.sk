@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { locationPages } from '../src/content/seo-content.ts';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { LocationPage } from '../app/seo-components.tsx';
 
 const regionalSlugs = ['bratislava', 'trnava', 'trencin', 'nitra', 'zilina', 'banska-bystrica', 'presov', 'kosice'];
 
@@ -63,9 +66,15 @@ test('regionálne prepojenia smerujú iba na existujúce odlišné lokality', ()
   }
 });
 
-test('regionálny renderer vysvetľuje význam zoznamu a nevydáva ho za pobočky alebo realizácie', async () => {
+test('regionálny renderer zachováva sídlo a pôsobnosť bez falošných miestnych pobočiek', async () => {
   const renderer = await readFile(new URL('../app/seo-components.tsx', import.meta.url), 'utf8');
-  assert.match(renderer, /Zoznam vyjadruje územie pôsobnosti, nie miestne pobočky ani potvrdené realizácie/);
+  for (const location of locationPages) {
+    const rendered = renderToStaticMarkup(createElement(LocationPage, { location }));
+    assert.match(rendered, /so sídlom v Poprade/);
+    assert.ok(rendered.includes(location.coverageHeading));
+    assert.doesNotMatch(rendered, /"@type":"(?:LocalBusiness|PostalAddress)"/);
+    assert.doesNotMatch(rendered, /naša pobočka|našej pobočke|miestna pobočka/i);
+  }
   assert.match(renderer, /location\.coverageAreas\.join\(', '\)/);
   assert.match(renderer, /location\.requestChecklist\.map/);
   assert.match(renderer, /location\.planningPoints\.map/);
@@ -84,7 +93,7 @@ test('stránka Kde pôsobíme odkazuje v hlavnom obsahu na všetky regionálne s
   const hub = await readFile(new URL('../app/kde-posobime/page.tsx', import.meta.url), 'utf8');
   assert.match(hub, /locationPages\.map/);
   assert.match(hub, /href=\{`\/likvidacia-azbestu-\$\{location\.slug\}\/?`\}/);
-  assert.match(hub, /Uvedené mestá a okresy označujú pôsobnosť, nie pobočky ani potvrdené realizácie/);
+  assert.match(hub, /Výjazdy organizujeme z Popradu po celom Slovensku/);
 });
 
 test('každá regionálna route má samostatný canonical a všetky lokality vstupujú do sitemap', async () => {

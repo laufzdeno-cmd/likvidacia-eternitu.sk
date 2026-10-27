@@ -161,7 +161,7 @@ export const servicePages: Record<string, ServicePageContent> = {
     sections: [
       {
         title: 'Najprv si ujasnime, kde materiál je',
-        text: 'Na streche, v obklade a v technickom priestore sa pripravuje odlišná práca. Povedzte nám, o aký objekt ide, ktorá časť sa má riešiť a či sa do materiálu už zasahovalo. Ak jeho zloženie nepoznáte, stačí to priznať; kvôli prvému dopytu nemusíte odoberať vzorku ani robiť vlastný zásah.\n\nPri firme alebo spravovanej budove doplňte, ktoré priestory ostanú používané a ako sa vstupuje do areálu. Podľa týchto údajov si vyjasníme vhodný rozsah posúdenia a práce.',
+        text: 'Na streche, v obklade a v technickom priestore sa pripravuje odlišná práca. Povedzte nám, o aký objekt ide, ktorá časť sa má riešiť a či sa do materiálu už zasahovalo. Ak jeho zloženie nepoznáte, pokojne nám to napíšte; kvôli prvému dopytu nemusíte odoberať vzorku ani robiť vlastný zásah.\n\nPri firme alebo spravovanej budove doplňte, ktoré priestory ostanú používané a ako sa vstupuje do areálu. Podľa týchto údajov si vyjasníme vhodný rozsah posúdenia a práce.',
         items: ['rodinné domy', 'garáže a hospodárske budovy', 'haly a technické objekty', 'už zložený materiál pripravený na odvoz'],
       },
       {

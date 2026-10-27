@@ -91,10 +91,23 @@ export default function TestimonialForm({
     {requestToken
       ? <p className="testimonial-public-privacy">E-mail je bezpečne prevzatý z osobného odkazu a nezverejní sa.</p>
       : <label>E-mail (neuverejníme)<input name="customerEmail" type="email" autoComplete="email" maxLength={160} placeholder="Voliteľné" disabled={pending} /></label>}
-    <label>Hodnotenie<select name="rating" defaultValue="5" disabled={pending}>{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} z 5</option>)}</select></label>
+    <fieldset className="testimonial-star-rating" disabled={pending}>
+      <legend>Hodnotenie</legend>
+      <div className="testimonial-star-options">
+        {[1, 2, 3, 4, 5].map(rating => (
+          <label className="testimonial-star-option" key={rating}>
+            <input type="radio" name="rating" value={rating} defaultChecked={rating === 5} required disabled={pending}
+              aria-label={`${rating} ${rating === 1 ? 'hviezdička' : rating === 5 ? 'hviezdičiek' : 'hviezdičky'}`} />
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="m12 3 2.78 5.63 6.22.9-4.5 4.39 1.06 6.2L12 17.2l-5.56 2.92 1.06-6.2L3 9.53l6.22-.9L12 3Z" />
+            </svg>
+          </label>
+        ))}
+      </div>
+    </fieldset>
     <label className="testimonial-public-wide">Vaša skúsenosť<textarea name="text" minLength={20} maxLength={1200} rows={5} required placeholder="Čo sme pre vás urobili a ako prebiehala spolupráca?" disabled={pending} /></label>
     <label className="testimonial-public-honeypot" aria-hidden="true">Webová stránka<input name="website" type="text" tabIndex={-1} autoComplete="new-password" disabled={pending} /></label>
-    <label className="testimonial-public-consent testimonial-public-wide"><input name="consentPublication" type="checkbox" value="on" required disabled={pending} /> {publicTestimonialConsentWording}</label>
+    <label className="testimonial-public-consent testimonial-public-wide"><input name="consentPublication" type="checkbox" value="on" required disabled={pending} /><span>{publicTestimonialConsentWording}</span></label>
     <button className="button button-primary" type="submit" disabled={pending}>{pending ? 'Odosielame…' : 'Odoslať skúsenosť'}</button>
     <p className="testimonial-public-privacy testimonial-public-wide">Referenciu najprv skontrolujeme. Zverejníme ju až po schválení a nebudeme meniť jej význam. <a href="/ochrana-osobnych-udajov/">Ochrana osobných údajov</a></p>
     <p

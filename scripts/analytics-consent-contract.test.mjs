@@ -163,7 +163,7 @@ test('accepted lead conversion is server-recorded from the stored lead, not forg
   assert.match(db, /ON CONFLICT \(id\) DO NOTHING/);
   assert.match(db, /acceptedLeadEvents[\s\S]{0,400}otherEvents/);
   assert.match(db, /const device = \/iPad\|Tablet/);
-  assert.match(db, /localDbWriteQueue\.then\(persist, persist\)/);
+  assert.match(db, /await withLocalLeadSubmissionLock\(persist\)/);
   assert.match(db, /existingAnalytics, \.\.\.data\.analyticsEvents/);
   assert.match(db, /export async function recoverAcceptedLeadAnalytics/);
   assert.match(db, /createdAt: lead\.createdAt/);

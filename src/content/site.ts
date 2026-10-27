@@ -34,6 +34,7 @@ export const site = {
   },
   documents: {
     public: [] as Array<{ name: string; url: string }>,
+    publicLookupHint: 'Oprávnenia spoločnosti ASTANA, s.r.o. si môžete overiť v aktuálnom registri ÚVZ SR podľa IČO 46 157 701.',
     publicVerificationUrl: 'https://www.uvzsr.sk/web/uvz/zoznam-fyzickych-osob-podnikatelov-a-pravnickych-osob-ktorym-bolo-vydane-odobrate-alebo-zmenene-opravnenie-na-odstranovanie-azbestu-alebo-materialov-obsahujucich-azbest-zo-stavieb',
     verificationSourceUrl: 'https://www.astana.sk/overene-informacie',
     historicalSnapshotUrl: 'https://www.uvzsr.sk/documents/d/uvz/zoznam-azbest-k-19092024-pdf',

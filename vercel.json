@@ -47,6 +47,10 @@
       "schedule": "10 5 * * *"
     },
     {
+      "path": "/api/cron/analytics-retention/",
+      "schedule": "30 5 * * *"
+    },
+    {
       "path": "/api/cron/review-reminders/",
       "schedule": "0 8 * * *"
     },

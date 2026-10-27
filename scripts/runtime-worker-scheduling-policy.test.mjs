@@ -13,6 +13,7 @@ test('every worker surfaced by runtime feature health remains scheduled', async 
     '/api/cron/photo-intake-retention/',
     '/api/cron/lead-upload-retention/',
     '/api/cron/career-cv-retention/',
+    '/api/cron/analytics-retention/',
   ]) assert.equal(paths.has(path), true, `${path} must remain scheduled so a later valid binding cannot create a false healthy state`);
 
   for (const path of [

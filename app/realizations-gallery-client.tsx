@@ -123,6 +123,20 @@ export default function initializeRealizationsGalleryClient() {
     };
 
     const onCardClick = (event: Event) => openLightbox(event.currentTarget as HTMLButtonElement);
+    const revealFilter = (button: HTMLButtonElement) => {
+      const strip = button.parentElement;
+      if (!strip || strip.scrollWidth <= strip.clientWidth) return;
+      const viewport = strip.getBoundingClientRect();
+      const target = button.getBoundingClientRect();
+      if (target.left < viewport.left || target.right > viewport.right) {
+        button.scrollIntoView({ block: 'nearest', inline: 'start', behavior: 'auto' });
+      }
+    };
+    const onFilterFocus = (event: Event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      // Pointer focus must not move the target before pointerup/click completes.
+      if (button.matches(':focus-visible')) revealFilter(button);
+    };
     const onFilterClick = (event: Event) => {
       const button = event.currentTarget as HTMLButtonElement;
       const category = button.dataset.galleryFilter || 'vsetko';
@@ -142,6 +156,7 @@ export default function initializeRealizationsGalleryClient() {
         loadMore.hidden = matchingCount <= 12;
         loadMore.dataset.galleryCurrentFilter = category;
       }
+      revealFilter(button);
       trackAnalyticsEvent('gallery_filter', { gallery: 'realizacie', category });
     };
 
@@ -197,6 +212,7 @@ export default function initializeRealizationsGalleryClient() {
       filter.setAttribute('aria-pressed', String(active));
     });
     filters.forEach((filter) => filter.addEventListener('click', onFilterClick));
+    filters.forEach((filter) => filter.addEventListener('focus', onFilterFocus));
     if (loadMore) {
       loadMore.dataset.galleryCurrentFilter = 'vsetko';
       loadMore.hidden = cards.length <= 12;
@@ -210,6 +226,7 @@ export default function initializeRealizationsGalleryClient() {
     return () => {
       cards.forEach((card) => card.removeEventListener('click', onCardClick));
       filters.forEach((filter) => filter.removeEventListener('click', onFilterClick));
+      filters.forEach((filter) => filter.removeEventListener('focus', onFilterFocus));
       loadMore?.removeEventListener('click', onLoadMore);
       closeButton?.removeEventListener('click', onCloseClick);
       previousButton?.removeEventListener('click', onPreviousClick);

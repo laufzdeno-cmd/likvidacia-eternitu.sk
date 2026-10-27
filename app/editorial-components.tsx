@@ -3,19 +3,20 @@ import { ResponsiveImage } from '@/src/components/responsive-image';
 import { getAzbestReference } from '@/src/data/azbestReferences';
 
 export function EditorialPhoto({ id, caption, alt, priority = false }: {
-  id: string; caption: string; alt: string; priority?: boolean;
+  id: string; caption?: string; alt?: string; priority?: boolean;
 }) {
-  const photo = { ...getAzbestReference(id), alt };
+  const reference = getAzbestReference(id);
+  const photo = alt ? { ...reference, alt } : reference;
   return <figure className="editorial-photo">
     <ResponsiveImage image={photo} width={1200} height={800}
       sizes="(max-width: 760px) calc(100vw - 40px), 48vw"
       loading={priority ? 'eager' : 'lazy'} fetchPriority={priority ? 'high' : 'auto'} />
-    <figcaption>{caption}</figcaption>
+    <figcaption>{caption || `${reference.title} – ASTANA, s.r.o.`}</figcaption>
   </figure>;
 }
 
 export function EditorialHero({ eyebrow, title, lead, photoId, photoAlt, photoCaption, children }: {
-  eyebrow: string; title: string; lead: string; photoId: string; photoAlt: string; photoCaption: string; children?: ReactNode;
+  eyebrow: string; title: string; lead: string; photoId: string; photoAlt?: string; photoCaption?: string; children?: ReactNode;
 }) {
   return <section className="editorial-hero">
     <div className="editorial-hero-copy">

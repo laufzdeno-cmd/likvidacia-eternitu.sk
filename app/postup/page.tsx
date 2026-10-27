@@ -6,11 +6,12 @@ import { buildPageMetadata, InternalLinks } from '../seo-components';
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 import { UsefulChecklist } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
-const heroPhoto = getAzbestReference('azbest-164');
-const roofPhoto = getAzbestReference('azbest-051');
-const packingPhoto = getAzbestReference('azbest-121');
-const sitePhoto = getAzbestReference('azbest-068');
+const heroPhoto = getAzbestReference(pagePhotoId('/postup/', 0));
+const roofPhoto = getAzbestReference(pagePhotoId('/postup/', 1));
+const packingPhoto = getAzbestReference(pagePhotoId('/postup/', 2));
+const sitePhoto = getAzbestReference(pagePhotoId('/postup/', 3));
 
 const processFaqs: FaqItem[] = [
   {

@@ -233,7 +233,7 @@ export default function CareerFormClient() {
       <div className={`career-checks ${styles.checks}`}>
         <label><input name="hasTradeLicense" type="checkbox" required disabled={isSubmitting} /> Môžem pracovať ako živnostník alebo samostatná partia. *</label>
         <label><input name="workAtHeights" type="checkbox" required disabled={isSubmitting} /> Mám skúsenosť s prácou vo výške. *</label>
-        <label><input name="gdpr" type="checkbox" required disabled={isSubmitting} /> Súhlasím so spracovaním údajov pre účely výberu spolupráce podľa <a href="/ochrana-osobnych-udajov/" target="_blank" rel="noreferrer">ochrany osobných údajov</a>. *</label>
+        <label><input name="gdpr" type="checkbox" required disabled={isSubmitting} /><span>Súhlasím so spracovaním údajov pre účely výberu spolupráce podľa <a href="/ochrana-osobnych-udajov/" target="_blank" rel="noreferrer">ochrany osobných údajov</a>. *</span></label>
       </div>
       <button className={`button button-primary career-submit ${styles.submit}`} type="submit" disabled={isSubmitting || !submissionId}>{isSubmitting ? 'Odosielame…' : 'Poslať krátku žiadosť'}</button>
       <p className={`career-form-help ${styles.formHelp}`}>Bez životopisu je to v poriadku. Ozveme sa vám telefonicky alebo e-mailom.</p>

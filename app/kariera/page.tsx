@@ -5,6 +5,7 @@ import { JsonLd, buildFaqJsonLd } from '../seo-json-ld';
 import styles from './career.module.css';
 import { PublicFontPreload } from '@/src/components/public-font-preload';
 import { EditorialPhoto } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 export const metadata = buildPageMetadata({
   title: 'Kariéra: živnostníci a partie | ASTANA',
@@ -55,7 +56,7 @@ export default function CareerPage() {
         </section>
         <section className="section editorial-split" aria-labelledby="career-work-title">
           <div><p className="eyebrow">Práca na skutočných objektoch</p><h2 id="career-work-title">Dôležitá je spolupráca aj zodpovednosť na mieste</h2><p>Demontáž nie je len o rýchlom zložení dosiek. Na zákazke sa pripravuje pracovisko, postupuje podľa pokynov a nadväzuje na balenie a odvoz. Potrebujeme vedieť, s akým typom práce máte skúsenosť a ako môžete fungovať v partii.</p><p>V krátkej žiadosti opíšte prax, región a dostupnosť. Konkrétnu náplň práce, podmienky, odmenu a možný začiatok si prejdeme pred dohodou. Ak niečo ešte neviete alebo nemáte, napíšte to otvorene.</p><p><a href="/postup/">Pozrite si, ako prebieha zákazka ASTANA</a>.</p></div>
-          <EditorialPhoto id="azbest-135" alt="Pracovníci v ochranných oblekoch pri práci na streche drevenice" caption="Záber z praxe ASTANA. Konkrétne pracovné podmienky sa dohadujú pred spoluprácou." />
+          <EditorialPhoto id={pagePhotoId('/kariera/')} />
         </section>
         <section className={`career-application-section ${styles.applicationSection}`} id="prihlasit-sa">
           <div className={`career-section-heading ${styles.sectionHeading}`}><p className="eyebrow">Krátka žiadosť</p><h2>Napíšte nám o sebe</h2><p>Vyplnenie zaberie približne dve minúty. Polia označené hviezdičkou potrebujeme, aby sme sa vám mohli ozvať.</p></div>

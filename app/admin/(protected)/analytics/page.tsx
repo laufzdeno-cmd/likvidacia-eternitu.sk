@@ -50,7 +50,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams?: P
     ['Dnes', traffic.today],
     ['Tento mesiac', traffic.month],
     ['Tento rok', traffic.year],
-    ['Celkom', traffic.allTime],
+    ['Posledných 12 mesiacov', traffic.allTime],
   ];
 
   return (

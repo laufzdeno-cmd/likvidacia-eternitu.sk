@@ -1,10 +1,11 @@
-import { buildPageMetadata, QuickAnswer } from '../seo-components';
+import { buildPageMetadata } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
 import TestimonialForm from './testimonial-form';
 import { listApprovedTestimonials } from '@/src/server/db';
 import { randomUUID } from 'node:crypto';
 import { testimonialReceiptSecret, verifyTestimonialReceiptToken } from '@/src/server/testimonial-receipt';
-import { EditorialHero, UsefulChecklist } from '../editorial-components';
+import { EditorialPhoto } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 export const metadata = buildPageMetadata({
   title: 'Recenzie zákazníkov | ASTANA',
@@ -23,7 +24,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const publicTestimonials = approved.map(({ id, customerName, rating, text, createdAt }) => ({ id, customerName, rating, text, createdAt }));
   return (
     <PublicPageShell breadcrumb={{ name: 'Recenzie', path: '/recenzie/' }} hideWhatsappOnMobile>
-      <main className="seo-page">
+      <main className="seo-page reviews-page">
         {receipt ? (
           <p
             id="referencia-potvrdenie"
@@ -37,14 +38,21 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             Ďakujeme. Referenciu sme prijali na kontrolu a zobrazí sa až po schválení.
           </p>
         ) : null}
-        <EditorialHero eyebrow="Skúsenosti z konkrétnej spolupráce" title="Recenzie zákazníkov ASTANA"
-          lead="Riešili sme spolu odstránenie eternitu alebo inú zákazku? Napíšte, ako prebehla komunikácia, dohoda a práca na mieste. Zverejňujeme skúsenosti po kontrole a so zaznamenaným súhlasom."
-          photoId="azbest-068" photoAlt="Rodinný dom a pracovisko ASTANA pri prácach na streche"
-          photoCaption="Vlastná fotodokumentácia ASTANA. Fotografia nepredstavuje autora konkrétnej recenzie." />
-        <QuickAnswer>
-          Referenciu môže poslať každý zákazník. Pred zverejnením ju skontrolujeme a uverejníme iba po zaznamenanom súhlase; e-mail ani presnú lokalitu na stránke nezobrazujeme.
-        </QuickAnswer>
-        <section className="seo-section testimonial-public-list" aria-labelledby="published-testimonials-title">
+        <header className="reviews-intro">
+          <p className="eyebrow">Vaša spätná väzba</p>
+          <h1>Recenzie zákazníkov ASTANA</h1>
+          <p>Riešili sme spolu odstránenie eternitu alebo inú zákazku? Podeľte sa o svoju skúsenosť.</p>
+          <a href="#schvalene-recenzie">Prejsť na skúsenosti zákazníkov <span aria-hidden="true">↓</span></a>
+        </header>
+        <section id="napisat-recenziu" className="review-form-panel" aria-labelledby="review-form-title">
+          <header className="review-form-panel-header">
+            <span className="review-form-kicker">Krátky formulár</span>
+            <h2 id="review-form-title">Ako sa vám s nami spolupracovalo?</h2>
+            <p>Napíšte, čo sa podarilo aj čo môžeme zlepšiť. Vaše hodnotenie najprv skontrolujeme.</p>
+          </header>
+          <TestimonialForm initialSubmissionId={randomUUID()} />
+        </section>
+        <section id="schvalene-recenzie" className="seo-section testimonial-public-list" aria-labelledby="published-testimonials-title">
           <h2 id="published-testimonials-title">Skúsenosti zákazníkov</h2>
           {publicTestimonials.length ? <div className="testimonial-public-grid">{publicTestimonials.map((item) => (
             <article className="testimonial-public-card" key={item.id}>
@@ -53,20 +61,20 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
               <p><strong>{item.customerName}</strong></p>
               <small><time dateTime={item.createdAt}>{new Intl.DateTimeFormat('sk-SK', { dateStyle: 'medium' }).format(new Date(item.createdAt))}</time></small>
             </article>
-          ))}</div> : <p className="seo-lead">Zatiaľ tu nie sú zverejnené referencie. Nechceme uvádzať neoverené alebo vymyslené hodnotenia.</p>}
+          ))}</div> : <p className="seo-lead">Tu postupne nájdete schválené skúsenosti našich zákazníkov. Ak sme už u vás pracovali, budeme radi, keď nám napíšete cez formulár vyššie.</p>}
         </section>
-        <section className="seo-section">
-          <h2>Pošlite nám svoju skúsenosť</h2>
-          <p className="seo-lead">
-            Referenciu najprv skontrolujeme. Samotné odoslanie neznamená automatické zverejnenie.
-          </p>
-          <UsefulChecklist title="Čo pomôže ďalšiemu zákazníkovi" items={['Aký druh práce ste riešili, bez presnej adresy a osobných údajov.', 'Ako prebehla dohoda o rozsahu a komunikácia pred prácou.', 'Čo fungovalo dobre a čo by sme mohli zlepšiť.']} />
-          <TestimonialForm initialSubmissionId={randomUUID()} />
-          <div className="seo-included-list">
-            <a href="/realizacie/">Pozrieť reálne fotky prác ASTANA</a>
-            <a href="/postup/">Pozrieť úradný postup likvidácie</a>
-            <a href="/o-firme/">Overiť firemné údaje</a>
+        <section className="seo-section editorial-split reviews-context" aria-labelledby="review-process-title">
+          <div>
+            <h2 id="review-process-title">Čo sa stane po odoslaní?</h2>
+            <p>Referenciu uložíme na kontrolu. Na webe sa zobrazí až po schválení a s vaším súhlasom. E-mail ani presnú adresu nezverejňujeme.</p>
+            <p>Stačí opísať druh práce, komunikáciu a priebeh spolupráce. Do textu neuvádzajte súkromné údaje.</p>
+            <div className="seo-included-list">
+              <a href="/realizacie/">Pozrieť fotky prác ASTANA</a>
+              <a href="/o-firme/">Overiť firemné údaje</a>
+            </div>
           </div>
+          <EditorialPhoto id={pagePhotoId('/recenzie/')}
+            caption="Demontáž eternitu na rodinnom dome – ASTANA, s.r.o." />
         </section>
       </main>
     </PublicPageShell>

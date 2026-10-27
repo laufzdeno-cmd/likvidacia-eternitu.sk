@@ -3,6 +3,7 @@ import { buildPageMetadata, FaqSection, QuoteCTA } from '../seo-components';
 import { JsonLd, buildFaqJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 import { EditorialHero, ReadingLinks } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 const groups = [
   { id: 'material', title: 'Materiál a bezpečnosť', indexes: [0, 1, 2, 16] },
@@ -25,8 +26,8 @@ export default function FaqPage() {
         <JsonLd data={buildFaqJsonLd(faqPageItems)} />
         <EditorialHero eyebrow="Odpovede pred prvým dopytom" title="Časté otázky o azbeste a eternite"
           lead="Potrebujete vedieť, čo je na streche, ako sa počíta cena alebo čo dostanete po práci? Vyberte si tému nižšie. Ak svoju situáciu nenájdete, opíšte nám ju. Na prvý kontakt stačí odhad výmery. Fotky sú voliteľné."
-          photoId="azbest-132" photoAlt="Detail staršej strešnej krytiny pri ošetrení povrchu"
-          photoCaption="Záber z fotodokumentácie ASTANA. Materiál neposudzujeme iba podľa vzhľadu fotografie." />
+          photoId={pagePhotoId('/faq/')}
+          photoCaption="Ošetrenie eternitovej krytiny pred demontážou – ASTANA, s.r.o." />
         <nav className="editorial-toc" aria-label="Témy otázok"><p>Čo práve riešite?</p><ul>{groups.map(group => <li key={group.id}><a href={`#${group.id}`}>{group.title}</a></li>)}</ul></nav>
         {groups.map(group => <div id={group.id} key={group.id}><FaqSection title={group.title} faqs={group.indexes.map(index => faqPageItems[index]).filter(Boolean)} /></div>)}
         <ReadingLinks title="Keď potrebujete podrobnejšie vysvetlenie" links={[

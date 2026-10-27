@@ -57,7 +57,7 @@ test('advice articles emit Article JSON-LD sourced from visible article content'
 
 test('article trust copy distinguishes content updates from unproven expert review', () => {
   assert.match(seoContent, /contentUpdatedAt: '\d{4}-\d{2}-\d{2}'/);
-  assert.match(seoComponents, /Obsah sme naposledy aktualizovali/);
+  assert.match(seoComponents, /<time dateTime=\{articleEditorial\.contentUpdatedAt\}>\{articleEditorial\.contentUpdatedLabel\}<\/time>/);
   assert.doesNotMatch(seoComponents, /vecná a redakčná kontrola|odborná kontrola/i);
 });
 
@@ -155,7 +155,10 @@ test('machine-readable company facts carry the offer promise and distinguish cur
   assert.match(llms, /najneskôr do 24 hodín/);
   assert.match(llms, /Centrálny firemný zdroj ASTANA/);
   assert.match(llms, /historickým snapshotom/);
-  assert.match(firmPage, /site\.compliance\.asbestosRemovalAuthorization\.publicVerification/);
+  assert.match(firmPage, /site\.documents\.publicLookupHint/);
+  assert.match(homepage, /site\.documents\.publicLookupHint/);
+  assert.doesNotMatch(firmPage, /asbestosRemovalAuthorization\.publicVerification/);
+  assert.match(siteFacts, /publicLookupHint: 'Oprávnenia spoločnosti ASTANA, s\.r\.o\. si môžete overiť v aktuálnom registri ÚVZ SR podľa IČO 46 157 701\.'/);
   assert.doesNotMatch(firmPage, /má oprávnenie na odstraňovanie azbestu v exteriéri aj interiéri/);
   assert.match(siteFacts, /publicVerificationAsOf: '2026-10-14'/);
   assert.match(siteFacts, /scopeAsPublished: \['BJ, EXT', 'INT'\]/);

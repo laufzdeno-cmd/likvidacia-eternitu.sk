@@ -10,7 +10,7 @@ const globalCssFiles = [
   'src/responsive-audit-hotfix.css',
 ];
 
-const isReviewsRouteSelector = (selector) => /\.testimonial-public(?:-|\b)/.test(selector);
+const isReviewsRouteSelector = (selector) => /\.(?:testimonial-(?:public(?:-|\b)|star-)|reviews-(?:page|intro|context)\b|review-(?:form-(?:panel|kicker)|request-body)\b)/.test(selector);
 
 test('reviews-only presentation is owned by the /recenzie route', () => {
   const page = readFileSync('app/recenzie/page.tsx', 'utf8');
@@ -28,32 +28,24 @@ test('reviews-only presentation is owned by the /recenzie route', () => {
   assert.match(buildHarness, /--reviews-route-css/);
 
   const routeRoot = postcss.parse(routeCss, { from: 'app/recenzie/reviews-route.css' });
-  let routeRules = 0;
-  routeRoot.walkRules(() => { routeRules += 1; });
-  assert.equal(routeRules, 18, `expected the marker and all 17 reviews-page rules, got ${routeRules}`);
-  assert.deepEqual(
-    routeRoot.nodes.map((node) => node.type === 'atrule' ? `@${node.name} ${node.params}` : node.selector),
-    [
-      ':root',
-      '.testimonial-public-list',
-      '.testimonial-public-grid',
-      '.testimonial-public-card',
-      '.testimonial-public-card blockquote',
-      '.testimonial-public-rating',
-      '.testimonial-public-form',
-      '.testimonial-public-form label',
-      '.testimonial-public-form input:not([type="checkbox"]), .testimonial-public-form select, .testimonial-public-form textarea',
-      '.testimonial-public-form textarea',
-      '.testimonial-public-wide',
-      '.testimonial-public-consent',
-      '.testimonial-public-consent input',
-      '.testimonial-public-honeypot',
-      '.testimonial-public-privacy, .testimonial-public-message',
-      '.testimonial-public-message.is-error',
-      '@media (max-width: 640px)',
-    ],
-    'reviews rules and the mobile media query must keep their original order',
-  );
+  const selectors = new Set();
+  routeRoot.walkRules((rule) => {
+    for (const selector of rule.selectors) {
+      selectors.add(selector);
+      assert.ok(selector === ':root' || isReviewsRouteSelector(selector), `unscoped route selector: ${selector}`);
+    }
+    if (rule.selector === ':root') rule.walkDecls((declaration) => {
+      assert.equal(declaration.prop, '--reviews-route-css', 'only the route-load marker may escape the review scope');
+    });
+  });
+  for (const selector of ['.testimonial-public-form', '.testimonial-public-grid', '.testimonial-public-card', '.testimonial-public-consent', '.testimonial-public-honeypot', '.testimonial-star-option']) {
+    assert.ok([...selectors].some(value => value.includes(selector)), `required presentation context is missing: ${selector}`);
+  }
+  const mobile = routeRoot.nodes.find((node) => node.type === 'atrule' && node.name === 'media' && node.params === '(max-width: 640px)');
+  assert.ok(mobile, 'reviews need a narrow-screen layout');
+  assert.ok(mobile.nodes.some((rule) => rule.selectors?.includes('.testimonial-public-form')
+    && rule.nodes.some((declaration) => declaration.prop === 'grid-template-columns' && declaration.value === 'minmax(0, 1fr)')),
+  'the form must become one column on narrow screens');
 
   for (const file of globalCssFiles) {
     const root = postcss.parse(readFileSync(file, 'utf8'), { from: file });

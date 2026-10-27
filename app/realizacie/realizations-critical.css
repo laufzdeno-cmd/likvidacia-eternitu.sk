@@ -113,7 +113,10 @@
   }
   .realizations-page .gallery-filters button {
     flex: 0 0 auto;
-    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    line-height: 1.35;
     overflow-wrap: normal;
     scroll-snap-align: start;
   }

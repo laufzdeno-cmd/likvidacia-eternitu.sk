@@ -5,6 +5,7 @@ import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
 import { EditorialHero } from '../editorial-components';
 import { transportPolicy } from '@/src/content/transport-policy.mjs';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 const areaFaqs: FaqItem[] = [
   {
@@ -36,8 +37,7 @@ export default function ServiceAreaPage() {
         <JsonLd data={[buildServiceJsonLd('Likvidáciu azbestu riešime po celom Slovensku', quickAnswer, '/kde-posobime/'), buildFaqJsonLd(areaFaqs)]} />
         <EditorialHero eyebrow="Výjazdy po Slovensku" title="Likvidáciu azbestu riešime po celom Slovensku"
           lead="ASTANA, s.r.o. sídli v Poprade. Zákazky plánujeme podľa konkrétnej obce, rozsahu a dostupnej kapacity. Vyberte oblasť vašej stavby; nájdete v nej podklady dôležité pre výjazd a ponuku."
-          photoId="azbest-065" photoAlt="Vozidlo ASTANA pri objekte počas realizácie"
-          photoCaption="Výjazd sa pripravuje podľa konkrétnej stavby. Regionálne stránky označujú pôsobnosť, nie sieť pobočiek.">
+          photoId={pagePhotoId('/kde-posobime/')}>
           <div className="seo-hero-actions">
             <a className="button button-primary" href="/#dopyt">Požiadať o nezáväznú ponuku</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
@@ -49,8 +49,7 @@ export default function ServiceAreaPage() {
           <p className="eyebrow">Regionálne informácie</p>
           <h2 id="regional-pages-title">Vyberte oblasť, kde sa nachádza objekt</h2>
           <p className="seo-lead">
-            Na každej regionálnej stránke nájdete územný rozsah, údaje potrebné pre ponuku a praktické podmienky
-            výjazdu. Uvedené mestá a okresy označujú pôsobnosť, nie pobočky ani potvrdené realizácie.
+            Vyberte miesto stavby. Pozrite si, čo nám poslať pre ponuku a čo je dôležité pri plánovaní výjazdu do vašej oblasti.
           </p>
           <div className="seo-card-grid">
             {locationPages.map((location) => (
@@ -58,7 +57,7 @@ export default function ServiceAreaPage() {
                 <h3>{location.name}</h3>
                 <p>{location.coverageHeading}: {location.coverageAreas.join(', ')}.</p>
                 <a href={`/likvidacia-azbestu-${location.slug}/`}>
-                  Praktické informácie pre oblasť {location.name}
+                  Pozrieť podmienky výjazdu
                 </a>
               </article>
             ))}
@@ -97,8 +96,7 @@ export default function ServiceAreaPage() {
             </article>
           </div>
           <p className="seo-lead">
-            Pôsobnosť po celom Slovensku znamená, že výjazdy organizujeme z Popradu; neznamená to miestne pobočky
-            v každom kraji. Dostupnosť a podmienky potvrdíme po posúdení vašej stavby.
+            Výjazdy organizujeme z Popradu po celom Slovensku. Dostupnosť a podmienky potvrdíme po posúdení vašej stavby.
           </p>
         </section>
 

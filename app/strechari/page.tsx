@@ -6,6 +6,9 @@ import { PublicFooter } from '../public-layout';
 import { BreadcrumbJsonLd } from '../seo-json-ld';
 import { buildPageMetadata } from '../seo-components';
 import { UsefulChecklist } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
+import { getAzbestReference } from '@/src/data/azbestReferences';
+import { ResponsiveImage } from '@/src/components/responsive-image';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Spolupráca pre strechárov | ASTANA',
@@ -41,7 +44,7 @@ const benefits = [
 const steps = [
   ['Zaregistrujete sa', 'Vyplníte krátky formulár — región, typ zákaziek, kontakt.'],
   ['Zladíme termín', 'Keď máte zákazníka s azbestom, napíšete nám. Dohodneme konkrétny čas príchodu v pracovnom čase.'],
-  ['My zlikvidujeme, vy staviate', 'Prídeme, urobíme svoju prácu čisto a odídeme. Vy nastúpite na čerstvú strechu.'],
+  ['My zlikvidujeme, vy staviate', 'Prídeme, urobíme svoju prácu čisto a odídeme. Vy prevezmete odkrytú strechu a môžete pokračovať.'],
   ['Koordinujeme nadväzujúce práce', 'Ak zákazník nemá strechára, môžeme podľa regiónu a kapacity preveriť vhodného partnera.'],
 ] as const;
 
@@ -130,14 +133,15 @@ export default function RoofersPage() {
               </div>
             </div>
             <div className="roofer-b2b-hero-media">
-              <img
-                src="/assets/roofers/roofer-installing-new-roof.webp"
-                alt="Ilustračná fotografia strechára pri pokládke novej krytiny"
-                width="1536"
-                height="1024"
+              <ResponsiveImage
+                image={getAzbestReference(pagePhotoId('/strechari/'))}
+                width={1200}
+                height={800}
+                sizes="(max-width: 760px) calc(100vw - 40px), 48vw"
+                loading="eager"
                 fetchPriority="high"
               />
-              <p>Ilustračná fotografia: strechárska partia nastupuje na pripravenú strechu.</p>
+              <p>Strešná konštrukcia po demontáži krytiny – ASTANA, s.r.o.</p>
             </div>
           </div>
         </section>

@@ -2,6 +2,7 @@ import { articles } from '@/src/content/seo-content';
 import { buildPageMetadata, QuoteCTA } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
 import { EditorialHero, EditorialPhoto, ReadingLinks } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 export const metadata = buildPageMetadata({
   title: 'Poradňa k azbestu a eternitu | ASTANA',
@@ -16,8 +17,7 @@ export default function AdvicePage() {
       <main className="seo-page">
         <EditorialHero eyebrow="Vysvetlené zrozumiteľne" title="Čo potrebujete vedieť pred odstránením eternitu"
           lead="Nemusíte poznať odborné názvy ani mať pripravený projekt. Tu nájdete odpovede, ktoré vám pomôžu opísať stavbu, porovnať ponuku a naplánovať ďalšie práce."
-          photoId="azbest-118" photoAlt="Drevenica so staršou strechou odfotografovaná od prístupovej cesty"
-          photoCaption="Začnite tým, čo o svojej stavbe viete. Fotografie pripravujte z bezpečného miesta.">
+          photoId={pagePhotoId('/poradna/')}>
           <div className="hero-actions"><a className="button button-primary" href="#clanky">Vybrať tému</a></div>
         </EditorialHero>
         <ReadingLinks title="Kde začať podľa vašej situácie" links={[
@@ -29,9 +29,9 @@ export default function AdvicePage() {
           <h2 id="clanky">Praktické články k vašej stavbe</h2>
           <p className="editorial-faq-intro">Vyberte otázku, ktorú práve riešite. Články odlišujú všeobecné informácie od toho, čo si treba potvrdiť pri konkrétnej zákazke.</p>
           <div className="seo-card-grid">
-            {articles.map((article) => (
+            {articles.map((article, index) => (
               <article className="editorial-advice-card" key={article.slug}>
-                <EditorialPhoto id={article.photoId} alt={article.photoAlt} caption="Fotodokumentácia ASTANA" />
+                <EditorialPhoto id={pagePhotoId('/poradna/', index + 1)} />
                 <div>
                 <h3><a href={`/poradna/${article.slug}/`}>{article.title}</a></h3>
                 <p>{article.description}</p>

@@ -1,13 +1,18 @@
 import { transportPolicy } from './transport-policy.mjs';
+import { pagePhotoId } from './public-photo-assignments';
+import { getAzbestReference } from '../data/azbestReferences';
+
+function articlePhoto(slug: string) {
+  const photo = getAzbestReference(pagePhotoId(`/poradna/${slug}/`));
+  return { photoId: photo.id, photoAlt: photo.alt, photoCaption: `${photo.title} – ASTANA, s.r.o.` };
+}
 
 export const adviceArticles = [
   {
     slug: 'co-je-eternit-a-kedy-obsahuje-azbest',
     title: 'Čo je eternit a kedy môže obsahovať azbest',
     description: 'Máte starú eternitovú strechu? Zistite, čo napovie vek a vzhľad krytiny, čo z fotografie neurčíme a aké údaje pripraviť na prvé posúdenie.',
-    image: '/og/homepage.jpg', photoId: 'azbest-130',
-    photoAlt: 'Detail povrchu staršej strešnej krytiny pri práci ASTANA',
-    photoCaption: 'Povrch a tvar krytiny pomôžu pri prvom posúdení. Samotná fotografia obsah azbestu nepotvrdzuje.',
+    image: '/og/homepage.jpg', ...articlePhoto('co-je-eternit-a-kedy-obsahuje-azbest'),
     quickAnswer: 'Eternit je zaužívané označenie vláknocementovej krytiny a dosiek. Staršie výrobky môžu obsahovať azbest, novšie môžu byť bezazbestové. Vzhľad ani fotografia nie sú spoľahlivým dôkazom zloženia; pomôže dokumentácia výrobku, prípadne odborné posúdenie.',
     body: [
       ['Eternit a azbest nie sú to isté', 'Azbest označuje skupinu vláknitých minerálov. Eternitom ľudia bežne nazývajú vlnité dosky aj menšie strešné šablóny z vláknocementu. V minulosti sa pri ich výrobe používal aj azbest. Preto nie je správne považovať každý vláknocementový výrobok automaticky za azbestový, ani starú krytinu bez overenia vyhlásiť za bezpečnú.\n\nAk neviete, čo je na vašej streche, nemusíte materiál pomenovať odborne. V dopyte pokojne napíšte „staršia sivá krytina, zloženie nepoznám“.'],
@@ -28,9 +33,7 @@ export const adviceArticles = [
     slug: 'preco-neodstranovat-eternit-svojpomocne',
     title: 'Prečo neodstraňovať eternit svojpomocne',
     description: 'Pri eternite nejde len o zloženie strechy. Prečítajte si, prečo sú dôležité oprávnenie, príprava pracoviska, odvoz odpadu a nadväznosť novej strechy.',
-    image: '/og/postup.jpg', photoId: 'azbest-135',
-    photoAlt: 'Pracovníci v ochranných oblekoch pri rozoberaní strešnej krytiny na drevenici',
-    photoCaption: 'Práca na streche zahŕňa manipuláciu s materiálom aj bezpečnosť vo výške. Záber z fotodokumentácie ASTANA.',
+    image: '/og/postup.jpg', ...articlePhoto('preco-neodstranovat-eternit-svojpomocne'),
     quickAnswer: 'Odstraňovanie materiálu s obsahom azbestu zo stavieb patrí oprávnenej osobe. Svojpomocné rozoberanie prináša riziko expozície, pádu aj nesprávneho nakladania s odpadom. Odbornú firmu oslovte ešte pred zásahom do krytiny.',
     body: [
       ['Ušetrená demontáž môže pridať ďalšie starosti', 'Predstava býva jednoduchá: dosky zložíme sami a objednáme iba odvoz. Pri azbestovej krytine však nie je rozhodujúce len to, kto odvezie posledné vrece. Dôležitá je aj príprava pracoviska, kontrolovaná manipulácia a ochrana ľudí pri dome.\n\nPo rozbití alebo rozhádzaní dosiek sa situácia neposudzuje rovnako ako pri celej krytine na streche. Preto si postup nechajte vysvetliť skôr, než sa začne rozoberanie.'],
@@ -51,9 +54,7 @@ export const adviceArticles = [
     slug: 'kolko-stoji-likvidacia-azbestu',
     title: 'Koľko stojí likvidácia azbestu',
     description: 'Porovnávate ceny odstránenia eternitu? Pozrite sa, čo má obsahovať ponuka, prečo sa líši cena rovnakej plochy a ako funguje doprava od 100 m².',
-    image: '/og/cena-strecha-realizacia.jpg', photoId: 'azbest-134',
-    photoAlt: 'Rodinný dom s lešením pri prácach na strešnej krytine',
-    photoCaption: 'Výška a prístup k streche ovplyvňujú prípravu práce. Samotná plocha nevystihuje celú zákazku.',
+    image: '/og/cena-strecha-realizacia.jpg', ...articlePhoto('kolko-stoji-likvidacia-azbestu'),
     quickAnswer: 'Cena likvidácie azbestu závisí od plochy, materiálu, stavu, prístupu a dohodnutého rozsahu. Pre porovnanie ponúk potrebujete vedieť aj to, či zahŕňajú balenie, nakládku, odvoz, dokumentáciu a DPH. Samotná sadzba za m² nemusí byť konečná suma.',
     body: [
       ['Prečo dve rovnaké plochy nemusia stáť rovnako', 'Predstavte si nízku garáž s voľným príjazdom a vysoký dom v tesnom dvore. Aj pri rovnakej ploche krytiny sa líši prístup, manipulácia a príprava pracoviska. Ďalší rozdiel je medzi celými doskami na streche a poškodeným materiálom uloženým na viacerých miestach.\n\nPri nacenení preto nepomôže iba údaj „100 m²“. Stručný opis stavby umožní lepšie odhadnúť rozsah práce a zníži počet doplňujúcich otázok.'],
@@ -74,9 +75,7 @@ export const adviceArticles = [
     slug: 'ake-doklady-dostanete-po-likvidacii-azbestu',
     title: 'Aké doklady dostanete po likvidácii azbestu',
     description: 'Čo si dohodnúť pred odstránením azbestu a ktoré podklady si uschovať po práci? Prehľad dokumentácie, odovzdania odpadu a údajov o zákazke.',
-    image: '/og/postup.jpg', photoId: 'azbest-120',
-    photoAlt: 'Zabalený materiál vo vyznačenom priestore pri priemyselnom objekte',
-    photoCaption: 'Balenie a odovzdanie odpadu sú súčasťou postupu. Fotografia nenahrádza doklady ku konkrétnej zákazke.',
+    image: '/og/postup.jpg', ...articlePhoto('ake-doklady-dostanete-po-likvidacii-azbestu'),
     quickAnswer: 'Po likvidácii si uschovajte potvrdenie alebo súvisiacu dokumentáciu v dohodnutom rozsahu, objednávku a faktúru. Pred začiatkom si vyjasnite, ktoré podklady firma odovzdá a kedy. Rozsah sa odvíja od stavby, materiálu a vykonaných prác.',
     body: [
       ['Doklady riešte už pri objednávke', 'Otázku „čo dostanem po práci“ netreba nechávať na odchod pracovníkov. V cenovej ponuke alebo pri jej potvrdení si overte, aký rozsah sa objednáva, kto rieši podklady pred prácami a aký výstup dostanete po ukončení.\n\nAk doklad potrebujete na konkrétny účel, napríklad pre správu objektu alebo k ďalšiemu konaniu, povedzte to vopred. Firma tak môže posúdiť požadovaný obsah bez sľubu, že jeden univerzálny dokument vyrieši každú situáciu.'],
@@ -97,9 +96,7 @@ export const adviceArticles = [
     slug: 'ako-zmerat-strechu-pre-cenovu-ponuku',
     title: 'Ako zmerať strechu pre cenovú ponuku',
     description: 'Na prvú ponuku stačí bezpečný odhad výmery. Ukážeme rozdiel medzi pôdorysom a plochou krytiny aj jednoduchý príklad sedlovej strechy bez lezenia na ňu.',
-    image: '/og/homepage.jpg', photoId: 'azbest-118',
-    photoAlt: 'Drevenica so sedlovou strechou odfotografovaná zo zeme',
-    photoCaption: 'Celkový záber zo zeme ukáže tvar strechy. Kvôli výmere ani fotografii na krytinu nevstupujte.',
+    image: '/og/homepage.jpg', ...articlePhoto('ako-zmerat-strechu-pre-cenovu-ponuku'),
     quickAnswer: 'Pre prvú cenovú ponuku stačí odhad plochy krytiny v m². Najlepšie sú rozmery z projektu alebo existujúceho zamerania. Pôdorys domu nie je automaticky plocha šikmej strechy. Ak údaje nepoznáte, napíšte to; kvôli odhadu na starú krytinu nelezte.',
     body: [
       ['Začnite podkladmi, ktoré už máte', 'Pozrite sa do projektu, starého rozpočtu alebo ponuky strechára. Môže v nich byť uvedená plocha krytiny alebo rozmery jednotlivých strešných rovín. Do dopytu napíšte aj to, odkiaľ údaj pochádza.\n\nAk máte iba približné rozmery domu, pošlite ich spolu s opisom tvaru strechy. Označte, že ide o pôdorys, aby sme ho nepovažovali za zmeranú plochu krytiny.'],
@@ -120,12 +117,10 @@ export const adviceArticles = [
     slug: 'co-poslat-pre-nacenenie-likvidacie-eternitu',
     title: 'Čo poslať pre nacenenie likvidácie eternitu',
     description: 'Pripravte dopyt bez zbytočného vypisovania. Lokalita, odhad plochy, stav materiálu a prístup pomôžu pripraviť ponuku; fotky zostávajú voliteľné.',
-    image: '/og/realizacie.jpg', photoId: 'azbest-068',
-    photoAlt: 'Celkový pohľad na rodinný dom, prístupový priestor a pracovné vozidlo pri realizácii ASTANA',
-    photoCaption: 'Celkový pohľad ukáže nielen krytinu, ale aj okolie a možnosti prístupu k domu.',
+    image: '/og/realizacie.jpg', ...articlePhoto('co-poslat-pre-nacenenie-likvidacie-eternitu'),
     quickAnswer: 'Na začiatok stačí obec, približná výmera a kontakt na vás. Doplňte, či je materiál na streche alebo už zložený a či po demontáži pokračuje strechár. Fotografie nie sú povinné. Údaj, ktorý neviete, označte ako odhad alebo neznámy.',
     body: [
-      ['Tri údaje, od ktorých sa vieme odraziť', 'Obec určí lokalitu zákazky. Približná plocha pomôže odhadnúť rozsah. Kontakt potrebujeme, aby sme si mohli vyjasniť otázky a poslať ponuku. Prvý dopyt nemusí byť technická správa ani presné zameranie.\n\nVo formulári môžete doplniť typ materiálu a objektu, ale ak krytinu neviete určiť, zvoľte neznámu možnosť. Odhad s priznanou neistotou je užitočnejší než nesprávna istota.'],
+      ['Tri údaje, od ktorých sa vieme odraziť', 'Obec určí lokalitu zákazky. Približná plocha pomôže odhadnúť rozsah. Kontakt potrebujeme, aby sme si mohli vyjasniť otázky a poslať ponuku. Prvý dopyt nemusí byť technická správa ani presné zameranie.\n\nVo formulári vyberiete aj typ materiálu a objektu. Ak zloženie nepoznáte, pri materiáli zvoľte možnosť Neviem posúdiť. Približnú výmeru pokojne označte ako odhad.'],
       ['Napíšte, kde materiál je a v akom je stave', 'Rozdiel je medzi krytinou na streche, doskami na fasáde a materiálom uloženým na dvore. Pri už zložených doskách pomôže opis uloženia, približného množstva a poškodenia. Ak ide o viac budov, uveďte ich oddelene.\n\nMateriál kvôli dopytu nepripravujte rozoberaním, lámaním alebo premiestňovaním. Najprv potrebujeme poznať skutočný stav, aby sa ďalší postup neprispôsoboval už vykonanému zásahu.'],
       ['Aké fotografie pomôžu', 'Ak ich máte, vyberte celkový pohľad na objekt, detail krytiny urobený z bezpečného miesta a prístupovú cestu alebo dvor. Pri odvoze už zloženého odpadu je užitočný aj pohľad na jeho uloženie.\n\nFotografie nemusia byť profesionálne. Dôležitejšie je, aby vysvetľovali situáciu. Nevstupujte kvôli nim na strechu, nedotýkajte sa poškodeného materiálu a neposielajte zbytočne doklady či údaje nesúvisiace so zákazkou.'],
       ['Termín a prístup často rozhodnú viac než ďalšia fotka', 'Napíšte, či sa pri objekte dá zastaviť, či vedie na pozemok úzky vjazd a či je budova v prevádzke. Ak máte strechára, uveďte jeho plánovaný nástup a to, čo už máte dohodnuté.\n\nPožadovaný dátum berieme ako podklad na plánovanie. Potvrdený termín vzniká až po posúdení rozsahu, kapacity, počasia a potrebného postupu pred prácami.'],
@@ -143,9 +138,7 @@ export const adviceArticles = [
     slug: 'azbest-v-interieri-vs-exterieri',
     title: 'Azbest v interiéri a exteriéri: v čom je rozdiel',
     description: 'Strecha a technický priestor potrebujú odlišnú prípravu. Čo uviesť pri podozrení na azbest vnútri budovy a čo pri vonkajšej krytine či obklade?',
-    image: '/og/faq.jpg', photoId: 'azbest-171',
-    photoAlt: 'Pracovník v ochrannom obleku v technickom priestore s potrubnými rozvodmi',
-    photoCaption: 'Technický priestor má iné prístupové a prevádzkové podmienky než strecha. Fotodokumentácia ASTANA.',
+    image: '/og/faq.jpg', ...articlePhoto('azbest-v-interieri-vs-exterieri'),
     quickAnswer: 'Pri streche sa rieši najmä výška, prístup, počasie a nadväznosť novej krytiny. V interiéri je zásadný spôsob oddelenia pracoviska od používaných priestorov. Vhodný postup aj potrebný rozsah oprávnenia závisia od konkrétneho materiálu a stavby.',
     body: [
       ['Nestačí označiť zákazku slovom azbest', 'Pod týmto názvom sa môže skrývať strešná doska, obklad aj materiál v technickom priestore. Typ, stav a umiestnenie ovplyvňujú spôsob posúdenia. Plocha sama preto nevystihuje náročnosť dvoch odlišných zákaziek.\n\nAk zloženie nepoznáte, nepokúšajte sa ho overovať poškodením materiálu. Opíšte miesto, dostupné označenie a plánované práce. Fotografia pomôže pri orientácii, nie ako potvrdenie zloženia.'],
@@ -166,9 +159,7 @@ export const adviceArticles = [
     slug: 'odvoz-a-balenie-azbestoveho-odpadu',
     title: 'Odvoz a balenie azbestového odpadu',
     description: 'Máte eternit už zložený alebo plánujete demontáž? Zistite, čo treba posúdiť pri balení, nakládke, prístupe a odvoze bez ďalšej manipulácie svojpomocne.',
-    image: '/og/cena.jpg', photoId: 'azbest-091',
-    photoAlt: 'Zabalený materiál pri pracovnom vozidle v rámci realizácie ASTANA',
-    photoCaption: 'Záber z prípravy materiálu na odvoz. Spôsob balenia sa posudzuje podľa konkrétneho odpadu a ďalšieho nakladania.',
+    image: '/og/cena.jpg', ...articlePhoto('odvoz-a-balenie-azbestoveho-odpadu'),
     quickAnswer: 'Balenie a odvoz materiálu s obsahom azbestu sú súčasťou odborného postupu. Ak je eternit už zložený, popíšte jeho stav, množstvo, uloženie a prístup. Neprekladajte ho ani neprebaľujte kvôli dopytu; vhodný spôsob manipulácie treba najprv posúdiť.',
     body: [
       ['Demontáž a samostatný odvoz sú rôzne zadania', 'Pri celej krytine na streche ponuka počíta s jej odstránením. Pri už zloženom materiáli sa posudzuje existujúci stav a možnosti ďalšieho nakladania. Samotná veta „potrebujem odviezť eternit“ preto ešte nevystihuje rozsah zákazky.\n\nNapíšte, či sú dosky celé alebo poškodené, na koľkých miestach ležia a či je pri nich priestor na prístup. Ak pôvodnú výmeru nepoznáte, opíšte množstvo bez vymýšľania presnej hmotnosti.'],

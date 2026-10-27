@@ -2,6 +2,7 @@ import { buildPageMetadata, QuoteCTA } from '../seo-components';
 import { PublicPageShell } from '../public-layout';
 import { companyAddressLine, emailLink, phoneLink, site } from '@/src/content/site';
 import { EditorialHero, ReadingLinks } from '../editorial-components';
+import { pagePhotoId } from '@/src/content/public-photo-assignments';
 
 export const metadata = buildPageMetadata({
   title: 'Kontakt | ASTANA likvidácia azbestu a eternitu',
@@ -16,7 +17,7 @@ export default function ContactPage() {
       <main className="seo-page">
         <EditorialHero eyebrow="Dohodnime prvý krok" title="Kontaktujte ASTANA"
           lead="Riešite starú krytinu alebo odvoz eternitu? Zavolajte nám alebo pošlite obec a odhad výmery. Ak si materiálom či rozsahom nie ste istí, pomôžeme vám vyjasniť, čo potrebujeme vedieť."
-          photoId="azbest-065" photoAlt="Pracovné vozidlo ASTANA pred objektom počas realizácie"
+          photoId={pagePhotoId('/kontakt/')}
           photoCaption="ASTANA sídli v Poprade. Výjazdy po Slovensku plánujeme podľa konkrétnej zákazky.">
           <div className="hero-actions">
             <a className="button button-primary" href="/#dopyt">Odoslať dopyt</a>
