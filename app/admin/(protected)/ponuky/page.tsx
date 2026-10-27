@@ -4,6 +4,7 @@ import { csrfTokenForEmail, requireAdminUser } from '@/src/server/auth';
 import type { PriceOfferStatus } from '@/src/server/types';
 import { deletePriceOfferAction } from './actions';
 import { euro, priceOfferStatusLabels, priceOfferStatuses } from './constants';
+import { listManualPriceOffers } from '@/src/server/job-workspace-db';
 
 function displayDate(value: string, calendarDate = false) {
   if (!value || (calendarDate && !/^\d{4}-\d{2}-\d{2}$/.test(value))) return value || '—';
@@ -27,13 +28,17 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
     getPriceOfferStatusSummary(monthKey),
   ]);
   const csrfToken = csrfTokenForEmail(adminUser.email);
+  const manualStatus: Record<string, string> = { DRAFT: 'PRIPRAVENA', SENT_VERIFIED: 'ODOSLANA', ACCEPTED: 'PRIJATA', DEFERRED: 'ODLOZENA', REJECTED: 'NEUSPESNA' };
+  const manualAll = await listManualPriceOffers(adminUser, { ...(jobId ? { jobId } : {}), archived: includeArchived });
+  const manualOffers = manualAll.filter(offer => (!status || manualStatus[offer.status] === status) && (!month || (offer.issuedOn || offer.createdAt).startsWith(month)));
+  const manualMonth = manualAll.filter(offer => !offer.archivedAt && (offer.issuedOn || offer.createdAt).startsWith(monthKey));
   const conversion = summary.sent ? Math.round((summary.accepted / summary.sent) * 1000) / 10 : 0;
 
   return (
     <main className="admin-page price-offers-page">
       <div className="admin-heading price-offers-heading">
         <div><p>Obchodný prehľad</p><h1>Cenové ponuky</h1><span>Stav, odpoveď zákazníka a ďalší krok na jednom mieste.</span></div>
-        <a className="admin-primary-link" href="/admin/ponuky/nova">Nová cenová ponuka</a>
+        <div className="price-offer-action-controls"><a className="admin-row-link" href="/admin/ponuky/rucna">Zaevidovať PDF</a><a className="admin-primary-link" href="/admin/ponuky/nova">Nová cenová ponuka</a></div>
       </div>
       <section className="admin-stat-grid">
         <article><span>Ponúk v mesiaci</span><strong>{summary.created}</strong></article>
@@ -41,7 +46,7 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
         <article><span>Prijatých</span><strong>{summary.accepted}</strong><small>{conversion} %</small></article>
         <article><span>Hodnota prijatých</span><strong>{euro(summary.acceptedValue)}</strong></article>
       </section>
-      <p className="admin-muted-note">Súhrn nezahŕňa označené testovacie záznamy ani archivované ponuky. Zoznam nižšie zostáva operatívny.</p>
+      <p className="admin-muted-note">Súhrn vyššie zobrazuje ponuky vytvorené v admine bez testov a archívu. Ručne zaevidované PDF: {manualMonth.length} v zvolenom mesiaci, z toho {manualMonth.filter(o => o.status === 'ACCEPTED').length} prijatých. Obe evidencie nájdete nižšie aj v globálnom vyhľadávaní.</p>
       <section className="admin-card no-print">
         <form className="admin-filter-bar" action="/admin/ponuky" method="get">
           <label>Stav<select name="status" defaultValue={status}><option value="">Všetky</option>{priceOfferStatuses.map((item) => <option key={item} value={item}>{priceOfferStatusLabels[item]}</option>)}</select></label>
@@ -85,7 +90,8 @@ export default async function PriceOffersPage({ searchParams }: { searchParams: 
                   </td>
                 </tr>
               ))}
-              {!offers.length ? <tr><td colSpan={9}>Zatiaľ nie je vytvorená žiadna cenová ponuka.</td></tr> : null}
+              {manualOffers.map(offer => <tr key={offer.id} className={`price-offer-row is-${manualStatus[offer.status].toLowerCase()}`}><td><strong>{offer.originalNumber}</strong><small> Pôvodné PDF</small></td><td>{displayDate(offer.issuedOn || offer.createdAt)}</td><td>{offer.contactPerson}</td><td>{offer.address}</td><td>Podľa PDF</td><td>{offer.totalWithVatCents === null ? 'Na doplnenie' : euro(offer.totalWithVatCents / 100)}</td><td>Podľa PDF</td><td className="price-offer-status-cell"><span className={`status-pill status-${manualStatus[offer.status].toLowerCase()}`}>{({ DRAFT: 'Na overenie', SENT_VERIFIED: 'Odoslaná', ACCEPTED: 'Prijatá', DEFERRED: 'Odložená', REJECTED: 'Odmietnutá' })[offer.status]}</span></td><td className="price-offer-action-cell"><a className="admin-row-link price-offer-open" href={`/admin/ponuky/rucna/${offer.id}`}>Otvoriť</a></td></tr>)}
+              {!offers.length && !manualOffers.length ? <tr><td colSpan={9}>Zatiaľ nie je vytvorená žiadna cenová ponuka.</td></tr> : null}
             </tbody>
           </table>
         </div>

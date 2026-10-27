@@ -26,6 +26,7 @@ import JobForm from '../job-form';
 import OperationalJobForm from '../operational-job-form';
 import BillingPanel from './billing-panel';
 import CompletionWizard from './completion-wizard';
+import JobWorkspaceSection from './workspace-section';
 import { euro, jobStatusLabels, normalizeWorkflowStatus, numberSk, workflowStatuses } from '../constants';
 
 type AdminSessionUser = Pick<AdminUser, 'email' | 'role'>;
@@ -44,7 +45,7 @@ export default async function BusinessJobDetailPage({ params, searchParams }: {
 async function OperationalBusinessJobDetailPage({ id, adminUser, completionNotice }: { id: string; adminUser: AdminSessionUser; completionNotice?: string }) {
   const job = await getOperationalBusinessJobWithActivity(id);
   if (!job) notFound();
-  const timelineEnd = new Date(`${job.demolitionDate}T12:00:00Z`);
+  const timelineEnd = new Date(`${job.demolitionDate || job.createdAt.slice(0, 10)}T12:00:00Z`);
   timelineEnd.setUTCDate(timelineEnd.getUTCDate() + 365);
   const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoEvidenceCounts, completion] = await Promise.all([
     job.leadId ? isLeadTestData(job.leadId) : false,
@@ -90,14 +91,16 @@ async function OperationalBusinessJobDetailPage({ id, adminUser, completionNotic
         <div className="admin-action-row">
           <button type="button" className="admin-primary-link" data-print>Tlačiť / PDF</button>
           <a className="admin-primary-link" href={`/admin/ponuky/nova?zakazka=${job.id}`}>+ Vytvoriť cenovú ponuku</a>
-          <a className="admin-secondary-link" href={`/admin/planovac?zakazka=${job.id}&mesiac=${job.demolitionDate.slice(0, 7)}`}>Naplánovať akciu</a>
+          <a className="admin-secondary-link" href={`/admin/planovac?zakazka=${job.id}${job.demolitionDate ? `&mesiac=${job.demolitionDate.slice(0, 7)}` : ''}`}>Naplánovať akciu</a>
           <a className="admin-secondary-link" href={`/admin/zakazky/${job.id}/podklady`}>Balík podkladov</a>
           <a className="admin-primary-link" href="/admin/referencie">Referencie a hodnotenia</a>
         </div>
       </div>
 
+      <JobWorkspaceSection jobId={job.id} actor={adminUser} csrfToken={csrfToken} archived={Boolean(job.deletedAt)} customerName={job.customerName} location={job.location} />
+
       <section className="admin-stat-grid">
-        <article><span>Termín demontáže</span><strong>{job.demolitionDate}</strong></article>
+        <article><span>Termín demontáže</span><strong>{job.demolitionDate || 'Zatiaľ neurčený'}</strong></article>
         <article><span>Rozsah</span><strong>{numberSk(job.m2, ' m²')}</strong></article>
         <article><span>Pracovný tím</span><strong>{job.workers.map((worker) => worker.workerName).join(', ') || 'Bez tímu'}</strong></article>
         <article><span>Aktuálny stav</span><strong>{jobStatusLabels[job.status]}</strong></article>
@@ -164,7 +167,7 @@ async function SuperAdminBusinessJobDetailPage({ id, adminUser, completionNotice
   ]);
   if (!job) notFound();
   if (job.deletedAt && adminUser.role !== 'SUPER_ADMIN') notFound();
-  const timelineEnd = new Date(`${job.demolitionDate}T12:00:00Z`);
+  const timelineEnd = new Date(`${job.demolitionDate || job.createdAt.slice(0, 10)}T12:00:00Z`);
   timelineEnd.setUTCDate(timelineEnd.getUTCDate() + 365);
   const [linkedLeadIsTestData, offers, plannerActions, reviewRequests, emailDeliveries, photoEvidenceCounts] = await Promise.all([
     job.leadId ? isLeadTestData(job.leadId) : false,
@@ -221,17 +224,19 @@ async function SuperAdminBusinessJobDetailPage({ id, adminUser, completionNotice
         <div className="admin-action-row">
           <button type="button" className="admin-primary-link" data-print>Tlačiť / PDF</button>
           {!job.deletedAt ? <a className="admin-primary-link" href={`/admin/ponuky/nova?zakazka=${job.id}`}>+ Vytvoriť cenovú ponuku</a> : null}
-          {!job.deletedAt ? <a className="admin-secondary-link" href={`/admin/planovac?zakazka=${job.id}&mesiac=${job.demolitionDate.slice(0, 7)}`}>Naplánovať akciu</a> : null}
+          {!job.deletedAt ? <a className="admin-secondary-link" href={`/admin/planovac?zakazka=${job.id}${job.demolitionDate ? `&mesiac=${job.demolitionDate.slice(0, 7)}` : ''}`}>Naplánovať akciu</a> : null}
           <a className="admin-secondary-link" href={`/admin/zakazky/${job.id}/podklady`}>Balík podkladov</a>
           {!job.deletedAt ? <a className="admin-primary-link" href={reviewRequestHref}>Referencie a hodnotenia</a> : null}
         </div>
       </div>
 
+      <JobWorkspaceSection jobId={job.id} actor={adminUser} csrfToken={csrfToken} archived={Boolean(job.deletedAt)} customerName={job.customerName} location={job.location} />
+
       <section className="admin-stat-grid">
-        <article><span>Evidovaná suma</span><strong>{euro(job.totalPrice)}</strong></article>
+        <article><span>Evidovaná suma</span><strong>{job.totalPriceKnown === false ? 'Cena zatiaľ nie je doplnená' : euro(job.totalPrice)}</strong></article>
         <article><span>Zadané priame náklady</span><strong>{euro(job.costs.total)}</strong></article>
         <article><span>Odmeny</span><strong>{euro(job.rewardsTotal)}</strong></article>
-        <article><span>Orientačný rozdiel po zadaných nákladoch a odmenách</span><strong>{euro(job.grossProfit)}</strong></article>
+        <article><span>Orientačný rozdiel po zadaných nákladoch a odmenách</span><strong>{job.totalPriceKnown === false ? 'Čaká na cenu' : euro(job.grossProfit)}</strong></article>
       </section>
       <p className="admin-muted-note">Evidovaná suma nie je doklad o fakturácii ani úhrade. Náklady môžu byť neúplné; orientačný rozdiel nie je účtovný zisk. Stav „zrušená“ sa v súhrnných aktívnych hodnotách nezapočítava.</p>
 

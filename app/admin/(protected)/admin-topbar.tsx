@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
+import SearchWorkspace from './vyhladavanie/search-workspace';
 
 const crumbs = [
   { href: '/admin/asistent', label: 'Dnes' },
@@ -44,6 +45,7 @@ export default function AdminTopbar({ email, name, role, initial, csrfToken }: {
   return (
     <header className="admin-topbar">
       <span>ASTANA CRM / {activeCrumb(pathname)}</span>
+      {role === 'SUPER_ADMIN' || role === 'OPERATOR' ? <SearchWorkspace compact csrfToken={csrfToken} role={role} /> : null}
       <div className="admin-topbar-actions">
         <div className="admin-user-chip">
           <small>Prihlásený ako:</small>

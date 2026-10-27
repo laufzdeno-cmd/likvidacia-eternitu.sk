@@ -21,7 +21,6 @@ import {
 import { sendPlannerNotificationEmail, sendPriceOfferDocumentEmail } from '@/src/server/mail';
 import { renderPriceOfferPdf } from '@/src/server/price-offer-pdf';
 import { validatePriceOfferNote } from '@/src/lib/price-offer-note';
-import { roundTripDistanceKm } from '@/src/lib/price-offer-distance';
 import { isValidIsoCalendarDate, slovakCalendarDateAfterDays } from '@/src/lib/date-only';
 import type { PriceOfferInput, PriceOfferMaterialType, PriceOfferStatus } from '@/src/server/types';
 import { evaluatePriceOfferPreflight, isPriceOfferLeadStatusOpen, priceOfferApprovalFingerprint } from '@/src/server/price-offer-preflight';
@@ -96,23 +95,7 @@ export async function calculateTransportDistanceAction(formData: FormData): Prom
   if (!origin || !destination || origin.length > 250 || destination.length > 250) {
     return { error: 'Vyplňte platné miesto odchodu a cieľ cesty.' };
   }
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY?.trim();
-  if (!apiKey) return { error: 'Automatický výpočet kilometrov nie je nastavený. Kilometre môžete zadať ručne.' };
-  try {
-    const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': 'routes.distanceMeters' },
-      body: JSON.stringify({ origin: { address: origin }, destination: { address: destination }, travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE', units: 'METRIC' }),
-      signal: AbortSignal.timeout(8000),
-      cache: 'no-store',
-    });
-    if (!response.ok) return { error: 'Mapy nevedeli vypočítať trasu. Skontrolujte adresy alebo zadajte kilometre ručne.' };
-    const data = await response.json() as { routes?: Array<{ distanceMeters?: number }> };
-    const distanceKm = roundTripDistanceKm(data.routes?.[0]?.distanceMeters);
-    return distanceKm === null ? { error: 'Pre túto trasu sa nepodarilo získať použiteľnú vzdialenosť. Kilometre môžete zadať ručne.' } : { distanceKm };
-  } catch {
-    return { error: 'Výpočet trasy sa nepodaril. Kilometre môžete zadať ručne.' };
-  }
+  return { error: 'Kilometre zadajte ručne. Presné adresy zákazníkov neposielame externej mapovej službe.' };
 }
 
 export async function savePriceOfferAction(formData: FormData) {

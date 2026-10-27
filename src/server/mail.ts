@@ -681,10 +681,10 @@ export async function sendLeadEmailToRecipient(
   }
 }
 
-export async function sendPlannerNotificationEmail(input: { to: string; subject: string; html: string; text: string; replyTo?: string }) {
+export async function sendPlannerNotificationEmail(input: { to: string; subject: string; html: string; text: string; replyTo?: string; purpose?: 'JOB_AUTHORITY' }) {
   let client: ReturnType<typeof transporter>;
   try {
-    client = transporter();
+    client = transporter({ applicationNotification: input.purpose === 'JOB_AUTHORITY' });
   } catch (error) {
     const status = classifySmtpError(error);
     return { sent: false, status, messageId: '', reason: mailErrorMessage(error) };
@@ -694,7 +694,7 @@ export async function sendPlannerNotificationEmail(input: { to: string; subject:
   try {
     const requiredRecipient = resolveOutboundEmailRecipient(input.to);
     const info = await client.sendMail({
-      from: namedFromHeader('ASTANA plánovač'),
+      from: namedFromHeader(input.purpose === 'JOB_AUTHORITY' ? 'ASTANA zákazky' : 'ASTANA plánovač'),
       to: requiredRecipient,
       replyTo: input.replyTo || leadRecipient(),
       subject: input.subject,

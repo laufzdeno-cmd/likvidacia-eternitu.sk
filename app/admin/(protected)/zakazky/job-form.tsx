@@ -19,23 +19,12 @@ function round2(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-function todayInBratislava() {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Europe/Bratislava',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date());
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
-}
-
 export default function JobForm({ workers, landfillPrices, defaultPricePerM2, job }: Props) {
   const availableStatuses = job?.status === 'DOKONCENA' ? jobStatuses : jobStatuses.filter((status) => status !== 'DOKONCENA');
   const initialWorkerIds = job?.workers.map((worker) => worker.workerId) ?? [];
   const [m2, setM2] = useState(job?.m2 ?? 0);
   const [pricePerM2, setPricePerM2] = useState(job?.pricePerM2 ?? defaultPricePerM2);
-  const [date, setDate] = useState(job?.demolitionDate ?? todayInBratislava());
+  const [date, setDate] = useState(job?.demolitionDate ?? '');
   const [wasteKg, setWasteKg] = useState(job?.wasteKg ?? 0);
   const [landfill, setLandfill] = useState(job?.landfill ?? 'MOCHOVCE');
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(initialWorkerIds);
@@ -51,14 +40,16 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
   });
 
   const landfillCost = useMemo(() => {
-    if (!wasteKg || landfill === 'INA') return { value: 0, missing: false };
+    if (!wasteKg || landfill === 'INA') return { value: 0, missing: false, missingDate: false };
+    if (!date) return { value: job?.costs.landfillCost ?? 0, missing: false, missingDate: true };
     const year = new Date(date).getFullYear();
     const price = landfillPrices.find((item) => item.year === year && item.landfill === landfill);
-    if (!price) return { value: 0, missing: true };
-    return { value: (wasteKg / 1000) * price.pricePerTon, missing: false };
-  }, [date, landfill, landfillPrices, wasteKg]);
+    if (!price) return { value: 0, missing: true, missingDate: false };
+    return { value: (wasteKg / 1000) * price.pricePerTon, missing: false, missingDate: false };
+  }, [date, landfill, landfillPrices, wasteKg, job?.costs.landfillCost]);
 
-  const totalPrice = m2 * pricePerM2;
+  const priceOverridden = Boolean(job?.priceOverridden || job?.leadSource === 'manual_pdf');
+  const totalPrice = job?.totalPriceKnown === false ? null : priceOverridden ? job?.totalPrice ?? null : m2 * pricePerM2;
   const share = selectedWorkers.length ? round2(m2 / selectedWorkers.length) : 0;
   const rewards = selectedWorkers.map((workerId) => {
     const worker = workers.find((item) => item.id === workerId);
@@ -70,8 +61,8 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
   });
   const rewardTotal = rewards.reduce((sum, item) => sum + item.reward, 0);
   const costsTotal = costs.fuel + costs.suits + costs.gloves + costs.penetrant + costs.otherAmount + landfillCost.value;
-  const grossProfit = totalPrice - rewardTotal - costsTotal;
-  const margin = totalPrice ? (grossProfit / totalPrice) * 100 : 0;
+  const grossProfit = totalPrice === null ? null : totalPrice - rewardTotal - costsTotal;
+  const margin = totalPrice && grossProfit !== null ? (grossProfit / totalPrice) * 100 : null;
 
   return (
     <div className="business-form">
@@ -79,7 +70,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
       <section className="admin-card">
         <h2>Základné údaje</h2>
         <div className="admin-quote-form">
-          <label>Dátum demontáže<input name="demolitionDate" type="date" value={date} onChange={(event) => setDate(event.target.value)} required /></label>
+          <label>Skutočný deň realizácie<input name="demolitionDate" type="date" value={date} readOnly={Boolean(job?.actualDateOverridden)} onChange={(event) => setDate(event.target.value)} /><small>{job?.actualDateOverridden ? 'Skutočný deň upravíte v pracovnej karte v časti Plánovanie. Táto hodnota je s ňou prepojená.' : 'Ak ešte neprebehla, nechajte prázdne. Plánované dni patria do pracovnej karty.'}</small></label>
           <label>Meno zákazníka<input name="customerName" defaultValue={job?.customerName} required /></label>
           <label>Telefón zákazníka<input name="customerPhone" defaultValue={job?.customerPhone} /></label>
           <label>Email zákazníka<input name="customerEmail" type="email" defaultValue={job?.customerEmail} /></label>
@@ -96,9 +87,9 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
       <section className="admin-card">
         <h2>Rozsah a cena</h2>
         <div className="admin-quote-form">
-          <label>m2<input name="m2" type="number" step="0.01" value={m2 || ''} onChange={(event) => setM2(n(event.target.value))} required /></label>
-          <label>Cena za m2<input name="pricePerM2" type="number" step="0.01" value={pricePerM2 || ''} onChange={(event) => setPricePerM2(n(event.target.value))} required /></label>
-          <label>Evidovaná cena zákazky<input readOnly value={euro(totalPrice)} /></label>
+          <label>Výmera (m²)<input name="m2" type="number" min="0" step="0.01" value={m2 || ''} onChange={(event) => setM2(n(event.target.value))} required={!priceOverridden} /></label>
+          <label>Cena za m²<input name="pricePerM2" type="number" min="0" step="0.01" value={pricePerM2 || ''} onChange={(event) => setPricePerM2(n(event.target.value))} required={!priceOverridden} /></label>
+          <label>Evidovaná cena zákazky<input readOnly value={totalPrice === null ? 'Cena zatiaľ nie je doplnená' : euro(totalPrice)} />{priceOverridden ? <small>Cena vychádza z potvrdenej dohody / pôvodnej ponuky. Výmera a sadzba ju neprepisujú; upravíte ju vo vyúčtovaní pracovnej karty.</small> : null}</label>
           <fieldset><legend>Dohodnutý spôsob vyúčtovania</legend>{paymentTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="paymentType" value={type} defaultChecked={(job?.paymentType ?? 'FAKTURA') === type} /> {paymentLabels[type]}</label>)}<small>Nejde o potvrdenie prijatej úhrady.</small></fieldset>
           <fieldset><legend>Typ práce</legend>{workTypes.map((type) => <label className="admin-checkbox" key={type}><input type="radio" name="workType" value={type} defaultChecked={(job?.workType ?? 'DEMONTAZ_A_ODVOZ') === type} /> {workTypeLabels[type]}</label>)}</fieldset>
         </div>
@@ -112,6 +103,7 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
           <label>Náklad skládky €<input name="landfillCost" readOnly value={landfillCost.value.toFixed(2)} /></label>
         </div>
         {landfillCost.missing ? <p className="admin-alert">⚠ chýba cena skládky pre rok {new Date(date).getFullYear()}.</p> : null}
+        {landfillCost.missingDate ? <p className="admin-alert">Najprv doplňte skutočný deň realizácie pre výpočet nákladu skládky. Doteraz zaevidovaná suma zostáva zachovaná.</p> : null}
       </section>
 
       <section className="admin-card">
@@ -175,11 +167,11 @@ export default function JobForm({ workers, landfillPrices, defaultPricePerM2, jo
       <section className="admin-card">
         <h2>Orientačný prepočet</h2>
         <dl className="admin-dl">
-          <dt>Evidovaná cena</dt><dd>{euro(totalPrice)}</dd>
+          <dt>Evidovaná cena</dt><dd>{totalPrice === null ? 'Cena zatiaľ nie je doplnená' : euro(totalPrice)}</dd>
           <dt>Odmeny</dt><dd>{euro(rewardTotal)}</dd>
           <dt>Náklady</dt><dd>{euro(costsTotal)}</dd>
-          <dt>Rozdiel po zadaných nákladoch a odmenách</dt><dd>{euro(grossProfit)}</dd>
-          <dt>Podiel orientačného rozdielu k evidovanej cene</dt><dd>{margin.toFixed(1)} %</dd>
+          <dt>Rozdiel po zadaných nákladoch a odmenách</dt><dd>{grossProfit === null ? 'Čaká na doplnenie ceny' : euro(grossProfit)}</dd>
+          <dt>Podiel orientačného rozdielu k evidovanej cene</dt><dd>{margin === null ? 'Čaká na doplnenie ceny' : `${margin.toFixed(1)} %`}</dd>
         </dl>
         <label>Poznámka<textarea name="note" rows={4} defaultValue={job?.note} /></label>
       </section>

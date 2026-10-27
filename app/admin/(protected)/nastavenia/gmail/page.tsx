@@ -1,0 +1,14 @@
+import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
+import { listOperationalBusinessJobs } from '@/src/server/db';
+import { getJobMailAdminView } from '@/src/server/job-mail-service';
+import { GmailConfiguration, GmailMessageReview, GmailSingleAction } from './gmail-workspace';
+
+export default async function GmailWorkspacePage({ searchParams }: { searchParams: Promise<{ page?: string; review?: string }> }) {
+  const actor = await requireSuperAdmin();
+  const params = await searchParams;
+  const page = Math.max(1, Number(params.page) || 1);
+  const review = params.review === 'LINKED' || params.review === 'IGNORED' || params.review === 'ALL' ? params.review : 'PENDING';
+  const [view, jobs] = await Promise.all([getJobMailAdminView(actor, { page, pageSize: 20, review: review === 'ALL' ? undefined : review }), listOperationalBusinessJobs({ limit: null, excludeTestData: true })]);
+  const csrfToken = csrfTokenForEmail(actor.email);
+  return <main className="admin-page"><header className="admin-heading"><div><p>Súkromná komunikácia</p><h1>Gmail a zákazky</h1><span>Kontrolované priradenie ponúk a komunikácie. Žiadne automatické odosielanie ani potvrdenie zákazky.</span></div><a href="/admin/nastavenia">Nastavenia</a></header>{!view.verificationReady || !view.oauthConfigured ? <p className="work-notice is-warning">Čítanie zostáva vypnuté, kým nie je potvrdené overenie Google a oficiálne pripojenie povoleného účtu. Ručný import PDF a zákazkové karty fungujú samostatne.</p> : null}<GmailConfiguration config={view.configuration} csrfToken={csrfToken} ready={view.verificationReady && view.oauthConfigured} /><h2>Kontrola správ · čaká {view.pending}</h2><GmailSingleAction csrfToken={csrfToken} task="sync" label={view.hasMoreHistory ? 'Načítať ďalšiu dávku správ' : 'Skontrolovať nové správy'} disabled={!view.configuration.enabled} /><p>Priradenie nemení ponuku na odoslanú ani prijatú. Dôkaz odoslania a prijatie sa potvrzuje na karte ponuky.</p><form className="admin-filter-bar" method="get"><label>Stav kontroly<select name="review" defaultValue={review}><option value="PENDING">Na kontrolu</option><option value="LINKED">Priradené</option><option value="IGNORED">Vynechané</option><option value="ALL">Všetky</option></select></label><button>Filtrovať</button></form><p>Spolu {view.total} správ · strana {view.page} z {view.totalPages}</p>{view.messages.map(message => <GmailMessageReview message={message} key={message.id} csrfToken={csrfToken} jobs={jobs.map(job => ({ id: job.id, name: job.customerName, location: job.location }))} />)}<nav className="crm-search-paging" aria-label="Stránky firemných správ">{view.page > 1 ? <a href={`/admin/nastavenia/gmail?page=${view.page - 1}&review=${review}`}>← Predchádzajúca</a> : null}{view.page < view.totalPages ? <a href={`/admin/nastavenia/gmail?page=${view.page + 1}&review=${review}`}>Ďalšia →</a> : null}</nav></main>;
+}

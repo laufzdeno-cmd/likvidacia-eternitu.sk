@@ -40,6 +40,10 @@ function readyEnvironment() {
     CONVERSION_EVENT_SECRET: 'conversion-secret',
     CRON_SECRET: 'cron-secret',
     GOOGLE_MAPS_API_KEY: 'maps-key',
+    GMAIL_OAUTH_CLIENT_ID: 'synthetic-client-id',
+    GMAIL_OAUTH_CLIENT_SECRET: 'synthetic-client-secret',
+    GMAIL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 8).toString('base64'),
+    GMAIL_ALLOWED_ACCOUNT_EMAIL: 'mail@example.test',
     PHOTO_INTAKE_BLOB_RESOURCE_ID: 'store_photoproduction',
     PHOTO_INTAKE_BLOB_STORE_ID: 'store_PhotoProduction',
     PHOTO_INTAKE_PRIVATE_STORE_VERIFIED: 'true',
@@ -127,7 +131,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
 
   const health = getRuntimeFeatureHealth(environment);
   assert.equal(health.conversion.level, 'warning');
-  assert.equal(health.routeDistance.level, 'warning');
+  assert.equal(health.routeDistance.level, 'disabled');
   assert.equal(health.leadRetention.level, 'disabled');
   assert.equal(health.careerRetention.level, 'disabled');
   assert.equal(health.photoIntake.level, 'warning');
@@ -142,7 +146,7 @@ test('runtime feature health is fail-closed and returns no environment values', 
 test('runtime feature health reports only exact complete production bindings as ready', () => {
   const environment = readyEnvironment();
   const health = getRuntimeFeatureHealth(environment);
-  for (const [name, feature] of Object.entries(health)) assert.equal(feature.level, 'ok', name);
+  for (const [name, feature] of Object.entries(health)) assert.equal(feature.level, name === 'routeDistance' ? 'disabled' : 'ok', name);
 
   const preview = getRuntimeFeatureHealth({ ...environment, VERCEL_ENV: 'preview' });
   assert.equal(preview.leadRetention.level, 'disabled');
@@ -160,7 +164,7 @@ test('runtime feature health reports only exact complete production bindings as 
   assert.equal(missingWorkerAuthorization.careerRetention.level, 'warning');
   assert.equal(missingWorkerAuthorization.photoIntake.level, 'warning');
   assert.equal(missingWorkerAuthorization.operationsAlert.level, 'warning');
-  assert.equal(missingWorkerAuthorization.routeDistance.level, 'ok');
+  assert.equal(missingWorkerAuthorization.routeDistance.level, 'disabled');
 
   const whitespaceWorkerAuthorization = getRuntimeFeatureHealth({ ...environment, CRON_SECRET: 'cron-secret ' });
   assert.equal(whitespaceWorkerAuthorization.leadRetention.level, 'warning');

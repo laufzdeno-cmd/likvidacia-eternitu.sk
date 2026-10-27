@@ -6664,3 +6664,23 @@ body .admin-main .admin-page .admin-card,
 .admin-topbar-logout { min-height: 36px; padding: 7px 13px; border: 1px solid #8fb3cb; border-radius: 9px; background: #f0f8fc; color: #163e57; font: inherit; font-weight: 800; cursor: pointer; }
 .admin-topbar-logout:hover { border-color: #2776aa; background: #e0f1fa; color: #12374f; }
 .admin-topbar-logout:focus-visible { outline: 3px solid #197fc0; outline-offset: 2px; }
+
+/* Private CRM search: labels stay readable, results never stretch the header. */
+.crm-top-search { position: relative; flex: 1 1 400px; min-width: 220px; max-width: 540px; }
+.crm-top-search .intelligence-search { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.crm-top-search .intelligence-search > label { font-size: 12px; line-height: 1.4; color: #28465e; }
+.crm-top-search .intelligence-search > div { display: flex; gap: 6px; }
+.crm-top-search .intelligence-search input { min-width: 0; width: 100%; min-height: 38px; padding: 7px 10px; font-size: 14px; }
+.crm-top-search .intelligence-search button { min-height: 38px; padding: 7px 12px; font-size: 13px; }
+.crm-top-search-results { position: absolute; top: calc(100% + 10px); left: 0; width: min(650px, 85vw); max-height: 70vh; overflow-y: auto; z-index: 60; padding: 16px; border: 1px solid #93b6cd; border-radius: 16px; background: #fff; color: #163c55; box-shadow: 0 12px 32px #1769aa22; }
+.crm-top-search-results .admin-card { margin: 12px 0; padding: 14px; }
+.crm-top-search-results .intelligence-result-row { gap: 10px; flex-wrap: wrap; }
+.crm-top-search-results strong, .crm-top-search-results small { overflow-wrap: anywhere; }
+.crm-search-close { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.crm-search-close button { background: #e8f4ff; border: 1px solid #8caec9; border-radius: 8px; color: #164a6f; padding: 3px 12px; font-size: 22px; }
+.admin-page .crm-search-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 18px 0; }
+.crm-search-filters label { display: grid; gap: 6px; font-size: 13px; }
+.crm-search-filters input, .crm-search-filters select { width: 100%; min-width: 0; }
+.crm-search-paging { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+@media (max-width: 1000px) { .admin-topbar { flex-wrap: wrap; gap: 12px; } .crm-top-search { order: 3; max-width: none; flex-basis: 100%; } .crm-top-search-results { width: 100%; } }
+@media (max-width: 420px) { .crm-top-search { min-width: 0; } .crm-top-search-results { padding: 10px; } }

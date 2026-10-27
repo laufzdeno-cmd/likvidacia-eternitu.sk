@@ -92,17 +92,16 @@ export default function DraftComposer({
           />
         </label>
         <p className="admin-muted-note">
-          Meno z osobitného poľa sa AI neposiela. Server odstráni rozpoznané formáty e-mailu, telefónu, PSČ,
-          odkazu a niektorých presných adries, no automatická redakcia nemôže zachytiť všetko. Do faktov preto
-          nevkladajte mená, celé adresy, evidenčné čísla, rodné čísla, heslá, platobné, zdravotné ani iné osobné údaje.
+          Návrh vzniká iba z miestnej šablóny. Obsah sa neposiela externému AI. Vkladajte len údaje potrebné
+          pre konkrétnu odpoveď a pred použitím skontrolujte správnosť textu aj adresáta.
         </p>
-        <button
+        {providerReady ? <button
           className="admin-primary-button"
           type="submit"
           disabled={!providerReady || aiPending || facts.trim().length < 3}
         >
           {aiPending ? 'AI pripravuje návrh…' : 'Vylepšiť pomocou AI'}
-        </button>
+        </button> : null}
         {aiState.message ? (
           <p className={`work-notice ${aiState.ok ? 'is-success' : 'is-warning'}`} role="status">
             {aiState.message}

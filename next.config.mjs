@@ -34,8 +34,10 @@ const privateActionHeaders = [
 const nextConfig = {
   compress: true,
   poweredByHeader: false,
-  serverExternalPackages: ['pdfkit', '@sparticuz/chromium', 'puppeteer-core'],
+  serverExternalPackages: ['pdfkit', 'pdfjs-dist', '@sparticuz/chromium', 'puppeteer-core'],
   outputFileTracingIncludes: {
+    '/api/admin/job-workspace/*': ['./node_modules/pdfjs-dist/package.json', './node_modules/pdfjs-dist/legacy/build/pdf.mjs', './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
+    '/admin/nastavenia/gmail': ['./node_modules/pdfjs-dist/package.json', './node_modules/pdfjs-dist/legacy/build/pdf.mjs', './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs'],
     '/*': [
       './node_modules/@sparticuz/chromium/bin/**/*',
       './node_modules/@puppeteer/browsers/package.json',

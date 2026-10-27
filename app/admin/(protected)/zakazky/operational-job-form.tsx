@@ -7,13 +7,15 @@ export default function OperationalJobForm({ job }: { job: OperationalBusinessJo
     <div className="business-form">
       <input type="hidden" name="id" value={job.id} />
       <div className="admin-quote-form">
-        <label>Dátum demontáže<input name="demolitionDate" type="date" defaultValue={job.demolitionDate} required /></label>
+        <label>Skutočný deň realizácie<input name="demolitionDate" type="date" defaultValue={job.demolitionDate} readOnly={Boolean(job.actualDateOverridden)} /><small>{job.actualDateOverridden ? 'Skutočný deň upravíte v pracovnej karte v časti Plánovanie. Táto hodnota je s ňou prepojená.' : 'Predbežný a dohodnutý termín patria do pracovnej karty vyššie.'}</small></label>
         <label>Meno zákazníka<input name="customerName" defaultValue={job.customerName} maxLength={160} required /></label>
         <label>Telefón zákazníka<input name="customerPhone" defaultValue={job.customerPhone} maxLength={60} /></label>
         <label>Email zákazníka<input name="customerEmail" type="email" defaultValue={job.customerEmail} maxLength={254} /></label>
         <label>Lokalita<input name="location" defaultValue={job.location} maxLength={240} required /></label>
         <label>Okres<input name="district" defaultValue={job.district} maxLength={120} /></label>
         <label>Typ materiálu<input name="materialType" defaultValue={job.materialType} maxLength={160} /></label>
+        <label>Evidovaná výmera (m²)<input name="m2" type="number" min="0" max="1000000000" step="0.01" defaultValue={job.m2} /><small>Viac materiálov a plán / skutočnosť doplníte v pracovnej karte.</small></label>
+        <label>Evidovaná hmotnosť (kg)<input name="wasteKg" type="number" min="0" max="1000000000" step="0.01" defaultValue={job.wasteKg} /></label>
         <label>Typ objektu<input name="objectType" defaultValue={job.objectType} maxLength={160} /></label>
         <label>Termín<input name="term" defaultValue={job.term} maxLength={160} /></label>
         <label>Preferovaný kontakt<input name="preferredContact" defaultValue={job.preferredContact} maxLength={160} /></label>

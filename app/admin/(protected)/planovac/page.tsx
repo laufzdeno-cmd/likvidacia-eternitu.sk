@@ -3,6 +3,9 @@ import { listBusinessJobs, listOperationalBusinessJobs, listOperationalWorkers, 
 import { findPlannerCollisions } from '@/src/lib/admin-operations';
 import PlannerForm, { type PlannerJobOption } from './planner-form';
 import PrintButton from './print-button';
+import { getJobWorkspace, listJobWorkspaceOperationalSummaries } from '@/src/server/job-workspace-db';
+import workspaceStyles from './planner-workspace.module.css';
+import { findWorkspaceCapacityWarnings } from '@/src/lib/job-workspace-planner';
 
 const typeLabels = {
   DEMONTAZ: 'Demontáž', ODVOZ: 'Odvoz', DOKUMENTACIA: 'Dokumentácia', INE: 'Iné',
@@ -82,12 +85,24 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
     ? preselectedJob!.demolitionDate.slice(0, 7)
     : undefined;
   const meta = monthMeta(params?.mesiac || preselectedMonth);
-  const actions = await listPlannerActions({ from: dateKey(meta.from), to: dateKey(meta.to) });
+  const [actions, workspacePlans, selectedWorkspace] = await Promise.all([
+    listPlannerActions({ from: dateKey(meta.from), to: dateKey(meta.to) }),
+    listJobWorkspaceOperationalSummaries(adminUser, { from: dateKey(meta.from), to: dateKey(meta.to) }),
+    preselectedJob ? getJobWorkspace(preselectedJob.id, adminUser) : null,
+  ]);
+  const workspaceEvents = workspacePlans.flatMap((workspace) => {
+    const plan = workspace.operations.plan;
+    const date = plan.actualOn || plan.agreedOn || plan.tentativeOn;
+    if (!date || date < dateKey(meta.from) || date > dateKey(meta.to)) return [];
+    if (actions.some((action) => action.jobId === workspace.jobId && action.date === date && !['ZRUSENA', 'PRESUNUTA'].includes(action.status))) return [];
+    return [{ ...workspace, date, state: plan.actualOn ? 'actual' : plan.agreedOn ? 'agreed' : 'tentative' }];
+  });
   const editAction = actions.find((action) => action.id === editId);
   const selectedJob = editAction?.jobId ? jobs.find((job) => job.id === editAction.jobId) : preselectedJob;
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Bratislava', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
   const weather = await weatherFor(selectedJob?.district || '', editAction?.date || selectedJob?.demolitionDate || today);
   const collisions = findPlannerCollisions(actions);
+  const capacityWarnings = findWorkspaceCapacityWarnings(workspacePlans);
   const collisionActionIds = new Set(collisions.flatMap((collision) => [collision.actionId, collision.conflictingActionId]));
   const days = Array.from({ length: Math.round((meta.to.getTime() - meta.from.getTime()) / 86_400_000) + 1 }, (_, index) => {
     const date = new Date(meta.from);
@@ -97,6 +112,8 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
   const jobOptions: PlannerJobOption[] = jobs.map((job) => ({
     id: job.id, customerName: job.customerName, customerEmail: job.customerEmail, customerPhone: job.customerPhone,
     location: job.location, district: job.district, demolitionDate: job.demolitionDate, workerNames: job.workers.map((worker) => worker.workerName),
+    plannedDate: (job.id === selectedJobId ? selectedWorkspace : workspacePlans.find((workspace) => workspace.jobId === job.id))?.operations.plan.agreedOn
+      || (job.id === selectedJobId ? selectedWorkspace : workspacePlans.find((workspace) => workspace.jobId === job.id))?.operations.plan.tentativeOn || '',
   }));
   const baseQuery = selectedJobId ? `&zakazka=${selectedJobId}` : '';
 
@@ -117,17 +134,27 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
         <div><span>Kolízie tímu</span><h2 id="planner-collisions">{collisions.length} prekrývajúcich sa priradení</h2></div>
         <ul>{collisions.slice(0, 6).map((collision) => <li key={`${collision.actionId}-${collision.conflictingActionId}-${collision.worker}`}><strong>{collision.worker}</strong> · {collision.date} · {collision.detail}</li>)}</ul>
       </section> : <p className="ops-alert ops-alert-success no-print"><strong>Bez kolízie pracovníkov.</strong> Aktívne termíny v zobrazenom mesiaci sa neprekrývajú.</p>}
+      {capacityWarnings.length ? <section className={`ops-alert ${capacityWarnings.some((warning) => warning.certainty === 'OVERLAP') ? 'ops-alert-danger' : 'ops-alert-warning'} no-print`} aria-labelledby="workspace-capacity-title"><div><span>Kapacity v pracovných kartách</span><h2 id="workspace-capacity-title">Preverte autá a posádku · {capacityWarnings.length}</h2></div><ul>{capacityWarnings.slice(0, 12).map((warning, index) => <li key={`${warning.firstJobId}-${warning.secondJobId}-${warning.resourceId}-${index}`}><strong>{warning.resource === 'VEHICLE' ? `Vozidlo ${warning.resourceId}` : workers.find((worker) => worker.id === warning.resourceId)?.name || 'Pracovník'}</strong> · {warning.date} · <a href={`/admin/zakazky/${warning.firstJobId}#karta-planovanie`}>{warning.firstNumber}</a> a <a href={`/admin/zakazky/${warning.secondJobId}#karta-planovanie`}>{warning.secondNumber}</a> · {warning.certainty === 'OVERLAP' ? 'zadané časy sa prekrývajú' : 'dve zákazky v deň; presné časy ešte treba porovnať'}</li>)}</ul><p>Upozornenie používa ručne pridelené vozidlá a posádku. Neurčuje dojazd ani trasu medzi zákazkami.</p></section> : null}
 
       <section className="admin-card no-print ops-panel">
         <div className="ops-section-heading">
           <div><span>{editAction ? 'Úprava' : 'Nový termín'}</span><h2>{editAction ? `${typeLabels[editAction.type]} · ${editAction.date}` : 'Naplánovať akciu'}</h2></div>
           <p>Výber zákazky automaticky doplní adresu, kontakt, dátum a tím. Počasie sa vyhľadáva iba podľa okresu; presná adresa neopustí admin.</p>
         </div>
+        {selectedWorkspace ? <div className={workspaceStyles.summary}>
+          <h3>{selectedWorkspace.number} · Príprava posádky</h3>
+          <p>{selectedWorkspace.operations.workType === 'ODVOZ' ? 'Samostatný odvoz z pozemku' : selectedWorkspace.operations.workType === 'DEMONTAZ' ? 'Demontáž' : 'Demontáž s odvozom'} · ľudia {selectedWorkspace.operations.plan.plannedCrewCount ?? '?'} · autá {selectedWorkspace.operations.plan.plannedVehicleCount ?? '?'}{selectedWorkspace.operations.plan.confirmedCapacityKg !== null ? ` · potvrdená nosnosť ${selectedWorkspace.operations.plan.confirmedCapacityKg} kg` : ''}</p>
+          {selectedWorkspace.operations.materials.length ? <ul>{selectedWorkspace.operations.materials.map((material) => <li key={material.id}>{material.label || ({ VLNITY_ETERNIT:'Vlnitý eternit', HLADKY_ETERNIT:'Hladký eternit', INTERIER:'Interiér', AZBESTOVE_RURY:'Azbestové rúry', VZDUCHOTECHNIKA:'Vzduchotechnika', INE:'Iný materiál' }[material.kind])} · {material.plannedQuantity ?? '?'} {({ M2:'m²', M:'m', KS:'ks', KG:'kg' }[material.unit])} · hmotnosť {material.plannedKg === null ? 'neurčená' : `${material.plannedKg} kg`}</li>)}</ul> : <p>Materiály a hmotnosť ešte treba doplniť.</p>}
+          {selectedWorkspace.operations.plan.accessNote ? <p>Prístup: {selectedWorkspace.operations.plan.accessNote}</p> : null}
+          <a href={`/admin/zakazky/${selectedWorkspace.jobId}#karta-planovanie`}>Upraviť pracovnú kartu a pokyny</a>
+        </div> : null}
         <PlannerForm csrfToken={csrfTokenForEmail(adminUser.email)} jobs={jobOptions} workerNames={workers.map((worker) => worker.name)} selectedJobId={selectedJobId} editAction={editAction} month={meta.key} today={today} weatherSummary={weatherText(weather)} />
       </section>
 
       <section className="admin-card planner-calendar no-print ops-panel">
         <div className="ops-section-heading"><div><span>Kalendár</span><h2>{meta.title}</h2></div><p>Kliknutím na akciu otvoríte jej úpravu. Červený lem znamená kolíziu pracovníka.</p></div>
+        <div className={workspaceStyles.legend}><span>Predbežný termín karty</span><span>Dohodnutý termín karty</span><span>Skutočný deň</span></div>
+        <p className="admin-muted-note">Termíny z kariet bez samostatnej akcie majú prerušovaný lem. Posádku a presný čas rezervujte cez konkrétnu akciu; viac zákaziek v jeden deň je podporovaných.</p>
         <div className="planner-grid planner-weekdays">{['Po', 'Ut', 'St', 'Št', 'Pi', 'So', 'Ne'].map((day) => <strong key={day}>{day}</strong>)}</div>
         <div className="planner-grid">
           {days.map((day) => {
@@ -141,6 +168,7 @@ export default async function PlannerPage({ searchParams }: { searchParams?: Pro
                     <b>{action.timeFrom}</b> {typeLabels[action.type]}<br /><small>{action.address}</small>
                   </a>
                 ))}
+                {workspaceEvents.filter((event) => event.date === key).map((event) => <a key={event.jobId} className={workspaceStyles.event} data-state={event.state} href={`/admin/zakazky/${event.jobId}#karta-planovanie`}><strong>{event.state === 'tentative' ? 'Predbežne' : event.state === 'actual' ? 'Realizované' : 'Dohodnuté'} · {event.operations.workType === 'ODVOZ' ? 'Odvoz' : 'Demontáž'}</strong>{event.customerName}<small>{event.location} · {event.operations.plan.plannedVehicleCount ?? '?'} áut</small></a>)}
               </article>
             );
           })}

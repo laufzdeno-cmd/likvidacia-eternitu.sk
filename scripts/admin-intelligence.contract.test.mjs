@@ -4,25 +4,21 @@ import test from 'node:test';
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('global search queries complete database tables, caps projections and gates finance by role', async () => {
-  const [service, database] = await Promise.all([
-    read('src/server/admin-intelligence.ts'),
-    read('src/server/db.ts'),
+test('global search has multiword paging, explicit safe projections and role-gated finance', async () => {
+  const [service, database, search] = await Promise.all([
+    read('src/server/admin-intelligence.ts'), read('src/server/db.ts'), read('src/server/job-workspace-search.ts'),
   ]);
-  assert.match(service, /searchAdminData\(q, role === 'SUPER_ADMIN'\)/);
-  const start = database.indexOf('export async function searchAdminData');
-  const end = database.indexOf('export type PriceOfferStatusSummary', start);
-  assert.ok(start >= 0 && end > start, 'DB-backed admin search export must exist');
-  const source = database.slice(start, end);
-  for (const table of ['FROM leads l', 'FROM business_jobs j', 'FROM price_offers o', 'FROM review_requests r', 'FROM business_job_invoices invoice']) {
-    assert.match(source, new RegExp(table));
-  }
-  assert.ok((source.match(/LIMIT 20/g) || []).length >= 5, 'each result class must have a bounded projection');
-  assert.doesNotMatch(source, /SELECT \*/);
-  assert.doesNotMatch(source, /listLeads\(|listBusinessJobs\(|listPriceOffers\(|listReviewRequests\(|listBusinessFinanceEvidence\(/);
-  assert.match(source, /r\.customer_email/);
-  assert.match(source, /includeFinance\s*\?/);
-  assert.match(source, /!lead\.deletedAt && !lead\.isTestData/);
+  assert.match(service, /searchAdminData\(q, role === 'SUPER_ADMIN', options\)/);
+  assert.match(service, /role !== 'SUPER_ADMIN' && role !== 'OPERATOR'/);
+  assert.match(database, /export async function searchAdminData/);
+  assert.match(database, /searchJobWorkspacePostgres\(db, query, includeFinance, options\)/);
+  assert.match(search, /tokens\.every/);
+  assert.match(search, /pagination:\s*\{[\s\S]*pageSize:\s*options\.pageSize[\s\S]*totalPages[\s\S]*totals/);
+  assert.match(search, /includeFinance\s*\?\s*page\(financeSource\)/);
+  assert.doesNotMatch(search, /SELECT \*/);
+  assert.doesNotMatch(search, /LIMIT 20/);
+  assert.match(search, /l\.internalNote/);
+  assert.match(search, /job_workspace_manual_offers/);
 });
 
 test('private search uses an authenticated CSRF-protected POST action and never puts PII in the URL', async () => {
@@ -40,16 +36,16 @@ test('private search uses an authenticated CSRF-protected POST action and never 
   assert.match(action, /\.min\(2\)\.max\(100\)/);
 });
 
-test('draft provider is flag-gated, redacts direct identifiers and requires an explicit admin action', async () => {
+test('draft provider blocks external AI regardless of stale environment flags and retains local templates', async () => {
   const [provider, composer, page, action] = await Promise.all([
     read('src/server/admin-draft-provider.ts'),
     read('app/admin/(protected)/ai-asistent/draft-composer.tsx'),
     read('app/admin/(protected)/ai-asistent/page.tsx'),
     read('app/admin/(protected)/ai-asistent/actions.ts'),
   ]);
-  assert.match(provider, /ASTANA_AI_DRAFTS_ENABLED/);
-  assert.match(provider, /providerReady = flagEnabled && Boolean\(gatewayCredential\(\)\)/);
-  assert.match(provider, /if \(!status\.providerReady \|\| !credential\) throw/);
+  assert.match(provider, /providerReady: false/);
+  assert.match(provider, /flagEnabled: false/);
+  assert.doesNotMatch(provider, /fetchImpl\(|ai-gateway\.vercel\.sh|Authorization:/);
   assert.match(provider, /redactAdminDraftInput/);
   assert.match(provider, /\[EMAIL ODSTRÁNENÝ\]/);
   assert.doesNotMatch(composer, /fetch\(/);

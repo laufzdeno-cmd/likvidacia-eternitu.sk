@@ -1,5 +1,7 @@
 import { mkdir, readFile, rename, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { JobWorkspaceStore } from './job-workspace-types';
+import { createInitialJobWorkspaceCard, preserveManagedActualDate, recordLegacyActualDateChange, workspaceCalendarDay } from './job-workspace-policy';
 import path from 'node:path';
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Client, Pool, type PoolClient, type QueryConfig } from 'pg';
@@ -212,6 +214,7 @@ type LocalDb = {
   adminWorkItems: AdminWorkItem[];
   plannerActions: PlannerAction[];
   businessJobs: BusinessJob[];
+  jobWorkspace: JobWorkspaceStore;
   businessJobCompletions: BusinessJobCompletion[];
   businessJobInvoices: BusinessJobInvoice[];
   businessJobPaymentEvents: BusinessJobPaymentEvent[];
@@ -316,6 +319,55 @@ export function getServerDatabasePool() {
 /** Additive feature stores use this before issuing queries of their own. */
 export async function ensureServerDatabaseSchema() {
   await ensureSchema();
+}
+
+/** Private feature transaction: the shared file lock makes CP acceptance and its job link atomic. */
+export async function withJobWorkspaceLocalTransaction<T>(operation: (local: Pick<LocalDb, 'jobWorkspace' | 'businessJobs' | 'priceOffers' | 'auditLogs'>) => Promise<T> | T): Promise<T> {
+  if (getPool()) throw new Error('Lokálna transakcia nie je dostupná pre PostgreSQL.');
+  return withLocalLeadSubmissionLock(async () => {
+    const local = await readLocalDb();
+    const result = await operation(local);
+    await writeLocalDb(local, { writeJobWorkspace: true });
+    return result;
+  });
+}
+
+export async function readJobWorkspaceLocalState() {
+  if (getPool()) throw new Error('Lokálny stav nie je dostupný pre PostgreSQL.');
+  const local = await readLocalDb();
+  return { jobWorkspace: local.jobWorkspace, businessJobs: local.businessJobs, priceOffers: local.priceOffers,
+    assignableUsers:local.adminUsers.map(user=>({email:user.email,role:user.role,active:user.active})) };
+}
+
+export async function readJobWorkspaceFinancialSource(jobId:string, client?:Pick<PoolClient,'query'>) {
+  const db=client??getPool();
+  if(!db){const local=await readLocalDb();const job=local.businessJobs.find(item=>item.id===jobId);if(!job)throw new Error('Zákazka neexistuje.');return{recordedCostCents:Math.round((job.costs.total+job.rewardsTotal)*100)};}
+  const row=(await db.query('SELECT COALESCE(c.total,0)+COALESCE((SELECT sum(w.reward) FROM business_job_workers w WHERE w.job_id=j.id),0) AS cost FROM business_jobs j LEFT JOIN business_job_costs c ON c.job_id=j.id WHERE j.id=$1',[jobId])).rows[0];
+  if(!row)throw new Error('Zákazka neexistuje.');return{recordedCostCents:Math.round(Number(row.cost)*100)};
+}
+
+function syncLocalLegacyActualDate(local:Pick<LocalDb,'jobWorkspace'>,job:BusinessJob,nextDay:string,nextStatus:BusinessJobStatus,actorEmail:string,timestamp:string){
+  let card=local.jobWorkspace.cards.find(item=>item.jobId===job.id);
+  if(card?.actualDateOverride)return preserveManagedActualDate(card,nextDay);
+  if(job.demolitionDate===nextDay||!['DEMONT_DOKONCENA','VYUCTOVANIE','DOKONCENA'].includes(nextStatus))return nextDay;
+  if(!card){card=createInitialJobWorkspaceCard(job,actorEmail);card.priceOverride=false;card.revision=0;card.timeline=[];local.jobWorkspace.cards.push(card);}
+  return recordLegacyActualDateChange(card,job.demolitionDate,nextDay,nextStatus,actorEmail,timestamp);
+}
+
+/** Called after the existing parent FOR UPDATE, in the same transaction as the legacy edit. */
+async function syncPostgresLegacyActualDate(client:PoolClient,jobId:string,previousDay:string,nextDay:string,nextStatus:BusinessJobStatus,actorEmail:string,timestamp:string){
+  const installed=(await client.query("SELECT to_regclass('public.job_workspaces') AS installed")).rows[0]?.installed;
+  if(!installed)return nextDay;
+  const row=(await client.query('SELECT job_id,revision,operations,actual_date_override FROM job_workspaces WHERE job_id=$1 FOR UPDATE',[jobId])).rows[0];
+  if(row?.actual_date_override)return row.operations.plan.actualOn??'';
+  if(previousDay===nextDay||!['DEMONT_DOKONCENA','VYUCTOVANIE','DOKONCENA'].includes(nextStatus))return nextDay;
+  const parent=(await client.query('SELECT created_at,work_type FROM business_jobs WHERE id=$1',[jobId])).rows[0];
+  const card=createInitialJobWorkspaceCard({id:jobId,createdAt:new Date(parent.created_at).toISOString(),status:nextStatus,workType:parent.work_type},actorEmail);
+  card.priceOverride=false;card.revision=row?Number(row.revision):0;card.timeline=[];if(row)card.operations=row.operations;
+  const expectedRevision=card.revision,effective=recordLegacyActualDateChange(card,previousDay,nextDay,nextStatus,actorEmail,timestamp);
+  if(row){const updated=await client.query('UPDATE job_workspaces SET operations=$2,revision=$3,timeline=timeline||$4::jsonb,updated_at=$5,updated_by=$6 WHERE job_id=$1 AND revision=$7',[jobId,card.operations,card.revision,JSON.stringify(card.timeline),timestamp,actorEmail,expectedRevision]);if(updated.rowCount!==1)throw new Error('Karta sa medzitým zmenila. Obnovte ju a skontrolujte zmeny.');}
+  else await client.query('INSERT INTO job_workspaces(job_id,number,revision,operations,settlement,timeline,created_at,updated_at,updated_by,price_override,actual_date_override) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,false,false)',[jobId,card.number,card.revision,card.operations,card.settlement,JSON.stringify(card.timeline),card.createdAt,timestamp,actorEmail]);
+  return effective;
 }
 
 function now() {
@@ -2042,7 +2094,8 @@ async function initializeSchema() {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now(),
       deleted_at timestamptz,
-      demolition_date date NOT NULL,
+      demolition_date date,
+      actual_date_overridden boolean NOT NULL DEFAULT false,
       customer_name text NOT NULL,
       customer_phone text NOT NULL DEFAULT '',
       customer_email text NOT NULL DEFAULT '',
@@ -2064,6 +2117,7 @@ async function initializeSchema() {
       note text NOT NULL DEFAULT '',
       is_test_data boolean NOT NULL DEFAULT false
     );
+    ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS actual_date_overridden boolean NOT NULL DEFAULT false;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_phone text NOT NULL DEFAULT '';
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS lead_id uuid REFERENCES leads(id) ON DELETE SET NULL;
     ALTER TABLE business_jobs ADD COLUMN IF NOT EXISTS customer_email text NOT NULL DEFAULT '';
@@ -2885,6 +2939,7 @@ function normalizeLocalDb(data: Partial<LocalDb>): LocalDb {
     adminWorkItems: (data.adminWorkItems ?? []).map((item) => toAdminWorkItem(item as unknown as Record<string, unknown>)),
     plannerActions: data.plannerActions ?? [],
     businessJobs: data.businessJobs ?? [],
+    jobWorkspace: data.jobWorkspace ?? { cards: [], manualOffers: [], notices: [], documents: [], communications: [] },
     businessJobCompletions: (data.businessJobCompletions ?? []).map((item) => toBusinessJobCompletion(item as unknown as Record<string, unknown>)),
     businessJobInvoices: data.businessJobInvoices ?? [],
     businessJobPaymentEvents: data.businessJobPaymentEvents ?? [],
@@ -3350,6 +3405,7 @@ function enrichBusinessJob(
   costs?: BusinessJobCosts,
 ): BusinessJob {
   const totalPrice = Number(row.total_price ?? row.totalPrice ?? 0);
+  const totalPriceKnown = row.totalPriceKnown !== false && (row.total_price !== null && row.totalPrice !== null);
   const jobCosts =
     costs ??
     ({ jobId: String(row.id), fuel: 0, suits: 0, gloves: 0, penetrant: 0, landfillCost: 0, otherName: '', otherAmount: 0, total: 0 } satisfies BusinessJobCosts);
@@ -3367,6 +3423,7 @@ function enrichBusinessJob(
     reviewRequestBlockedBy: String(row.review_request_blocked_by ?? row.reviewRequestBlockedBy ?? '') || undefined,
     reviewRequestBlockedReason: cleanSlovakText(String(row.review_request_blocked_reason ?? row.reviewRequestBlockedReason ?? '')) || undefined,
     demolitionDate: dateOnly(row.demolition_date ?? row.demolitionDate),
+    actualDateOverridden: Boolean(row.actual_date_overridden ?? row.actualDateOverridden ?? false),
     customerName: String(row.customer_name ?? row.customerName ?? ''),
     customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
     customerEmail: String(row.customer_email ?? row.customerEmail ?? ''),
@@ -3380,6 +3437,8 @@ function enrichBusinessJob(
     m2: Number(row.m2 ?? 0),
     pricePerM2: Number(row.price_per_m2 ?? row.pricePerM2 ?? 0),
     totalPrice,
+    totalPriceKnown,
+    priceOverridden: Boolean(row.total_price_overridden ?? row.priceOverridden ?? false),
     paymentType: String(row.payment_type ?? row.paymentType ?? 'FAKTURA') as BusinessPaymentType,
     workType: String(row.work_type ?? row.workType ?? 'DEMONTAZ_A_ODVOZ') as BusinessWorkType,
     wasteKg: Number(row.waste_kg ?? row.wasteKg ?? 0),
@@ -3406,6 +3465,7 @@ function operationalBusinessJobFromRow(
     updatedAt: new Date(String(row.updated_at ?? row.updatedAt)).toISOString(),
     deletedAt: row.deleted_at || row.deletedAt ? new Date(String(row.deleted_at ?? row.deletedAt)).toISOString() : undefined,
     demolitionDate: dateOnly(row.demolition_date ?? row.demolitionDate),
+    actualDateOverridden: Boolean(row.actual_date_overridden ?? row.actualDateOverridden ?? false),
     customerName: String(row.customer_name ?? row.customerName ?? ''),
     customerPhone: String(row.customer_phone ?? row.customerPhone ?? ''),
     customerEmail: String(row.customer_email ?? row.customerEmail ?? ''),
@@ -3495,6 +3555,7 @@ async function readLocalDb(): Promise<LocalDb> {
       adminWorkItems: [],
       plannerActions: [],
       businessJobs: [],
+      jobWorkspace: { cards: [], manualOffers: [], notices: [], documents: [], communications: [] },
       businessJobCompletions: [],
       businessJobInvoices: [],
       businessJobPaymentEvents: [],
@@ -3522,6 +3583,7 @@ async function readLocalDb(): Promise<LocalDb> {
 }
 
 async function writeLocalDb(data: LocalDb, options: {
+  writeJobWorkspace?: boolean;
   purgeLeadAuditId?: string;
   writeAdminUsers?: boolean;
   adminSettingKey?: string;
@@ -3627,6 +3689,13 @@ async function writeLocalDb(data: LocalDb, options: {
         },
         leads: durableLeads,
         businessJobs: durableBusinessJobs,
+        jobWorkspace: options.writeJobWorkspace ? data.jobWorkspace : {
+          ...existingDb.jobWorkspace,
+          cards: [...new Map([...existingDb.jobWorkspace.cards, ...data.jobWorkspace.cards].map(card => [card.jobId, card])).values()].map(card => {
+            const persisted=existingDb.jobWorkspace.cards.find(item=>item.jobId===card.jobId);
+            return persisted && persisted.revision >= card.revision ? persisted : card;
+          }),
+        },
         businessJobCompletions: [...durableBusinessJobCompletions.values()],
         businessJobInvoices: [...durableInvoices.values()],
         businessJobPaymentEvents: uniqueById(existingDb.businessJobPaymentEvents, data.businessJobPaymentEvents),
@@ -4332,7 +4401,7 @@ export async function createLeadSubmission(
       lead_id: lead.id,
       created_at: timestamp,
       updated_at: timestamp,
-      demolition_date: timestamp.slice(0, 10),
+      demolition_date: null,
       customer_name: lead.fullName,
       customer_phone: lead.phone,
       customer_email: lead.email,
@@ -4459,7 +4528,7 @@ export async function createLeadSubmission(
 
     const lead = toLead(insertLead.rows[0]);
     const jobValues = [
-      jobId, lead.id, timestamp, timestamp, timestamp.slice(0, 10), lead.fullName, lead.phone, lead.email,
+      jobId, lead.id, timestamp, timestamp, null, lead.fullName, lead.phone, lead.email,
       lead.city, lead.district ?? '', lead.materialType, lead.objectType, lead.term ?? '', lead.source || 'likvidacia-eternitu.sk',
       lead.preferredContact ?? 'Zavolajte mi', lead.areaEstimate, settings.defaultPricePerM2,
       money(lead.areaEstimate * settings.defaultPricePerM2), 'FAKTURA', 'DEMONTAZ_A_ODVOZ', 0, 'INA', 'DOPYT', lead.note ?? '',
@@ -9215,7 +9284,7 @@ async function hydrateOperationalBusinessJobs(rows: Record<string, unknown>[]): 
 
 const operationalBusinessJobColumns = `
   j.id, j.lead_id, j.is_test_data, j.created_at, j.updated_at, j.deleted_at,
-  j.demolition_date, j.customer_name, j.customer_phone, j.customer_email,
+  j.demolition_date, (to_jsonb(j)->>'actual_date_overridden')::boolean AS actual_date_overridden, j.customer_name, j.customer_phone, j.customer_email,
   j.location, j.district, j.material_type, j.object_type, j.term, j.lead_source,
   j.preferovany_kontakt, j.m2, j.work_type, j.waste_kg, j.landfill, j.status, j.note
 `;
@@ -9236,6 +9305,7 @@ export type BusinessJobListFilters = {
 };
 
 export type BusinessJobsSummary = {
+  unknownPriceCount?: number;
   totalCount: number;
   activeCount: number;
   recordedValue: number;
@@ -9401,11 +9471,12 @@ export async function getBusinessJobsSummary(filters: BusinessJobListFilters = {
     const recordedRewards = sumMoney(active.map((job) => job.rewardsTotal));
     return {
       totalCount: jobs.length,
+      unknownPriceCount: active.filter(job=>job.totalPriceKnown===false).length,
       activeCount: active.length,
       recordedValue,
       recordedCost,
       recordedRewards,
-      remainder: Math.round((recordedValue - recordedCost - recordedRewards) * 100) / 100,
+      remainder: sumMoney(active.filter(job=>job.totalPriceKnown!==false).map(job=>job.totalPrice-job.costs.total-job.rewardsTotal)),
       canceledCount: canceled.length,
       canceledValue: sumMoney(canceled.map((job) => job.totalPrice)),
       archivedCount: archived.length,
@@ -9416,6 +9487,7 @@ export async function getBusinessJobsSummary(filters: BusinessJobListFilters = {
   const { rows } = await db.query(
     `SELECT
        count(*)::bigint AS total_count,
+       count(*) FILTER (WHERE j.deleted_at IS NULL AND j.status <> 'ZRUSENA' AND j.total_price IS NULL)::bigint AS unknown_price_count,
        count(*) FILTER (WHERE j.deleted_at IS NULL AND j.status <> 'ZRUSENA')::bigint AS active_count,
        COALESCE(sum(j.total_price) FILTER (WHERE j.deleted_at IS NULL AND j.status <> 'ZRUSENA'), 0)::numeric AS recorded_value,
        COALESCE(sum(COALESCE(costs.total, 0)) FILTER (WHERE j.deleted_at IS NULL AND j.status <> 'ZRUSENA'), 0)::numeric AS recorded_cost,
@@ -9438,6 +9510,7 @@ export async function getBusinessJobsSummary(filters: BusinessJobListFilters = {
   const row = rows[0] ?? {};
   return {
     totalCount: Number(row.total_count ?? 0),
+    unknownPriceCount: Number(row.unknown_price_count ?? 0),
     activeCount: Number(row.active_count ?? 0),
     recordedValue: Number(row.recorded_value ?? 0),
     recordedCost: Number(row.recorded_cost ?? 0),
@@ -10155,6 +10228,12 @@ export async function destroyBusinessJob(id: string, actorEmail: string) {
         || local.businessJobPaymentEvents.some((item) => item.jobId === id)) {
         throw new Error('Zákazku s evidovanou faktúrou alebo úhradou nemožno natrvalo vymazať. Môžete ju archivovať.');
       }
+      const workspaceEvidence = local.jobWorkspace.documents.some(item=>item.jobId===id)
+        || local.jobWorkspace.manualOffers.some(item=>item.jobId===id)
+        || local.jobWorkspace.communications.some(item=>item.jobId===id)
+        || local.jobWorkspace.notices.some(item=>item.jobId===id)
+        || local.jobWorkspace.cards.some(item=>item.jobId===id&&(item.revision>0||item.timeline.length>0));
+      if(workspaceEvidence)throw new Error('Zákazka obsahuje uloženú zákazkovú kartu, súkromný doklad alebo komunikáciu. Natrvalo ju nemožno vymazať; použite archiváciu.');
       const linkedLeadIsTest = local.leads.some((lead) => lead.id === job.leadId && lead.isTestData);
       const wasTest = Boolean(job.isTestData || linkedLeadIsTest);
       local.priceOffers = local.priceOffers.map((offer) => {
@@ -10195,6 +10274,16 @@ export async function destroyBusinessJob(id: string, actorEmail: string) {
     if (financeEvidence.rows[0]?.present) {
       throw new Error('Zákazku s evidovanou faktúrou alebo úhradou nemožno natrvalo vymazať. Môžete ju archivovať.');
     }
+    const workspaceInstalled=(await client.query("SELECT to_regclass('public.job_workspaces') AS installed")).rows[0]?.installed;
+    if(workspaceInstalled){
+      const workspaceEvidence=await client.query(`SELECT
+        EXISTS(SELECT 1 FROM job_workspace_documents WHERE job_id=$1)
+        OR EXISTS(SELECT 1 FROM job_workspace_manual_offers WHERE job_id=$1)
+        OR EXISTS(SELECT 1 FROM job_workspace_communications WHERE job_id=$1)
+        OR EXISTS(SELECT 1 FROM job_workspace_notices WHERE job_id=$1)
+        OR EXISTS(SELECT 1 FROM job_workspaces WHERE job_id=$1 AND (revision>0 OR jsonb_array_length(timeline)>0)) AS present`,[id]);
+      if(workspaceEvidence.rows[0]?.present)throw new Error('Zákazka obsahuje uloženú zákazkovú kartu, súkromný doklad alebo komunikáciu. Natrvalo ju nemožno vymazať; použite archiváciu.');
+    }
     if (current.rows[0].is_test_data || current.rows[0].lead_is_test_data) {
       await client.query('UPDATE price_offers SET is_test_data = true WHERE job_id = $1::uuid OR $1::uuid = ANY(source_job_ids)', [id]);
     }
@@ -10227,7 +10316,7 @@ const operationalBusinessJobStatuses = new Set<BusinessJobStatus>([
 ]);
 
 function normalizeOperationalBusinessJobInput(input: BusinessJobOperationalInput): BusinessJobOperationalInput {
-  if (!isValidIsoCalendarDate(input.demolitionDate)) throw new Error('Dátum realizácie nie je platný.');
+  if (input.demolitionDate && !isValidIsoCalendarDate(input.demolitionDate)) throw new Error('Dátum realizácie nie je platný.');
   if (!operationalBusinessJobStatuses.has(input.status)) throw new Error('Stav zákazky nie je platný.');
   const limited = (value: string, max: number, label: string, required = false) => {
     const text = cleanSlovakText(String(value ?? '').trim());
@@ -10237,6 +10326,7 @@ function normalizeOperationalBusinessJobInput(input: BusinessJobOperationalInput
   };
   const email = String(input.customerEmail ?? '').trim().toLowerCase();
   if (email.length > 254 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) throw new Error('Email zákazníka nie je platný.');
+  for (const quantity of [input.m2, input.wasteKg]) if (quantity !== undefined && (!Number.isFinite(quantity) || quantity < 0 || quantity > 1_000_000_000)) throw new Error('Výmera alebo hmotnosť nie je platná.');
   return {
     demolitionDate: input.demolitionDate,
     customerName: limited(input.customerName, 160, 'Meno zákazníka', true),
@@ -10250,6 +10340,8 @@ function normalizeOperationalBusinessJobInput(input: BusinessJobOperationalInput
     preferredContact: limited(input.preferredContact, 160, 'Preferovaný kontakt'),
     status: input.status,
     note: limited(input.note, 4000, 'Poznámka'),
+    ...(input.m2 === undefined ? {} : { m2: input.m2 }),
+    ...(input.wasteKg === undefined ? {} : { wasteKg: input.wasteKg }),
   };
 }
 
@@ -10275,6 +10367,7 @@ export async function updateBusinessJobOperational(
       if (current.status === 'DOKONCENA' && normalized.status !== 'DOKONCENA') {
         throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
       }
+      normalized.demolitionDate=syncLocalLegacyActualDate(local,current,normalized.demolitionDate,normalized.status,actorEmail,timestamp);
       const previousStatus = current.status;
       Object.assign(current, normalized, { updatedAt: timestamp });
       local.auditLogs.unshift({
@@ -10294,7 +10387,7 @@ export async function updateBusinessJobOperational(
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const current = await client.query('SELECT status, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [id]);
+    const current = await client.query('SELECT status, deleted_at, demolition_date FROM business_jobs WHERE id = $1 FOR UPDATE', [id]);
     if (!current.rowCount) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
     if (current.rows[0].deleted_at) throw new Error('Archivovanú zákazku nemožno upravovať.');
     if (String(current.rows[0].status) !== 'DOKONCENA' && normalized.status === 'DOKONCENA') {
@@ -10303,16 +10396,18 @@ export async function updateBusinessJobOperational(
     if (String(current.rows[0].status) === 'DOKONCENA' && normalized.status !== 'DOKONCENA') {
       throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
     }
+    normalized.demolitionDate=await syncPostgresLegacyActualDate(client,id,workspaceCalendarDay(current.rows[0].demolition_date),normalized.demolitionDate,normalized.status,actorEmail,timestamp);
     await client.query(
       `UPDATE business_jobs SET
         updated_at=$2, demolition_date=$3, customer_name=$4, customer_phone=$5, customer_email=$6,
         location=$7, district=$8, material_type=$9, object_type=$10, term=$11,
-        preferovany_kontakt=$12, status=$13, note=$14
+        preferovany_kontakt=$12, status=$13, note=$14, m2=COALESCE($15,m2), waste_kg=COALESCE($16,waste_kg)
        WHERE id=$1 AND deleted_at IS NULL`,
       [
-        id, timestamp, normalized.demolitionDate, normalized.customerName, normalized.customerPhone,
+        id, timestamp, normalized.demolitionDate || null, normalized.customerName, normalized.customerPhone,
         normalized.customerEmail, normalized.location, normalized.district, normalized.materialType,
         normalized.objectType, normalized.term, normalized.preferredContact, normalized.status, normalized.note,
+        normalized.m2 ?? null, normalized.wasteKg ?? null,
       ],
     );
     await client.query(
@@ -10394,7 +10489,7 @@ export async function saveBusinessJob(
     preferredContact: input.preferredContact?.trim() ?? '',
     m2: money(input.m2),
     pricePerM2: money(input.pricePerM2),
-    totalPrice,
+    totalPrice: totalPrice as number | null,
     paymentType: input.paymentType,
     workType: input.workType,
     wasteKg: money(input.wasteKg),
@@ -10416,7 +10511,10 @@ export async function saveBusinessJob(
       if (previous?.status === 'DOKONCENA' && input.status !== 'DOKONCENA') {
         throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
       }
+      if(previous)baseRow.demolitionDate=syncLocalLegacyActualDate(local,previous,baseRow.demolitionDate,input.status,actorEmail,timestamp);
+      const currentPricing=local.jobWorkspace.cards.find(card=>card.jobId===jobId);if(currentPricing?.priceOverride){const amount=currentPricing.settlement.actualAmountWithVatCents??currentPricing.settlement.agreedAmountWithVatCents;baseRow.totalPrice=amount===null?null:amount/100;}
       const job = enrichBusinessJob(baseRow, jobWorkers, { ...costs, jobId });
+      job.priceOverridden=Boolean(currentPricing?.priceOverride);job.actualDateOverridden=Boolean(currentPricing?.actualDateOverride);
       job.createdAt = previous?.createdAt ?? timestamp;
       job.leadId = previous?.leadId ?? previousJob?.leadId;
       job.isTestData = Boolean(previous?.isTestData ?? previousJob?.isTestData);
@@ -10434,7 +10532,7 @@ export async function saveBusinessJob(
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    const current = id ? await client.query('SELECT status, deleted_at FROM business_jobs WHERE id = $1 FOR UPDATE', [jobId]) : null;
+    const current = id ? await client.query('SELECT status, deleted_at, demolition_date FROM business_jobs WHERE id = $1 FOR UPDATE', [jobId]) : null;
     if (id && !current?.rowCount) throw new Error('Zákazka už neexistuje. Obnovte stránku.');
     if (current?.rows[0]?.deleted_at) throw new Error('Archivovanú zákazku nemožno upravovať.');
     if (id && String(current?.rows[0]?.status) !== 'DOKONCENA' && input.status === 'DOKONCENA') {
@@ -10443,6 +10541,8 @@ export async function saveBusinessJob(
     if (id && String(current?.rows[0]?.status) === 'DOKONCENA' && input.status !== 'DOKONCENA') {
       throw new Error('Dokončenú zákazku nemožno znovu otvoriť bežnou úpravou. Vyžaduje samostatný kontrolovaný postup superadmina.');
     }
+    if(id)baseRow.demolitionDate=await syncPostgresLegacyActualDate(client,jobId,workspaceCalendarDay(current?.rows[0]?.demolition_date),baseRow.demolitionDate,input.status,actorEmail,timestamp);
+    if(id){const installed=(await client.query("SELECT to_regclass('public.job_workspaces') AS installed")).rows[0]?.installed;if(installed){const pricing=(await client.query('SELECT price_override,settlement FROM job_workspaces WHERE job_id=$1',[jobId])).rows[0];if(pricing?.price_override){const amount=pricing.settlement.actualAmountWithVatCents??pricing.settlement.agreedAmountWithVatCents;baseRow.totalPrice=amount===null?null:amount/100;}}}
     const upsert = await client.query(
       `INSERT INTO business_jobs (
         id, created_at, updated_at, demolition_date, customer_name, customer_phone, customer_email, location, district,
@@ -10458,7 +10558,7 @@ export async function saveBusinessJob(
         jobId,
         timestamp,
         timestamp,
-        baseRow.demolitionDate,
+        baseRow.demolitionDate || null,
         baseRow.customerName,
         baseRow.customerPhone,
         baseRow.customerEmail,
@@ -10524,7 +10624,7 @@ export async function createBusinessJobFromLead(lead: Lead): Promise<BusinessJob
   const settings = await getBusinessSettings();
   const job = await saveBusinessJob(
     {
-      demolitionDate: new Date().toISOString().slice(0, 10),
+      demolitionDate: '',
       customerName: lead.fullName,
       customerPhone: lead.phone,
       customerEmail: lead.email,
@@ -10818,7 +10918,8 @@ export async function finalizeBusinessJobCompletion(input: {
       if (completion.finalizedAt && job.status === 'DOKONCENA') return { job, completion };
       if (completion.revision !== input.expectedRevision) return null;
       if (!['DEMONT_DOKONCENA', 'VYUCTOVANIE'].includes(job.status)) return null;
-      validateBusinessJobCompletionReady(completion);
+      if(job.totalPriceKnown===false)throw new Error('Pred uzavretím doplňte skutočnú celkovú cenu zákazky.');
+    validateBusinessJobCompletionReady(completion);
       if (completion.photosDecision === 'ready_private') throw new Error('Súkromnú fotografiu sa bez databázového modulu nedá overiť.');
       if (completion.reviewDecision === 'prepare') {
         if (!job.customerEmail.trim()) throw new Error('Pre koncept žiadosti o referenciu chýba email zákazníka.');
@@ -10896,6 +10997,7 @@ export async function finalizeBusinessJobCompletion(input: {
     if (completion.finalizedAt && job.status === 'DOKONCENA') { await client.query('COMMIT'); return { job, completion }; }
     if (completion.revision !== input.expectedRevision) { await client.query('ROLLBACK'); return null; }
     if (!['DEMONT_DOKONCENA', 'VYUCTOVANIE'].includes(job.status)) { await client.query('ROLLBACK'); return null; }
+    if(job.totalPriceKnown===false)throw new Error('Pred uzavretím doplňte skutočnú celkovú cenu zákazky.');
     validateBusinessJobCompletionReady(completion);
     if (completion.photosDecision === 'ready_private') {
       const photoResult = await client.query(
@@ -11169,7 +11271,27 @@ function syncPriceOfferParentsLocal(
   reasonCode: string,
 ) {
   const targets = parentTransitionTargets(transition);
-  const linkedJob = localLinkedBusinessJob(local, offer);
+  let linkedJob = localLinkedBusinessJob(local, offer);
+  if (transition === 'accepted' && !linkedJob && !offer.jobId) {
+    const candidates = offer.leadId ? local.businessJobs.filter(job=>job.leadId===offer.leadId&&!job.deletedAt&&job.status!=='ZRUSENA') : [];
+    if (candidates.length > 1) throw new Error('K ponuke patrí viac zákaziek; správnu kartu treba pripojiť ručne.');
+    const jobId=randomUUID();
+    linkedJob = enrichBusinessJob({id:jobId,lead_id:offer.leadId,created_at:timestamp,updated_at:timestamp,demolition_date:null,customer_name:offer.contactPerson,customer_phone:offer.phone,customer_email:offer.email,location:offer.objectAddress||offer.municipality,district:offer.district,material_type:offer.materialType,object_type:offer.objectType,term:offer.realizationTerm,m2:offer.areaM2,price_per_m2:money(offer.pricePerM2WithoutVat*(1+offer.vatRate/100)),total_price:offer.totalWithVat,payment_type:'FAKTURA',work_type:'DEMONTAZ_A_ODVOZ',status:'PONUKA_POTVRDENA',lead_source:'price_offer'});
+    local.businessJobs.push(linkedJob);
+    offer.jobId=jobId;
+    local.auditLogs.unshift({id:randomUUID(),entityType:'business_job',entityId:jobId,action:'business_job_created',actorEmail,createdAt:timestamp,changes:{offerId:offer.id,scope:'accepted_offer'}});
+  }
+  if (transition === 'accepted' && linkedJob) {
+    offer.jobId=linkedJob.id;
+    if (!local.jobWorkspace.cards.some(card=>card.jobId===linkedJob!.id)) {
+      const configured=local.adminSettings.job_workspace_default_responsible_email??'';const responsible=local.adminUsers.some(user=>user.email===configured&&user.active&&['SUPER_ADMIN','OPERATOR'].includes(user.role))?configured:'';
+      const card=createInitialJobWorkspaceCard(linkedJob,actorEmail,responsible,Math.round(offer.totalWithVat*100));
+      // Acceptance advances the parent below; it never sends a message.
+      if(shouldAdvanceBusinessJobStatus(card.operations.status,'PONUKA_POTVRDENA'))card.operations.status='PONUKA_POTVRDENA';
+      local.jobWorkspace.cards.push(card);
+    } else {const card=local.jobWorkspace.cards.find(card=>card.jobId===linkedJob!.id)!;if(!card.priceOverride){card.priceOverride=true;card.settlement.agreedAmountWithVatCents=Math.round(offer.totalWithVat*100);card.revision++;card.updatedAt=timestamp;card.updatedBy=actorEmail;}}
+    const pricing=local.jobWorkspace.cards.find(card=>card.jobId===linkedJob!.id)!;if(pricing.priceOverride){const amount=pricing.settlement.actualAmountWithVatCents??pricing.settlement.agreedAmountWithVatCents;linkedJob.totalPrice=amount===null?0:amount/100;linkedJob.totalPriceKnown=amount!==null;linkedJob.priceOverridden=true;linkedJob.grossProfit=amount===null?0:linkedJob.totalPrice-linkedJob.costs.total-linkedJob.rewardsTotal;}
+  }
   const leadId = offer.leadId || linkedJob?.leadId;
   const lead = leadId ? local.leads.find((item) => item.id === leadId && !item.deletedAt) : undefined;
   if (lead && shouldAdvanceLeadStatus(lead.status, targets.lead)) {
@@ -11234,7 +11356,23 @@ async function syncPriceOfferParentsPostgres(
   reasonCode: string,
 ) {
   const targets = parentTransitionTargets(transition);
+  if(transition==='accepted')await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[priceOfferParentLockKey(offer)]);
   const linked = await resolvePriceOfferBusinessJobForUpdate(client, offer);
+  if(transition==='accepted') {
+    // A rollout without the explicitly applied forward migration keeps the old
+    // flow. Schema creation is never attempted from this request.
+    const installed=(await client.query("SELECT to_regclass('public.job_workspaces') AS installed")).rows[0]?.installed;
+    if(installed){
+      if(linked.leadId)await client.query('SELECT id FROM leads WHERE id=$1 FOR UPDATE',[linked.leadId]);
+      if(!linked.jobId&&!offer.jobId){
+        const candidates=linked.leadId?await client.query("SELECT id FROM business_jobs WHERE lead_id=$1 AND deleted_at IS NULL AND status<>'ZRUSENA' FOR UPDATE",[linked.leadId]):{rows:[]};
+        if(candidates.rows.length>1)throw new Error('K ponuke patrí viac zákaziek; správnu kartu treba pripojiť ručne.');
+        linked.jobId=candidates.rows[0]?.id;
+        if(!linked.jobId){linked.jobId=randomUUID();await client.query(`INSERT INTO business_jobs(id,lead_id,created_at,updated_at,demolition_date,customer_name,customer_phone,customer_email,location,district,material_type,object_type,term,m2,price_per_m2,total_price,status,lead_source) VALUES($1,$2,$3,$3,NULL,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'PONUKA_POTVRDENA','price_offer')`,[linked.jobId,linked.leadId||null,timestamp,offer.contactPerson,offer.phone,offer.email,offer.objectAddress||offer.municipality,offer.district,offer.materialType,offer.objectType,offer.realizationTerm,offer.areaM2,money(offer.pricePerM2WithoutVat*(1+offer.vatRate/100)),offer.totalWithVat]);await client.query('INSERT INTO audit_logs(id,entity_type,entity_id,action,actor_email,changes,created_at) VALUES($1,\'business_job\',$2,\'business_job_created\',$3,$4,$5)',[randomUUID(),linked.jobId,actorEmail,{offerId:offer.id,scope:'accepted_offer'},timestamp]);}
+      }
+      if(linked.jobId){offer.jobId=linked.jobId;await client.query('UPDATE price_offers SET job_id=$2 WHERE id=$1',[offer.id,linked.jobId]);const parent=(await client.query('SELECT id,created_at,status,work_type FROM business_jobs WHERE id=$1',[linked.jobId])).rows[0];const configured=(await client.query("SELECT s.value FROM admin_settings s JOIN admin_users u ON lower(u.email)=lower(s.value) WHERE s.key='job_workspace_default_responsible_email' AND u.active=true AND u.role IN ('SUPER_ADMIN','OPERATOR')")).rows[0]?.value??'';const card=createInitialJobWorkspaceCard({id:linked.jobId,createdAt:new Date(parent.created_at).toISOString(),status:parent.status,workType:parent.work_type},actorEmail,configured,Math.round(offer.totalWithVat*100));if(shouldAdvanceBusinessJobStatus(card.operations.status,'PONUKA_POTVRDENA'))card.operations.status='PONUKA_POTVRDENA';await client.query(`INSERT INTO job_workspaces(job_id,number,revision,operations,settlement,timeline,created_at,updated_at,updated_by,price_override) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,true) ON CONFLICT(job_id) DO UPDATE SET price_override=true,settlement=jsonb_set(job_workspaces.settlement,'{agreedAmountWithVatCents}',EXCLUDED.settlement->'agreedAmountWithVatCents'),revision=job_workspaces.revision+1,updated_at=EXCLUDED.updated_at,updated_by=EXCLUDED.updated_by WHERE NOT job_workspaces.price_override`,[card.jobId,card.number,card.revision,card.operations,card.settlement,JSON.stringify(card.timeline),card.createdAt,card.updatedAt,card.updatedBy]);await client.query("UPDATE business_jobs j SET total_price_overridden=true,total_price=COALESCE(w.settlement->>'actualAmountWithVatCents',w.settlement->>'agreedAmountWithVatCents')::numeric/100 FROM job_workspaces w WHERE w.job_id=j.id AND j.id=$1 AND w.price_override",[linked.jobId]);}
+    }
+  }
   if (linked.leadId) {
     const currentLead = await client.query(
       'SELECT status FROM leads WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
@@ -11381,8 +11519,7 @@ export async function savePriceOffer(
       }
       if (!offer.number) {
         const year = priceOfferNumberYear();
-        const highest = local.priceOffers
-          .map((item) => item.number)
+        const highest = [...local.priceOffers.map(item=>item.number),...local.jobWorkspace.manualOffers.map(item=>item.originalNumber)]
           .filter((number) => number.startsWith(year))
           .reduce((max, number) => Math.max(max, Number(number.slice(4)) || 0), 0);
         offer.number = `${year}${String(highest + 1).padStart(4, '0')}`;
@@ -11426,7 +11563,9 @@ export async function savePriceOffer(
         'SELECT number FROM price_offers WHERE number LIKE $1 ORDER BY number DESC LIMIT 1',
         [`${year}%`],
       );
-      const last = numberResult.rows[0]?.number ? Number(String(numberResult.rows[0].number).slice(4)) : 0;
+      let last = numberResult.rows[0]?.number ? Number(String(numberResult.rows[0].number).slice(4)) : 0;
+      const installed=(await client.query("SELECT to_regclass('public.job_workspace_manual_offers') AS installed")).rows[0]?.installed;
+      if(installed){const manual=await client.query("SELECT original_number_key FROM job_workspace_manual_offers WHERE original_number_key ~ '^[0-9]{8}$' AND original_number_key LIKE $1",[`${year}%`]);for(const row of manual.rows)last=Math.max(last,Number(String(row.original_number_key).slice(4))||0);}
       offer.number = `${year}${String(last + 1).padStart(4, '0')}`;
     }
     finalizePriceOfferEmailCopy(offer, normalizedInput);
@@ -11718,156 +11857,14 @@ export async function getPriceOfferEventMetrics(from: string, to: string): Promi
   return { created: Number(row.created ?? 0), sent: Number(row.sent ?? 0), accepted: Number(row.accepted ?? 0) };
 }
 
-export type AdminSearchData = {
-  leads: Array<{ id: string; fullName: string; phone: string; email: string; city: string; status: string }>;
-  jobs: Array<{ id: string; customerName: string; location: string; demolitionDate: string; status: string }>;
-  offers: Array<{ id: string; number: string; contactPerson: string; objectAddress: string; totalWithVat: number }>;
-  reviews: Array<{ id: string; customerName: string; customerEmail: string; phone: string; location: string; status: string }>;
-  finance: Array<{ id: string; jobId: string; invoiceNumber: string; issuedOn: string; dueOn: string; amountWithVatCents: number }>;
-};
+export type AdminSearchData = Omit<import('./admin-intelligence').AdminSearchResult, 'query'>;
 
-function foldAdminSearchText(value: unknown) {
-  return String(value ?? '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('sk');
-}
-
-export async function searchAdminData(query: string, includeFinance: boolean): Promise<AdminSearchData> {
-  const needle = foldAdminSearchText(query.trim().slice(0, 100));
-  const compactNeedle = needle.replace(/[^a-z0-9]+/g, '');
-  const empty: AdminSearchData = { leads: [], jobs: [], offers: [], reviews: [], finance: [] };
-  if (needle.length < 2) return empty;
-  await ensureSchema();
+export async function searchAdminData(query: string, includeFinance: boolean, options: import('./job-workspace-types').JobWorkspaceSearchOptions = {}): Promise<AdminSearchData> {
+  const { searchJobWorkspaceLocalData, searchJobWorkspacePostgres } = await import('./job-workspace-search');
   const db = getPool();
-  if (!db) {
-    const local = await readLocalDb();
-    const matches = (...values: unknown[]) => values.some((value) => {
-      const folded = foldAdminSearchText(value);
-      const compact = folded.replace(/[^a-z0-9]+/g, '');
-      return folded.includes(needle) || (compactNeedle.length >= 2 && compact.includes(compactNeedle));
-    });
-    const testLeadIds = new Set(local.leads.filter((lead) => lead.isTestData).map((lead) => lead.id));
-    const testJobIds = new Set(local.businessJobs
-      .filter((job) => job.isTestData || Boolean(job.leadId && testLeadIds.has(job.leadId)))
-      .map((job) => job.id));
-    const jobsById = new Map(local.businessJobs.map((job) => [job.id, job]));
-    const leads = local.leads
-      .filter((lead) => !lead.deletedAt && !lead.isTestData
-        && matches(lead.fullName, lead.phone, lead.email, lead.city, lead.district, lead.id))
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .slice(0, 20)
-      .map((lead) => ({ id: lead.id, fullName: lead.fullName, phone: lead.phone, email: lead.email,
-        city: lead.city, status: lead.status }));
-    const jobs = local.businessJobs
-      .filter((job) => !job.deletedAt && !testJobIds.has(job.id)
-        && matches(job.customerName, job.customerPhone, job.customerEmail, job.location, job.district, job.id))
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .slice(0, 20)
-      .map((job) => ({ id: job.id, customerName: job.customerName, location: job.location,
-        demolitionDate: job.demolitionDate, status: job.status }));
-    const offers = localBusinessPriceOffers(local)
-      .filter((offer) => matches(offer.number, offer.contactPerson, offer.phone, offer.email,
-        offer.objectAddress, offer.municipality, offer.district, offer.id))
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .slice(0, 20)
-      .map((offer) => ({ id: offer.id, number: offer.number, contactPerson: offer.contactPerson,
-        objectAddress: offer.objectAddress, totalWithVat: offer.totalWithVat }));
-    const reviews = local.reviewRequests
-      .filter((request) => {
-        const job = request.jobId ? jobsById.get(request.jobId) : undefined;
-        return !job?.isTestData
-          && !(job?.leadId && testLeadIds.has(job.leadId))
-          && !(request.leadId && testLeadIds.has(request.leadId))
-          && matches(request.customerName, request.customerEmail, request.phone, request.location, request.id);
-      })
-      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
-      .slice(0, 20)
-      .map((request) => ({ id: request.id, customerName: request.customerName,
-        customerEmail: request.customerEmail, phone: request.phone || '', location: request.location || '',
-        status: request.status }));
-    const finance = includeFinance
-      ? local.businessJobInvoices
-        .filter((invoice) => !testJobIds.has(invoice.jobId)
-          && matches(invoice.invoiceNumber, invoice.id, invoice.jobId))
-        .sort((left, right) => right.issuedOn.localeCompare(left.issuedOn) || right.createdAt.localeCompare(left.createdAt))
-        .slice(0, 20)
-        .map((invoice) => ({ id: invoice.id, jobId: invoice.jobId, invoiceNumber: invoice.invoiceNumber,
-          issuedOn: invoice.issuedOn, dueOn: invoice.dueOn || '', amountWithVatCents: invoice.amountWithVatCents }))
-      : [];
-    return { leads, jobs, offers, reviews, finance };
-  }
-
-  const folded = (column: string) => {
-    const expression = `translate(lower(COALESCE(${column}::text, '')), 'áäčďéíĺľňóôŕšťúýž', 'aacdeillnoorstuyz')`;
-    return `(strpos(${expression}, $1) > 0 OR ($2 <> '' AND strpos(regexp_replace(${expression}, '[^a-z0-9]+', '', 'g'), $2) > 0))`;
-  };
-  const [leadRows, jobRows, offerRows, reviewRows, financeRows] = await Promise.all([
-    db.query(
-      `SELECT l.id, l.full_name, l.phone, l.email, l.city, l.status
-       FROM leads l
-       WHERE l.deleted_at IS NULL AND COALESCE(l.is_test_data, false) = false
-         AND (${[folded('l.full_name'), folded('l.phone'), folded('l.email'), folded('l.city'), folded('l.district'), folded('l.id')].join(' OR ')})
-       ORDER BY l.created_at DESC, l.id DESC LIMIT 20`,
-      [needle, compactNeedle],
-    ),
-    db.query(
-      `SELECT j.id, j.customer_name, j.location, j.demolition_date, j.status
-       FROM business_jobs j
-       LEFT JOIN leads source_lead ON source_lead.id = j.lead_id
-       WHERE j.deleted_at IS NULL AND COALESCE(j.is_test_data, false) = false
-         AND COALESCE(source_lead.is_test_data, false) = false
-         AND (${[folded('j.customer_name'), folded('j.customer_phone'), folded('j.customer_email'), folded('j.location'), folded('j.district'), folded('j.id')].join(' OR ')})
-       ORDER BY j.created_at DESC, j.id DESC LIMIT 20`,
-      [needle, compactNeedle],
-    ),
-    db.query(
-      `SELECT o.id, o.number, o.contact_person, o.object_address, o.total_with_vat
-       FROM price_offers o
-       WHERE o.deleted_at IS NULL AND ${businessPriceOfferCondition}
-         AND (${[folded('o.number'), folded('o.contact_person'), folded('o.phone'), folded('o.email'), folded('o.object_address'), folded('o.municipality'), folded('o.district'), folded('o.id')].join(' OR ')})
-       ORDER BY o.created_at DESC, o.id DESC LIMIT 20`,
-      [needle, compactNeedle],
-    ),
-    db.query(
-      `SELECT r.id, r.customer_name, r.customer_email, r.phone, r.location, r.status
-       FROM review_requests r
-       LEFT JOIN business_jobs j ON j.id = r.job_id
-       LEFT JOIN leads request_lead ON request_lead.id = r.lead_id
-       LEFT JOIN leads job_lead ON job_lead.id = j.lead_id
-       WHERE COALESCE(j.is_test_data, false) = false
-         AND COALESCE(request_lead.is_test_data, false) = false
-         AND COALESCE(job_lead.is_test_data, false) = false
-         AND (${[folded('r.customer_name'), folded('r.customer_email'), folded('r.phone'), folded('r.location'), folded('r.id')].join(' OR ')})
-       ORDER BY r.created_at DESC, r.id DESC LIMIT 20`,
-      [needle, compactNeedle],
-    ),
-    includeFinance
-      ? db.query(
-        `SELECT invoice.id, invoice.job_id, invoice.invoice_number, invoice.issued_on, invoice.due_on,
-                invoice.amount_with_vat_cents
-         FROM business_job_invoices invoice
-         JOIN business_jobs job ON job.id = invoice.job_id
-         LEFT JOIN leads source_lead ON source_lead.id = job.lead_id
-         WHERE COALESCE(job.is_test_data, false) = false AND COALESCE(source_lead.is_test_data, false) = false
-           AND (${[folded('invoice.invoice_number'), folded('invoice.id'), folded('invoice.job_id')].join(' OR ')})
-         ORDER BY invoice.issued_on DESC, invoice.created_at DESC, invoice.id DESC LIMIT 20`,
-        [needle, compactNeedle],
-      )
-      : Promise.resolve({ rows: [] }),
-  ]);
-  return {
-    leads: leadRows.rows.map((row) => ({ id: String(row.id), fullName: String(row.full_name), phone: String(row.phone),
-      email: String(row.email), city: String(row.city), status: String(row.status) })),
-    jobs: jobRows.rows.map((row) => ({ id: String(row.id), customerName: String(row.customer_name),
-      location: String(row.location || ''), demolitionDate: dateOnly(row.demolition_date), status: String(row.status) })),
-    offers: offerRows.rows.map((row) => ({ id: String(row.id), number: String(row.number),
-      contactPerson: String(row.contact_person || ''), objectAddress: String(row.object_address || ''),
-      totalWithVat: Number(row.total_with_vat || 0) })),
-    reviews: reviewRows.rows.map((row) => ({ id: String(row.id), customerName: String(row.customer_name),
-      customerEmail: String(row.customer_email || ''), phone: String(row.phone || ''),
-      location: String(row.location || ''), status: String(row.status) })),
-    finance: financeRows.rows.map((row) => ({ id: String(row.id), jobId: String(row.job_id),
-      invoiceNumber: String(row.invoice_number), issuedOn: dateOnly(row.issued_on), dueOn: dateOnly(row.due_on),
-      amountWithVatCents: Number(row.amount_with_vat_cents) })),
-  };
+  if (db) return searchJobWorkspacePostgres(db, query, includeFinance, options);
+  const local = await readLocalDb();
+  return searchJobWorkspaceLocalData({ ...local, businessJobInvoices: includeFinance ? local.businessJobInvoices : [] }, query, includeFinance, options);
 }
 
 export type CustomerDirectoryPage = {

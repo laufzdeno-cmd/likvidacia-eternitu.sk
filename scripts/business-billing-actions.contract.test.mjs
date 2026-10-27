@@ -67,7 +67,7 @@ test('admin financial evidence formats business units and local dates for people
   assert.match(audit, /paymentMethodLabels/);
   assert.match(audit, /reasonLabels/);
   assert.doesNotMatch(audit, /Sadzba DPH v stotinách percenta/);
-  assert.match(jobForm, /timeZone: 'Europe\/Bratislava'/);
+  assert.match(jobForm, /useState\(job\?\.demolitionDate \?\? ''\)/, 'unknown actual work day stays empty instead of inventing today');
   assert.doesNotMatch(jobForm, /new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
   assert.match(detail, /settings, finance, completion\] = await Promise\.all/);
   assert.doesNotMatch(detail, /const finance = await getBusinessJobFinance/);

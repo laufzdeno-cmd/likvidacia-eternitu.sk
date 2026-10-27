@@ -258,12 +258,13 @@ test('detail dopytu zobrazuje novú cenovú ponuku a jej stav', async () => {
   assert.match(page, /!lead\.quotes\.length && !latestPriceOffer/);
 });
 
-test('server action validuje cenu a Maps ostáva serverové s ručným fallbackom', async () => {
+test('server action validuje cenu a súkromné adresy ponechá mimo externých máp', async () => {
   const actions = await readFile(new URL('../app/admin/(protected)/ponuky/actions.ts', import.meta.url), 'utf8');
   const form = await readFile(new URL('../app/admin/(protected)/ponuky/offer-form.tsx', import.meta.url), 'utf8');
   const envExample = await readFile(new URL('../.env.example', import.meta.url), 'utf8');
   assert.match(actions, /await verifyCsrf\(formData\);\s*await requireAdmin\(\);/);
-  assert.match(actions, /process\.env\.GOOGLE_MAPS_API_KEY/);
+  assert.doesNotMatch(actions, /routes\.googleapis\.com|process\.env\.GOOGLE_MAPS_API_KEY/);
+  assert.match(actions, /Presné adresy zákazníkov neposielame externej mapovej službe/);
   assert.match(actions, /input\.includeTransport && \(!input\.transportFrom \|\| !input\.transportTo \|\| input\.transportRoundTripKm <= 0\)/);
   assert.match(actions, /input\.realizationTerm\.length > 250/);
   assert.match(actions, /allowedMaterialTypes\.has\(input\.materialType\)/);

@@ -38,6 +38,7 @@ export default async function YearPage({ searchParams }: { searchParams: Promise
       costs: metrics.directCosts,
       rewards: metrics.rewards,
       remainder: metrics.preOverheadRemainder,
+      unknownPrices: metrics.jobsWithoutKnownPrice,
       cancelledCount: metrics.cancelledJobs.length,
       cancelledValue: metrics.cancelledValue,
       ...workerRewards,
@@ -68,6 +69,7 @@ export default async function YearPage({ searchParams }: { searchParams: Promise
         </form>
       </section>
       <section className="admin-card">
+        {jobs.some(job => job.totalPriceKnown === false) ? <p className="work-notice is-warning">Na doplnenie ceny čaká {jobs.filter(job => job.totalPriceKnown === false).length} zákaziek v tomto období. Súčet známych cien je neúplný; orientačný výsledok týchto zákaziek zatiaľ nemožno vyhodnotiť.</p> : null}
         <p className="admin-muted-note">Ide o evidované sumy pri dopytoch, odhadoch a zákazkách podľa dátumu demontáže, nie potvrdené tržby ani prijaté úhrady. Zadané priame náklady a odmeny nemusia byť úplné; orientačný rozdiel nie je zisk ani účtovná marža. Zrušené záznamy sú oddelené.</p>
         <div className="admin-table-wrap" role="region" aria-label="Mesačný ročný prehľad, posúvateľná tabuľka" tabIndex={0}>
         <table className="admin-table">

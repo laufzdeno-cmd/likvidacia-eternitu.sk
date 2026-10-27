@@ -28,7 +28,7 @@ function num(value: FormDataEntryValue | null) {
 function parseJob(formData: FormData): BusinessJobInput {
   const workerIds = formData.getAll('workerId').map(String).filter(Boolean);
   return {
-    demolitionDate: String(formData.get('demolitionDate') || new Date().toISOString().slice(0, 10)),
+    demolitionDate: String(formData.get('demolitionDate') || ''),
     customerName: String(formData.get('customerName') || '').trim(),
     customerPhone: String(formData.get('customerPhone') || '').trim(),
     customerEmail: String(formData.get('customerEmail') || '').trim(),
@@ -82,7 +82,7 @@ export async function saveBusinessJobAction(formData: FormData) {
 }
 
 const forbiddenOperationalJobFields = new Set([
-  'm2', 'pricePerM2', 'paymentType', 'workType', 'wasteKg', 'landfill',
+  'pricePerM2', 'paymentType', 'workType', 'landfill',
   'fuel', 'suits', 'gloves', 'penetrant', 'landfillCost', 'otherName', 'otherAmount',
   'totalPrice', 'rewardsTotal', 'grossProfit', 'marginPercent', 'workerId',
 ]);
@@ -93,6 +93,14 @@ function parseOperationalJob(formData: FormData): BusinessJobOperationalInput {
       throw new Error('Operatívne uloženie nesmie meniť finančné údaje zákazky.');
     }
   }
+  const quantity = (field: string) => {
+    const raw = String(formData.get(field) ?? '').trim().replace(',', '.');
+    if (!raw) return undefined;
+    if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) throw new Error('Výmera a hmotnosť musia byť nezáporné čísla, najviac na dve desatinné miesta.');
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value > 1_000_000_000) throw new Error('Výmera alebo hmotnosť je príliš vysoká.');
+    return value;
+  };
   return {
     demolitionDate: String(formData.get('demolitionDate') || ''),
     customerName: String(formData.get('customerName') || ''),
@@ -106,6 +114,8 @@ function parseOperationalJob(formData: FormData): BusinessJobOperationalInput {
     preferredContact: String(formData.get('preferredContact') || ''),
     status: String(formData.get('status') || '') as BusinessJobStatus,
     note: String(formData.get('note') || ''),
+    m2: quantity('m2'),
+    wasteKg: quantity('wasteKg'),
   };
 }
 

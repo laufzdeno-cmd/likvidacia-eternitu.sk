@@ -1,5 +1,6 @@
 import { csrfTokenForEmail, requireSuperAdmin } from '@/src/server/auth';
-import { getBusinessSettings, getPriceOfferSettings, listLandfillPrices, listWorkers } from '@/src/server/db';
+import { getAdminSetting, getBusinessSettings, getPriceOfferSettings, listAdminUsers, listLandfillPrices, listWorkers } from '@/src/server/db';
+import JobSettingsForm from './job-settings-form';
 import { priceOfferMaterialLabels } from '../ponuky/constants';
 import { euro, landfillLabels, landfills } from '../zakazky/constants';
 import { changeAdminPasswordAction, deleteLandfillPriceAction, disconnectGmailPriceOfferAction, retryGmailPriceOfferJobsAction, saveGeneralSettingsAction, saveLandfillPriceAction, savePriceOfferSettingsAction, saveWorkerAction } from './actions';
@@ -15,6 +16,7 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
   ]);
   const gmailConfig = getGmailPriceOfferConfiguration();
   const params = await searchParams;
+  const [ownerEmail, adminUsers] = await Promise.all([getAdminSetting('job_workspace_default_responsible_email'), listAdminUsers()]);
   const passwordMessage =
     params?.heslo === 'ulozene'
       ? 'Heslo bolo zmenené.'
@@ -39,6 +41,8 @@ export default async function SettingsAdminPage({ searchParams }: { searchParams
   return (
     <main className="admin-page">
       <div className="admin-heading"><div><p>Konfigurácia</p><h1>Nastavenia</h1></div></div>
+      <section className="admin-card"><h2>Gmail a zákazkové karty</h2><p>Skontrolované správy a pôvodné PDF ponuky môžete priradiť ku konkrétnej zákazke.</p><a className="admin-row-link" href="/admin/nastavenia/gmail">Rozsah a kontrola komunikácie →</a></section>
+      <JobSettingsForm csrfToken={csrfToken} selectedEmail={ownerEmail || ''} users={adminUsers.filter(user => user.active && ['OPERATOR', 'SUPER_ADMIN'].includes(user.role)).map(user => ({ email: user.email, name: user.name }))} />
 
       <section className="admin-card">
         <h2>Ceny skládok</h2>

@@ -79,7 +79,6 @@ function operationsAlertState(environment: RuntimeEnvironment): RuntimeFeatureSt
 export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = process.env) {
   const metaReady = isMetaCapiConfigured(environment);
   const workerReady = scheduledWorkerReady(environment);
-  const mapsReady = Boolean(environment.GOOGLE_MAPS_API_KEY?.trim());
   const careerRetentionReady = careerCvRetentionBound(environment);
   const facebookMessenger = getFacebookMessengerConfiguration(environment);
   const gmailPriceOffers = getGmailPriceOfferConfiguration(environment);
@@ -89,9 +88,7 @@ export function getRuntimeFeatureHealth(environment: RuntimeEnvironment = proces
       : metaReady
         ? { level: 'warning', label: 'Čaká na worker', detail: 'Konverzný transport je pripravený, ale plánované odosielanie nemá autorizáciu.' }
         : { level: 'warning', label: 'Bezpečne vypnuté', detail: 'Neúplná konfigurácia neodosiela serverové konverzie ani nepredstiera úspech.' },
-    routeDistance: mapsReady
-      ? { level: 'ok', label: 'Pripravené', detail: 'Automatický návrh kilometrov je nakonfigurovaný; hodnotu možno ďalej upraviť.' }
-      : { level: 'warning', label: 'Ručný režim', detail: 'Automatický výpočet kilometrov nie je nastavený; kilometre zostávajú editovateľné ručne.' },
+    routeDistance: { level: 'disabled', label: 'Súkromný ručný režim', detail: 'Kilometre sa dopĺňajú ručne. Presné adresy zákazníkov sa neposielajú externej mapovej službe.' },
     leadRetention: leadRetentionState(environment),
     careerRetention: careerRetentionReady && workerReady
       ? { level: 'ok', label: 'Aktívna', detail: 'Retencia súkromných životopisov je viazaná na produkčný store a databázu.' }

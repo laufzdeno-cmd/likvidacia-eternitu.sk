@@ -105,6 +105,7 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
       </section>
 
       <section className="admin-card">
+        {isSuperAdmin && totals && (totals.unknownPriceCount ?? 0) > 0 ? <p className="work-notice is-warning">Na doplnenie ceny čaká {totals.unknownPriceCount} zákaziek. Súčet známych cien zatiaľ nie je úplný výsledok evidencie.</p> : null}
         <p className="admin-muted-note">{isSuperAdmin ? 'Operatívny zoznam zobrazuje aj testovacie zákazky; súhrny v päte tabuľky ich vylučujú. Evidované sumy môžu zahŕňať aj dopyty a odhady; typ platby nie je potvrdením úhrady. Orientačný rozdiel odpočítava len aktuálne zadané priame náklady a odmeny, nejde o účtovný zisk. Súčet nezahŕňa zrušené záznamy; tie uvádzame osobitne.' : 'Operatívny zoznam zobrazuje pracovné údaje zákaziek. Finančné hodnoty sa operátorovi nenačítavajú.'}</p>
         <p className="admin-muted-note" aria-live="polite">Zobrazené {totalCount ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, totalCount)} z {totalCount} záznamov · strana {page} z {pageCount}</p>
         <div className="admin-table-wrap">
@@ -131,12 +132,12 @@ export default async function BusinessJobsPage({ searchParams }: { searchParams:
                   <td><a href={`/admin/zakazky/${job.id}`}>{job.customerName}</a>{job.isTestData ? <small> · TEST – mimo obchodných súhrnov</small> : null}{job.deletedAt ? <small> Archivované</small> : null}</td>
                   <td>{job.location}</td>
                   <td>{numberSk(job.m2)}</td>
-                  {isSuperAdmin && isFinancialBusinessJob(job) ? <td>{euro(job.totalPrice)}</td> : null}
+                  {isSuperAdmin && isFinancialBusinessJob(job) ? <td>{job.totalPriceKnown === false ? 'Na doplnenie' : euro(job.totalPrice)}</td> : null}
                   {isSuperAdmin && isFinancialBusinessJob(job) ? <td>{paymentLabels[job.paymentType]}</td> : null}
                   <td>{job.workers.map((worker) => worker.workerName).join(', ') || 'bez tímu'}</td>
                   <td><span className={`status-pill status-${job.status.toLowerCase()}`}>{jobStatusLabels[job.status]}</span></td>
                   <td><a href={`/admin/ponuky?jobId=${job.id}`}>{isSuperAdmin ? offersByJob.get(job.id) ?? 0 : 'Otvoriť'}</a></td>
-                  {isSuperAdmin && isFinancialBusinessJob(job) ? <td>{euro(job.totalPrice - job.rewardsTotal - job.costs.total)}</td> : null}
+                  {isSuperAdmin && isFinancialBusinessJob(job) ? <td>{job.totalPriceKnown === false ? 'Na doplnenie' : euro(job.totalPrice - job.rewardsTotal - job.costs.total)}</td> : null}
                   {isSuperAdmin ? <td className="no-print">
                     {
                       <div className="admin-row-actions">

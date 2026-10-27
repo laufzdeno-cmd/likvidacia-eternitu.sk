@@ -670,6 +670,7 @@ export type BusinessJob = {
   reviewRequestBlockedBy?: string;
   reviewRequestBlockedReason?: string;
   demolitionDate: string;
+  actualDateOverridden?: boolean;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -683,6 +684,9 @@ export type BusinessJob = {
   m2: number;
   pricePerM2: number;
   totalPrice: number;
+  /** False means an imported total is still unknown; numeric compatibility value is not a zero-price agreement. */
+  totalPriceKnown?: boolean;
+  priceOverridden?: boolean;
   paymentType: BusinessPaymentType;
   workType: BusinessWorkType;
   wasteKg: number;
@@ -740,6 +744,7 @@ export type OperationalBusinessJob = {
   updatedAt: string;
   deletedAt?: string;
   demolitionDate: string;
+  actualDateOverridden?: boolean;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
@@ -764,7 +769,7 @@ export type OperationalBusinessJobWithActivity = OperationalBusinessJob & { acti
 export type BusinessJobOperationalInput = Pick<OperationalBusinessJob,
   'demolitionDate' | 'customerName' | 'customerPhone' | 'customerEmail' | 'location' | 'district'
   | 'materialType' | 'objectType' | 'term' | 'preferredContact' | 'status' | 'note'
->;
+> & { m2?: number; wasteKg?: number };
 
 export type OperationalWorker = Pick<Worker, 'id' | 'name' | 'active'>;
 

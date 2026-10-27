@@ -14,6 +14,7 @@ export function summarizeBusinessJobs(jobs: BusinessJob[]) {
 
   return {
     activeJobs,
+    jobsWithoutKnownPrice: activeJobs.filter((job) => job.totalPriceKnown === false).length,
     cancelledJobs,
     recordedOrderValue,
     cancelledValue: sum(cancelledJobs, (job) => job.totalPrice),

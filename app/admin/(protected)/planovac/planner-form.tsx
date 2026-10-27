@@ -12,6 +12,7 @@ export type PlannerJobOption = {
   location: string;
   district: string;
   demolitionDate: string;
+  plannedDate?: string;
   workerNames: string[];
 };
 
@@ -47,7 +48,7 @@ export default function PlannerForm({
   const [customerName, setCustomerName] = useState(editAction?.customerName || initialJob?.customerName || '');
   const [customerEmail, setCustomerEmail] = useState(editAction?.customerEmail || initialJob?.customerEmail || '');
   const [customerPhone, setCustomerPhone] = useState(editAction?.customerPhone || initialJob?.customerPhone || '');
-  const [date, setDate] = useState(editAction?.date || initialJob?.demolitionDate || today);
+  const [date, setDate] = useState(editAction?.date || initialJob?.plannedDate || initialJob?.demolitionDate || '');
   const initialWorkers = new Set((editAction?.workers ? editAction.workers.split(',') : initialJob?.workerNames || []).map((value) => value.trim()).filter(Boolean));
   const [selectedWorkers, setSelectedWorkers] = useState(initialWorkers);
   const [weatherIsCurrent, setWeatherIsCurrent] = useState(true);
@@ -61,7 +62,7 @@ export default function PlannerForm({
     setCustomerName(job.customerName);
     setCustomerEmail(job.customerEmail);
     setCustomerPhone(job.customerPhone);
-    setDate(job.demolitionDate || today);
+    setDate(job.plannedDate || job.demolitionDate || '');
     setSelectedWorkers(new Set(job.workerNames));
   }
 

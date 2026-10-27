@@ -235,10 +235,11 @@ export async function getAdminOperationalApprovalQueue(now = new Date()) {
 export type AdminSearchResult = {
   query: string;
   leads: Array<{ id: string; fullName: string; phone: string; email: string; city: string; status: string }>;
-  jobs: Array<{ id: string; customerName: string; location: string; demolitionDate: string; status: string }>;
-  offers: Array<{ id: string; number: string; contactPerson: string; objectAddress: string; totalWithVat: number }>;
+  jobs: Array<{ id: string; customerName: string; location: string; demolitionDate: string; status: string; number?: string; responsibleEmail?: string; archived?: boolean }>;
+  offers: Array<{ id: string; number: string; contactPerson: string; objectAddress: string; totalWithVat: number | null; source?: 'GENERATED' | 'MANUAL_PDF'; status?: string; jobId?: string | null; archived?: boolean }>;
   reviews: Array<{ id: string; customerName: string; customerEmail: string; phone: string; location: string; status: string }>;
   finance: Array<{ id: string; jobId: string; invoiceNumber: string; issuedOn: string; dueOn: string; amountWithVatCents: number }>;
+  pagination?: { page: number; pageSize: number; totalPages: number; totals: { leads: number; jobs: number; offers: number; reviews: number; finance: number } };
 };
 
 export async function getAdminOperationsOverview(role: AdminRole, now = new Date()) {
@@ -409,8 +410,9 @@ export async function getAdminOperationsOverview(role: AdminRole, now = new Date
   };
 }
 
-export async function searchAdminRecords(query: string, role: AdminRole): Promise<AdminSearchResult> {
+export async function searchAdminRecords(query: string, role: AdminRole, options: import('./job-workspace-types').JobWorkspaceSearchOptions = {}): Promise<AdminSearchResult> {
+  if (role !== 'SUPER_ADMIN' && role !== 'OPERATOR') throw new Error('Vyhľadávanie firemných záznamov nie je pre túto rolu dostupné.');
   const q = query.trim().slice(0, 100);
   if (q.length < 2) return { query: q, leads: [], jobs: [], offers: [], reviews: [], finance: [] };
-  return { query: q, ...await searchAdminData(q, role === 'SUPER_ADMIN') };
+  return { query: q, ...await searchAdminData(q, role === 'SUPER_ADMIN', options) };
 }
