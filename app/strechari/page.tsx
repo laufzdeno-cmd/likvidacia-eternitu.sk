@@ -5,6 +5,7 @@ import HeaderBrandLogo from '../header-brand-logo';
 import { PublicFooter } from '../public-layout';
 import { BreadcrumbJsonLd } from '../seo-json-ld';
 import { buildPageMetadata } from '../seo-components';
+import { UsefulChecklist } from '../editorial-components';
 
 export const metadata: Metadata = buildPageMetadata({
   title: 'Spolupráca pre strechárov | ASTANA',
@@ -173,6 +174,15 @@ export default function RoofersPage() {
           </div>
         </section>
 
+        <section className="roofer-b2b-inner">
+          <UsefulChecklist title="Čo si odovzdať pred spoločnou zákazkou" items={[
+            'Obec, konkrétny rozsah krytiny a prístup na stavbu.',
+            'Požadovaný termín a informáciu, či ho už zákazník potvrdil.',
+            'Kto po demontáži preberie pracovisko a rieši prípadné zakrytie.',
+            'Kontaktnú osobu a postup pri zmene rozsahu alebo počasia.',
+          ]} />
+          <p>Samostatnú strechársku ponuku a zodpovednosť za novú strechu si dohadujete priamo so zákazníkom. <a href="/spolupracujuci-strechari/">Informácie o nadväznosti pre majiteľa strechy</a> môžete poslať spolu s kontaktom na ASTANA.</p>
+        </section>
         <section className="roofer-b2b-partner-kit" aria-labelledby="partner-kit-title">
           <div className="roofer-b2b-inner">
             <div className="roofer-b2b-partner-kit-heading">

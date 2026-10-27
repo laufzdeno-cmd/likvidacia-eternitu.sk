@@ -3,6 +3,7 @@ import { serviceDocumentationOutcome, site } from '@/src/content/site';
 import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import { buildOrganizationJsonLd } from './seo-json-ld';
 import '../src/global-bundle.css';
+import './editorial-pages.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL(site.website),

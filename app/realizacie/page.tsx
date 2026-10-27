@@ -12,6 +12,7 @@ import { normalizePublicRealizationImageUrl } from '@/src/server/public-realizat
 import { serializeJsonLd } from '@/src/lib/json-ld-serialize.mjs';
 import type { PublishedRealization, PublishedRealizationCase } from '@/src/server/types';
 import ApprovedCaseMap from './approved-case-map';
+import { ReadingLinks } from '../editorial-components';
 
 export const revalidate = 300;
 
@@ -340,12 +341,18 @@ export default function RealizationsPage({ searchParams }: PageProps) {
           </div>
         </section>
 
+        <section className="section"><h2>Čo si na fotografiách všimnúť</h2><p>Celkový pohľad ukáže typ objektu a priestor pri budove. Ďalšie zábery zachytávajú rôzne etapy: prípravu pracoviska, prácu na krytine, zabalený materiál alebo stav po demontáži. Jedna fotografia nepredstavuje celý postup ani cenový rozsah zákazky.</p><p>Ak riešite podobnú stavbu, pošlite jej vlastnú lokalitu, odhad plochy a opis prístupu. Podobný vzhľad strechy ešte nepotvrdzuje rovnakú náročnosť práce. Pri novších prípadových podkladoch zverejňujeme údaje až po schválení.</p></section>
         <ReviewedGallery />
 
         <Suspense fallback={null}>
           <PublishedRealizationsContent searchParams={searchParams} />
         </Suspense>
 
+        <div className="section"><ReadingLinks links={[
+          { href: '/postup/', title: 'Čo sa deje medzi zábermi', text: 'Celý postup od posúdenia po odovzdanie podkladov.' },
+          { href: '/cena-likvidacie-azbestu/', title: 'Cena podobnej práce', text: 'Prečo pri nacenení nestačí iba fotografia.' },
+          { href: '/poradna/co-poslat-pre-nacenenie-likvidacie-eternitu/', title: 'Vaše vlastné podklady', text: 'Ako pripraviť užitočný dopyt aj bez presnej výmery.' },
+        ]} /></div>
         <section className="final-cta realizations-final" aria-labelledby="realizations-final-title">
           <div>
             <p className="eyebrow">Máte podobnú strechu?</p>

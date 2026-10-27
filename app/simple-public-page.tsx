@@ -12,23 +12,25 @@ type SimplePublicPageProps = {
 
 export default function SimplePublicPage({ eyebrow, title, lead, sections, breadcrumb, children }: SimplePublicPageProps) {
   return (
-    <PublicPageShell breadcrumb={breadcrumb}>
-      <main className="section simple-page">
+    <PublicPageShell breadcrumb={breadcrumb} hideWhatsappOnMobile>
+      <main className="section simple-page editorial-legal">
         <p className="eyebrow">{eyebrow}</p>
         <h1>{title}</h1>
-        <p className="hero-text">{lead}</p>
-        <div className="risk-grid">
-          {sections.map((section) => (
-            <article key={section.title}>
+        <p className="editorial-lead">{lead}</p>
+        <nav className="editorial-toc" aria-label="Obsah stránky"><p>Prehľad informácií</p><ul>{sections.map((section, index) => <li key={section.title}><a href={`#informacia-${index + 1}`}>{section.title}</a></li>)}</ul></nav>
+        <div className="editorial-legal-body">
+          {sections.map((section, index) => (
+            <article key={section.title} id={`informacia-${index + 1}`}>
               <h2>{section.title}</h2>
-              <p>{section.text}</p>
+              {section.text.split('\n\n').map(paragraph => <p key={paragraph}>{paragraph}</p>)}
             </article>
           ))}
         </div>
         {children}
         <div className="final-actions">
-          <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>
-          <a className="button button-outline" href="/">Späť na úvod</a>
+          <a href="/kontakt/">Kontakt na ASTANA</a>
+          <a href="/ochrana-osobnych-udajov/">Ochrana osobných údajov</a>
+          <a href="/cookies/">Voľba cookies</a>
         </div>
       </main>
     </PublicPageShell>

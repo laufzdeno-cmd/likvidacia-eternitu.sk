@@ -4,6 +4,7 @@ import TestimonialForm from './testimonial-form';
 import { listApprovedTestimonials } from '@/src/server/db';
 import { randomUUID } from 'node:crypto';
 import { testimonialReceiptSecret, verifyTestimonialReceiptToken } from '@/src/server/testimonial-receipt';
+import { EditorialHero, UsefulChecklist } from '../editorial-components';
 
 export const metadata = buildPageMetadata({
   title: 'Recenzie zákazníkov | ASTANA',
@@ -21,7 +22,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
   const approved = await listApprovedTestimonials(24).catch(() => []);
   const publicTestimonials = approved.map(({ id, customerName, rating, text, createdAt }) => ({ id, customerName, rating, text, createdAt }));
   return (
-    <PublicPageShell breadcrumb={{ name: 'Recenzie', path: '/recenzie/' }}>
+    <PublicPageShell breadcrumb={{ name: 'Recenzie', path: '/recenzie/' }} hideWhatsappOnMobile>
       <main className="seo-page">
         {receipt ? (
           <p
@@ -36,11 +37,10 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
             Ďakujeme. Referenciu sme prijali na kontrolu a zobrazí sa až po schválení.
           </p>
         ) : null}
-        <section className="seo-hero">
-          <p className="eyebrow">Recenzie</p>
-          <h1>Recenzie zákazníkov ASTANA</h1>
-          <p>Zdieľame iba skúsenosti, pri ktorých máme zaznamenaný súhlas na zverejnenie.</p>
-        </section>
+        <EditorialHero eyebrow="Skúsenosti z konkrétnej spolupráce" title="Recenzie zákazníkov ASTANA"
+          lead="Riešili sme spolu odstránenie eternitu alebo inú zákazku? Napíšte, ako prebehla komunikácia, dohoda a práca na mieste. Zverejňujeme skúsenosti po kontrole a so zaznamenaným súhlasom."
+          photoId="azbest-068" photoAlt="Rodinný dom a pracovisko ASTANA pri prácach na streche"
+          photoCaption="Vlastná fotodokumentácia ASTANA. Fotografia nepredstavuje autora konkrétnej recenzie." />
         <QuickAnswer>
           Referenciu môže poslať každý zákazník. Pred zverejnením ju skontrolujeme a uverejníme iba po zaznamenanom súhlase; e-mail ani presnú lokalitu na stránke nezobrazujeme.
         </QuickAnswer>
@@ -60,6 +60,7 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
           <p className="seo-lead">
             Referenciu najprv skontrolujeme. Samotné odoslanie neznamená automatické zverejnenie.
           </p>
+          <UsefulChecklist title="Čo pomôže ďalšiemu zákazníkovi" items={['Aký druh práce ste riešili, bez presnej adresy a osobných údajov.', 'Ako prebehla dohoda o rozsahu a komunikácia pred prácou.', 'Čo fungovalo dobre a čo by sme mohli zlepšiť.']} />
           <TestimonialForm initialSubmissionId={randomUUID()} />
           <div className="seo-included-list">
             <a href="/realizacie/">Pozrieť reálne fotky prác ASTANA</a>

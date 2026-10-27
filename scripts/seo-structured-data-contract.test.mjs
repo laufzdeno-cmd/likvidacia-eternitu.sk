@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import postcss from 'postcss';
+import { articles } from '../src/content/seo-content.ts';
 
 const require = createRequire(import.meta.url);
 const fontkit = require('fontkit');
@@ -209,16 +210,16 @@ test('mobile floating WhatsApp yields to the sticky CTA and never covers the hom
 
 test('public offer copy consistently treats customer photos as optional', () => {
   assert.match(priceLanding, /Fotky môžu ponuku spresniť, ale nie sú povinné/);
-  assert.match(contactPage, /Fotky sú voliteľné, ale pomôžu ponuku spresniť/);
-  assert.match(seoContent, /Fotky materiálu sú voliteľné, ale pomôžu ponuku spresniť/);
+  assert.match(contactPage, /Fotky sú voliteľné/);
+  assert.match(seoContent, /Fotografie sú voliteľné/);
   assert.match(seoContent, /Na ponuku stačí m2 a lokalita; fotky sú voliteľné/);
   assert.match(seoContent, /Pošlete výmeru a lokalitu/);
   assert.match(seoContent, /Fotky strechy či materiálu sú voliteľné/);
-  assert.match(seoContent, /Fotky sú voliteľné\. Ak ich máte, priložte celkový záber strechy/);
+  assert.match(articles.find(article => article.slug === 'co-poslat-pre-nacenenie-likvidacie-eternitu')?.quickAnswer || '', /Fotografie nie sú povinné/);
   assert.doesNotMatch(seoContent, /Pošlite fotky, výmeru a lokalitu/);
   assert.doesNotMatch(seoContent, /Pošlite celkový záber strechy, detail krytiny/);
   assert.doesNotMatch(seoContent, /Pošlete výmeru, lokalitu a fotky/);
-  assert.match(read('../app/faq/page.tsx'), /fotky sú voliteľné/);
+  assert.match(read('../app/faq/page.tsx'), /[Ff]otky sú voliteľné/);
   assert.match(read('../app/postup/page.tsx'), /Fotky sú voliteľné/);
   assert.match(notFound, /Fotky sú voliteľné/);
 });
@@ -228,14 +229,8 @@ test('price content uses the approved asbestos roof social image', () => {
   assert.match(priceLanding, /<Image[\s\S]*?src="\/og\/cena-strecha-realizacia\.jpg"/,
     'the approved roof photo must be visibly rendered on the price page, not only used as social metadata');
   assert.match(priceLanding, /alt="Pracovník ASTANA stabilizuje eternitovú strechu pred bezpečnou demontážou"/);
-  assert.match(
-    seoContent,
-    /slug:\s*'kolko-stoji-likvidacia-azbestu'[\s\S]*?image:\s*'\/og\/cena-strecha-realizacia\.jpg'/,
-  );
-  assert.match(
-    seoContent,
-    /slug:\s*'odvoz-a-balenie-azbestoveho-odpadu'[\s\S]*?image:\s*'\/og\/cena\.jpg'/,
-  );
+  assert.equal(articles.find(article => article.slug === 'kolko-stoji-likvidacia-azbestu')?.image, '/og/cena-strecha-realizacia.jpg');
+  assert.equal(articles.find(article => article.slug === 'odvoz-a-balenie-azbestoveho-odpadu')?.image, '/og/cena.jpg');
 });
 
 test('homepage calculator describes a non-final price range, transport policy and its exclusions', () => {

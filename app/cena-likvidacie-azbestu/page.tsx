@@ -7,6 +7,7 @@ import PricePageClient from '../price-page-client';
 import { PublicFontPreload } from '@/src/components/public-font-preload';
 import { transportPolicy } from '@/src/content/transport-policy.mjs';
 import './price-route.css';
+import { ReadingLinks, UsefulChecklist } from '../editorial-components';
 
 export const metadata = buildPageMetadata({
   title: 'Cena likvidácie azbestu a eternitu | Faktory ceny | ASTANA',
@@ -72,11 +73,13 @@ export default function AsbestosPricePage() {
         <SummaryBox
           items={[
             ['Čo poslať', 'približnú výmeru v m2, lokalitu, typ objektu a informáciu o prístupe; fotky, ak ich máte'],
-            ['Čo nerobíme', 'neuvádzame vymyslený univerzálny cenník bez znalosti zákazky'],
+            ['Ako čítať výpočet', 'ako prvú predstavu; rozsah a konečnú cenu potvrdzuje konkrétna ponuka'],
             ['Čo dostanete', 'konkrétnu cenovú ponuku a návrh ďalšieho postupu'],
             ['Prečo voliteľné fotky pomôžu', 'spresnia typ materiálu, výšku, prístup a náročnosť'],
           ]}
         />
+        <section className="editorial-situation"><p className="eyebrow">Porovnávajte rovnaký rozsah</p><h2>Rovnaké m² ešte neznamenajú rovnakú zákazku</h2><p>Nízka garáž s voľným príjazdom a vysoký dom v tesnom dvore môžu mať rovnakú plochu krytiny, ale inú prípravu a manipuláciu. Rozdiel je aj medzi celými doskami na streche a poškodeným materiálom už uloženým na pozemku. Preto k výmere pridajte stručný opis prístupu a stavu.</p><p>Pri porovnaní ponúk sa pýtajte na konečnú sumu za dohodnuté práce. Samostatná sadzba za demontáž nevypovedá, či obsahuje balenie, nakládku, odvoz a dokumentáciu. Ak sa pri spresnení zmení rozsah, potvrďte si aj jeho vplyv na ponuku.</p></section>
+        <UsefulChecklist title="Čo si v ponuke skontrolovať" items={['Výmeru a konkrétne časti objektu, z ktorých cena vychádza.', 'Rozsah demontáže, balenia, nakládky, odvozu a dokumentácie.', 'Dopravu, individuálne položky a režim DPH.', 'Požadovaný termín a nadväznosť novej strechy; odhad termínu nie je jeho potvrdenie.']} />
         <section className="seo-calculator" id="orientacna-cena">
           <div>
             <p className="eyebrow">Orientačný výpočet</p>
@@ -108,6 +111,11 @@ export default function AsbestosPricePage() {
           </div>
         </section>
         <FaqSection faqs={coreFaqs.slice(3, 7)} title="Otázky k cene" />
+        <ReadingLinks links={[
+          { href: '/poradna/ako-zmerat-strechu-pre-cenovu-ponuku/', title: 'Neviete plochu?', text: 'Bezpečný odhad a jednoduchý príklad sedlovej strechy.' },
+          { href: '/poradna/co-poslat-pre-nacenenie-likvidacie-eternitu/', title: 'Podklady k ponuke', text: 'Čo napísať, čo odfotiť a čo pokojne označiť ako neznáme.' },
+          { href: '/spolupracujuci-strechari/', title: 'Meníte aj krytinu?', text: 'Ako si dohodnúť nadväznosť s vlastným alebo odporučeným strechárom.' },
+        ]} />
         <QuoteCTA title="Chcem presnú cenovú ponuku" />
         <PricePageClient />
       </main>

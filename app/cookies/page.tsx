@@ -14,14 +14,15 @@ export const metadata: Metadata = {
 
 export default function CookiesPage() {
   return (
-    <PublicPageShell breadcrumb={{ name: 'Zásady cookies', path: '/cookies/' }}>
-      <main className="seo-page">
+    <PublicPageShell breadcrumb={{ name: 'Zásady cookies', path: '/cookies/' }} hideWhatsappOnMobile>
+      <main className="seo-page editorial-legal">
         <section className="seo-hero">
           <p className="eyebrow">Cookies</p>
           <h1>Zásady používania cookies</h1>
           <p>Prehľad toho, aké cookies používame a ako s nimi môžete pracovať.</p>
         </section>
-        <section className="seo-section seo-grid-2">
+        <nav className="editorial-toc" aria-label="Najdôležitejšie informácie o cookies"><p>Vaša voľba</p><ul><li><a href="#nastavenia">Zmeniť súhlas s meraním</a></li><li><a href="#meranie">Čo sa používa pri povolenom meraní</a></li><li><a href="/ochrana-osobnych-udajov/">Ako sa spracúva dopyt</a></li></ul></nav>
+        <section className="seo-section editorial-legal-body">
           <article>
             <h2>Čo sú cookies</h2>
             <p>Cookies sú malé súbory ukladané v prehliadači. Pomáhajú stránke fungovať správne a zapamätať si základné nastavenia.</p>
@@ -31,7 +32,7 @@ export default function CookiesPage() {
             <p>Bezpečnostné a technické úložisko môže byť potrebné na fungovanie webu, formulárov a ochranu pred zneužitím. Toto úložisko nemožno vypnúť cez tento panel.</p>
           </article>
           <article>
-            <h2>Analytika a marketingové meranie</h2>
+            <h2 id="meranie">Analytika a marketingové meranie</h2>
             <p>Analytika sa zapne iba po vašom súhlase. Používa pseudonymné ID relácie a môže zaznamenať navštívenú cestu, šírku obrazovky, doménu odkazujúcej stránky a UTM zdroj kampane. Pri súhlase s marketingovým meraním sa reklamné značky OpenAI Ads, Google Ads alebo Meta načítajú počas návštevy stránky. Poskytovatelia môžu pri načítaní spracovať technické údaje prehliadača a pripojenia. Samotnú konverznú udalosť odošleme až po potvrdenom odoslaní dopytu. OpenAI Ads dostane názov udalosti, stabilné pseudonymné ID udalosti, zdrojovú stránku a reklamný identifikátor z odkazu; neposielame mu meno, telefón, email, poznámku ani fotografie. Meta dostane stabilné ID udalosti, všeobecnú kategóriu materiálu, zdrojovú stránku, obmedzený údaj o prehliadači a zahashovaný email a telefón na priradenie konverzie. Hashovanie nie je anonymizácia. Pri odmietnutí marketingového merania sa nové udalosti nevytvoria a čakajúce udalosti z daného prehliadača zrušíme.</p>
           </article>
           <article>

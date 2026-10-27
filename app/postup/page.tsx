@@ -5,6 +5,7 @@ import type { FaqItem } from '@/src/content/seo-content';
 import { buildPageMetadata, InternalLinks } from '../seo-components';
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
+import { UsefulChecklist } from '../editorial-components';
 
 const heroPhoto = getAzbestReference('azbest-164');
 const roofPhoto = getAzbestReference('azbest-051');
@@ -339,6 +340,12 @@ export default function ProcessPage() {
           ))}
         </section>
 
+        <UsefulChecklist title="Čo si pred príchodom spoločne potvrdíme" items={[
+          'Ktoré časti objektu sa riešia a aký rozsah je v potvrdenej ponuke.',
+          'Kto sprístupní pozemok, kde je možný príjazd a miesto nakládky.',
+          'Kto prevezme odkrytý objekt a rieši prípadné dočasné zakrytie.',
+          'Aké dokumenty sa odovzdajú a akým spôsobom ich dostanete.',
+        ]} />
         <InternalLinks context="service" />
 
         <section className="postup-process-final-cta" aria-labelledby="postup-final-cta-title">

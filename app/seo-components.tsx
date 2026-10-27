@@ -12,6 +12,9 @@ import { companyAddressLine, emailLink, phoneLink, serviceOffer, site } from '@/
 import { PublicPageShell } from './public-layout';
 import { PublicFontPreload } from '@/src/components/public-font-preload';
 import { JsonLd, buildArticleJsonLd, buildFaqJsonLd, buildServiceJsonLd } from './seo-json-ld';
+import { EditorialHero, ReadingLinks, UsefulChecklist } from './editorial-components';
+import { regionalGuides } from '@/src/content/regional-guides';
+import { transportPolicy } from '@/src/content/transport-policy.mjs';
 
 export function buildPageMetadata({
   title,
@@ -268,21 +271,21 @@ export function InternalLinks({
 }
 
 export function ServicePage({ page }: { page: ServicePageContent }) {
+  const isRoof = page.slug === '/likvidacia-eternitu/';
   return (
-    <PublicPageShell breadcrumb={{ name: page.h1, path: page.slug }}>
+    <PublicPageShell breadcrumb={{ name: page.h1, path: page.slug }} hideWhatsappOnMobile>
       <main className="seo-page">
         <JsonLd data={[buildServiceJsonLd(page.h1, page.quickAnswer, page.slug), buildFaqJsonLd(page.faqs)]} />
-        <section className="seo-hero">
-          <p className="eyebrow">{page.eyebrow}</p>
-          <h1>{page.h1}</h1>
-          <p>{page.lead}</p>
+        <EditorialHero eyebrow={page.eyebrow} title={page.h1} lead={page.quickAnswer}
+          photoId={isRoof ? 'azbest-087' : 'azbest-111'}
+          photoAlt={isRoof ? 'Pracovník v ochrannom obleku pri ošetrení staršej krytiny na streche' : 'Pracovné vozidlá ASTANA pri priemyselnom objekte'}
+          photoCaption={isRoof ? 'Záber z prípravy strešnej krytiny pri realizácii ASTANA.' : 'Fotodokumentácia ASTANA: príprava a logistika pri väčšom objekte.'}>
           <div className="hero-actions">
             <a className="button button-primary" href="/#dopyt">Chcem cenovú ponuku</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
-        </section>
-        <QuickAnswer>{page.quickAnswer}</QuickAnswer>
-        <SummaryBox items={page.summary} />
+        </EditorialHero>
+        <p className="editorial-faq-intro">{page.lead}</p>
         <section className="seo-section">
           <h2>Čo pre vás zabezpečíme</h2>
           <div className="seo-included-list">
@@ -292,7 +295,7 @@ export function ServicePage({ page }: { page: ServicePageContent }) {
         {page.sections.map((section) => (
           <section className="seo-section" key={section.title}>
             <h2>{section.title}</h2>
-            <p className="seo-lead">{section.text}</p>
+            {section.text.split('\n\n').map((paragraph) => <p className="editorial-faq-intro" key={paragraph}>{paragraph}</p>)}
             {section.items ? (
               <div className="seo-included-list">
                 {section.items.map((item) => <span key={item}>{item}</span>)}
@@ -300,11 +303,21 @@ export function ServicePage({ page }: { page: ServicePageContent }) {
             ) : null}
           </section>
         ))}
-        <ProcessSteps />
-        <ExpertProcedure />
+        <UsefulChecklist title={isRoof ? 'Než si potvrdíte výmenu strechy' : 'Než si objednáte odstránenie materiálu'} items={isRoof ? [
+          'Rozlíšte plochu krytiny od pôdorysu domu. Na prvý dopyt stačí označený odhad.',
+          'Uveďte strechára a požadovanú nadväznosť novej krytiny.',
+          'Vyjasnite si, kto prevezme odkrytý objekt a zabezpečí prípadné zakrytie.',
+        ] : [
+          'Opíšte, kde materiál je a či sa doň už zasahovalo.',
+          'Ak zloženie nepoznáte, nepokúšajte sa ho potvrdiť poškodením materiálu.',
+          'Pri objekte v prevádzke uveďte režim vstupu a používané časti budovy.',
+        ]} />
         <TrustComplianceSection />
-        <TrustBox />
-        <InternalLinks context="service" />
+        <ReadingLinks links={[
+          { href: '/cena-likvidacie-azbestu/', title: 'Cena a rozsah ponuky', text: 'Čo ovplyvňuje cenu a ako funguje doprava od 100 m².' },
+          { href: '/postup/', title: 'Od dopytu po odovzdanie', text: 'Príprava, demontáž, odvoz aj nadväznosť strechára.' },
+          { href: '/realizacie/', title: 'Pozrite si našu prácu', text: 'Vlastné fotografie rôznych typov objektov a prác ASTANA.' },
+        ]} />
         <FaqSection faqs={page.faqs} />
         <QuoteCTA />
       </main>
@@ -318,15 +331,16 @@ export function LocationPage({
   location: (typeof locationPages)[number];
 }) {
   const path = `/likvidacia-azbestu-${location.slug}/`;
+  const guide = regionalGuides[location.slug];
   const h1 = `Likvidácia azbestu a eternitu - ${location.name}`;
   const quickAnswer = `ASTANA, s.r.o. so sídlom v Poprade zabezpečuje po dohode odbornú likvidáciu azbestu a eternitu v ${location.area}. Výjazd a termín potvrdíme podľa obce, rozsahu prác a aktuálnej kapacity; v tejto lokalite nemáme pobočku.`;
   const relatedLocations = location.relatedSlugs
     .map((slug) => locationPages.find((item) => item.slug === slug))
     .filter((item): item is (typeof locationPages)[number] => Boolean(item));
   const faqs: FaqItem[] = [
-    { question: `Riešite likvidáciu azbestu v ${location.area}?`, answer: `Áno, ${site.legalName} pôsobí po celom Slovensku a zákazky prijíma aj v ${location.area}.` },
-    { question: 'Čo poslať v dopyte na cenovú ponuku?', answer: 'Pošlite približnú výmeru v m2, obec alebo okres, typ objektu a informáciu o prístupe. Fotky materiálu sú voliteľné; ak ich máte, pomôžu ponuku spresniť.' },
-    { question: 'Od čoho závisí cena v tejto lokalite?', answer: 'Od výmery, typu materiálu, výšky objektu, prístupu, objemu odpadu, termínu a potrebnej dokumentácie.' },
+    guide.faq,
+    { question: `Ako sa účtuje doprava pri zákazke v oblasti ${location.name}?`, answer: transportPolicy.full },
+    { question: `Treba mať presnú výmeru pred dopytom z oblasti ${location.name}?`, answer: 'Na prvé posúdenie stačí označený odhad. Uveďte obec, typ objektu, stav materiálu a prístup. Fotografie sú voliteľné; kvôli meraniu ani foteniu na starú krytinu nevstupujte.' },
   ];
 
   return (
@@ -337,23 +351,19 @@ export function LocationPage({
     >
       <main className="seo-page">
         <JsonLd data={[buildServiceJsonLd(h1, quickAnswer, path), buildFaqJsonLd(faqs)]} />
-        <section className="seo-hero">
-          <p className="eyebrow">Výjazd z Popradu po dohode</p>
-          <h1>{h1}</h1>
-          <p>{quickAnswer}</p>
+        <EditorialHero eyebrow="Výjazd z Popradu po dohode" title={h1} lead={quickAnswer}
+          photoId={guide.photoId} photoAlt={guide.photoAlt}
+          photoCaption="Ukážka z fotodokumentácie ASTANA. Fotografia neoznačuje realizáciu v tomto regióne.">
           <div className="hero-actions">
             <a className="button button-primary" href="/#dopyt">Pošlite výmeru a lokalitu</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
-        </section>
-        <section className="seo-section">
-          <h2>Ako plánujeme výjazd do tejto oblasti</h2>
-          <p className="seo-lead">{location.localNote}</p>
-          <p>
-            Pôsobnosť po celom Slovensku neznamená miestnu pobočku ani automaticky dostupný termín. Pred potvrdením
-            výjazdu preveríme údaje o stavbe a dohodneme s vami logistiku.
-          </p>
-          <p><a href="/kde-posobime/">Ako plánujeme výjazdy po Slovensku</a></p>
+        </EditorialHero>
+        <section className="editorial-situation">
+          <p className="eyebrow">Podľa situácie na vašej stavbe</p><h2>{guide.heading}</h2>
+          {guide.paragraphs.map(paragraph => <p key={paragraph}>{paragraph}</p>)}
+          <ul>{guide.checklist.map(item => <li key={item}>{item}</li>)}</ul>
+          <p><a href={`/poradna/${guide.articleSlug}/`}>{guide.articleLabel} →</a></p>
         </section>
         <section className="seo-section seo-grid-2" aria-label={`Praktické informácie pre ${location.coverageHeading}`}>
           <article>
@@ -383,12 +393,15 @@ export function LocationPage({
             ))}
           </div>
         </section>
-        <ProcessSteps title="Ako prebieha objednávka" />
         <section className="seo-section">
           <h2>Čo ovplyvňuje cenu v danej lokalite</h2>
-          <p className="seo-lead">Cenu ovplyvňuje výmera, typ materiálu, prístup k objektu, výška strechy, objem odpadu, logistika v regióne a rozsah dokumentácie.</p>
+          <p className="seo-lead">Cenu ovplyvňuje výmera, typ materiálu, prístup k objektu, výška strechy, objem odpadu a rozsah dokumentácie. {transportPolicy.full}</p>
         </section>
-        <ContactStrip />
+        <ReadingLinks title="Pripravte si ďalší krok" links={[
+          { href: '/cena-likvidacie-azbestu/', title: 'Orientačná cena', text: 'Prepočet podľa výmery a vysvetlenie položiek ponuky.' },
+          { href: '/postup/', title: 'Príprava a termín', text: 'Ako postupujeme pred prácou a pri koordinácii strechára.' },
+          { href: '/spolupracujuci-strechari/', title: 'Nemáte strechára?', text: 'Čo si dohodnúť pri nadväzujúcej novej streche.' },
+        ]} />
         <section className="seo-section" aria-labelledby={`related-regions-${location.slug}`}>
           <h2 id={`related-regions-${location.slug}`}>Ďalšie oblasti, ktoré obsluhujeme</h2>
           <p className="seo-lead">
@@ -404,8 +417,7 @@ export function LocationPage({
             <a href="/kde-posobime/">Všetky oblasti a plánovanie výjazdov</a>
           </div>
         </section>
-        <InternalLinks context="location" />
-        <FaqSection faqs={faqs} title="FAQ pre lokalitu" />
+        <FaqSection faqs={faqs} title={`Otázky k zákazke v oblasti ${location.name}`} />
         <QuoteCTA />
       </main>
     </PublicPageShell>
@@ -456,6 +468,7 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
     <PublicPageShell
       breadcrumb={{ name: article.title, path }}
       breadcrumbParents={[{ name: 'Poradňa', path: '/poradna/' }]}
+      hideWhatsappOnMobile
     >
       <PublicFontPreload />
       <main className="seo-page">
@@ -471,19 +484,27 @@ export function ArticlePage({ article }: { article: (typeof articles)[number] })
           }),
           buildFaqJsonLd(faqs),
         ]} />
-        <section className="seo-hero">
-          <p className="eyebrow">Poradňa</p>
-          <h1>{article.title}</h1>
-        </section>
-        <QuickAnswer>{article.quickAnswer}</QuickAnswer>
-        {article.body.map(([title, text]) => (
-          <section className="seo-section" key={title}>
-            <h2>{title}</h2>
-            <p className="seo-lead">{text}</p>
-          </section>
-        ))}
+        <EditorialHero eyebrow="Praktická poradňa ASTANA" title={article.title} lead={article.quickAnswer}
+          photoId={article.photoId} photoAlt={article.photoAlt} photoCaption={article.photoCaption} />
+        <nav className="editorial-toc" aria-label="Obsah článku"><p>V tomto článku nájdete</p><ul>
+          {article.body.map(([title], index) => <li key={title}><a href={`#article-section-${index + 1}`}>{title}</a></li>)}
+        </ul></nav>
+        <div className="editorial-article-body">
+          {article.body.map(([title, text], index) => (
+            <section className="seo-section" key={title}>
+              <h2 id={`article-section-${index + 1}`}>{title}</h2>
+              {text.split('\n\n').map(paragraph => <p key={paragraph}>{paragraph}</p>)}
+            </section>
+          ))}
+          <UsefulChecklist title={article.checklistTitle} items={article.checklist} />
+        </div>
         <ArticleEditorialSection slug={article.slug} />
-        <InternalLinks context="article" />
+        <ReadingLinks links={[
+          ...article.relatedSlugs.map(slug => articles.find(item => item.slug === slug)!).map(item => ({
+            href: `/poradna/${item.slug}/`, title: item.title, text: item.description,
+          })),
+          { href: '/cena-likvidacie-azbestu/', title: 'Cena pre vašu zákazku', text: 'Pozrite si orientačný výpočet a pošlite nezáväzný dopyt.' },
+        ]} />
         <FaqSection faqs={faqs} />
         <QuoteCTA title="Potrebujete naceniť likvidáciu?" />
       </main>

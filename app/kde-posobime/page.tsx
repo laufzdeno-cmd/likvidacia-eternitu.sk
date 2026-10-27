@@ -1,8 +1,10 @@
 import { locationPages, type FaqItem } from '@/src/content/seo-content';
 import { site, phoneLink } from '@/src/content/site';
-import { buildPageMetadata, QuickAnswer } from '../seo-components';
+import { buildPageMetadata } from '../seo-components';
 import { JsonLd, buildFaqJsonLd, buildServiceJsonLd } from '../seo-json-ld';
 import { PublicPageShell } from '../public-layout';
+import { EditorialHero } from '../editorial-components';
+import { transportPolicy } from '@/src/content/transport-policy.mjs';
 
 const areaFaqs: FaqItem[] = [
   {
@@ -29,23 +31,19 @@ export const metadata = buildPageMetadata({
 
 export default function ServiceAreaPage() {
   return (
-    <PublicPageShell breadcrumb={{ name: 'Kde pôsobíme', path: '/kde-posobime/' }}>
+    <PublicPageShell breadcrumb={{ name: 'Kde pôsobíme', path: '/kde-posobime/' }} hideWhatsappOnMobile>
       <main className="seo-page" id="main-content">
         <JsonLd data={[buildServiceJsonLd('Likvidáciu azbestu riešime po celom Slovensku', quickAnswer, '/kde-posobime/'), buildFaqJsonLd(areaFaqs)]} />
-        <section className="seo-hero">
-          <p className="eyebrow">Výjazdy po Slovensku</p>
-          <h1>Likvidáciu azbestu riešime po celom Slovensku</h1>
-          <p>
-            ASTANA, s.r.o. má sídlo v Poprade a zákazky plánuje podľa konkrétnej obce, rozsahu práce a kapacity.
-            Napíšte nám, kde sa stavba nachádza; termín a logistiku s vami dohodneme vopred.
-          </p>
+        <EditorialHero eyebrow="Výjazdy po Slovensku" title="Likvidáciu azbestu riešime po celom Slovensku"
+          lead="ASTANA, s.r.o. sídli v Poprade. Zákazky plánujeme podľa konkrétnej obce, rozsahu a dostupnej kapacity. Vyberte oblasť vašej stavby; nájdete v nej podklady dôležité pre výjazd a ponuku."
+          photoId="azbest-065" photoAlt="Vozidlo ASTANA pri objekte počas realizácie"
+          photoCaption="Výjazd sa pripravuje podľa konkrétnej stavby. Regionálne stránky označujú pôsobnosť, nie sieť pobočiek.">
           <div className="seo-hero-actions">
             <a className="button button-primary" href="/#dopyt">Požiadať o nezáväznú ponuku</a>
             <a className="button button-outline" href={phoneLink}>Zavolať {site.phone}</a>
           </div>
-        </section>
-
-        <QuickAnswer>{quickAnswer}</QuickAnswer>
+        </EditorialHero>
+        <section className="editorial-situation"><h2>Doprava, dostupnosť a termín sú tri rôzne otázky</h2><p>{transportPolicy.full} Obec potrebujeme aj pri väčšej ploche, pretože plánujeme trasu, príjazd a nadväznosť ďalších prác. Voľný deň nástupu potvrdíme až po posúdení zákazky.</p><p>Ak sa miesto realizácie líši od vašej kontaktnej adresy, uveďte obec stavby. Pri väčšom areáli alebo neprístupnejšom objekte doplňte aj osobu, ktorá vie vysvetliť vstup a prevádzkové podmienky.</p></section>
 
         <section className="seo-section" aria-labelledby="regional-pages-title">
           <p className="eyebrow">Regionálne informácie</p>
