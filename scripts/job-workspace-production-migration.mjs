@@ -43,7 +43,10 @@ try {
   directUrl.hostname = directUrl.hostname.replace(/-pooler(?=\.)/, '');
   // Same verified endpoint/database, direct transport for transactional DDL. TLS is never weakened.
   assert.equal(deploymentDatabaseResource(directUrl), approvedDatabase);
-  pool = new pg.Pool({connectionString:directUrl.toString(),max:1,connectionTimeoutMillis:10000,statement_timeout:20000});
+  // Preserve SQL DATE, timestamp and timestamptz text exactly, including microseconds.
+  // The default pg Date parser otherwise shifts calendar days in Europe/Bratislava.
+  const backupTypes={getTypeParser(oid,format){return [1082,1114,1184].includes(oid)&&format!=='binary'?value=>value:pg.types.getTypeParser(oid,format);}};
+  pool = new pg.Pool({connectionString:directUrl.toString(),types:backupTypes,max:1,connectionTimeoutMillis:10000,statement_timeout:20000});
   client = await pool.connect();
   const inventory = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE' ORDER BY table_name");
   assert.ok(inventory.rows.some(x => x.table_name === 'business_jobs'));
@@ -56,7 +59,7 @@ try {
     for (const {table_name} of snapshotInventory.rows) {
       if (table_name !== 'analytics_events') tables[table_name] = (await client.query(`SELECT * FROM public.${identifier(table_name)}`)).rows;
     }
-    const columns = (await client.query("SELECT table_name,column_name,udt_name,is_nullable,column_default FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position")).rows;
+    const columns = (await client.query("SELECT table_name,column_name,udt_name,is_nullable,column_default,numeric_precision,numeric_scale,character_maximum_length,datetime_precision,is_generated FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position")).rows;
     const constraints = (await client.query("SELECT c.relname AS table_name,con.conname,pg_get_constraintdef(con.oid) AS definition FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' ORDER BY c.relname,con.conname")).rows;
     const indices = (await client.query("SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' ORDER BY tablename,indexname")).rows;
     await client.query('COMMIT'); transaction = false;
@@ -82,9 +85,9 @@ try {
     const completed=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve);});
     child.stdin.on('error',()=>undefined);child.stdin.end(restoredBytes);
     const timeout=setTimeout(()=>child.kill(),180000);timeout.unref();
-    try { assert.equal(await completed,0); } finally { clearTimeout(timeout); }
-    const drill=JSON.parse(output);assert.equal(drill.ok,true);assert.equal(drill.tableCount,Object.keys(tables).length);
-    report.restoreDrill=drill;
+    let exit;try { exit=await completed; } finally { clearTimeout(timeout); }
+    const drill=JSON.parse(output);report.restoreDrill=drill;
+    assert.equal(exit,0);assert.equal(drill.ok,true);assert.equal(drill.tableCount,Object.keys(tables).length);
     stage = 'forward-migration';
     await client.query('BEGIN'); transaction = true;
     await client.query("SET LOCAL lock_timeout='1500ms'; SET LOCAL statement_timeout='20000ms'");

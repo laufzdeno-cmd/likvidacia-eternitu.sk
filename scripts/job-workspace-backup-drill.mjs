@@ -5,6 +5,7 @@ import {PGlite} from '@electric-sql/pglite';
 import {PGLiteSocketServer} from '@electric-sql/pglite-socket';
 let database,server,pool;
 let stage='input';
+let schemaContext={};
 const identifier=value=>{assert.match(value,/^[a-zA-Z0-9_]+$/);return `"${value}"`;};
 try{
  assert.equal(process.env.ASTANA_TEST_NETWORK_GUARD,'1');assert.ok(!process.env.DATABASE_URL&&!process.env.BLOB_READ_WRITE_TOKEN);
@@ -21,14 +22,27 @@ try{
  await (await import('../src/server/job-mail-migration.ts')).migrateJobMailSchema(pool);
  stage='inventory';const target=(await database.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'")).rows.map(x=>x.table_name);
  const tables=Object.keys(backup.tables);assert.ok(tables.every(table=>target.includes(table)));
+ // Incremental production history can retain columns absent from a fresh app bootstrap.
+ // Replay them only in this in-memory copy, using an explicit primitive-type allowlist.
+ const primitiveTypes={text:'text',varchar:'varchar',bpchar:'char',int2:'smallint',int4:'integer',int8:'bigint',float4:'real',float8:'double precision',numeric:'numeric',bool:'boolean',uuid:'uuid',date:'date',timestamp:'timestamp',timestamptz:'timestamptz',json:'json',jsonb:'jsonb',bytea:'bytea',_text:'text[]',_uuid:'uuid[]',_int4:'integer[]'};
+ let legacyColumnsPreserved=0;
+ for(const table of tables){
+  const current=new Set((await database.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1",[table])).rows.map(x=>x.column_name));
+  for(const column of (backup.schema?.columns||[]).filter(x=>x.table_name===table&&!current.has(x.column_name))){
+   schemaContext={table,missingColumn:column.column_name};
+   assert.ok(Object.hasOwn(primitiveTypes,column.udt_name));assert.ok(!column.is_generated||column.is_generated==='NEVER');
+   await database.exec(`ALTER TABLE ${identifier(table)} ADD COLUMN ${identifier(column.column_name)} ${primitiveTypes[column.udt_name]}`);legacyColumnsPreserved++;
+  }
+ }
  await database.exec('BEGIN;SET session_replication_role=replica');
  await database.exec(`TRUNCATE TABLE ${target.map(identifier).join(',')} RESTART IDENTITY CASCADE`);
  stage='typed-restore';let restoredRows=0;
  for(const table of tables){
+  schemaContext={table};
   const columns=(await database.query("SELECT column_name,udt_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND is_generated='NEVER'",[table])).rows;
   const types=new Map(columns.map(x=>[x.column_name,x.udt_name]));
   for(const row of backup.tables[table]){
-   const names=Object.keys(row);assert.ok(names.every(name=>types.has(name)));
+   const names=Object.keys(row);const missingColumns=names.filter(name=>!types.has(name));schemaContext={table,missingColumns};assert.equal(missingColumns.length,0);
    const values=names.map(name=>{const value=row[name],type=types.get(name);if(value===null)return null;if(['json','jsonb'].includes(type))return JSON.stringify(value);if(type==='bytea'&&value?.type==='Buffer')return Buffer.from(value.data);return value;});
    await database.query(`INSERT INTO ${identifier(table)} (${names.map(identifier).join(',')}) VALUES (${names.map((_,i)=>'$'+(i+1)).join(',')})`,values);
   }
@@ -46,6 +60,6 @@ try{
   }
  }
  await database.exec('SET session_replication_role=origin;COMMIT');
- console.log(JSON.stringify({ok:true,inMemoryOnly:true,outboundNetworkBlocked:true,tableCount:tables.length,restoredRows,allColumnsCompatible:true,typedInserts:true,rowCountsMatch:true,sequencesResetAndChecked:true}));
-}catch(error){console.log(JSON.stringify({ok:false,stage,code:/^[A-Z0-9_]{2,30}$/.test(error.code||'')?error.code:'ISOLATED_RESTORE_FAILED'}));process.exitCode=1;}
+ console.log(JSON.stringify({ok:true,inMemoryOnly:true,outboundNetworkBlocked:true,tableCount:tables.length,restoredRows,allColumnsCompatible:true,typedInserts:true,rowCountsMatch:true,sequencesResetAndChecked:true,legacyColumnsPreserved}));
+}catch(error){console.log(JSON.stringify({ok:false,stage,schemaContext,code:/^[A-Z0-9_]{2,30}$/.test(error.code||'')?error.code:'ISOLATED_RESTORE_FAILED'}));process.exitCode=1;}
 finally{await pool?.end();await server?.stop();await database?.close();}
